@@ -14,6 +14,7 @@ import {
 	PlanSchema,
 	TaskStatusSchema,
 } from '../config/plan-schema';
+import { derivePlanId } from './utils';
 
 /**
  * Ledger schema version
@@ -550,7 +551,7 @@ export async function takeSnapshotEvent(
 	if (options?.approvalMetadata) {
 		snapshotPayload.approval = options.approvalMetadata;
 	}
-	const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
+	const planId = derivePlanId(plan);
 	return appendLedgerEvent(
 		directory,
 		{
@@ -1094,11 +1095,7 @@ export async function loadLastApprovedPlan(
 		// the event's plan_id. Guards against a snapshot whose payload was
 		// mutated on disk out-of-band from the event metadata.
 		if (expectedPlanId !== undefined) {
-			const payloadPlanId =
-				`${payload.plan.swarm}-${payload.plan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+			const payloadPlanId = derivePlanId(payload.plan);
 			if (payloadPlanId !== expectedPlanId) {
 				continue;
 			}

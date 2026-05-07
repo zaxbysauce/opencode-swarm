@@ -12,7 +12,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import { recordGateEvidence } from '../../../src/gate-evidence';
-import { resetSwarmState } from '../../../src/state';
+import { resetSwarmState, swarmState } from '../../../src/state';
 import {
 	checkReviewerGate,
 	executeUpdateTaskStatus,
@@ -116,6 +116,12 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 		// Record only reviewer — test_engineer is still absent from gates
 		await recordGateEvidence(tmpDir, '1.1', 'reviewer', 'sess-reviewer');
 		resetSwarmState();
+		// Establish minimal session so gate bypass doesn't trigger
+		swarmState.agentSessions.set('test-session', {
+			id: 'test-session',
+			taskWorkflowStates: new Map([['1.1', 'idle']]),
+			currentTaskId: '1.1',
+		});
 
 		const result = checkReviewerGate('1.1', tmpDir);
 		expect(result.blocked).toBe(true);
@@ -131,6 +137,12 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 		// Record only test_engineer — reviewer is still absent from gates
 		await recordGateEvidence(tmpDir, '1.1', 'test_engineer', 'sess-te');
 		resetSwarmState();
+		// Establish minimal session so gate bypass doesn't trigger
+		swarmState.agentSessions.set('test-session', {
+			id: 'test-session',
+			taskWorkflowStates: new Map([['1.1', 'idle']]),
+			currentTaskId: '1.1',
+		});
 
 		const result = checkReviewerGate('1.1', tmpDir);
 		expect(result.blocked).toBe(true);
@@ -252,6 +264,12 @@ describe('Gate restart-recovery: evidence-file durability', () => {
 
 		// Restart without recording any gates
 		resetSwarmState();
+		// Establish minimal session so gate bypass doesn't trigger
+		swarmState.agentSessions.set('test-session', {
+			id: 'test-session',
+			taskWorkflowStates: new Map([['1.1', 'idle']]),
+			currentTaskId: '1.1',
+		});
 
 		// Evidence file exists but gates are empty → blocked
 		const result = checkReviewerGate('1.1', tmpDir);

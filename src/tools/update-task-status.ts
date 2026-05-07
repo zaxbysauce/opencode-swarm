@@ -15,6 +15,7 @@ import { readTaskEvidenceRaw } from '../gate-evidence.js';
 import { validateDiffScope } from '../hooks/diff-scope';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { updateTaskStatus } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import {
 	advanceTaskState,
 	getTaskState,
@@ -385,7 +386,7 @@ export function checkReviewerGate(
 /**
  * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
  * Keeps checkReviewerGate synchronous for backward compatibility.
- * Also resolves the PR 2 stageB.parallel.enabled flag from config.
+ * Stage B parallel is hardcoded (not config-driven).
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult with optional scope warning appended to reason
@@ -394,16 +395,8 @@ export async function checkReviewerGateWithScope(
 	taskId: string,
 	workingDirectory?: string,
 ): Promise<ReviewerGateResult> {
-	let stageBParallelEnabled = false;
-	if (workingDirectory) {
-		try {
-			const cfg = await loadPluginConfig(workingDirectory);
-			stageBParallelEnabled =
-				cfg.parallelization?.stageB?.parallel?.enabled === true;
-		} catch {
-			// Config load failure — fall back to disabled (safe default)
-		}
-	}
+	// Stage B is always parallel — hardcoded, not config-driven.
+	const stageBParallelEnabled = true;
 	const result = checkReviewerGate(
 		taskId,
 		workingDirectory,
@@ -582,10 +575,7 @@ export function checkCouncilGate(
 		const planRaw = fs.readFileSync(planPath, 'utf-8');
 		const planObj = JSON.parse(planRaw) as { swarm?: string; title?: string };
 		if (planObj.swarm && planObj.title) {
-			const planId = `${planObj.swarm}-${planObj.title}`.replace(
-				/[^a-zA-Z0-9-_]/g,
-				'_',
-			);
+			const planId = derivePlanId(planObj as { swarm: string; title: string });
 			const profile = getProfile(workingDirectory, planId);
 			if (!profile || !profile.gates.council_mode) {
 				return { blocked: false, reason: '' };

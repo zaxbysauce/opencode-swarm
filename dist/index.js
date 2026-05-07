@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.6.0",
+    version: "7.6.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -182,7 +182,8 @@ var init_tool_names = __esm(() => {
     "get_qa_gate_profile",
     "set_qa_gates",
     "web_search",
-    "convene_general_council"
+    "convene_general_council",
+    "write_final_council_evidence"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
 });
@@ -482,7 +483,8 @@ var init_constants = __esm(() => {
       "get_qa_gate_profile",
       "set_qa_gates",
       "convene_general_council",
-      "web_search"
+      "web_search",
+      "write_final_council_evidence"
     ],
     explorer: [
       "complexity_hotspots",
@@ -680,6 +682,7 @@ var init_constants = __esm(() => {
     write_retro: "document phase retrospectives via phase_complete workflow, capture lessons learned",
     write_drift_evidence: "write drift verification evidence for a completed phase",
     write_hallucination_evidence: "write hallucination verification evidence for a completed phase",
+    write_final_council_evidence: "write final council evidence for project completion",
     declare_scope: "declare file scope for next coder delegation",
     phase_complete: "mark a phase as complete and track dispatched agents",
     save_plan: "save a structured implementation plan",
@@ -708,8 +711,8 @@ var init_constants = __esm(() => {
     lint_spec: "validate .swarm/spec.md format and required fields",
     get_approved_plan: "retrieve the last critic-approved immutable plan snapshot for baseline drift comparison",
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
-    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check), lock state, and profile hash. Read-only.",
-    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check.",
+    get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council), lock state, and profile hash. Read-only.",
+    set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council.",
     req_coverage: "query requirement coverage status for tracked functional requirements"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
@@ -15505,12 +15508,7 @@ var init_schema = __esm(() => {
     maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
     evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
     max_coders: exports_external.number().int().min(1).max(16).default(3),
-    max_reviewers: exports_external.number().int().min(1).max(16).default(2),
-    stageB: exports_external.object({
-      parallel: exports_external.object({
-        enabled: exports_external.boolean().default(false)
-      }).default({ enabled: false })
-    }).default({ parallel: { enabled: false } })
+    max_reviewers: exports_external.number().int().min(1).max(16).default(2)
   });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
@@ -16769,6 +16767,11 @@ var init_spec_hash = __esm(() => {
   };
 });
 
+// src/plan/utils.ts
+function derivePlanId(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+
 // src/plan/ledger.ts
 import * as crypto2 from "node:crypto";
 import * as fs4 from "node:fs";
@@ -16957,7 +16960,7 @@ async function takeSnapshotEvent(directory, plan, options) {
   if (options?.approvalMetadata) {
     snapshotPayload.approval = options.approvalMetadata;
   }
-  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planId = derivePlanId(plan);
   return appendLedgerEvent(directory, {
     event_type: "snapshot",
     source: options?.source ?? "takeSnapshotEvent",
@@ -17152,7 +17155,7 @@ async function loadLastApprovedPlan(directory, expectedPlanId) {
       continue;
     }
     if (expectedPlanId !== undefined) {
-      const payloadPlanId = `${payload.plan.swarm}-${payload.plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const payloadPlanId = derivePlanId(payload.plan);
       if (payloadPlanId !== expectedPlanId) {
         continue;
       }
@@ -17353,7 +17356,7 @@ async function loadPlan(directory) {
           if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
             startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
             if (ledgerHash !== "" && planHash !== ledgerHash) {
-              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+              const currentPlanId = derivePlanId(validated);
               const ledgerEvents = await readLedgerEvents(directory);
               const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
               if (firstEvent && firstEvent.plan_id !== currentPlanId) {
@@ -17436,7 +17439,7 @@ async function loadPlan(directory) {
         try {
           const rawParsed = JSON.parse(planJsonContent);
           if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
-            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+            rawPlanId = derivePlanId(rawParsed);
           }
         } catch {}
         if (await ledgerExists(directory)) {
@@ -17562,7 +17565,7 @@ async function savePlan(directory, plan, options) {
     }
   }
   const currentPlan = await _internals6.loadPlanJsonOnly(directory);
-  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planId = derivePlanId(validated);
   const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
     try {
@@ -17663,7 +17666,7 @@ async function savePlan(directory, plan, options) {
           const oldTask = oldTaskMap.get(task.id);
           if (oldTask && oldTask.status !== task.status) {
             const eventInput = {
-              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
+              plan_id: derivePlanId(validated),
               event_type: "task_status_changed",
               task_id: task.id,
               phase_id: phase.id,
@@ -20566,7 +20569,8 @@ var init_qa_gate_profile = __esm(() => {
     sast_enabled: true,
     mutation_test: false,
     council_general_review: false,
-    drift_check: true
+    drift_check: true,
+    final_council: false
   };
 });
 
@@ -25838,7 +25842,7 @@ function createDelegationGateHook(config2, directory) {
           hasReviewer = true;
         if (targetAgent === "test_engineer")
           hasTestEngineer = true;
-        const stageBParallelEnabled = config2.parallelization?.stageB?.parallel?.enabled === true;
+        const stageBParallelEnabled = true;
         if (stageBParallelEnabled) {
           if ((targetAgent === "reviewer" || targetAgent === "test_engineer") && session.taskWorkflowStates) {
             const stageBEligibleStates = [
@@ -25892,75 +25896,6 @@ function createDelegationGateHook(config2, directory) {
                     });
                   } catch (err2) {
                     warn(`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                  }
-                }
-              }
-            }
-          }
-        } else {
-          if (targetAgent === "reviewer" && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "coder_delegated" || state === "pre_check_passed") {
-                try {
-                  advanceTaskState(session, taskId, "reviewer_run", {
-                    telemetrySessionId: input.sessionID
-                  });
-                } catch (err2) {
-                  warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                }
-              }
-            }
-          }
-          if (targetAgent === "test_engineer" && session.taskWorkflowStates) {
-            for (const [taskId, state] of session.taskWorkflowStates) {
-              if (state === "reviewer_run") {
-                try {
-                  advanceTaskState(session, taskId, "tests_run", {
-                    telemetrySessionId: input.sessionID
-                  });
-                } catch (err2) {
-                  warn(`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                }
-              }
-            }
-          }
-          if (targetAgent === "reviewer" || targetAgent === "test_engineer") {
-            for (const [, otherSession] of swarmState.agentSessions) {
-              if (otherSession === session)
-                continue;
-              if (!otherSession.taskWorkflowStates)
-                continue;
-              if (targetAgent === "reviewer") {
-                const seedTaskId = getSeedTaskId(session);
-                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                  otherSession.taskWorkflowStates.set(seedTaskId, "coder_delegated");
-                }
-                for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                  if (state === "coder_delegated" || state === "pre_check_passed") {
-                    try {
-                      advanceTaskState(otherSession, taskId, "reviewer_run", {
-                        emitTelemetry: false
-                      });
-                    } catch (err2) {
-                      warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                    }
-                  }
-                }
-              }
-              if (targetAgent === "test_engineer") {
-                const seedTaskId = getSeedTaskId(session);
-                if (seedTaskId && !otherSession.taskWorkflowStates.has(seedTaskId)) {
-                  otherSession.taskWorkflowStates.set(seedTaskId, "reviewer_run");
-                }
-                for (const [taskId, state] of otherSession.taskWorkflowStates) {
-                  if (state === "reviewer_run") {
-                    try {
-                      advanceTaskState(otherSession, taskId, "tests_run", {
-                        emitTelemetry: false
-                      });
-                    } catch (err2) {
-                      warn(`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err2 instanceof Error ? err2.message : String(err2)}`);
-                    }
                   }
                 }
               }
@@ -26815,9 +26750,6 @@ function hasBothStageBCompletions(session, taskId) {
     return false;
   return completions.has("reviewer") && completions.has("test_engineer");
 }
-function derivePlanIdFromPlan(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 async function isCouncilGateActive(directory, council) {
   const enabled = council?.enabled === true;
   let plan = null;
@@ -26829,7 +26761,7 @@ async function isCouncilGateActive(directory, council) {
   if (!plan) {
     return false;
   }
-  const planId = derivePlanIdFromPlan(plan);
+  const planId = derivePlanId(plan);
   let profile = null;
   try {
     profile = getProfile(directory, planId);
@@ -53975,9 +53907,6 @@ var init_promote = __esm(() => {
 });
 
 // src/commands/qa-gates.ts
-function derivePlanId(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 function isGateName(name2) {
   return ALL_GATE_NAMES.includes(name2);
 }
@@ -54103,7 +54032,8 @@ var init_qa_gates = __esm(() => {
     "sast_enabled",
     "mutation_test",
     "council_general_review",
-    "drift_check"
+    "drift_check",
+    "final_council"
   ];
 });
 
@@ -55167,7 +55097,7 @@ async function handleRollbackCommand(directory, args2) {
     if (fs27.existsSync(planJsonPath)) {
       const planRaw = fs27.readFileSync(planJsonPath, "utf-8");
       const plan = PlanSchema.parse(JSON.parse(planRaw));
-      const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const planId = derivePlanId(plan);
       const planHash = computePlanHash(plan);
       await initLedger(directory, planId, planHash, plan);
       await appendLedgerEvent(directory, {
@@ -56699,7 +56629,7 @@ function buildQaGateSelectionDialogue(modeLabel) {
   const leadIn = modeLabel === "BRAINSTORM" ? "Now ask the user which QA gates to enable for this plan — do not select on their behalf." : modeLabel === "SPECIFY" ? "Ask the user which QA gates to enable for this plan before suggesting the next step." : "No pending gate selection found in `.swarm/context.md`. Ask the user inline now.";
   return `${leadIn}
 
-Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The ten gates are:
+Present the eleven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eleven gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -56710,8 +56640,20 @@ Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-fa
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 - council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; the architect runs a curated web_search pass, dispatches council_generalist / council_skeptic / council_domain_expert in parallel with a shared RESEARCH CONTEXT block, deliberates on disagreements, and synthesizes the result directly into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
 - drift_check (default: ON) — when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
+- final_council (default: OFF) — when enabled, after all phases complete the architect convenes a holistic general council review of the entire body of work before project close. Requires council.general.enabled: true in plugin config. Recommended for multi-phase projects with high architectural complexity.
 
-One question, one message, defaults pre-stated. Wait for the user's answer.`;
+One question, one message, defaults pre-stated. Wait for the user's answer.
+
+If the user answered the gate question, immediately follow up with ONE more question: "How many coders should run in parallel? (default: 1, range: 1-4)" — if the user says a number > 1, also write a \`## Pending Parallelization Config\` section to \`.swarm/context.md\` alongside the gate selection:
+\`\`\`
+## Pending Parallelization Config
+- parallelization_enabled: true
+- max_concurrent_tasks: <user's number>
+- council_parallel: false
+- locked: true
+- recorded_at: <ISO timestamp>
+\`\`\`
+If the user accepts the default (1), skip writing this section entirely — serial execution is the default and needs no config.`;
 }
 function buildAvailableToolsList(council) {
   const tools = AGENT_TOOL_MAP.architect ?? [];
@@ -57548,6 +57490,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - mutation_test: <true|false>
 - council_general_review: <true|false>
 - drift_check: <true|false>
+- final_council: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -57626,6 +57569,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - mutation_test: <true|false>
 - council_general_review: <true|false>
 - drift_check: <true|false>
+- final_council: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -58008,6 +57952,7 @@ save_plan({
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
+- If a \`## Pending Parallelization Config\` section also exists: parse the values and call \`save_plan\` again with \`execution_profile\` set to \`{ parallelization_enabled: <parsed>, max_concurrent_tasks: <parsed>, council_parallel: false, locked: true }\`. Then remove the section from context.md. If the plan already had \`execution_profile.locked: true\`, skip this step — the profile is already locked and immutable.
 - If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}}
 <!-- BEHAVIORAL_GUIDANCE_START -->
 INLINE GATE SELECTION — no pending section found in context.md. You MUST ask now.
@@ -58362,6 +58307,19 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    - \`.swarm/evidence/{phase}/mutation-gate.json\` exists with verdict 'pass' or 'warn' (written by YOU via the \`write_mutation_evidence\` tool after step 5.56) — ONLY required when \`mutation_test\` is enabled in the QA gate profile
    If any required file is missing, run the missing gate first. Turbo mode skips all gates automatically.
    NOTE: Steps 5.5, 5.55, and 5.56 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. Similarly, if \`mutation_test\` is enabled and you skip step 5.56 (or fail to call \`write_mutation_evidence\`), phase_complete will be BLOCKED. These are not suggestions — they are hard enforcement mechanisms.
+5.7. **Final Council (conditional on QA gate — last phase only)**: Check whether \`final_council\` is enabled in the effective QA gate profile (visible via \`get_qa_gate_profile\`). If disabled, skip silently and proceed to step 6.
+   If enabled AND this is the LAST phase in the plan (all other phases have status 'complete' and no more phases remain):
+    1. Verify \`council.general.enabled: true\` in plugin config. If not enabled, warn the user: "final_council gate is enabled but General Council is not configured. Skipping final council." Then proceed to step 6. Check that \`convene_general_council\` is available in your tool list. If the tool is unavailable (filtered by config), warn the user and skip.
+   2. Run 1-3 targeted \`web_search\` queries relevant to the project domain.
+   3. Compile a RESEARCH CONTEXT block from search results.
+   4. Dispatch \`{{AGENT_PREFIX}}council_generalist\`, \`{{AGENT_PREFIX}}council_skeptic\`, and \`{{AGENT_PREFIX}}council_domain_expert\` in PARALLEL. Pass: the full body of work (all phase summaries, all evidence artifacts), the RESEARCH CONTEXT block, round number 1. Instruction: "Review the entire body of work holistically. Identify cross-cutting issues, architectural coherence, and overall quality."
+   5. Collect all three JSON responses.
+   6. Call \`convene_general_council\` with mode: 'general', the project summary as question, and the collected round1Responses.
+   7. If disagreements exist, re-dispute as in MODE: COUNCIL step 5-6.
+   8. Present the final synthesis to the user as a project-close summary.
+   9. Write the final council result to \`.swarm/evidence/final-council.json\`.
+   10. Do NOT call \`/swarm close\` until the final council completes (if enabled). The evidence file \`.swarm/evidence/final-council.json\` must exist with an APPROVED verdict before \`/swarm close\` is permitted when final_council is enabled.
+   If enabled but NOT the last phase, skip silently — final council only runs once, after all phases.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -65681,7 +65639,7 @@ var init_curator_drift = __esm(() => {
 init_package();
 init_agents2();
 init_critic();
-import * as path115 from "node:path";
+import * as path116 from "node:path";
 
 // src/background/index.ts
 init_event_bus();
@@ -79718,9 +79676,6 @@ function summarizePlan(plan) {
     }))
   };
 }
-function derivePlanId2(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 async function executeGetApprovedPlan(args2, directory) {
   const currentPlan = await loadPlanJsonOnly(directory);
   if (!currentPlan) {
@@ -79739,7 +79694,7 @@ async function executeGetApprovedPlan(args2, directory) {
       reason: "no_approved_snapshot"
     };
   }
-  const expectedPlanId = derivePlanId2(currentPlan);
+  const expectedPlanId = derivePlanId(currentPlan);
   const profile = getProfile(directory, expectedPlanId);
   const qaProfileHash = profile ? computeProfileHash(profile) : null;
   const approved = await loadLastApprovedPlan(directory, expectedPlanId);
@@ -79798,9 +79753,6 @@ var get_approved_plan = createSwarmTool({
 init_qa_gate_profile();
 init_manager();
 init_create_tool();
-function derivePlanId3(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 async function executeGetQaGateProfile(_args, directory) {
   const plan = await loadPlanJsonOnly(directory);
   if (!plan) {
@@ -79809,7 +79761,7 @@ async function executeGetQaGateProfile(_args, directory) {
       reason: "plan_json_unavailable"
     };
   }
-  const planId = derivePlanId3(plan);
+  const planId = derivePlanId(plan);
   const profile = getProfile(directory, planId);
   if (!profile) {
     return {
@@ -80981,7 +80933,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     }, null, 2);
   }
   if (hasActiveTurboMode(sessionID)) {
-    console.warn(`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, and phase-council gates for phase ${phase}`);
+    console.warn(`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, phase-council, and final-council gates for phase ${phase}`);
   } else {
     try {
       const completionResultRaw = await executeCompletionVerify({ phase }, dir);
@@ -81010,7 +80962,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       driftHasSpecMd = fs69.existsSync(specMdPath);
       const gatePlan = await loadPlan(dir);
       if (gatePlan) {
-        const gatePlanId = `${gatePlan.swarm}-${gatePlan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const gatePlanId = derivePlanId(gatePlan);
         const gateProfile = getProfile(dir, gatePlanId);
         if (gateProfile) {
           const gateSession = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
@@ -81139,7 +81091,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     try {
       const plan = await loadPlan(dir);
       if (plan) {
-        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const planId = derivePlanId(plan);
         const profile = getProfile(dir, planId);
         if (profile) {
           const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
@@ -81211,7 +81163,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     try {
       const plan = await loadPlan(dir);
       if (plan) {
-        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const planId = derivePlanId(plan);
         const profile = getProfile(dir, planId);
         if (profile) {
           const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
@@ -81284,7 +81236,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     try {
       const plan = await loadPlan(dir);
       if (plan) {
-        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const planId = derivePlanId(plan);
         const profile = getProfile(dir, planId);
         if (profile) {
           const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
@@ -81482,6 +81434,127 @@ Advisory notes: ${advisoryNotes.join("; ")}` : "";
         }, null, 2);
       } else {
         safeWarn(`[phase_complete] Phase council gate error (non-blocking):`, pcError);
+      }
+    }
+  }
+  if (!hasActiveTurboMode(sessionID)) {
+    let finalCouncilEnabled = false;
+    try {
+      const plan = await loadPlan(dir);
+      if (plan) {
+        const lastPhaseId = plan.phases[plan.phases.length - 1]?.id;
+        if (lastPhaseId !== undefined && phase === lastPhaseId) {
+          const planId = derivePlanId(plan);
+          const profile = getProfile(dir, planId);
+          if (profile) {
+            const session2 = sessionID ? swarmState.agentSessions.get(sessionID) : undefined;
+            const overrides = session2?.qaGateSessionOverrides ?? {};
+            const effective = getEffectiveGates(profile, overrides);
+            if (effective.final_council === true) {
+              finalCouncilEnabled = true;
+              const fcPath = path90.join(dir, ".swarm", "evidence", "final-council.json");
+              let fcVerdictFound = false;
+              let _fcVerdict;
+              try {
+                const fcContent = fs69.readFileSync(fcPath, "utf-8");
+                const fcBundle = JSON.parse(fcContent);
+                for (const entry of fcBundle.entries ?? []) {
+                  if (typeof entry.type === "string" && entry.type === "final-council" && typeof entry.verdict === "string") {
+                    fcVerdictFound = true;
+                    _fcVerdict = entry.verdict;
+                    if (plan) {
+                      const currentPlanId = derivePlanId(plan);
+                      if (entry.plan_id && entry.plan_id !== currentPlanId) {
+                        return JSON.stringify({
+                          success: false,
+                          phase,
+                          status: "blocked",
+                          reason: "final_council_plan_mismatch",
+                          message: `Final council evidence belongs to a different plan (evidence: ${entry.plan_id}, current: ${currentPlanId}). Re-run the final council.`,
+                          agentsDispatched,
+                          agentsMissing: [],
+                          warnings: []
+                        }, null, 2);
+                      }
+                      if (!entry.plan_id) {
+                        return JSON.stringify({
+                          success: false,
+                          phase,
+                          status: "blocked",
+                          reason: "FINAL_COUNCIL_PLAN_ID_REQUIRED",
+                          message: `Phase ${phase} (last phase) cannot be completed: final council evidence is missing plan_id binding. Re-run the final council to generate evidence with plan identity.`,
+                          agentsDispatched,
+                          agentsMissing: [],
+                          warnings: []
+                        }, null, 2);
+                      }
+                    }
+                    if (entry.verdict === "rejected" || entry.verdict === "REJECTED") {
+                      return JSON.stringify({
+                        success: false,
+                        phase,
+                        status: "blocked",
+                        reason: "FINAL_COUNCIL_REJECTED",
+                        message: `Phase ${phase} (last phase) cannot be completed: final council returned verdict 'REJECTED'. Address the required fixes before completing the project.`,
+                        agentsDispatched,
+                        agentsMissing: [],
+                        warnings: []
+                      }, null, 2);
+                    }
+                    if (entry.verdict !== "approved" && entry.verdict !== "APPROVED") {
+                      return JSON.stringify({
+                        success: false,
+                        phase,
+                        status: "blocked",
+                        reason: "FINAL_COUNCIL_INVALID_VERDICT",
+                        message: `Phase ${phase} (last phase) cannot be completed: final council evidence contains unrecognized verdict '${entry.verdict}'. Expected 'approved'.`,
+                        agentsDispatched,
+                        agentsMissing: [],
+                        warnings: []
+                      }, null, 2);
+                    }
+                  }
+                }
+              } catch (readErr) {
+                if (readErr.code !== "ENOENT") {
+                  safeWarn(`[phase_complete] Final council evidence unreadable:`, readErr);
+                }
+                fcVerdictFound = false;
+              }
+              if (!fcVerdictFound) {
+                return JSON.stringify({
+                  success: false,
+                  phase,
+                  status: "blocked",
+                  reason: "FINAL_COUNCIL_REQUIRED",
+                  final_council_required: true,
+                  message: `Phase ${phase} (last phase) cannot be completed: final_council is enabled and final council evidence not found at .swarm/evidence/final-council.json. Convene a final holistic council (use convene_general_council with mode 'general') and call write_final_council_evidence to persist the verdict before completing the project.`,
+                  agentsDispatched,
+                  agentsMissing: [],
+                  warnings: [
+                    `Final council required — convene a holistic project review using convene_general_council, then call write_final_council_evidence to persist the verdict.`
+                  ]
+                }, null, 2);
+              }
+            }
+          }
+        }
+      }
+    } catch (fcError) {
+      if (finalCouncilEnabled) {
+        warnings.push(`FINAL_COUNCIL_ERROR: ${String(fcError)}`);
+        return JSON.stringify({
+          success: false,
+          phase,
+          status: "blocked",
+          reason: "FINAL_COUNCIL_ERROR",
+          message: `Phase ${phase} (last phase) cannot be completed: final council gate encountered an error. Error: ${String(fcError)}`,
+          agentsDispatched,
+          agentsMissing: [],
+          warnings: [`FINAL_COUNCIL_ERROR: ${String(fcError)}`]
+        }, null, 2);
+      } else {
+        safeWarn(`[phase_complete] Final council gate error (non-blocking):`, fcError);
       }
     }
   }
@@ -86821,7 +86894,10 @@ async function executeSavePlan(args2, fallbackDir) {
     } catch {}
     const hasPendingSection = contextContent.includes("## Pending QA Gate Selection");
     if (!hasPendingSection) {
-      const candidatePlanId = `${args2.swarm_id}-${args2.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const candidatePlanId = derivePlanId({
+        swarm: args2.swarm_id,
+        title: args2.title
+      });
       let existingProfile = null;
       try {
         existingProfile = getProfile(targetWorkspace, candidatePlanId);
@@ -86942,7 +87018,7 @@ async function executeSavePlan(args2, fallbackDir) {
         await takeSnapshotEvent(dir, savedPlan).catch(() => {});
       }
       if (resolvedProfile !== undefined && savedPlan) {
-        const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+        const planId = derivePlanId(plan);
         const planHashAfter = computePlanHash(savedPlan);
         const profileChanged = JSON.stringify(resolvedProfile) !== JSON.stringify(preservedExecutionProfile);
         if (profileChanged) {
@@ -88824,9 +88900,6 @@ init_zod();
 init_qa_gate_profile();
 init_manager();
 init_create_tool();
-function derivePlanId4(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 async function executeSetQaGates(args2, directory) {
   const plan = await loadPlanJsonOnly(directory);
   if (!plan) {
@@ -88836,7 +88909,7 @@ async function executeSetQaGates(args2, directory) {
       message: "Cannot configure QA gates: plan.json is missing or invalid. " + "Create a plan first (e.g. via /swarm specify or save_plan)."
     };
   }
-  const planId = derivePlanId4(plan);
+  const planId = derivePlanId(plan);
   getOrCreateProfile(directory, planId, args2.project_type);
   const partial3 = {};
   for (const key of [
@@ -88849,7 +88922,8 @@ async function executeSetQaGates(args2, directory) {
     "sast_enabled",
     "mutation_test",
     "council_general_review",
-    "drift_check"
+    "drift_check",
+    "final_council"
   ]) {
     if (args2[key] !== undefined)
       partial3[key] = args2[key];
@@ -88897,6 +88971,7 @@ var set_qa_gates = createSwarmTool({
     mutation_test: exports_external.boolean().optional().describe("Enable the mutation-testing gate (default: off). Requires mutation " + "tests to achieve a passing kill rate before phase completion; " + "WARN verdict allows advancement, FAIL blocks."),
     council_general_review: exports_external.boolean().optional().describe("Enable the council_general_review gate (default: off). When on, " + "MODE: SPECIFY runs convene_general_council on the draft spec " + "before the critic-gate, folding multi-model deliberation into " + "the spec. Requires council.general.enabled and a search API key."),
     drift_check: exports_external.boolean().optional().describe("Enable drift verification gate (default: on). Blocks phase_complete " + "until drift-verifier.json has an approved verdict. When disabled, " + "drift verification is skipped entirely."),
+    final_council: exports_external.boolean().optional().describe("Enable the final_council gate (default: off). When on, " + "after all phases complete the architect runs a holistic " + "general council review against the entire body of work. " + "Requires council.general.enabled: true in plugin config."),
     project_type: exports_external.string().optional().describe('Project type label (e.g. "ts", "python"). Only applied when the profile is being created for the first time.')
   },
   execute: async (args2, directory) => {
@@ -91105,13 +91180,7 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
   }
 }
 async function checkReviewerGateWithScope(taskId, workingDirectory) {
-  let stageBParallelEnabled = false;
-  if (workingDirectory) {
-    try {
-      const cfg = await loadPluginConfig(workingDirectory);
-      stageBParallelEnabled = cfg.parallelization?.stageB?.parallel?.enabled === true;
-    } catch {}
-  }
+  const stageBParallelEnabled = true;
   const result = checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled);
   const scopeWarning = await validateDiffScope(taskId, workingDirectory).catch(() => null);
   if (!scopeWarning)
@@ -91618,9 +91687,6 @@ init_manager();
 init_create_tool();
 import fs89 from "node:fs";
 import path112 from "node:path";
-function derivePlanId5(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 function normalizeVerdict(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -91707,7 +91773,7 @@ async function executeWriteDriftEvidence(args2, directory) {
             timestamp: snapshotEvent.timestamp
           };
           try {
-            const planId = derivePlanId5(currentPlan);
+            const planId = derivePlanId(currentPlan);
             const locked = lockProfile(directory, planId, snapshotEvent.seq);
             qaProfileLocked = {
               plan_id: planId,
@@ -91774,13 +91840,126 @@ var write_drift_evidence = createSwarmTool({
     }
   }
 });
-// src/tools/write-hallucination-evidence.ts
+// src/tools/write-final-council-evidence.ts
 init_zod();
 init_utils2();
+init_manager();
 init_create_tool();
 import fs90 from "node:fs";
 import path113 from "node:path";
 function normalizeVerdict2(verdict) {
+  switch (verdict) {
+    case "APPROVED":
+      return "approved";
+    case "NEEDS_REVISION":
+      return "rejected";
+    default:
+      throw new Error(`Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION', got '${verdict}'`);
+  }
+}
+async function executeWriteFinalCouncilEvidence(args2, directory) {
+  const phase = args2.phase;
+  if (!Number.isInteger(phase) || phase < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be a positive integer"
+    }, null, 2);
+  }
+  const validVerdicts = ["APPROVED", "NEEDS_REVISION"];
+  if (!validVerdicts.includes(args2.verdict)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid verdict: must be 'APPROVED' or 'NEEDS_REVISION'"
+    }, null, 2);
+  }
+  const summary = args2.summary;
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid summary: must be a non-empty string"
+    }, null, 2);
+  }
+  const normalizedVerdict = normalizeVerdict2(args2.verdict);
+  const plan = await loadPlan(directory);
+  const planId = plan ? derivePlanId(plan) : "unknown";
+  const evidenceEntry = {
+    type: "final-council",
+    phase,
+    plan_id: planId,
+    verdict: normalizedVerdict,
+    summary: summary.trim(),
+    timestamp: new Date().toISOString()
+  };
+  const evidenceContent = {
+    entries: [evidenceEntry]
+  };
+  const filename = "final-council.json";
+  const relativePath = path113.join("evidence", filename);
+  let validatedPath;
+  try {
+    validatedPath = validateSwarmPath(directory, relativePath);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : "Failed to validate path"
+    }, null, 2);
+  }
+  const evidenceDir = path113.dirname(validatedPath);
+  try {
+    await fs90.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path113.join(evidenceDir, `.${filename}.tmp`);
+    await fs90.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs90.promises.rename(tempPath, validatedPath);
+    return JSON.stringify({
+      success: true,
+      phase,
+      verdict: normalizedVerdict,
+      message: `Final council evidence written to .swarm/evidence/final-council.json`
+    }, null, 2);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : String(error93)
+    }, null, 2);
+  }
+}
+var write_final_council_evidence = createSwarmTool({
+  description: "Write final council evidence for a completed project. Accepts phase, verdict (APPROVED/NEEDS_REVISION), summary, and writes structured evidence to .swarm/evidence/final-council.json. Normalizes verdict to lowercase. Use this after convening a final holistic council to persist the verdict.",
+  args: {
+    phase: exports_external.number().int().min(1).describe("The phase number for the final council verdict (e.g., 1, 2, 3)"),
+    verdict: exports_external.enum(["APPROVED", "NEEDS_REVISION"]).describe("Verdict of the final council: 'APPROVED' or 'NEEDS_REVISION'"),
+    summary: exports_external.string().describe("Human-readable summary of the final council verdict")
+  },
+  execute: async (args2, directory) => {
+    const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
+    try {
+      const writeFinalCouncilEvidenceArgs = {
+        phase: Number(args2.phase),
+        verdict: String(args2.verdict),
+        summary: String(args2.summary ?? "")
+      };
+      return await executeWriteFinalCouncilEvidence(writeFinalCouncilEvidenceArgs, directory);
+    } catch (error93) {
+      return JSON.stringify({
+        success: false,
+        phase: rawPhase,
+        message: error93 instanceof Error ? error93.message : "Unknown error"
+      }, null, 2);
+    }
+  }
+});
+// src/tools/write-hallucination-evidence.ts
+init_zod();
+init_utils2();
+init_create_tool();
+import fs91 from "node:fs";
+import path114 from "node:path";
+function normalizeVerdict3(verdict) {
   switch (verdict) {
     case "APPROVED":
       return "approved";
@@ -91815,7 +91994,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: "Invalid summary: must be a non-empty string"
     }, null, 2);
   }
-  const normalizedVerdict = normalizeVerdict2(args2.verdict);
+  const normalizedVerdict = normalizeVerdict3(args2.verdict);
   const evidenceEntry = {
     type: "hallucination-verification",
     verdict: normalizedVerdict,
@@ -91827,7 +92006,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "hallucination-guard.json";
-  const relativePath = path113.join("evidence", String(phase), filename);
+  const relativePath = path114.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -91838,12 +92017,12 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path113.dirname(validatedPath);
+  const evidenceDir = path114.dirname(validatedPath);
   try {
-    await fs90.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path113.join(evidenceDir, `.${filename}.tmp`);
-    await fs90.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs90.promises.rename(tempPath, validatedPath);
+    await fs91.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path114.join(evidenceDir, `.${filename}.tmp`);
+    await fs91.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs91.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -91889,9 +92068,9 @@ var write_hallucination_evidence = createSwarmTool({
 init_zod();
 init_utils2();
 init_create_tool();
-import fs91 from "node:fs";
-import path114 from "node:path";
-function normalizeVerdict3(verdict) {
+import fs92 from "node:fs";
+import path115 from "node:path";
+function normalizeVerdict4(verdict) {
   switch (verdict) {
     case "PASS":
       return "pass";
@@ -91948,7 +92127,7 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: "Invalid summary: must be a non-empty string"
     }, null, 2);
   }
-  const normalizedVerdict = normalizeVerdict3(args2.verdict);
+  const normalizedVerdict = normalizeVerdict4(args2.verdict);
   const evidenceEntry = {
     type: "mutation-gate",
     verdict: normalizedVerdict,
@@ -91964,7 +92143,7 @@ async function executeWriteMutationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "mutation-gate.json";
-  const relativePath = path114.join("evidence", String(phase), filename);
+  const relativePath = path115.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -91975,12 +92154,12 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path114.dirname(validatedPath);
+  const evidenceDir = path115.dirname(validatedPath);
   try {
-    await fs91.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path114.join(evidenceDir, `.${filename}.tmp`);
-    await fs91.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
-    await fs91.promises.rename(tempPath, validatedPath);
+    await fs92.promises.mkdir(evidenceDir, { recursive: true });
+    const tempPath = path115.join(evidenceDir, `.${filename}.tmp`);
+    await fs92.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
+    await fs92.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
       success: true,
       phase,
@@ -92272,7 +92451,7 @@ async function initializeOpenCodeSwarm(ctx) {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path115.resolve(ctx.directory, ".swarm");
+    const swarmDir = path116.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -92431,6 +92610,7 @@ async function initializeOpenCodeSwarm(ctx) {
       write_drift_evidence,
       write_hallucination_evidence,
       write_mutation_evidence,
+      write_final_council_evidence,
       declare_scope
     },
     config: async (opencodeConfig) => {

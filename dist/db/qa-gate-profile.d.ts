@@ -20,7 +20,7 @@ export declare const _internals: {
     computeProfileHash: typeof computeProfileHash;
 };
 /**
- * QA gate flags. All ten gates are tracked explicitly.
+ * QA gate flags. All eleven gates are tracked explicitly.
  */
 export interface QaGates {
     reviewer: boolean;
@@ -33,6 +33,7 @@ export interface QaGates {
     mutation_test: boolean;
     council_general_review: boolean;
     drift_check: boolean;
+    final_council: boolean;
 }
 /**
  * Default QA gate configuration for newly-created profiles.

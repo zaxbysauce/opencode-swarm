@@ -3,6 +3,7 @@ import * as path from 'node:path';
 import { type Plan, PlanSchema } from '../config/plan-schema';
 import { validateSwarmPath } from '../hooks/utils';
 import { appendLedgerEvent, computePlanHash, initLedger } from '../plan/ledger';
+import { derivePlanId } from '../plan/utils.js';
 
 /**
  * Handle /swarm rollback command
@@ -151,10 +152,7 @@ export async function handleRollbackCommand(
 		if (fs.existsSync(planJsonPath)) {
 			const planRaw = fs.readFileSync(planJsonPath, 'utf-8');
 			const plan = PlanSchema.parse(JSON.parse(planRaw) as Plan);
-			const planId = `${plan.swarm}-${plan.title}`.replace(
-				/[^a-zA-Z0-9-_]/g,
-				'_',
-			);
+			const planId = derivePlanId(plan);
 
 			const planHash = computePlanHash(plan);
 			await initLedger(directory, planId, planHash, plan);

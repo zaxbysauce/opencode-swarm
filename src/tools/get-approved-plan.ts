@@ -24,6 +24,7 @@ import {
 	loadLastApprovedPlan,
 } from '../plan/ledger';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import { createSwarmTool } from './create-tool';
 
 // ============ Types ============
@@ -102,14 +103,6 @@ function summarizePlan(plan: {
 			task_count: p.tasks.length,
 		})),
 	};
-}
-
-/**
- * Derive plan identity string matching the ledger format.
- * Must stay in sync with takeSnapshotEvent in ledger.ts.
- */
-function derivePlanId(plan: { swarm: string; title: string }): string {
-	return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
 }
 
 /**

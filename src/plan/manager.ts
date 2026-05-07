@@ -49,6 +49,7 @@ import {
 	replayFromLedger,
 	takeSnapshotEvent,
 } from './ledger';
+import { derivePlanId } from './utils';
 
 // Track which workspaces have already had their startup ledger integrity check.
 // Keyed by resolved workspace directory so each workspace gets exactly one check
@@ -387,11 +388,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 					if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
 						startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
 						if (ledgerHash !== '' && planHash !== ledgerHash) {
-							const currentPlanId =
-								`${validated.swarm}-${validated.title}`.replace(
-									/[^a-zA-Z0-9-_]/g,
-									'_',
-								);
+							const currentPlanId = derivePlanId(validated);
 							const ledgerEvents = await readLedgerEvents(directory);
 							const firstEvent =
 								ledgerEvents.length > 0 ? ledgerEvents[0] : null;
@@ -554,9 +551,8 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 						typeof rawParsed?.swarm === 'string' &&
 						typeof rawParsed?.title === 'string'
 					) {
-						rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(
-							/[^a-zA-Z0-9-_]/g,
-							'_',
+						rawPlanId = derivePlanId(
+							rawParsed as { swarm: string; title: string },
 						);
 					}
 				} catch {
@@ -786,10 +782,7 @@ export async function savePlan(
 	// migration), because the existing ledger's events and hashes are keyed to the old
 	// plan identity. Continuing to append to a mismatched ledger causes the hash-mismatch
 	// guard in loadPlan() to fire and destructively rebuild plan.json from stale state.
-	const planId = `${validated.swarm}-${validated.title}`.replace(
-		/[^a-zA-Z0-9-_]/g,
-		'_',
-	);
+	const planId = derivePlanId(validated);
 	// Compute hash of the incoming plan NOW so initLedger records the correct
 	// plan_hash_after. initLedger reads from disk otherwise, but plan.json is
 	// only written later in this function — so without passing the hash here,
@@ -988,10 +981,7 @@ export async function savePlan(
 					const oldTask = oldTaskMap.get(task.id);
 					if (oldTask && oldTask.status !== task.status) {
 						const eventInput: LedgerEventInput = {
-							plan_id: `${validated.swarm}-${validated.title}`.replace(
-								/[^a-zA-Z0-9-_]/g,
-								'_',
-							),
+							plan_id: derivePlanId(validated),
 							event_type: 'task_status_changed',
 							task_id: task.id,
 							phase_id: phase.id,

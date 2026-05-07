@@ -133,6 +133,7 @@ import {
 	update_task_status,
 	web_search,
 	write_drift_evidence,
+	write_final_council_evidence,
 	write_hallucination_evidence,
 	write_mutation_evidence,
 	write_retro,
@@ -800,6 +801,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 			write_drift_evidence,
 			write_hallucination_evidence,
 			write_mutation_evidence,
+			write_final_council_evidence,
 			declare_scope,
 		},
 

@@ -679,6 +679,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - mutation_test: <true|false>
 - council_general_review: <true|false>
 - drift_check: <true|false>
+- final_council: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN applies these after \`save_plan\` succeeds via \`set_qa_gates\`.
@@ -757,6 +758,7 @@ Do NOT call \`set_qa_gates\` yet — \`plan.json\` does not exist at this point.
 - mutation_test: <true|false>
 - council_general_review: <true|false>
 - drift_check: <true|false>
+- final_council: <true|false>
 - recorded_at: <ISO timestamp>
 \`\`\`
 MODE: PLAN will read this section after \`save_plan\` succeeds and persist via \`set_qa_gates\`.
@@ -1139,6 +1141,7 @@ save_plan({
 **POST-SAVE_PLAN: APPLY QA GATE SELECTION.**
 After \`save_plan\` succeeds, read \`.swarm/context.md\`:
 - If a \`## Pending QA Gate Selection\` section exists: parse the gate values, call \`set_qa_gates\` with those flags, confirm with the user ("QA gates applied: <list>"), then remove the section from context.md.
+- If a \`## Pending Parallelization Config\` section also exists: parse the values and call \`save_plan\` again with \`execution_profile\` set to \`{ parallelization_enabled: <parsed>, max_concurrent_tasks: <parsed>, council_parallel: false, locked: true }\`. Then remove the section from context.md. If the plan already had \`execution_profile.locked: true\`, skip this step — the profile is already locked and immutable.
 - If no pending section exists: {{QA_GATE_DIALOGUE_PLAN}}
 <!-- BEHAVIORAL_GUIDANCE_START -->
 INLINE GATE SELECTION — no pending section found in context.md. You MUST ask now.
@@ -1493,6 +1496,19 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    - \`.swarm/evidence/{phase}/mutation-gate.json\` exists with verdict 'pass' or 'warn' (written by YOU via the \`write_mutation_evidence\` tool after step 5.56) — ONLY required when \`mutation_test\` is enabled in the QA gate profile
    If any required file is missing, run the missing gate first. Turbo mode skips all gates automatically.
    NOTE: Steps 5.5, 5.55, and 5.56 are enforced by runtime hooks. If \`hallucination_guard\` is enabled and you skip the critic_hallucination_verifier delegation (or fail to call \`write_hallucination_evidence\`), phase_complete will be BLOCKED by the plugin. Similarly, if \`mutation_test\` is enabled and you skip step 5.56 (or fail to call \`write_mutation_evidence\`), phase_complete will be BLOCKED. These are not suggestions — they are hard enforcement mechanisms.
+5.7. **Final Council (conditional on QA gate — last phase only)**: Check whether \`final_council\` is enabled in the effective QA gate profile (visible via \`get_qa_gate_profile\`). If disabled, skip silently and proceed to step 6.
+   If enabled AND this is the LAST phase in the plan (all other phases have status 'complete' and no more phases remain):
+    1. Verify \`council.general.enabled: true\` in plugin config. If not enabled, warn the user: "final_council gate is enabled but General Council is not configured. Skipping final council." Then proceed to step 6. Check that \`convene_general_council\` is available in your tool list. If the tool is unavailable (filtered by config), warn the user and skip.
+   2. Run 1-3 targeted \`web_search\` queries relevant to the project domain.
+   3. Compile a RESEARCH CONTEXT block from search results.
+   4. Dispatch \`{{AGENT_PREFIX}}council_generalist\`, \`{{AGENT_PREFIX}}council_skeptic\`, and \`{{AGENT_PREFIX}}council_domain_expert\` in PARALLEL. Pass: the full body of work (all phase summaries, all evidence artifacts), the RESEARCH CONTEXT block, round number 1. Instruction: "Review the entire body of work holistically. Identify cross-cutting issues, architectural coherence, and overall quality."
+   5. Collect all three JSON responses.
+   6. Call \`convene_general_council\` with mode: 'general', the project summary as question, and the collected round1Responses.
+   7. If disagreements exist, re-dispute as in MODE: COUNCIL step 5-6.
+   8. Present the final synthesis to the user as a project-close summary.
+   9. Write the final council result to \`.swarm/evidence/final-council.json\`.
+   10. Do NOT call \`/swarm close\` until the final council completes (if enabled). The evidence file \`.swarm/evidence/final-council.json\` must exist with an APPROVED verdict before \`/swarm close\` is permitted when final_council is enabled.
+   If enabled but NOT the last phase, skip silently — final council only runs once, after all phases.
 6. Summarize to user
 7. Ask: "Ready for Phase [N+1]?"
 
@@ -1740,7 +1756,7 @@ export function buildQaGateSelectionDialogue(
 				: 'No pending gate selection found in `.swarm/context.md`. Ask the user inline now.';
 	return `${leadIn}
 
-Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The ten gates are:
+Present the eleven gates with their defaults (DEFAULT_QA_GATES) as a single user-facing question. Offer the user a one-shot choice: accept defaults, or customize. The eleven gates are:
 - reviewer (default: ON) — code review of coder output
 - test_engineer (default: ON) — test verification of coder output
 - sme_enabled (default: ON) — SME consultation during planning/clarification
@@ -1751,8 +1767,20 @@ Present the ten gates with their defaults (DEFAULT_QA_GATES) as a single user-fa
 - mutation_test (default: OFF) — when enabled, runs mutation testing on source files touched this phase via generate_mutants + mutation_test + write_mutation_evidence at PHASE-WRAP; FAIL verdict blocks phase_complete; WARN is non-blocking (recommended for projects with coverage gaps or safety-critical code)
 - council_general_review (default: OFF) — when enabled, MODE: SPECIFY runs convene_general_council on the draft spec before the critic-gate; the architect runs a curated web_search pass, dispatches council_generalist / council_skeptic / council_domain_expert in parallel with a shared RESEARCH CONTEXT block, deliberates on disagreements, and synthesizes the result directly into the spec (recommended for novel architecture, unclear best practices, or high-risk design decisions). Requires council.general.enabled: true and a configured search API key.
 - drift_check (default: ON) — when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
+- final_council (default: OFF) — when enabled, after all phases complete the architect convenes a holistic general council review of the entire body of work before project close. Requires council.general.enabled: true in plugin config. Recommended for multi-phase projects with high architectural complexity.
 
-One question, one message, defaults pre-stated. Wait for the user's answer.`;
+One question, one message, defaults pre-stated. Wait for the user's answer.
+
+If the user answered the gate question, immediately follow up with ONE more question: "How many coders should run in parallel? (default: 1, range: 1-4)" — if the user says a number > 1, also write a \`## Pending Parallelization Config\` section to \`.swarm/context.md\` alongside the gate selection:
+\`\`\`
+## Pending Parallelization Config
+- parallelization_enabled: true
+- max_concurrent_tasks: <user's number>
+- council_parallel: false
+- locked: true
+- recorded_at: <ISO timestamp>
+\`\`\`
+If the user accepts the default (1), skip writing this section entirely — serial execution is the default and needs no config.`;
 }
 
 /**

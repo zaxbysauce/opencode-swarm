@@ -1125,21 +1125,6 @@ export const ParallelizationConfigSchema = z.object({
 	max_coders: z.number().int().min(1).max(16).default(3),
 	/** Maximum concurrent reviewer dispatches. Controls agent-type concurrency limit. */
 	max_reviewers: z.number().int().min(1).max(16).default(2),
-	/**
-	 * Stage B (reviewer + test_engineer) parallelization settings.
-	 * PR 2 runtime gating — defaults to disabled so no production path activates
-	 * order-independent barrier semantics until explicitly opted in.
-	 */
-	stageB: z
-		.object({
-			parallel: z
-				.object({
-					/** When true, reviewer and test_engineer run order-independently (barrier). Default: false. */
-					enabled: z.boolean().default(false),
-				})
-				.default({ enabled: false }),
-		})
-		.default({ parallel: { enabled: false } }),
 });
 
 export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;

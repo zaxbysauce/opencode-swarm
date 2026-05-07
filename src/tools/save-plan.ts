@@ -25,6 +25,7 @@ import {
 	takeSnapshotEvent,
 } from '../plan/ledger';
 import { loadPlanJsonOnly, savePlan } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
 
@@ -327,10 +328,10 @@ export async function executeSavePlan(
 			// Inline derivePlanId formula (matches canonical form in
 			// set-qa-gates.ts:27-29 and qa-gates.ts:39-41; plan.swarm === args.swarm_id
 			// at runtime because save_plan writes it that way at line 388).
-			const candidatePlanId = `${args.swarm_id}-${args.title}`.replace(
-				/[^a-zA-Z0-9-_]/g,
-				'_',
-			);
+			const candidatePlanId = derivePlanId({
+				swarm: args.swarm_id,
+				title: args.title,
+			});
 			let existingProfile = null;
 			try {
 				existingProfile = getProfile(
@@ -523,10 +524,7 @@ export async function executeSavePlan(
 			// execution_profile_set tracks every profile write; execution_profile_locked
 			// is appended once when the profile transitions to locked state.
 			if (resolvedProfile !== undefined && savedPlan) {
-				const planId = `${plan.swarm}-${plan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+				const planId = derivePlanId(plan);
 				const planHashAfter = computePlanHash(savedPlan);
 				const profileChanged =
 					JSON.stringify(resolvedProfile) !==

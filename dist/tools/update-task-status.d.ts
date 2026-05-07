@@ -56,7 +56,7 @@ export declare function checkReviewerGate(taskId: string, workingDirectory?: str
 /**
  * Wrapper around checkReviewerGate that appends a diff-scope advisory warning.
  * Keeps checkReviewerGate synchronous for backward compatibility.
- * Also resolves the PR 2 stageB.parallel.enabled flag from config.
+ * Stage B parallel is hardcoded (not config-driven).
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
  * @returns ReviewerGateResult with optional scope warning appended to reason

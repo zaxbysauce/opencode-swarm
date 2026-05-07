@@ -133,8 +133,8 @@ describe('ParallelizationConfigSchema — max_coders and max_reviewers fields', 
 		});
 	});
 
-	describe('field position — top level, not nested in stageB', () => {
-		test('max_coders is at top level of config (not inside stageB)', () => {
+	describe('field position — top level', () => {
+		test('max_coders is at top level of config', () => {
 			const result = ParallelizationConfigSchema.parse({
 				max_coders: 5,
 				max_reviewers: 4,
@@ -142,36 +142,19 @@ describe('ParallelizationConfigSchema — max_coders and max_reviewers fields', 
 			// Verify it's at top level, not nested
 			expect(result.max_coders).toBe(5);
 			expect(result.max_reviewers).toBe(4);
-			// Verify stageB object doesn't contain these fields
-			expect(result.stageB).toBeDefined();
-			expect((result.stageB as any).max_coders).toBeUndefined();
-			expect((result.stageB as any).max_reviewers).toBeUndefined();
 		});
 
-		test('stageB.parallel is still accessible and separate', () => {
-			const result = ParallelizationConfigSchema.parse({
-				max_coders: 5,
-				max_reviewers: 4,
-				stageB: { parallel: { enabled: true } },
-			});
-			expect(result.max_coders).toBe(5);
-			expect(result.max_reviewers).toBe(4);
-			expect(result.stageB.parallel.enabled).toBe(true);
-		});
-
-		test('fields coexist: max_coders/max_reviewers alongside stageB config', () => {
+		test('fields coexist: max_coders/max_reviewers alongside existing config', () => {
 			const result = ParallelizationConfigSchema.parse({
 				enabled: true,
 				maxConcurrentTasks: 4,
 				max_coders: 3,
 				max_reviewers: 2,
-				stageB: { parallel: { enabled: true } },
 			});
 			expect(result.enabled).toBe(true);
 			expect(result.maxConcurrentTasks).toBe(4);
 			expect(result.max_coders).toBe(3);
 			expect(result.max_reviewers).toBe(2);
-			expect(result.stageB.parallel.enabled).toBe(true);
 		});
 	});
 
@@ -189,11 +172,6 @@ describe('ParallelizationConfigSchema — max_coders and max_reviewers fields', 
 		test('evidenceLockTimeoutMs defaults to 60000', () => {
 			const result = ParallelizationConfigSchema.parse({});
 			expect(result.evidenceLockTimeoutMs).toBe(60000);
-		});
-
-		test('stageB defaults to { parallel: { enabled: false } }', () => {
-			const result = ParallelizationConfigSchema.parse({});
-			expect(result.stageB.parallel.enabled).toBe(false);
 		});
 	});
 });

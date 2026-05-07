@@ -12,15 +12,8 @@ import { lockProfile } from '../db/qa-gate-profile.js';
 import { validateSwarmPath } from '../hooks/utils';
 import { takeSnapshotEvent } from '../plan/ledger';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import { createSwarmTool } from './create-tool';
-
-/**
- * Derive plan identity string matching the ledger format.
- * Must stay in sync with takeSnapshotEvent in ledger.ts.
- */
-function derivePlanId(plan: { swarm: string; title: string }): string {
-	return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
-}
 
 /**
  * Arguments for the write_drift_evidence tool

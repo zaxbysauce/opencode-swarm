@@ -9,6 +9,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { type Plan, PlanSchema } from '../config/plan-schema';
 import { appendLedgerEvent } from '../plan/ledger';
+import { derivePlanId } from '../plan/utils.js';
 import { derivePlanMarkdown, loadPlan, savePlan } from './manager';
 
 /**
@@ -90,7 +91,7 @@ export async function importCheckpoint(
 		await appendLedgerEvent(directory, {
 			event_type: 'plan_rebuilt',
 			source: source ?? 'external_reseed',
-			plan_id: `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_'),
+			plan_id: derivePlanId(plan),
 		});
 
 		return { success: true, plan };

@@ -18,16 +18,8 @@ import {
 	setGates,
 } from '../db/qa-gate-profile.js';
 import { loadPlanJsonOnly } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import { createSwarmTool } from './create-tool';
-
-/**
- * Derive plan identity string matching the ledger format.
- * Must stay in sync with takeSnapshotEvent in ledger.ts and the other
- * consumers that derive plan_id (get-approved-plan.ts, write-drift-evidence.ts).
- */
-function derivePlanId(plan: { swarm: string; title: string }): string {
-	return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
-}
 
 export interface SetQaGatesArgs {
 	reviewer?: boolean;
@@ -40,6 +32,7 @@ export interface SetQaGatesArgs {
 	mutation_test?: boolean;
 	council_general_review?: boolean;
 	drift_check?: boolean;
+	final_council?: boolean;
 	project_type?: string;
 }
 
@@ -88,6 +81,7 @@ export async function executeSetQaGates(
 		'mutation_test',
 		'council_general_review',
 		'drift_check',
+		'final_council',
 	] as Array<keyof QaGates>) {
 		if (args[key] !== undefined) partial[key] = args[key] as boolean;
 	}
@@ -184,6 +178,15 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 				'Enable drift verification gate (default: on). Blocks phase_complete ' +
 					'until drift-verifier.json has an approved verdict. When disabled, ' +
 					'drift verification is skipped entirely.',
+			),
+		final_council: z
+			.boolean()
+			.optional()
+			.describe(
+				'Enable the final_council gate (default: off). When on, ' +
+					'after all phases complete the architect runs a holistic ' +
+					'general council review against the entire body of work. ' +
+					'Requires council.general.enabled: true in plugin config.',
 			),
 		project_type: z
 			.string()

@@ -21,6 +21,7 @@ import {
 import type { TaskEvidence } from './gate-evidence';
 import { clearPendingCoderScope } from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly, updateTaskStatus } from './plan/manager.js';
+import { derivePlanId } from './plan/utils.js';
 import type { EscalationTracker } from './prm/escalation.js';
 import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
@@ -164,7 +165,7 @@ export interface AgentSessionState {
 	 * PR 2 Stage B barrier: per-task set of completed Stage B agents.
 	 * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
 	 * When both are present, the task may advance to tests_run regardless of order.
-	 * Only populated when parallelization.stageB.parallel.enabled = true.
+	 * Always populated — Stage B is unconditionally parallel.
 	 */
 	stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
 	/** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when submit_council_verdicts resolves. */
@@ -1121,14 +1122,6 @@ export function hasBothStageBCompletions(
 }
 
 /**
- * Derive the plan_id from a Plan, matching the format used by other consumers
- * (set_qa_gates / get_qa_gate_profile / get_approved_plan / write-drift-evidence).
- */
-function derivePlanIdFromPlan(plan: { swarm: string; title: string }): string {
-	return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, '_');
-}
-
-/**
  * Returns true iff council is authoritative for the current plan.
  *
  * AND semantics: council is authoritative when BOTH `pluginConfig.council.enabled === true`
@@ -1157,7 +1150,7 @@ export async function isCouncilGateActive(
 		return false;
 	}
 
-	const planId = derivePlanIdFromPlan(plan);
+	const planId = derivePlanId(plan);
 	let profile: ReturnType<typeof getProfile> | null = null;
 	try {
 		profile = getProfile(directory, planId);

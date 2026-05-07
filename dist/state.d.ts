@@ -109,7 +109,7 @@ export interface AgentSessionState {
      * PR 2 Stage B barrier: per-task set of completed Stage B agents.
      * Order-independent — either 'reviewer' or 'test_engineer' may complete first.
      * When both are present, the task may advance to tests_run regardless of order.
-     * Only populated when parallelization.stageB.parallel.enabled = true.
+     * Always populated — Stage B is unconditionally parallel.
      */
     stageBCompletion?: Map<string, Set<'reviewer' | 'test_engineer'>>;
     /** v6.71+ Council mode: per-task council verdict, recorded by delegation-gate when submit_council_verdicts resolves. */

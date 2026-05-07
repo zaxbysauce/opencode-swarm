@@ -638,11 +638,6 @@ export declare const ParallelizationConfigSchema: z.ZodObject<{
     evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
     max_coders: z.ZodDefault<z.ZodNumber>;
     max_reviewers: z.ZodDefault<z.ZodNumber>;
-    stageB: z.ZodDefault<z.ZodObject<{
-        parallel: z.ZodDefault<z.ZodObject<{
-            enabled: z.ZodDefault<z.ZodBoolean>;
-        }, z.core.$strip>>;
-    }, z.core.$strip>>;
 }, z.core.$strip>;
 export type ParallelizationConfig = z.infer<typeof ParallelizationConfigSchema>;
 export declare const PluginConfigSchema: z.ZodObject<{
@@ -1065,11 +1060,6 @@ export declare const PluginConfigSchema: z.ZodObject<{
         evidenceLockTimeoutMs: z.ZodDefault<z.ZodNumber>;
         max_coders: z.ZodDefault<z.ZodNumber>;
         max_reviewers: z.ZodDefault<z.ZodNumber>;
-        stageB: z.ZodDefault<z.ZodObject<{
-            parallel: z.ZodDefault<z.ZodObject<{
-                enabled: z.ZodDefault<z.ZodBoolean>;
-            }, z.core.$strip>>;
-        }, z.core.$strip>>;
     }, z.core.$strip>>;
     turbo_mode: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;
     quiet: z.ZodOptional<z.ZodDefault<z.ZodBoolean>>;

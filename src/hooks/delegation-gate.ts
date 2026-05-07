@@ -721,8 +721,9 @@ export function createDelegationGateHook(
 				// Stage B advancement runs unconditionally. Council mode is additive
 				// at the phase level — it never suppresses per-task Stage B gate recording.
 				// The councilActive flag is still used above for submit_council_verdicts handling only.
-				const stageBParallelEnabled =
-					config.parallelization?.stageB?.parallel?.enabled === true;
+				// Stage B is always parallel — reviewer and test_engineer dispatch simultaneously.
+				// This is not configurable. Do not add a config read here.
+				const stageBParallelEnabled = true;
 
 				if (stageBParallelEnabled) {
 					// ── PR 2 Stage B parallel path ──────────────────────────────────
@@ -824,113 +825,6 @@ export function createDelegationGateHook(
 										logger.warn(
 											`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
 										);
-									}
-								}
-							}
-						}
-					}
-				} else {
-					// ── Sequential path (default, flag off) ─────────────────────────
-					// Pass 1: advance tasks at coder_delegated or pre_check_passed → reviewer_run
-					if (targetAgent === 'reviewer' && session.taskWorkflowStates) {
-						for (const [taskId, state] of session.taskWorkflowStates) {
-							if (state === 'coder_delegated' || state === 'pre_check_passed') {
-								try {
-									advanceTaskState(session, taskId, 'reviewer_run', {
-										telemetrySessionId: input.sessionID,
-									});
-								} catch (err) {
-									// Non-fatal: state may already be at or past reviewer_run.
-									// Log so that silent swallowing does not hide root-cause bugs
-									// (e.g. INVALID_TASK_STATE_TRANSITION from PR #123 strict mode).
-									logger.warn(
-										`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
-									);
-								}
-							}
-						}
-					}
-
-					// Pass 2: advance tasks at reviewer_run → tests_run for test_engineer only
-					if (targetAgent === 'test_engineer' && session.taskWorkflowStates) {
-						for (const [taskId, state] of session.taskWorkflowStates) {
-							if (state === 'reviewer_run') {
-								try {
-									advanceTaskState(session, taskId, 'tests_run', {
-										telemetrySessionId: input.sessionID,
-									});
-								} catch (err) {
-									// Non-fatal: state may already be at or past tests_run.
-									// Log so advancement failures are diagnosable.
-									logger.warn(
-										`[delegation-gate] toolAfter: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
-									);
-								}
-							}
-						}
-					}
-
-					// Also advance states in OTHER sessions (cross-session propagation)
-					if (targetAgent === 'reviewer' || targetAgent === 'test_engineer') {
-						for (const [, otherSession] of swarmState.agentSessions) {
-							if (otherSession === session) continue;
-							if (!otherSession.taskWorkflowStates) continue;
-
-							// Pass 1: coder_delegated/pre_check_passed → reviewer_run
-							if (targetAgent === 'reviewer') {
-								// Seed task state in sessions that don't have an entry yet
-								const seedTaskId = getSeedTaskId(session);
-								if (
-									seedTaskId &&
-									!otherSession.taskWorkflowStates.has(seedTaskId)
-								) {
-									otherSession.taskWorkflowStates.set(
-										seedTaskId,
-										'coder_delegated',
-									);
-								}
-								for (const [taskId, state] of otherSession.taskWorkflowStates) {
-									if (
-										state === 'coder_delegated' ||
-										state === 'pre_check_passed'
-									) {
-										try {
-											advanceTaskState(otherSession, taskId, 'reviewer_run', {
-												emitTelemetry: false,
-											});
-										} catch (err) {
-											logger.warn(
-												`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
-											);
-										}
-									}
-								}
-							}
-
-							// Pass 2: reviewer_run → tests_run
-							if (targetAgent === 'test_engineer') {
-								// Seed task state in sessions that don't have an entry yet
-								const seedTaskId = getSeedTaskId(session);
-								if (
-									seedTaskId &&
-									!otherSession.taskWorkflowStates.has(seedTaskId)
-								) {
-									otherSession.taskWorkflowStates.set(
-										seedTaskId,
-										'reviewer_run',
-									);
-								}
-								for (const [taskId, state] of otherSession.taskWorkflowStates) {
-									if (state === 'reviewer_run') {
-										try {
-											advanceTaskState(otherSession, taskId, 'tests_run', {
-												emitTelemetry: false,
-											});
-										} catch (err) {
-											logger.warn(
-												`[delegation-gate] toolAfter cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
-											);
-										}
 									}
 								}
 							}

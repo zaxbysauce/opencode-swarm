@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.6.0",
+    version: "7.6.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -14607,6 +14607,11 @@ var init_spec_hash = __esm(() => {
   };
 });
 
+// src/plan/utils.ts
+function derivePlanId(plan) {
+  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+}
+
 // src/plan/ledger.ts
 import * as crypto2 from "crypto";
 import * as fs from "fs";
@@ -14795,7 +14800,7 @@ async function takeSnapshotEvent(directory, plan, options) {
   if (options?.approvalMetadata) {
     snapshotPayload.approval = options.approvalMetadata;
   }
-  const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planId = derivePlanId(plan);
   return appendLedgerEvent(directory, {
     event_type: "snapshot",
     source: options?.source ?? "takeSnapshotEvent",
@@ -14990,7 +14995,7 @@ async function loadLastApprovedPlan(directory, expectedPlanId) {
       continue;
     }
     if (expectedPlanId !== undefined) {
-      const payloadPlanId = `${payload.plan.swarm}-${payload.plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const payloadPlanId = derivePlanId(payload.plan);
       if (payloadPlanId !== expectedPlanId) {
         continue;
       }
@@ -15191,7 +15196,7 @@ async function loadPlan(directory) {
           if (!startupLedgerCheckedWorkspaces.has(resolvedWorkspace)) {
             startupLedgerCheckedWorkspaces.add(resolvedWorkspace);
             if (ledgerHash !== "" && planHash !== ledgerHash) {
-              const currentPlanId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+              const currentPlanId = derivePlanId(validated);
               const ledgerEvents = await readLedgerEvents(directory);
               const firstEvent = ledgerEvents.length > 0 ? ledgerEvents[0] : null;
               if (firstEvent && firstEvent.plan_id !== currentPlanId) {
@@ -15274,7 +15279,7 @@ async function loadPlan(directory) {
         try {
           const rawParsed = JSON.parse(planJsonContent);
           if (typeof rawParsed?.swarm === "string" && typeof rawParsed?.title === "string") {
-            rawPlanId = `${rawParsed.swarm}-${rawParsed.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+            rawPlanId = derivePlanId(rawParsed);
           }
         } catch {}
         if (await ledgerExists(directory)) {
@@ -15400,7 +15405,7 @@ async function savePlan(directory, plan, options) {
     }
   }
   const currentPlan = await _internals3.loadPlanJsonOnly(directory);
-  const planId = `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+  const planId = derivePlanId(validated);
   const planHashForInit = computePlanHash(validated);
   if (!await ledgerExists(directory)) {
     try {
@@ -15501,7 +15506,7 @@ async function savePlan(directory, plan, options) {
           const oldTask = oldTaskMap.get(task.id);
           if (oldTask && oldTask.status !== task.status) {
             const eventInput = {
-              plan_id: `${validated.swarm}-${validated.title}`.replace(/[^a-zA-Z0-9-_]/g, "_"),
+              plan_id: derivePlanId(validated),
               event_type: "task_status_changed",
               task_id: task.id,
               phase_id: phase.id,
@@ -16058,7 +16063,8 @@ var init_tool_names = __esm(() => {
     "get_qa_gate_profile",
     "set_qa_gates",
     "web_search",
-    "convene_general_council"
+    "convene_general_council",
+    "write_final_council_evidence"
   ];
   TOOL_NAME_SET = new Set(TOOL_NAMES);
 });
@@ -16295,7 +16301,8 @@ var init_constants = __esm(() => {
       "get_qa_gate_profile",
       "set_qa_gates",
       "convene_general_council",
-      "web_search"
+      "web_search",
+      "write_final_council_evidence"
     ],
     explorer: [
       "complexity_hotspots",
@@ -17120,12 +17127,7 @@ var init_schema = __esm(() => {
     maxConcurrentTasks: exports_external.number().int().min(1).max(64).default(1),
     evidenceLockTimeoutMs: exports_external.number().int().min(1000).max(300000).default(60000),
     max_coders: exports_external.number().int().min(1).max(16).default(3),
-    max_reviewers: exports_external.number().int().min(1).max(16).default(2),
-    stageB: exports_external.object({
-      parallel: exports_external.object({
-        enabled: exports_external.boolean().default(false)
-      }).default({ enabled: false })
-    }).default({ parallel: { enabled: false } })
+    max_reviewers: exports_external.number().int().min(1).max(16).default(2)
   });
   PluginConfigSchema = exports_external.object({
     agents: exports_external.record(exports_external.string(), AgentOverrideConfigSchema).optional(),
@@ -19888,7 +19890,8 @@ var init_qa_gate_profile = __esm(() => {
     sast_enabled: true,
     mutation_test: false,
     council_general_review: false,
-    drift_check: true
+    drift_check: true,
+    final_council: false
   };
 });
 // node_modules/quick-lru/index.js
@@ -46120,9 +46123,6 @@ var init_promote = __esm(() => {
 });
 
 // src/commands/qa-gates.ts
-function derivePlanId(plan) {
-  return `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
-}
 function isGateName(name) {
   return ALL_GATE_NAMES.includes(name);
 }
@@ -46248,7 +46248,8 @@ var init_qa_gates = __esm(() => {
     "sast_enabled",
     "mutation_test",
     "council_general_review",
-    "drift_check"
+    "drift_check",
+    "final_council"
   ];
 });
 
@@ -47254,7 +47255,7 @@ async function handleRollbackCommand(directory, args) {
     if (fs20.existsSync(planJsonPath)) {
       const planRaw = fs20.readFileSync(planJsonPath, "utf-8");
       const plan = PlanSchema.parse(JSON.parse(planRaw));
-      const planId = `${plan.swarm}-${plan.title}`.replace(/[^a-zA-Z0-9-_]/g, "_");
+      const planId = derivePlanId(plan);
       const planHash = computePlanHash(plan);
       await initLedger(directory, planId, planHash, plan);
       await appendLedgerEvent(directory, {

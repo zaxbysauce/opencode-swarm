@@ -62,6 +62,7 @@ export { todo_extract } from './todo-extract';
 export { executeUpdateTaskStatus, type UpdateTaskStatusArgs, type UpdateTaskStatusResult, update_task_status, } from './update-task-status';
 export { web_search } from './web-search';
 export { write_drift_evidence } from './write-drift-evidence';
+export { write_final_council_evidence } from './write-final-council-evidence';
 export { write_hallucination_evidence } from './write-hallucination-evidence';
 export { write_mutation_evidence } from './write-mutation-evidence';
 export { executeWriteRetro, write_retro } from './write-retro';

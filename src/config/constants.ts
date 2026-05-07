@@ -270,6 +270,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'set_qa_gates',
 		'convene_general_council',
 		'web_search',
+		'write_final_council_evidence',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -495,6 +496,8 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'write drift verification evidence for a completed phase',
 	write_hallucination_evidence:
 		'write hallucination verification evidence for a completed phase',
+	write_final_council_evidence:
+		'write final council evidence for project completion',
 	declare_scope: 'declare file scope for next coder delegation',
 	phase_complete: 'mark a phase as complete and track dispatched agents',
 	save_plan: 'save a structured implementation plan',
@@ -537,9 +540,9 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 	repo_map:
 		'query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring',
 	get_qa_gate_profile:
-		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check), lock state, and profile hash. Read-only.',
+		'retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council), lock state, and profile hash. Read-only.',
 	set_qa_gates:
-		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check.',
+		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council.',
 	req_coverage:
 		'query requirement coverage status for tracked functional requirements',
 };

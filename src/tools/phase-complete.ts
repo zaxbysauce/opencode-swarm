@@ -49,6 +49,7 @@ import {
 	takeSnapshotEvent,
 } from '../plan/ledger';
 import { loadPlan, savePlan } from '../plan/manager';
+import { derivePlanId } from '../plan/utils.js';
 import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { ensureAgentSession, hasActiveTurboMode, swarmState } from '../state';
 import { telemetry } from '../telemetry';
@@ -492,7 +493,7 @@ export async function executePhaseComplete(
 	if (hasActiveTurboMode(sessionID)) {
 		// Non-blocking warning so architect knows gates were bypassed
 		console.warn(
-			`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, and phase-council gates for phase ${phase}`,
+			`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, phase-council, and final-council gates for phase ${phase}`,
 		);
 	} else {
 		// Gate 1: Completion Verify (deterministic, in-process)
@@ -537,10 +538,7 @@ export async function executePhaseComplete(
 
 			const gatePlan = await loadPlan(dir);
 			if (gatePlan) {
-				const gatePlanId = `${gatePlan.swarm}-${gatePlan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+				const gatePlanId = derivePlanId(gatePlan);
 				const gateProfile = getProfile(dir, gatePlanId);
 				if (gateProfile) {
 					const gateSession = sessionID
@@ -761,10 +759,7 @@ export async function executePhaseComplete(
 		try {
 			const plan = await loadPlan(dir);
 			if (plan) {
-				const planId = `${plan.swarm}-${plan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+				const planId = derivePlanId(plan);
 				const profile = getProfile(dir, planId);
 				if (profile) {
 					const session = sessionID
@@ -877,10 +872,7 @@ export async function executePhaseComplete(
 		try {
 			const plan = await loadPlan(dir);
 			if (plan) {
-				const planId = `${plan.swarm}-${plan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+				const planId = derivePlanId(plan);
 				const profile = getProfile(dir, planId);
 				if (profile) {
 					const session = sessionID
@@ -992,10 +984,7 @@ export async function executePhaseComplete(
 		try {
 			const plan = await loadPlan(dir);
 			if (plan) {
-				const planId = `${plan.swarm}-${plan.title}`.replace(
-					/[^a-zA-Z0-9-_]/g,
-					'_',
-				);
+				const planId = derivePlanId(plan);
 				const profile = getProfile(dir, planId);
 				if (profile) {
 					const session = sessionID
@@ -1314,6 +1303,186 @@ export async function executePhaseComplete(
 				safeWarn(
 					`[phase_complete] Phase council gate error (non-blocking):`,
 					pcError,
+				);
+			}
+		}
+	}
+
+	// Gate 6: Final Council (conditional on final_council QA gate flag)
+	// Only fires after the LAST phase completes — not after intermediate phases.
+	if (!hasActiveTurboMode(sessionID)) {
+		let finalCouncilEnabled = false;
+		try {
+			const plan = await loadPlan(dir);
+			if (plan) {
+				const lastPhaseId = plan.phases[plan.phases.length - 1]?.id;
+				if (lastPhaseId !== undefined && phase === lastPhaseId) {
+					const planId = derivePlanId(plan);
+					const profile = getProfile(dir, planId);
+					if (profile) {
+						const session = sessionID
+							? swarmState.agentSessions.get(sessionID)
+							: undefined;
+						const overrides = session?.qaGateSessionOverrides ?? {};
+						const effective = getEffectiveGates(profile, overrides);
+
+						if (effective.final_council === true) {
+							finalCouncilEnabled = true;
+							const fcPath = path.join(
+								dir,
+								'.swarm',
+								'evidence',
+								'final-council.json',
+							);
+							let fcVerdictFound = false;
+							let _fcVerdict: string | undefined;
+
+							try {
+								const fcContent = fs.readFileSync(fcPath, 'utf-8');
+								const fcBundle = JSON.parse(fcContent);
+								for (const entry of fcBundle.entries ?? []) {
+									if (
+										typeof entry.type === 'string' &&
+										entry.type === 'final-council' &&
+										typeof entry.verdict === 'string'
+									) {
+										fcVerdictFound = true;
+										_fcVerdict = entry.verdict;
+
+										// Plan ID binding: prevent stale evidence from prior project
+										if (plan) {
+											const currentPlanId = derivePlanId(plan);
+											if (entry.plan_id && entry.plan_id !== currentPlanId) {
+												return JSON.stringify(
+													{
+														success: false,
+														phase,
+														status: 'blocked' as const,
+														reason: 'final_council_plan_mismatch',
+														message: `Final council evidence belongs to a different plan (evidence: ${entry.plan_id}, current: ${currentPlanId}). Re-run the final council.`,
+														agentsDispatched,
+														agentsMissing: [],
+														warnings: [],
+													},
+													null,
+													2,
+												);
+											}
+											if (!entry.plan_id) {
+												// Fail-closed: evidence without plan_id cannot be trusted
+												return JSON.stringify(
+													{
+														success: false,
+														phase,
+														status: 'blocked' as const,
+														reason: 'FINAL_COUNCIL_PLAN_ID_REQUIRED',
+														message: `Phase ${phase} (last phase) cannot be completed: final council evidence is missing plan_id binding. Re-run the final council to generate evidence with plan identity.`,
+														agentsDispatched,
+														agentsMissing: [],
+														warnings: [],
+													},
+													null,
+													2,
+												);
+											}
+										}
+
+										if (
+											entry.verdict === 'rejected' ||
+											entry.verdict === 'REJECTED'
+										) {
+											return JSON.stringify(
+												{
+													success: false,
+													phase,
+													status: 'blocked' as const,
+													reason: 'FINAL_COUNCIL_REJECTED',
+													message: `Phase ${phase} (last phase) cannot be completed: final council returned verdict 'REJECTED'. Address the required fixes before completing the project.`,
+													agentsDispatched,
+													agentsMissing: [],
+													warnings: [],
+												},
+												null,
+												2,
+											);
+										}
+
+										if (
+											entry.verdict !== 'approved' &&
+											entry.verdict !== 'APPROVED'
+										) {
+											return JSON.stringify(
+												{
+													success: false,
+													phase,
+													status: 'blocked' as const,
+													reason: 'FINAL_COUNCIL_INVALID_VERDICT',
+													message: `Phase ${phase} (last phase) cannot be completed: final council evidence contains unrecognized verdict '${entry.verdict}'. Expected 'approved'.`,
+													agentsDispatched,
+													agentsMissing: [],
+													warnings: [],
+												},
+												null,
+												2,
+											);
+										}
+									}
+								}
+							} catch (readErr) {
+								if ((readErr as NodeJS.ErrnoException).code !== 'ENOENT') {
+									safeWarn(
+										`[phase_complete] Final council evidence unreadable:`,
+										readErr,
+									);
+								}
+								fcVerdictFound = false;
+							}
+
+							if (!fcVerdictFound) {
+								return JSON.stringify(
+									{
+										success: false,
+										phase,
+										status: 'blocked' as const,
+										reason: 'FINAL_COUNCIL_REQUIRED',
+										final_council_required: true,
+										message: `Phase ${phase} (last phase) cannot be completed: final_council is enabled and final council evidence not found at .swarm/evidence/final-council.json. Convene a final holistic council (use convene_general_council with mode 'general') and call write_final_council_evidence to persist the verdict before completing the project.`,
+										agentsDispatched,
+										agentsMissing: [],
+										warnings: [
+											`Final council required — convene a holistic project review using convene_general_council, then call write_final_council_evidence to persist the verdict.`,
+										],
+									},
+									null,
+									2,
+								);
+							}
+						}
+					}
+				}
+			}
+		} catch (fcError) {
+			if (finalCouncilEnabled) {
+				// Fail-closed: final council gate errors block phase completion
+				warnings.push(`FINAL_COUNCIL_ERROR: ${String(fcError)}`);
+				return JSON.stringify(
+					{
+						success: false,
+						phase,
+						status: 'blocked' as const,
+						reason: 'FINAL_COUNCIL_ERROR',
+						message: `Phase ${phase} (last phase) cannot be completed: final council gate encountered an error. Error: ${String(fcError)}`,
+						agentsDispatched,
+						agentsMissing: [],
+						warnings: [`FINAL_COUNCIL_ERROR: ${String(fcError)}`],
+					},
+					null,
+					2,
+				);
+			} else {
+				safeWarn(
+					`[phase_complete] Final council gate error (non-blocking):`,
+					fcError,
 				);
 			}
 		}

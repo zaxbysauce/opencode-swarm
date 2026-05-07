@@ -2,7 +2,7 @@
  * QA gate hardening tests.
  *
  * Covers the additions from the QA gate hardening rollout:
- * 1. council_general_review as the 9th QA gate (default OFF, ratchet-tighter, persistence)
+ * 1. council_general_review as the 9th and final_council as the 11th QA gate (default OFF, ratchet-tighter, persistence)
  * 2. Behavioral guidance markup is rendered into the architect prompt for SPECIFY,
  *    BRAINSTORM, and PLAN inline gate-selection paths.
  * 3. save_plan blocks with QA_GATE_SELECTION_REQUIRED when context.md has no
@@ -52,8 +52,8 @@ describe('council_general_review gate', () => {
 		expect(DEFAULT_QA_GATES.council_general_review).toBe(false);
 	});
 
-	test('DEFAULT_QA_GATES has exactly ten fields', () => {
-		expect(Object.keys(DEFAULT_QA_GATES).length).toBe(10);
+	test('DEFAULT_QA_GATES has exactly eleven fields', () => {
+		expect(Object.keys(DEFAULT_QA_GATES).length).toBe(11);
 	});
 
 	test('setGates persists council_general_review = true', () => {
@@ -98,22 +98,22 @@ describe('council_general_review gate', () => {
 });
 
 describe('buildQaGateSelectionDialogue text', () => {
-	test('SPECIFY mode includes ten gates and council_general_review', () => {
+	test('SPECIFY mode includes eleven gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('SPECIFY');
-		expect(text).toContain('ten gates');
+		expect(text).toContain('eleven gates');
 		expect(text).toContain('council_general_review');
 		expect(text).not.toContain('Present the nine gates');
 	});
 
-	test('BRAINSTORM mode includes ten gates and council_general_review', () => {
+	test('BRAINSTORM mode includes eleven gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('BRAINSTORM');
-		expect(text).toContain('ten gates');
+		expect(text).toContain('eleven gates');
 		expect(text).toContain('council_general_review');
 	});
 
-	test('PLAN mode includes ten gates and council_general_review', () => {
+	test('PLAN mode includes eleven gates and council_general_review', () => {
 		const text = buildQaGateSelectionDialogue('PLAN');
-		expect(text).toContain('ten gates');
+		expect(text).toContain('eleven gates');
 		expect(text).toContain('council_general_review');
 	});
 });
@@ -141,6 +141,14 @@ describe('Architect prompt behavioral guidance markers', () => {
 		// template block — both must list council_general_review with the placeholder.
 		const bulletMatches = renderedPrompt.match(
 			/- council_general_review: <true\|false>/g,
+		);
+		expect(bulletMatches).not.toBeNull();
+		expect(bulletMatches!.length).toBeGreaterThanOrEqual(2);
+	});
+
+	test('Pending QA Gate Selection template includes final_council', () => {
+		const bulletMatches = renderedPrompt.match(
+			/- final_council: <true\|false>/g,
 		);
 		expect(bulletMatches).not.toBeNull();
 		expect(bulletMatches!.length).toBeGreaterThanOrEqual(2);
@@ -244,6 +252,7 @@ describe('qa-gates command ALL_GATE_NAMES includes council_general_review', () =
 			'utf8',
 		);
 		expect(src).toContain("'council_general_review',");
+		expect(src).toContain("'final_council',");
 		expect(typeof handleQaGatesCommand).toBe('function');
 	});
 });

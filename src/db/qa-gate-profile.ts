@@ -31,7 +31,7 @@ export const _internals: {
 };
 
 /**
- * QA gate flags. All ten gates are tracked explicitly.
+ * QA gate flags. All eleven gates are tracked explicitly.
  */
 export interface QaGates {
 	reviewer: boolean;
@@ -44,6 +44,7 @@ export interface QaGates {
 	mutation_test: boolean;
 	council_general_review: boolean;
 	drift_check: boolean;
+	final_council: boolean;
 }
 
 /**
@@ -60,6 +61,7 @@ export const DEFAULT_QA_GATES: QaGates = {
 	mutation_test: false,
 	council_general_review: false,
 	drift_check: true,
+	final_council: false,
 };
 
 /**
