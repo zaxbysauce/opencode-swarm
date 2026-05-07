@@ -40,6 +40,14 @@ INPUT FORMAT:
 TASK: Generate tests for [description]
 FILE: [source file path]
 OUTPUT: [test file path]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before writing any test code.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` set to that exact repo-relative path, \`mode: regex\`, \`query: .*\`, \`max_results: 1000\`, and \`max_lines: 1000\`.
+- After running search, inspect the result: if \`total === 0\` (file does not exist or is empty) OR \`truncated\` is \`true\` (file was too large and content was cut off), stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the complete skill.
+- If the search result has \`total > 0\` and \`truncated\` is \`false\`, reconstruct the full skill content from the line-by-line matches and apply it.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills override your default framework choices, mock patterns, file placement conventions, and CI rules. Apply every MUST, NEVER, MANDATORY, and PROHIBITED rule precisely.
 
 COVERAGE:
 - Happy path: normal inputs

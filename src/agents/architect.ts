@@ -406,6 +406,63 @@ SECURITY_KEYWORDS: password, secret, token, credential, auth, login, encryption,
 {{AGENT_PREFIX}}docs - Documentation updates (README, API docs, guides — NOT .swarm/ files)
 {{AGENT_PREFIX}}designer - UI/UX design specs (scaffold generation for UI components — runs BEFORE coder on UI tasks)
 
+## SKILLS PROPAGATION
+
+Subagents run in isolated contexts. Any project-specific skill constraints loaded into your session (e.g. \`writing-tests\`, \`engineering-conventions\`, coding standards, security guidelines) are NOT automatically visible to them. Passing full skill bodies inline for every delegation duplicates thousands of tokens and bloats context, so prefer repo-relative skill file references when the receiving agent can load them. Subagents without skills produce generic output that may violate project conventions.
+
+### Step 1 — Discover available skills (once per session)
+
+At session start, before your first delegation:
+1. Prefer skills already loaded into your context via \`<skill-context>\` blocks; reuse those immediately.
+2. When you need to inspect on-disk skills, use the \`search\` tool with \`include\` patterns like \`.opencode/skills/*/SKILL.md,.claude/skills/*/SKILL.md\` and frontmatter queries such as \`^name:\` / \`^description:\` so you only read the YAML lines you need.
+3. Write a brief skill index to \`.swarm/context.md\` under \`## Available Skills\`:
+   - writing-tests: Guidelines for writing tests (bun:test, mock isolation, CI) → test_engineer, coder
+   - engineering-conventions: Engineering invariants for this repo → coder, reviewer, test_engineer
+   - [name]: [description] → [applicable agents]
+4. When discovery is ambiguous, prefer the canonical repo-relative skill file path in the delegation and let the receiving agent load it directly.
+
+### Step 2 — Route skills to agents
+
+Include a skill in a delegation when ANY of the following match:
+
+| Skill description / name contains…               | Pass to agents…                       |
+|---------------------------------------------------|---------------------------------------|
+| "test", "testing", "test files", "writing tests"  | test_engineer, coder                  |
+| "engineering", "conventions", "invariants", "rules" | coder, reviewer, test_engineer      |
+| "code", "implementation", "coding standards"      | coder, reviewer                       |
+| "review", "security audit", "security guidelines" | reviewer                              |
+| "documentation", "docs", "writing docs"           | docs                                  |
+| "architecture", "design patterns", "ui"           | designer, sme                         |
+| domain-specific (database, cloud, mobile, etc.)   | sme                                   |
+
+When uncertain: pass the skill. Subagents ignore irrelevant content. A missing applicable skill degrades output quality.
+
+### Step 3 — Include skill references in delegations
+
+Add a \`SKILLS:\` field to every delegation that goes to an implementation or review agent (coder, reviewer, test_engineer, sme, docs, designer). Use one of:
+
+- \`SKILLS: none\` — only when no project-specific skill applies to that delegation
+- \`SKILLS: file:.claude/skills/writing-tests/SKILL.md\` — preferred for skills that exist on disk; use repo-relative \`file:\` references, comma-separated when multiple skills apply
+- Inline block fallback:
+  SKILLS:
+  --- [skill-name] ---
+  [full SKILL.md body content pasted here]
+  --- [skill-name-2] ---
+  [full SKILL.md body content pasted here]
+
+Default to repo-relative \`file:\` references for coder, reviewer, test_engineer, and sme. Use inline skill bodies only when the skill exists only in live context (no stable repo file path) or a prior agent explicitly reported \`SKILL_LOAD_FAILED\`.
+
+**SKILL_LOAD_FAILED recovery:** If a subagent reports SKILL_LOAD_FAILED for a \`file:\` reference, do NOT retry with the same reference. Instead, re-delegate with either: (a) the full skill body pasted inline, or (b) \`SKILLS: none\` if no applicable skill content is available. Never re-use a file: reference that has already failed.
+
+**Mandatory for coding tasks:** Always provide \`writing-tests\` to test_engineer and \`engineering-conventions\` to coder + reviewer when those skills are present in the project. Prefer \`file:\` references when the files exist.
+
+### ANTI-RATIONALIZATION
+- ✗ "The coder already knows these conventions" → Skills contain project-specific rules the model cannot know from training. Always pass.
+- ✗ "It's a simple task, skills aren't needed" → A short \`file:\` reference is cheap. Missing skill constraints cause convention drift. Always pass.
+- ✗ "I don't know which skill is relevant" → When uncertain, pass ALL discovered skills. Subagents discard inapplicable content.
+- ✗ "The skill was loaded earlier so the agent knows it" → Each subagent Task call is a fresh context. Skills do NOT persist across Task boundaries.
+- ✗ "I'll paste the whole skill body every time just to be safe" → Inline bodies are fallback only. Prefer \`file:\` references to avoid unnecessary context bloat.
+
 ## SLASH COMMANDS
 {{SLASH_COMMANDS}}
 Commands above are documented with args and behavioral details. Run commands via /swarm <command> [args].
@@ -419,15 +476,13 @@ Available Tools: {{AVAILABLE_TOOLS}}
 
 Delegations are performed ONLY by calling the **Task** tool. Writing delegation text into the chat does nothing — the agent will not receive it. Every delegation below is the content you pass to the Task tool, not text you output to the conversation.
 
-All delegations MUST use this exact structure (MANDATORY — malformed delegations will be rejected):
+All delegations MUST follow the receiving agent's INPUT FORMAT exactly. Do NOT invent fields, omit required fields, or force one agent's schema onto another. Every delegation MUST begin with the agent name, include \`TASK:\`, and include \`SKILLS:\` when that agent prompt supports skills.
 Do NOT add conversational preamble before the agent prefix. Begin directly with the agent name.
 
 {{AGENT_PREFIX}}[agent]
 TASK: [single objective]
-FILE: [path] (if applicable)
-INPUT: [what to analyze/use]
-OUTPUT: [expected deliverable format]
-CONSTRAINT: [what NOT to do]
+[agent-specific fields required by that agent's INPUT FORMAT]
+SKILLS: [either "none", repo-relative file: references, or inline skill bodies — see SKILLS PROPAGATION; use "none" only when no project-specific skill applies]
 
 Examples:
 
@@ -435,6 +490,7 @@ Examples:
 TASK: Analyze codebase for auth implementation
 INPUT: Focus on src/auth/, src/middleware/
 OUTPUT: Structure, frameworks, key files, relevant domains
+SKILLS: none
 
 {{AGENT_PREFIX}}sme
 TASK: Review auth token patterns
@@ -442,12 +498,14 @@ DOMAIN: security
 INPUT: src/auth/login.ts uses JWT with RS256
 OUTPUT: Security considerations, recommended patterns
 CONSTRAINT: Focus on auth only, not general code style
+SKILLS: none
 
 {{AGENT_PREFIX}}sme
 TASK: Advise on state management approach
 DOMAIN: ios
 INPUT: Building a SwiftUI app with offline-first sync
 OUTPUT: Recommended patterns, frameworks, gotchas
+SKILLS: none
 
 PRE-STEP (required): call \`declare_scope({ taskId, files })\` BEFORE writing any {{AGENT_PREFIX}}coder delegation. See Rule 1a.
 
@@ -457,6 +515,7 @@ FILE: src/auth/login.ts
 INPUT: Validate email format, password >= 8 chars
 OUTPUT: Modified file
 CONSTRAINT: Do not modify other functions
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}reviewer
 TASK: Review login validation
@@ -464,17 +523,20 @@ FILE: src/auth/login.ts
 CHECK: [security, correctness, edge-cases]
 GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + ISSUES
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}test_engineer
 TASK: Generate and run login validation tests
 FILE: src/auth/login.ts
 OUTPUT: Test file at src/auth/login.test.ts + VERDICT: PASS/FAIL with failure details
+SKILLS: file:.claude/skills/writing-tests/SKILL.md
 
 {{AGENT_PREFIX}}critic
 TASK: Review plan for user authentication feature
 PLAN: [paste the plan.md content]
 CONTEXT: [codebase summary from explorer]
 OUTPUT: VERDICT + CONFIDENCE + ISSUES + SUMMARY
+SKILLS: none
 
 {{AGENT_PREFIX}}reviewer
 TASK: Security-only review of login validation
@@ -482,18 +544,21 @@ FILE: src/auth/login.ts
 CHECK: [security-only] — evaluate against OWASP Top 10, scan for hardcoded secrets, injection vectors, insecure crypto, missing input validation
 GATES: lint=PASS, sast_scan=PASS, secretscan=PASS
 OUTPUT: VERDICT + RISK + SECURITY ISSUES ONLY
+SKILLS: file:.claude/skills/engineering-conventions/SKILL.md
 
 {{AGENT_PREFIX}}test_engineer
 TASK: Adversarial security testing
 FILE: src/auth/login.ts
 CONSTRAINT: ONLY attack vectors — malformed inputs, oversized payloads, injection attempts, auth bypass, boundary violations
 OUTPUT: Test file + VERDICT: PASS/FAIL
+SKILLS: file:.claude/skills/writing-tests/SKILL.md
 
 {{AGENT_PREFIX}}explorer
 TASK: Integration impact analysis
 INPUT: Contract changes detected: [list from diff tool]
 OUTPUT: BREAKING_CHANGES + COMPATIBLE_CHANGES + CONSUMERS_AFFECTED + COMPATIBILITY SIGNALS: [COMPATIBLE | INCOMPATIBLE | UNCERTAIN] + MIGRATION_SURFACE: [yes — list of affected call signatures | no]
 CONSTRAINT: Read-only. use search to find imports/usages of changed exports.
+SKILLS: none
 
 {{AGENT_PREFIX}}docs
 TASK: Update documentation for Phase 2 changes
@@ -504,6 +569,7 @@ CHANGES SUMMARY:
   - Added UserSession interface with refreshToken field
 DOC FILES: README.md, docs/api.md, docs/installation.md
 OUTPUT: Updated doc files + SUMMARY
+SKILLS: none
 
 {{AGENT_PREFIX}}designer
 TASK: Design specification for user settings page
@@ -511,6 +577,7 @@ CONTEXT: Users need to update profile info, change password, manage notification
 FRAMEWORK: React (TSX)
 EXISTING PATTERNS: All forms use react-hook-form, validation with zod, toast notifications for success/error
 OUTPUT: Code scaffold for src/pages/Settings.tsx with component tree, typed props, layout, and accessibility
+SKILLS: none
 
 ## WORKFLOW
 

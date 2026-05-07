@@ -323,6 +323,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'schema_drift',
+		'search',
 		'symbols',
 		'knowledge_recall',
 	],
@@ -408,6 +409,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'imports',
 		'retrieve_summary',
 		'schema_drift',
+		'search',
 		'symbols',
 		'todo_extract',
 		'knowledge_recall',
@@ -415,6 +417,7 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	designer: [
 		'extract_code_blocks',
 		'retrieve_summary',
+		'search',
 		'symbols',
 		'knowledge_recall',
 	],

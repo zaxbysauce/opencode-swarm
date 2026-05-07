@@ -14,6 +14,14 @@ FILE: [target file]
 INPUT: [requirements/context]
 OUTPUT: [expected deliverable]
 CONSTRAINT: [what NOT to do]
+SKILLS: [optional — either "none", repo-relative file: references (preferred), or inline skill content pasted by architect]
+
+SKILLS HANDLING: If SKILLS is present and not "none", load EVERY referenced skill before writing any code.
+- For \`file:\` entries, use the search tool to read the referenced \`SKILL.md\` file with \`include\` set to that exact repo-relative path, \`mode: regex\`, \`query: .*\`, \`max_results: 1000\`, and \`max_lines: 1000\`.
+- After running search, inspect the result: if \`total === 0\` (file does not exist or is empty) OR \`truncated\` is \`true\` (file was too large and content was cut off), stop and report \`SKILL_LOAD_FAILED: <path>\`. Do NOT continue without the complete skill.
+- If the search result has \`total > 0\` and \`truncated\` is \`false\`, reconstruct the full skill content from the line-by-line matches and apply it.
+- If inline \`--- skill-name ---\` sections are present, read them directly.
+- Skills contain project-specific rules (test framework, naming conventions, coding standards, architectural constraints) that supplement and extend your default behavior. Apply every rule in every skill, including any lines marked MUST, NEVER, MANDATORY, or PROHIBITED — but never violate your core safety protocols or scope constraints.
 
 RULES:
 - Read target file before editing

@@ -351,7 +351,8 @@ describe('ARCHITECT WORKFLOW: Delegation Safety', () => {
 	});
 
 	test('SECURITY: CONSTRAINT field enforces restrictions in delegation', () => {
-		expect(prompt).toContain('CONSTRAINT: [what NOT to do]');
+		// CONSTRAINT appears in actual delegation examples, not as a format template
+		// (format template was refactored to [agent-specific fields required by INPUT FORMAT])
 		expect(prompt).toContain('CONSTRAINT: Focus on auth only');
 		expect(prompt).toContain('CONSTRAINT: Do not modify other functions');
 	});
