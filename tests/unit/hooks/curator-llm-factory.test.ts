@@ -457,32 +457,37 @@ describe('createCuratorLLMDelegate', () => {
 		expect(result).toBe('final answer');
 	});
 
-	test('NotFoundError from prompt is converted to CURATOR_LLM_TIMEOUT when signal is aborted', async () => {
-		// Regression test: when an AbortController fires (timeout), the abort
-		// handler deletes the ephemeral session. session.prompt() then throws
-		// a NotFoundError. Without the fix this becomes an unhandled rejection
-		// rather than a clean CURATOR_LLM_TIMEOUT.
+	test('NotFoundError from prompt is converted to CURATOR_LLM_TIMEOUT when signal aborts during prompt', async () => {
+		// Regression test: when an AbortController fires (timeout) while
+		// session.prompt() is in flight, the abort handler deletes the
+		// ephemeral session and session.prompt() throws NotFoundError.
+		// Without the fix this becomes an unhandled rejection rather than a
+		// clean CURATOR_LLM_TIMEOUT. This test exercises the NEW catch block
+		// added around session.prompt(), not the existing pre-abort early check.
 		(swarmState as { opencodeClient: unknown }).opencodeClient = mockClient;
 		(swarmState as { curatorInitAgentNames: string[] }).curatorInitAgentNames =
 			['curator_init'];
 		mockCreate.mockResolvedValue({ data: { id: 'sess-abort' } });
 
 		const ac = new AbortController();
-		// Simulate: abort fires, then session.prompt() throws NotFoundError
+		// Simulate: the abort fires DURING prompt execution, then the SDK
+		// throws NotFoundError because the session was deleted by cleanup.
 		mockPrompt.mockImplementation(async () => {
-			// Mimic what happens: abort already fired and session was deleted
+			// Abort happens mid-flight (abort handler fires, deletes session)
+			ac.abort();
 			const err = new Error('Session not found: sess-abort');
 			err.name = 'NotFoundError';
 			throw err;
 		});
 
-		// Pre-abort the signal so it is already aborted when delegate runs
-		ac.abort();
-
+		// Signal is NOT pre-aborted; it aborts inside mockPrompt above.
 		const delegate = createCuratorLLMDelegate('/tmp/test')!;
 		await expect(delegate('SYS', 'input', ac.signal)).rejects.toThrow(
 			'CURATOR_LLM_TIMEOUT',
 		);
+		// session.create() and session.prompt() must both have been called
+		expect(mockCreate).toHaveBeenCalledTimes(1);
+		expect(mockPrompt).toHaveBeenCalledTimes(1);
 	});
 
 	test('non-abort NotFoundError from prompt is re-thrown unchanged', async () => {
