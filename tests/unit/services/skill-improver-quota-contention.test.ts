@@ -88,4 +88,29 @@ describe('reserveQuota — stuck-holder timeout', () => {
 		expect(r.allowed).toBe(true);
 		expect(r.state.calls_used).toBe(1);
 	}, 10_000);
+
+	it('actually serialises 6 reservers waiting on a held lock (stress test)', async () => {
+		const dir = path.join(tmp, '.swarm');
+		// Hold the lock so all reservers must wait
+		const release = await lockfile.lock(dir, {
+			stale: 60_000,
+			realpath: true,
+		});
+		const N = 6;
+		const reservers = Array.from({ length: N }, () =>
+			reserveQuota(tmp, { nCalls: 1, maxCalls: N, window: 'utc' }),
+		);
+		// Give them a moment to start contending, then release the holder
+		await new Promise((r) => setTimeout(r, 200));
+		await release();
+		const results = await Promise.all(reservers);
+		const allowed = results.filter((r) => r.allowed).length;
+		expect(allowed).toBe(N);
+		// No lost updates — the maximum calls_used across all observed states
+		// equals the number of allowed reservations.
+		const finalUsed = results
+			.map((r) => r.state.calls_used)
+			.reduce((a, b) => Math.max(a, b), 0);
+		expect(finalUsed).toBe(N);
+	}, 15_000);
 });

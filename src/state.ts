@@ -1632,6 +1632,13 @@ export function setCriticalShownIds(
 	}
 }
 
+/** Clear the critical shown ids for a session. Centralised so call sites do
+ *  not bypass the FIFO-cap pathway with a direct `.delete()`. Returns
+ *  whether an entry was removed. */
+export function clearCriticalShownIds(sessionID: string): boolean {
+	return swarmState.currentCriticalShownIds.delete(sessionID);
+}
+
 /** Add a knowledge ack dedup key, FIFO-evicting the oldest if the cap is
  * exceeded. Sets preserve insertion order in JS. */
 export function addKnowledgeAckDedup(key: string): void {

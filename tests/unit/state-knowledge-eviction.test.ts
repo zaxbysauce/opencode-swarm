@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
 	addKnowledgeAckDedup,
+	clearCriticalShownIds,
 	MAX_TRACKED_CRITICAL_SHOWN,
 	MAX_TRACKED_KNOWLEDGE_ACKS,
 	resetSwarmState,
@@ -64,6 +65,34 @@ describe('setCriticalShownIds — FIFO cap', () => {
 		setCriticalShownIds('s-new', { ids: ['x'], generatedAt: 10000 });
 		expect(swarmState.currentCriticalShownIds.has('s-1')).toBe(false);
 		expect(swarmState.currentCriticalShownIds.has('s-0')).toBe(true);
+	});
+});
+
+describe('clearCriticalShownIds', () => {
+	it('removes an entry and reports the prior presence', () => {
+		setCriticalShownIds('s-x', { ids: ['1'], generatedAt: 1 });
+		expect(clearCriticalShownIds('s-x')).toBe(true);
+		expect(swarmState.currentCriticalShownIds.has('s-x')).toBe(false);
+		expect(clearCriticalShownIds('s-x')).toBe(false);
+	});
+
+	it('does not break the cap when interleaved with set+clear', () => {
+		// Fill to MAX
+		for (let i = 0; i < MAX_TRACKED_CRITICAL_SHOWN; i++) {
+			setCriticalShownIds(`s-${i}`, { ids: [`id-${i}`], generatedAt: i });
+		}
+		// Clear half via the helper
+		for (let i = 0; i < 100; i++) clearCriticalShownIds(`s-${i}`);
+		expect(swarmState.currentCriticalShownIds.size).toBe(
+			MAX_TRACKED_CRITICAL_SHOWN - 100,
+		);
+		// Re-fill — we should never exceed the cap
+		for (let i = 0; i < 200; i++) {
+			setCriticalShownIds(`new-${i}`, { ids: [`id-${i}`], generatedAt: i });
+		}
+		expect(swarmState.currentCriticalShownIds.size).toBeLessThanOrEqual(
+			MAX_TRACKED_CRITICAL_SHOWN,
+		);
 	});
 });
 

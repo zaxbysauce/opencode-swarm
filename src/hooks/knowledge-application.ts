@@ -117,8 +117,17 @@ async function bumpCountersBatch(
 	const filteredBumps = bumps.filter((b) => b.ids.length > 0);
 	if (filteredBumps.length === 0) return;
 
-	const allIds = new Set<string>();
-	for (const b of filteredBumps) for (const id of b.ids) allIds.add(id);
+	// Pre-build an id → fields[] map so the per-entry inner loop is O(fields)
+	// instead of O(bumps × ids_per_bump) (.includes on each entry would be
+	// quadratic for large ids arrays — see PR #799 critic review).
+	const idToFields = new Map<string, CounterField[]>();
+	for (const b of filteredBumps) {
+		for (const id of b.ids) {
+			const list = idToFields.get(id);
+			if (list) list.push(b.field);
+			else idToFields.set(id, [b.field]);
+		}
+	}
 
 	const now = new Date().toISOString();
 	const applyOne = <T extends SwarmKnowledgeEntry | HiveKnowledgeEntry>(
@@ -126,15 +135,15 @@ async function bumpCountersBatch(
 	): boolean => {
 		let updated = false;
 		for (const e of entries) {
-			if (!allIds.has(e.id)) continue;
+			const fields = idToFields.get(e.id);
+			if (!fields) continue;
 			const ro = e.retrieval_outcomes as unknown as Record<string, unknown>;
-			for (const b of filteredBumps) {
-				if (!b.ids.includes(e.id)) continue;
-				ro[b.field] = ((ro[b.field] as number) ?? 0) + 1;
-				if (b.field === 'applied_explicit_count') {
+			for (const field of fields) {
+				ro[field] = ((ro[field] as number) ?? 0) + 1;
+				if (field === 'applied_explicit_count') {
 					(e as { last_applied_at?: string }).last_applied_at = now;
 				}
-				if (b.field === 'acknowledged_count') {
+				if (field === 'acknowledged_count') {
 					(e as { last_acknowledged_at?: string }).last_acknowledged_at = now;
 				}
 				updated = true;

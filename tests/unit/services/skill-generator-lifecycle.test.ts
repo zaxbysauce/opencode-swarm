@@ -154,6 +154,30 @@ describe('parseDraftFrontmatter', () => {
 		expect(fm!.name).toBe('empty-ids');
 		expect(fm!.sourceKnowledgeIds).toEqual([]);
 	});
+
+	it('accepts a leading UTF-8 BOM on the file', () => {
+		const md = `﻿---\nname: bom\nstatus: draft\n---\nbody\n`;
+		const fm = parseDraftFrontmatter(md);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('bom');
+		expect(fm!.status).toBe('draft');
+	});
+
+	it('accepts trailing whitespace on opening and closing fence lines', () => {
+		const md = '---  \nname: trailing-ws\nstatus: draft\n--- \t\nbody\n';
+		const fm = parseDraftFrontmatter(md);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('trailing-ws');
+		expect(fm!.status).toBe('draft');
+	});
+
+	it('accepts a CRLF file with BOM and trailing-space fences', () => {
+		const md = '﻿---  \r\nname: bom-crlf\r\nstatus: active\r\n--- \r\nbody\r\n';
+		const fm = parseDraftFrontmatter(md);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('bom-crlf');
+		expect(fm!.status).toBe('active');
+	});
 });
 
 describe('activateProposal stamps source knowledge entries', () => {

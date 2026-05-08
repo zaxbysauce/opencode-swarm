@@ -26596,6 +26596,7 @@ __export(exports_state, {
   ensureAgentSession: () => ensureAgentSession,
   endAgentSession: () => endAgentSession,
   defaultRunContext: () => defaultRunContext,
+  clearCriticalShownIds: () => clearCriticalShownIds,
   buildRehydrationCache: () => buildRehydrationCache,
   beginInvocation: () => beginInvocation,
   applyRehydrationCache: () => applyRehydrationCache,
@@ -27271,6 +27272,9 @@ function setCriticalShownIds(sessionID, value) {
       map2.delete(oldest);
     }
   }
+}
+function clearCriticalShownIds(sessionID) {
+  return swarmState.currentCriticalShownIds.delete(sessionID);
 }
 function addKnowledgeAckDedup(key) {
   const set2 = swarmState.knowledgeAckDedup;
@@ -42654,17 +42658,16 @@ async function stampSourceEntries(directory, slug, ids) {
     await rewriteKnowledge(hivePath, hive);
 }
 function parseDraftFrontmatter(content) {
-  if (!content.startsWith(`---
-`) && !content.startsWith(`---\r
-`))
+  const stripped = content.charCodeAt(0) === 65279 ? content.slice(1) : content;
+  const openFence = stripped.match(/^---[ \t]*\r?\n/);
+  if (!openFence)
     return null;
-  const fenceLen = content.startsWith(`---\r
-`) ? 5 : 4;
-  const end = content.indexOf(`
----`, fenceLen);
-  if (end < 0)
+  const fenceLen = openFence[0].length;
+  const closeFence = stripped.slice(fenceLen).match(/\n---[ \t]*(\r?\n|$)/);
+  if (!closeFence)
     return null;
-  const body2 = content.slice(fenceLen, end).replace(/\r\n/g, `
+  const closeStart = fenceLen + (closeFence.index ?? 0);
+  const body2 = stripped.slice(fenceLen, closeStart).replace(/\r\n/g, `
 `);
   const lines = body2.split(`
 `);
@@ -77700,25 +77703,30 @@ async function bumpCountersBatch(directory, bumps) {
   const filteredBumps = bumps.filter((b) => b.ids.length > 0);
   if (filteredBumps.length === 0)
     return;
-  const allIds = new Set;
-  for (const b of filteredBumps)
-    for (const id of b.ids)
-      allIds.add(id);
+  const idToFields = new Map;
+  for (const b of filteredBumps) {
+    for (const id of b.ids) {
+      const list = idToFields.get(id);
+      if (list)
+        list.push(b.field);
+      else
+        idToFields.set(id, [b.field]);
+    }
+  }
   const now = new Date().toISOString();
   const applyOne = (entries) => {
     let updated = false;
     for (const e of entries) {
-      if (!allIds.has(e.id))
+      const fields = idToFields.get(e.id);
+      if (!fields)
         continue;
       const ro = e.retrieval_outcomes;
-      for (const b of filteredBumps) {
-        if (!b.ids.includes(e.id))
-          continue;
-        ro[b.field] = (ro[b.field] ?? 0) + 1;
-        if (b.field === "applied_explicit_count") {
+      for (const field of fields) {
+        ro[field] = (ro[field] ?? 0) + 1;
+        if (field === "applied_explicit_count") {
           e.last_applied_at = now;
         }
-        if (b.field === "acknowledged_count") {
+        if (field === "acknowledged_count") {
           e.last_acknowledged_at = now;
         }
         updated = true;
@@ -78328,7 +78336,7 @@ ${freshPreamble}` : `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
           generatedAt: Date.now()
         });
       } else {
-        swarmState.currentCriticalShownIds.delete(sessionID);
+        clearCriticalShownIds(sessionID);
       }
     }
     if (cachedShownIds.length > 0) {

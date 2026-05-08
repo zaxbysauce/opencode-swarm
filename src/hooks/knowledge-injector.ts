@@ -10,7 +10,11 @@ import { createHash } from 'node:crypto';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { getCurrentTaskId, loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
-import { setCriticalShownIds, swarmState } from '../state.js';
+import {
+	clearCriticalShownIds,
+	setCriticalShownIds,
+	swarmState,
+} from '../state.js';
 import { warn } from '../utils/logger.js';
 import {
 	buildDriftInjectionText,
@@ -516,7 +520,7 @@ export function createKnowledgeInjectorHook(
 					});
 				} else {
 					// Clear stale critical-set when no criticals were injected this turn
-					swarmState.currentCriticalShownIds.delete(sessionID);
+					clearCriticalShownIds(sessionID);
 				}
 			}
 

@@ -108,17 +108,40 @@ describe('knowledgeApplicationGateBefore', () => {
 		).rejects.toThrow(/KNOWLEDGE_ENFORCE_GATE_DENY.*missing sessionID/);
 	});
 
-	it('returns silently in warn mode when sessionID is missing', async () => {
+	it('throws in enforce mode when sessionID is an empty string', async () => {
 		swarmState.currentCriticalShownIds.set('s1', {
 			ids: [ID_A],
 			generatedAt: Date.now(),
 		});
+		await expect(
+			knowledgeApplicationGateBefore(
+				tmp,
+				{ tool: 'save_plan', agent: 'architect', sessionID: '' },
+				{ ...DEFAULT_KNOWLEDGE_APPLICATION_CONFIG, mode: 'enforce' },
+			),
+		).rejects.toThrow(/KNOWLEDGE_ENFORCE_GATE_DENY.*missing sessionID/);
+	});
+
+	it('returns silently in warn mode when sessionID is missing AND writes no event', async () => {
+		swarmState.currentCriticalShownIds.set('s1', {
+			ids: [ID_A],
+			generatedAt: Date.now(),
+		});
+		await mkdir(path.join(tmp, '.swarm'), { recursive: true });
 		await knowledgeApplicationGateBefore(
 			tmp,
 			{ tool: 'save_plan', agent: 'architect' },
 			{ ...DEFAULT_KNOWLEDGE_APPLICATION_CONFIG, mode: 'warn' },
 		);
-		// no throw, no event recorded (we cannot attribute to a session)
+		// give any fire-and-forget write a moment to land
+		await new Promise((r) => setTimeout(r, 30));
+		const eventsPath = path.join(tmp, '.swarm', 'events.jsonl');
+		// Either the file does not exist OR it does not contain an entry
+		// attributing this gate event to an unknown session.
+		if (existsSync(eventsPath)) {
+			const lines = readFileSync(eventsPath, 'utf-8').trim();
+			expect(lines).toBe('');
+		}
 	});
 
 	it('warn mode does not throw and writes events.jsonl', async () => {

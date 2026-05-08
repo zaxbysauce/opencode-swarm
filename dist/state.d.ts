@@ -547,6 +547,10 @@ export declare function setCriticalShownIds(sessionID: string, value: {
     phase?: string;
     generatedAt: number;
 }): void;
+/** Clear the critical shown ids for a session. Centralised so call sites do
+ *  not bypass the FIFO-cap pathway with a direct `.delete()`. Returns
+ *  whether an entry was removed. */
+export declare function clearCriticalShownIds(sessionID: string): boolean;
 /** Add a knowledge ack dedup key, FIFO-evicting the oldest if the cap is
  * exceeded. Sets preserve insertion order in JS. */
 export declare function addKnowledgeAckDedup(key: string): void;

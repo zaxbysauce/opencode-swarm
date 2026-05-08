@@ -502,12 +502,22 @@ async function stampSourceEntries(
 export function parseDraftFrontmatter(
 	content: string,
 ): { name?: string; status?: string; sourceKnowledgeIds: string[] } | null {
-	if (!content.startsWith('---\n') && !content.startsWith('---\r\n'))
-		return null;
-	const fenceLen = content.startsWith('---\r\n') ? 5 : 4;
-	const end = content.indexOf('\n---', fenceLen);
-	if (end < 0) return null;
-	const body = content.slice(fenceLen, end).replace(/\r\n/g, '\n');
+	// Strip optional UTF-8 BOM that some editors prepend on Windows.
+	const stripped =
+		content.charCodeAt(0) === 0xfeff ? content.slice(1) : content;
+	// Match the opening fence with optional trailing whitespace before LF / CRLF
+	// so hand-authored files with `--- \n` still parse instead of silently
+	// returning null (PR #799 critic review).
+	const openFence = stripped.match(/^---[ \t]*\r?\n/);
+	if (!openFence) return null;
+	const fenceLen = openFence[0].length;
+	// Closing fence: `\n---` followed by optional trailing whitespace and a
+	// line ending or end-of-file. Anchored search ensures the inner body
+	// is bounded correctly even with CRLF line endings.
+	const closeFence = stripped.slice(fenceLen).match(/\n---[ \t]*(\r?\n|$)/);
+	if (!closeFence) return null;
+	const closeStart = fenceLen + (closeFence.index ?? 0);
+	const body = stripped.slice(fenceLen, closeStart).replace(/\r\n/g, '\n');
 	const lines = body.split('\n');
 	const out: { name?: string; status?: string; sourceKnowledgeIds: string[] } =
 		{
