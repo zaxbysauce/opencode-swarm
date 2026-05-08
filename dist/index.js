@@ -26577,6 +26577,7 @@ __export(exports_state, {
   swarmState: () => swarmState,
   startAgentSession: () => startAgentSession,
   setSessionEnvironment: () => setSessionEnvironment,
+  setCriticalShownIds: () => setCriticalShownIds,
   resetSwarmState: () => resetSwarmState,
   rehydrateSessionFromDisk: () => rehydrateSessionFromDisk,
   recordStageBCompletion: () => recordStageBCompletion,
@@ -26600,8 +26601,11 @@ __export(exports_state, {
   applyRehydrationCache: () => applyRehydrationCache,
   advanceTaskStateAndPersist: () => advanceTaskStateAndPersist,
   advanceTaskState: () => advanceTaskState,
+  addKnowledgeAckDedup: () => addKnowledgeAckDedup,
   _resetCouncilDisagreementWarnings: () => _resetCouncilDisagreementWarnings,
   _internals: () => _internals9,
+  MAX_TRACKED_KNOWLEDGE_ACKS: () => MAX_TRACKED_KNOWLEDGE_ACKS,
+  MAX_TRACKED_CRITICAL_SHOWN: () => MAX_TRACKED_CRITICAL_SHOWN,
   AgentRunContext: () => AgentRunContext
 });
 import * as fs10 from "node:fs/promises";
@@ -27256,7 +27260,30 @@ function ensureSessionEnvironment(sessionId) {
   }).catch(() => {});
   return profile;
 }
-var _rehydrationCache = null, _councilDisagreementWarned, _toolAggregates, defaultRunContext, _runContexts, swarmState, _internals9;
+function setCriticalShownIds(sessionID, value) {
+  const map2 = swarmState.currentCriticalShownIds;
+  if (map2.has(sessionID))
+    map2.delete(sessionID);
+  map2.set(sessionID, value);
+  if (map2.size > MAX_TRACKED_CRITICAL_SHOWN) {
+    const oldest = map2.keys().next().value;
+    if (oldest !== undefined && oldest !== sessionID) {
+      map2.delete(oldest);
+    }
+  }
+}
+function addKnowledgeAckDedup(key) {
+  const set2 = swarmState.knowledgeAckDedup;
+  if (set2.has(key))
+    return;
+  set2.add(key);
+  if (set2.size > MAX_TRACKED_KNOWLEDGE_ACKS) {
+    const oldest = set2.values().next().value;
+    if (oldest !== undefined)
+      set2.delete(oldest);
+  }
+}
+var _rehydrationCache = null, _councilDisagreementWarned, _toolAggregates, defaultRunContext, _runContexts, swarmState, MAX_TRACKED_CRITICAL_SHOWN = 500, MAX_TRACKED_KNOWLEDGE_ACKS = 5000, _internals9;
 var init_state = __esm(() => {
   init_constants();
   init_plan_schema();
@@ -77669,49 +77696,49 @@ async function appendAudit(directory, record3) {
   await appendFile6(filePath, `${JSON.stringify(record3)}
 `, "utf-8");
 }
-async function bumpCounters(directory, ids, field) {
-  if (ids.length === 0)
+async function bumpCountersBatch(directory, bumps) {
+  const filteredBumps = bumps.filter((b) => b.ids.length > 0);
+  if (filteredBumps.length === 0)
     return;
-  const idSet = new Set(ids);
-  const swarmPath = resolveSwarmKnowledgePath(directory);
-  const hivePath = resolveHiveKnowledgePath();
-  let updatedSwarm = false;
-  let updatedHive = false;
+  const allIds = new Set;
+  for (const b of filteredBumps)
+    for (const id of b.ids)
+      allIds.add(id);
   const now = new Date().toISOString();
-  const swarm = await readKnowledge(swarmPath);
-  for (const e of swarm) {
-    if (!idSet.has(e.id))
-      continue;
-    const ro = e.retrieval_outcomes;
-    ro[field] = (ro[field] ?? 0) + 1;
-    if (field === "applied_explicit_count") {
-      e.last_applied_at = now;
-    }
-    if (field === "acknowledged_count") {
-      e.last_acknowledged_at = now;
-    }
-    updatedSwarm = true;
-  }
-  if (updatedSwarm)
-    await rewriteKnowledge(swarmPath, swarm);
-  if (existsSync39(hivePath)) {
-    const hive = await readKnowledge(hivePath);
-    for (const e of hive) {
-      if (!idSet.has(e.id))
+  const applyOne = (entries) => {
+    let updated = false;
+    for (const e of entries) {
+      if (!allIds.has(e.id))
         continue;
       const ro = e.retrieval_outcomes;
-      ro[field] = (ro[field] ?? 0) + 1;
-      if (field === "applied_explicit_count") {
-        e.last_applied_at = now;
+      for (const b of filteredBumps) {
+        if (!b.ids.includes(e.id))
+          continue;
+        ro[b.field] = (ro[b.field] ?? 0) + 1;
+        if (b.field === "applied_explicit_count") {
+          e.last_applied_at = now;
+        }
+        if (b.field === "acknowledged_count") {
+          e.last_acknowledged_at = now;
+        }
+        updated = true;
       }
-      if (field === "acknowledged_count") {
-        e.last_acknowledged_at = now;
-      }
-      updatedHive = true;
     }
-    if (updatedHive)
+    return updated;
+  };
+  const swarmPath = resolveSwarmKnowledgePath(directory);
+  const swarm = await readKnowledge(swarmPath);
+  if (applyOne(swarm))
+    await rewriteKnowledge(swarmPath, swarm);
+  const hivePath = resolveHiveKnowledgePath();
+  if (existsSync39(hivePath)) {
+    const hive = await readKnowledge(hivePath);
+    if (applyOne(hive))
       await rewriteKnowledge(hivePath, hive);
   }
+}
+async function bumpCounters(directory, ids, field) {
+  return bumpCountersBatch(directory, [{ ids, field }]);
 }
 async function recordKnowledgeShown(directory, ids, ctx) {
   if (ids.length === 0)
@@ -77752,8 +77779,10 @@ async function recordAcknowledgment(directory, ack, ctx) {
       reason: ack.reason
     });
     const field = result === "applied" ? "applied_explicit_count" : result === "ignored" ? "ignored_count" : "violated_count";
-    await bumpCounters(directory, [ack.id], field);
-    await bumpCounters(directory, [ack.id], "acknowledged_count");
+    await bumpCountersBatch(directory, [
+      { ids: [ack.id], field },
+      { ids: [ack.id], field: "acknowledged_count" }
+    ]);
   } catch (err2) {
     warn(`[knowledge-application] recordAcknowledgment failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
   }
@@ -77786,8 +77815,12 @@ async function knowledgeApplicationGateBefore(directory, input, config3) {
   if (baseAgent !== "architect")
     return;
   const sessionID = typeof input.sessionID === "string" ? input.sessionID : undefined;
-  if (!sessionID)
+  if (!sessionID) {
+    if (config3.mode === "enforce") {
+      throw new Error("KNOWLEDGE_ENFORCE_GATE_DENY: missing sessionID on tool.execute.before; refusing to evaluate critical-directive ack state");
+    }
     return;
+  }
   const cached3 = swarmState.currentCriticalShownIds.get(sessionID);
   if (!cached3 || cached3.ids.length === 0)
     return;
@@ -77853,7 +77886,7 @@ async function knowledgeApplicationTransformScan(directory, output, sessionID) {
     const key = buildAckDedupKey(sessionID, ack.id, ack.result);
     if (swarmState.knowledgeAckDedup.has(key))
       continue;
-    swarmState.knowledgeAckDedup.add(key);
+    addKnowledgeAckDedup(key);
     try {
       await recordAcknowledgment(directory, ack, ctx);
     } catch (err2) {
@@ -78289,7 +78322,7 @@ ${freshPreamble}` : `<curator_briefing>${truncatedBriefing}</curator_briefing>`;
     if (sessionID) {
       const criticalIds = entries.filter((e) => e.directive_priority === "critical" && e.status !== "archived").map((e) => e.id);
       if (criticalIds.length > 0) {
-        swarmState.currentCriticalShownIds.set(sessionID, {
+        setCriticalShownIds(sessionID, {
           ids: criticalIds,
           phase: `Phase ${currentPhase}`,
           generatedAt: Date.now()
@@ -84626,7 +84659,7 @@ var knowledge_ack = createSwarmTool({
         result: a.result
       }, null, 2);
     }
-    swarmState.knowledgeAckDedup.add(dedupKey);
+    addKnowledgeAckDedup(dedupKey);
     await recordAcknowledgment(directory, ack, {
       phase: a.phase,
       taskId: a.task_id,
@@ -93709,6 +93742,32 @@ var import_proper_lockfile7 = __toESM(require_proper_lockfile(), 1);
 import { existsSync as existsSync63 } from "node:fs";
 import { mkdir as mkdir16, readFile as readFile15, rename as rename5, writeFile as writeFile13 } from "node:fs/promises";
 import * as path110 from "node:path";
+var LOCK_ACQUIRE_TIMEOUT_MS = 1e4;
+var LOCK_RETRY_OPTS = {
+  retries: {
+    retries: 30,
+    minTimeout: 50,
+    maxTimeout: 200,
+    factor: 1.5
+  },
+  stale: 5000
+};
+async function acquireLock2(dir) {
+  const acquire = import_proper_lockfile7.default.lock(dir, LOCK_RETRY_OPTS);
+  let timer;
+  const timeout = new Promise((_, reject) => {
+    timer = setTimeout(() => {
+      reject(new Error(`SKILL_IMPROVER_QUOTA_LOCK_TIMEOUT: failed to acquire lock on ${dir} within ${LOCK_ACQUIRE_TIMEOUT_MS}ms`));
+    }, LOCK_ACQUIRE_TIMEOUT_MS);
+  });
+  try {
+    const release = await Promise.race([acquire, timeout]);
+    return release;
+  } finally {
+    if (timer)
+      clearTimeout(timer);
+  }
+}
 function resolveQuotaPath(directory) {
   return path110.join(directory, ".swarm", "skill-improver-quota.json");
 }
@@ -93762,10 +93821,7 @@ async function reserveQuota(directory, opts) {
   await mkdir16(path110.dirname(filePath), { recursive: true });
   let release = null;
   try {
-    release = await import_proper_lockfile7.default.lock(path110.dirname(filePath), {
-      retries: { retries: 5, minTimeout: 50, maxTimeout: 500 },
-      stale: 5000
-    });
+    release = await acquireLock2(path110.dirname(filePath));
     const state = await getQuotaState(directory, opts);
     if (state.calls_used + opts.nCalls > opts.maxCalls) {
       return {
@@ -93795,10 +93851,7 @@ async function releaseQuota(directory, opts) {
   await mkdir16(path110.dirname(filePath), { recursive: true });
   let release = null;
   try {
-    release = await import_proper_lockfile7.default.lock(path110.dirname(filePath), {
-      retries: { retries: 5, minTimeout: 50, maxTimeout: 500 },
-      stale: 5000
-    });
+    release = await acquireLock2(path110.dirname(filePath));
     const state = await getQuotaState(directory, opts);
     const next = {
       ...state,

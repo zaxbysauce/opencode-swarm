@@ -279,7 +279,7 @@ export declare const swarmState: {
      *  critical+matching directive. Read by the toolBefore enforcement gate
      *  so we don't re-scan the entire knowledge file on every high-risk tool
      *  call. Cleared by phase change, curator commits, knowledge mutations,
-     *  and resetSwarmState. */
+     *  and resetSwarmState. FIFO-capped — see setCriticalShownIds. */
     currentCriticalShownIds: Map<string, {
         ids: string[];
         taskId?: string;
@@ -288,7 +288,8 @@ export declare const swarmState: {
     }>;
     /** v2: dedup set for ack records. Key = `${sessionId}|${id}|${result}|${dayKey}`.
      *  Prevents the chat.messages.transform path AND a knowledge_ack tool call
-     *  from double-counting the same ack within a session-day. */
+     *  from double-counting the same ack within a session-day. FIFO-capped —
+     *  see addKnowledgeAckDedup. */
     knowledgeAckDedup: Set<string>;
     /**
      * All generated agent names registered with OpenCode at plugin init.
@@ -535,6 +536,20 @@ export declare function hasActiveFullAuto(sessionID?: string): boolean;
 export declare function setSessionEnvironment(sessionId: string, profile: EnvironmentProfile): void;
 export declare function getSessionEnvironment(sessionId: string): EnvironmentProfile | undefined;
 export declare function ensureSessionEnvironment(sessionId: string): EnvironmentProfile;
+export declare const MAX_TRACKED_CRITICAL_SHOWN = 500;
+export declare const MAX_TRACKED_KNOWLEDGE_ACKS = 5000;
+/** Set the critical shown ids for a session, FIFO-evicting the oldest entry
+ * if the cap is exceeded. Re-setting an existing key keeps insertion order
+ * fresh for that key (delete-then-set). */
+export declare function setCriticalShownIds(sessionID: string, value: {
+    ids: string[];
+    taskId?: string;
+    phase?: string;
+    generatedAt: number;
+}): void;
+/** Add a knowledge ack dedup key, FIFO-evicting the oldest if the cap is
+ * exceeded. Sets preserve insertion order in JS. */
+export declare function addKnowledgeAckDedup(key: string): void;
 /**
  * Test-only dependency-injection seam. Production code calls
  * `_internals.*` for key exported functions and objects so tests can replace

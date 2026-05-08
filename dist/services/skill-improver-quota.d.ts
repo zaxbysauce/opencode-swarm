@@ -53,4 +53,5 @@ export declare const _internals: {
     getQuotaState: typeof getQuotaState;
     reserveQuota: typeof reserveQuota;
     releaseQuota: typeof releaseQuota;
+    LOCK_ACQUIRE_TIMEOUT_MS: number;
 };

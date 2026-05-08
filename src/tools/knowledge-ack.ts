@@ -15,7 +15,7 @@ import {
 	type ParsedAcknowledgment,
 	recordAcknowledgment,
 } from '../hooks/knowledge-application.js';
-import { swarmState } from '../state.js';
+import { addKnowledgeAckDedup, swarmState } from '../state.js';
 import { createSwarmTool } from './create-tool.js';
 
 export const knowledge_ack: ReturnType<typeof createSwarmTool> =
@@ -76,7 +76,7 @@ export const knowledge_ack: ReturnType<typeof createSwarmTool> =
 					2,
 				);
 			}
-			swarmState.knowledgeAckDedup.add(dedupKey);
+			addKnowledgeAckDedup(dedupKey);
 			await recordAcknowledgment(directory, ack, {
 				phase: a.phase,
 				taskId: a.task_id,

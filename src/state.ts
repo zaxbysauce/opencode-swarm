@@ -373,7 +373,7 @@ export const swarmState = {
 	 *  critical+matching directive. Read by the toolBefore enforcement gate
 	 *  so we don't re-scan the entire knowledge file on every high-risk tool
 	 *  call. Cleared by phase change, curator commits, knowledge mutations,
-	 *  and resetSwarmState. */
+	 *  and resetSwarmState. FIFO-capped — see setCriticalShownIds. */
 	currentCriticalShownIds: new Map<
 		string,
 		{ ids: string[]; taskId?: string; phase?: string; generatedAt: number }
@@ -381,7 +381,8 @@ export const swarmState = {
 
 	/** v2: dedup set for ack records. Key = `${sessionId}|${id}|${result}|${dayKey}`.
 	 *  Prevents the chat.messages.transform path AND a knowledge_ack tool call
-	 *  from double-counting the same ack within a session-day. */
+	 *  from double-counting the same ack within a session-day. FIFO-capped —
+	 *  see addKnowledgeAckDedup. */
 	knowledgeAckDedup: new Set<string>(),
 
 	/**
@@ -1599,6 +1600,48 @@ export function ensureSessionEnvironment(
 			// telemetry emission failure must not block environment detection
 		});
 	return profile;
+}
+
+// Bounded-collection caps for v2 knowledge state (AGENTS.md invariant #8 —
+// "Module-level global state must have an explicit eviction strategy").
+// Values mirror MAX_TRACKED_SESSIONS in adversarial-detector.ts. The Map
+// preserves insertion order so `Map.keys().next()` is the FIFO oldest.
+export const MAX_TRACKED_CRITICAL_SHOWN = 500;
+export const MAX_TRACKED_KNOWLEDGE_ACKS = 5000;
+
+/** Set the critical shown ids for a session, FIFO-evicting the oldest entry
+ * if the cap is exceeded. Re-setting an existing key keeps insertion order
+ * fresh for that key (delete-then-set). */
+export function setCriticalShownIds(
+	sessionID: string,
+	value: {
+		ids: string[];
+		taskId?: string;
+		phase?: string;
+		generatedAt: number;
+	},
+): void {
+	const map = swarmState.currentCriticalShownIds;
+	if (map.has(sessionID)) map.delete(sessionID);
+	map.set(sessionID, value);
+	if (map.size > MAX_TRACKED_CRITICAL_SHOWN) {
+		const oldest = map.keys().next().value;
+		if (oldest !== undefined && oldest !== sessionID) {
+			map.delete(oldest);
+		}
+	}
+}
+
+/** Add a knowledge ack dedup key, FIFO-evicting the oldest if the cap is
+ * exceeded. Sets preserve insertion order in JS. */
+export function addKnowledgeAckDedup(key: string): void {
+	const set = swarmState.knowledgeAckDedup;
+	if (set.has(key)) return;
+	set.add(key);
+	if (set.size > MAX_TRACKED_KNOWLEDGE_ACKS) {
+		const oldest = set.values().next().value;
+		if (oldest !== undefined) set.delete(oldest);
+	}
 }
 
 /**

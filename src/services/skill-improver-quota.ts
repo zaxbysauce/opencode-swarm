@@ -12,6 +12,51 @@ import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 
+/**
+ * Hard ceiling on how long any single quota call will wait for the
+ * directory-level lockfile, on top of proper-lockfile's own retries.
+ * Pathological contention (many concurrent reservers, stuck holder past
+ * `stale`) used to be only bounded by `retries × maxTimeout` plus stale
+ * eviction; without an overall ceiling the caller could appear hung.
+ * F-003: add an explicit Promise.race ceiling so a stuck quota call
+ * surfaces as a clear error instead of an indefinite await.
+ */
+const LOCK_ACQUIRE_TIMEOUT_MS = 10_000;
+// Realistic concurrent contention (e.g. 8+ parallel skill_improve invocations)
+// requires more retries than the original 5 — proper-lockfile errors fast with
+// ELOCKED on each contended attempt and only the holder makes progress per
+// retry round. With ~30 retries × 200ms cap (factor 1.5), a typical contention
+// window stays well under LOCK_ACQUIRE_TIMEOUT_MS.
+const LOCK_RETRY_OPTS = {
+	retries: {
+		retries: 30,
+		minTimeout: 50,
+		maxTimeout: 200,
+		factor: 1.5,
+	},
+	stale: 5000,
+} as const;
+
+async function acquireLock(dir: string): Promise<() => Promise<void>> {
+	const acquire = lockfile.lock(dir, LOCK_RETRY_OPTS);
+	let timer: ReturnType<typeof setTimeout> | undefined;
+	const timeout = new Promise<never>((_, reject) => {
+		timer = setTimeout(() => {
+			reject(
+				new Error(
+					`SKILL_IMPROVER_QUOTA_LOCK_TIMEOUT: failed to acquire lock on ${dir} within ${LOCK_ACQUIRE_TIMEOUT_MS}ms`,
+				),
+			);
+		}, LOCK_ACQUIRE_TIMEOUT_MS);
+	});
+	try {
+		const release = await Promise.race([acquire, timeout]);
+		return release;
+	} finally {
+		if (timer) clearTimeout(timer);
+	}
+}
+
 export type QuotaWindow = 'utc' | 'local';
 
 export interface QuotaState {
@@ -112,10 +157,7 @@ export async function reserveQuota(
 	await mkdir(path.dirname(filePath), { recursive: true });
 	let release: (() => Promise<void>) | null = null;
 	try {
-		release = await lockfile.lock(path.dirname(filePath), {
-			retries: { retries: 5, minTimeout: 50, maxTimeout: 500 },
-			stale: 5000,
-		});
+		release = await acquireLock(path.dirname(filePath));
 		const state = await getQuotaState(directory, opts);
 		if (state.calls_used + opts.nCalls > opts.maxCalls) {
 			return {
@@ -157,10 +199,7 @@ export async function releaseQuota(
 	await mkdir(path.dirname(filePath), { recursive: true });
 	let release: (() => Promise<void>) | null = null;
 	try {
-		release = await lockfile.lock(path.dirname(filePath), {
-			retries: { retries: 5, minTimeout: 50, maxTimeout: 500 },
-			stale: 5000,
-		});
+		release = await acquireLock(path.dirname(filePath));
 		const state = await getQuotaState(directory, opts);
 		const next: QuotaState = {
 			...state,
@@ -186,4 +225,5 @@ export const _internals = {
 	getQuotaState,
 	reserveQuota,
 	releaseQuota,
+	LOCK_ACQUIRE_TIMEOUT_MS,
 };

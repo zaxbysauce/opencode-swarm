@@ -10,7 +10,7 @@ import { createHash } from 'node:crypto';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { getCurrentTaskId, loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
-import { swarmState } from '../state.js';
+import { setCriticalShownIds, swarmState } from '../state.js';
 import { warn } from '../utils/logger.js';
 import {
 	buildDriftInjectionText,
@@ -509,7 +509,7 @@ export function createKnowledgeInjectorHook(
 					)
 					.map((e) => e.id);
 				if (criticalIds.length > 0) {
-					swarmState.currentCriticalShownIds.set(sessionID, {
+					setCriticalShownIds(sessionID, {
 						ids: criticalIds,
 						phase: `Phase ${currentPhase}`,
 						generatedAt: Date.now(),

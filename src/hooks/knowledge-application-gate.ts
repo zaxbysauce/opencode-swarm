@@ -30,7 +30,7 @@
 import { appendFile, mkdir } from 'node:fs/promises';
 import * as path from 'node:path';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
-import { swarmState } from '../state.js';
+import { addKnowledgeAckDedup, swarmState } from '../state.js';
 import { warn } from '../utils/logger.js';
 import {
 	buildAckDedupKey,
@@ -78,7 +78,20 @@ export async function knowledgeApplicationGateBefore(
 
 	const sessionID =
 		typeof input.sessionID === 'string' ? input.sessionID : undefined;
-	if (!sessionID) return;
+	if (!sessionID) {
+		// OpenCode's tool.execute.before contract guarantees a sessionID for
+		// every tool invocation. Reaching this branch means the contract has
+		// been violated (test stub, runtime bug, or hostile caller). Fail
+		// closed in enforce mode — silently allowing the call would defeat
+		// the gate. Warn mode still proceeds without recording an event so
+		// we cannot later attribute a violation to a non-existent session.
+		if (config.mode === 'enforce') {
+			throw new Error(
+				'KNOWLEDGE_ENFORCE_GATE_DENY: missing sessionID on tool.execute.before; refusing to evaluate critical-directive ack state',
+			);
+		}
+		return;
+	}
 
 	const cached = swarmState.currentCriticalShownIds.get(sessionID);
 	if (!cached || cached.ids.length === 0) return;
@@ -174,7 +187,7 @@ export async function knowledgeApplicationTransformScan(
 	for (const ack of acks) {
 		const key = buildAckDedupKey(sessionID, ack.id, ack.result);
 		if (swarmState.knowledgeAckDedup.has(key)) continue;
-		swarmState.knowledgeAckDedup.add(key);
+		addKnowledgeAckDedup(key);
 		try {
 			await recordAcknowledgment(directory, ack, ctx);
 		} catch (err) {

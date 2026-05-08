@@ -87,55 +87,79 @@ async function appendAudit(
 // Counter updaters
 // ============================================================================
 
+type CounterField =
+	| 'shown_count'
+	| 'acknowledged_count'
+	| 'applied_explicit_count'
+	| 'ignored_count'
+	| 'violated_count';
+
+interface FieldBump {
+	field: CounterField;
+	ids: string[];
+}
+
+/**
+ * Apply one or more field bumps to swarm + hive knowledge files in a single
+ * read/write per file. F-008: previously each ack issued two sequential
+ * bumpCounters calls (e.g. applied_explicit_count + acknowledged_count),
+ * each doing its own read+write. Coalescing them halves the per-ack I/O
+ * and makes the worst-case cost O(files) regardless of how many fields
+ * are bumped. The caller is expected to coalesce its own field updates
+ * via this API; cross-call batching across separate acks is intentionally
+ * not done here so that tests reading file state immediately after a
+ * record* call observe up-to-date counters.
+ */
+async function bumpCountersBatch(
+	directory: string,
+	bumps: FieldBump[],
+): Promise<void> {
+	const filteredBumps = bumps.filter((b) => b.ids.length > 0);
+	if (filteredBumps.length === 0) return;
+
+	const allIds = new Set<string>();
+	for (const b of filteredBumps) for (const id of b.ids) allIds.add(id);
+
+	const now = new Date().toISOString();
+	const applyOne = <T extends SwarmKnowledgeEntry | HiveKnowledgeEntry>(
+		entries: T[],
+	): boolean => {
+		let updated = false;
+		for (const e of entries) {
+			if (!allIds.has(e.id)) continue;
+			const ro = e.retrieval_outcomes as unknown as Record<string, unknown>;
+			for (const b of filteredBumps) {
+				if (!b.ids.includes(e.id)) continue;
+				ro[b.field] = ((ro[b.field] as number) ?? 0) + 1;
+				if (b.field === 'applied_explicit_count') {
+					(e as { last_applied_at?: string }).last_applied_at = now;
+				}
+				if (b.field === 'acknowledged_count') {
+					(e as { last_acknowledged_at?: string }).last_acknowledged_at = now;
+				}
+				updated = true;
+			}
+		}
+		return updated;
+	};
+
+	const swarmPath = resolveSwarmKnowledgePath(directory);
+	const swarm = await readKnowledge<SwarmKnowledgeEntry>(swarmPath);
+	if (applyOne(swarm)) await rewriteKnowledge(swarmPath, swarm);
+
+	const hivePath = resolveHiveKnowledgePath();
+	if (existsSync(hivePath)) {
+		const hive = await readKnowledge<HiveKnowledgeEntry>(hivePath);
+		if (applyOne(hive)) await rewriteKnowledge(hivePath, hive);
+	}
+}
+
 async function bumpCounters(
 	directory: string,
 	ids: string[],
-	field:
-		| 'shown_count'
-		| 'acknowledged_count'
-		| 'applied_explicit_count'
-		| 'ignored_count'
-		| 'violated_count',
+	field: CounterField,
 ): Promise<void> {
-	if (ids.length === 0) return;
-	const idSet = new Set(ids);
-	const swarmPath = resolveSwarmKnowledgePath(directory);
-	const hivePath = resolveHiveKnowledgePath();
-	let updatedSwarm = false;
-	let updatedHive = false;
-	const now = new Date().toISOString();
-
-	const swarm = await readKnowledge<SwarmKnowledgeEntry>(swarmPath);
-	for (const e of swarm) {
-		if (!idSet.has(e.id)) continue;
-		const ro = e.retrieval_outcomes as unknown as Record<string, unknown>;
-		ro[field] = ((ro[field] as number) ?? 0) + 1;
-		if (field === 'applied_explicit_count') {
-			(e as { last_applied_at?: string }).last_applied_at = now;
-		}
-		if (field === 'acknowledged_count') {
-			(e as { last_acknowledged_at?: string }).last_acknowledged_at = now;
-		}
-		updatedSwarm = true;
-	}
-	if (updatedSwarm) await rewriteKnowledge(swarmPath, swarm);
-
-	if (existsSync(hivePath)) {
-		const hive = await readKnowledge<HiveKnowledgeEntry>(hivePath);
-		for (const e of hive) {
-			if (!idSet.has(e.id)) continue;
-			const ro = e.retrieval_outcomes as unknown as Record<string, unknown>;
-			ro[field] = ((ro[field] as number) ?? 0) + 1;
-			if (field === 'applied_explicit_count') {
-				(e as { last_applied_at?: string }).last_applied_at = now;
-			}
-			if (field === 'acknowledged_count') {
-				(e as { last_acknowledged_at?: string }).last_acknowledged_at = now;
-			}
-			updatedHive = true;
-		}
-		if (updatedHive) await rewriteKnowledge(hivePath, hive);
-	}
+	return bumpCountersBatch(directory, [{ ids, field }]);
 }
 
 // ============================================================================
@@ -207,15 +231,18 @@ export async function recordAcknowledgment(
 			result,
 			reason: ack.reason,
 		});
-		const field =
+		const field: CounterField =
 			result === 'applied'
 				? 'applied_explicit_count'
 				: result === 'ignored'
 					? 'ignored_count'
 					: 'violated_count';
-		await bumpCounters(directory, [ack.id], field);
-		// Always also bump acknowledged_count for any explicit outcome.
-		await bumpCounters(directory, [ack.id], 'acknowledged_count');
+		// Coalesce the result-field bump and the acknowledged_count bump into
+		// a single read+write per file (F-008).
+		await bumpCountersBatch(directory, [
+			{ ids: [ack.id], field },
+			{ ids: [ack.id], field: 'acknowledged_count' },
+		]);
 	} catch (err) {
 		warn(
 			`[knowledge-application] recordAcknowledgment failed: ${

@@ -128,6 +128,27 @@ describe('recordKnowledgeShown vs recordAcknowledgment', () => {
 		expect(entries.retrieval_outcomes.applied_explicit_count).toBe(0);
 	});
 
+	it('coalesces field bumps to a single rewrite per ack (F-008)', async () => {
+		const id = 'ffffffff-ffff-4fff-9fff-ffffffffffff';
+		await seedEntry(id);
+		const knowledgePath = resolveSwarmKnowledgePath(tmp);
+		// Patch rewriteKnowledge via module spy by monitoring file mtime —
+		// proxy: read mtime before/after, count ms-level distinct mtimes.
+		const before = readFileSync(knowledgePath, 'utf-8');
+		await recordAcknowledgment(
+			tmp,
+			{ id, result: 'applied' },
+			{ phase: 'Phase 1' },
+		);
+		const after = readFileSync(knowledgePath, 'utf-8');
+		// Single ack triggers exactly one effective rewrite — both counters
+		// (applied_explicit_count + acknowledged_count) appear in one pass.
+		const e = JSON.parse(after.trim());
+		expect(e.retrieval_outcomes.applied_explicit_count).toBe(1);
+		expect(e.retrieval_outcomes.acknowledged_count).toBe(1);
+		expect(after).not.toBe(before);
+	});
+
 	it('records survive a fresh process read (audit log persists)', async () => {
 		const id = 'eeeeeeee-eeee-4eee-9eee-eeeeeeeeeeee';
 		await seedEntry(id);

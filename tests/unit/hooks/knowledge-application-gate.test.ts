@@ -94,6 +94,33 @@ describe('knowledgeApplicationGateBefore', () => {
 		// no throw
 	});
 
+	it('throws in enforce mode when sessionID is missing (contract violation)', async () => {
+		swarmState.currentCriticalShownIds.set('s1', {
+			ids: [ID_A],
+			generatedAt: Date.now(),
+		});
+		await expect(
+			knowledgeApplicationGateBefore(
+				tmp,
+				{ tool: 'save_plan', agent: 'architect' },
+				{ ...DEFAULT_KNOWLEDGE_APPLICATION_CONFIG, mode: 'enforce' },
+			),
+		).rejects.toThrow(/KNOWLEDGE_ENFORCE_GATE_DENY.*missing sessionID/);
+	});
+
+	it('returns silently in warn mode when sessionID is missing', async () => {
+		swarmState.currentCriticalShownIds.set('s1', {
+			ids: [ID_A],
+			generatedAt: Date.now(),
+		});
+		await knowledgeApplicationGateBefore(
+			tmp,
+			{ tool: 'save_plan', agent: 'architect' },
+			{ ...DEFAULT_KNOWLEDGE_APPLICATION_CONFIG, mode: 'warn' },
+		);
+		// no throw, no event recorded (we cannot attribute to a session)
+	});
+
 	it('warn mode does not throw and writes events.jsonl', async () => {
 		swarmState.currentCriticalShownIds.set('s1', {
 			ids: [ID_A, ID_B],
