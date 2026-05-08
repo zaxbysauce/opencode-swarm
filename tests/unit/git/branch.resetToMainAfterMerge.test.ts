@@ -341,20 +341,18 @@ describe('resetToMainAfterMerge', () => {
 			// 3.  log origin/main..HEAD → empty
 			// 4.  fetch --prune → ok
 			// 5.  checkout main → ok
-			// 6.  hasUncommittedChanges → clean
-			// 7.  reset --hard origin/main → FAIL
+			// 6.  reset --hard origin/main → FAIL (no hasUncommittedChanges before reset)
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
 				{ status: 0, stdout: '', stderr: '' }, // 3. log
 				{ status: 0, stdout: '', stderr: '' }, // 4. fetch
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
-				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
 				{
 					status: 1,
 					stdout: '',
 					stderr: 'fatal: could not reset hash',
-				}, // 7. reset FAIL
+				}, // 6. reset FAIL
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -378,22 +376,20 @@ describe('resetToMainAfterMerge', () => {
 			// 3.  log origin/main..HEAD → empty
 			// 4.  fetch --prune → ok
 			// 5.  checkout main → ok
-			// 6.  hasUncommittedChanges → DIRTY (first call) → then discard clears it
-			// 7.  checkout -- . → ok (discard)
-			// 8.  hasUncommittedChanges → CLEAN (second call after discard)
-			// 9.  reset --hard origin/main → ok
-			// 10. branch -D feat/x → ok
+			// 6.  reset --hard origin/main → ok
+			// 7.  hasUncommittedChanges → DIRTY (checked before discard loop)
+			// 8.  checkout -- . → ok (discard)
+			// 9.  branch -D feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
 				{ status: 0, stdout: '', stderr: '' }, // 3. log
 				{ status: 0, stdout: '', stderr: '' }, // 4. fetch
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
-				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 6. hasUncommittedChanges (dirty)
-				{ status: 0, stdout: '', stderr: '' }, // 7. checkout -- . (discard)
-				{ status: 0, stdout: '', stderr: '' }, // 8. hasUncommittedChanges (clean)
-				{ status: 0, stdout: '', stderr: '' }, // 9. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 10. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 6. reset --hard
+				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 7. hasUncommittedChanges (dirty)
+				{ status: 0, stdout: '', stderr: '' }, // 8. checkout -- . (discard)
+				{ status: 0, stdout: '', stderr: '' }, // 9. branch -D
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -420,28 +416,26 @@ describe('resetToMainAfterMerge', () => {
 			// 3.  log origin/main..HEAD → empty
 			// 4.  fetch --prune → ok
 			// 5.  checkout main → ok
-			// 6.  hasUncommittedChanges → DIRTY
-			// 7.  checkout -- . → FAIL retry 1
-			// 8.  checkout -- . → FAIL retry 2
-			// 9.  checkout -- . → FAIL retry 3
-			// 10. checkout -- . → FAIL retry 4
-			// 11. hasUncommittedChanges → still dirty
-			// 12. reset --hard origin/main → ok
-			// 13. branch -D feat/x → ok
+			// 6.  reset --hard origin/main → ok
+			// 7.  hasUncommittedChanges → DIRTY (checked before discard loop)
+			// 8.  checkout -- . → FAIL retry 1
+			// 9.  checkout -- . → FAIL retry 2
+			// 10. checkout -- . → FAIL retry 3
+			// 11. checkout -- . → FAIL retry 4
+			// 12. branch -D feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
 				{ status: 0, stdout: '', stderr: '' }, // 3. log
 				{ status: 0, stdout: '', stderr: '' }, // 4. fetch
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
-				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 6. hasUncommittedChanges (dirty)
-				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 7. discard FAIL 1
-				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 8. discard FAIL 2
-				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 9. discard FAIL 3
-				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 10. discard FAIL 4
-				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 11. hasUncommittedChanges (still dirty)
-				{ status: 0, stdout: '', stderr: '' }, // 12. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 13. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 6. reset --hard
+				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 7. hasUncommittedChanges (dirty)
+				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 8. discard FAIL 1
+				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 9. discard FAIL 2
+				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 10. discard FAIL 3
+				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 11. discard FAIL 4
+				{ status: 0, stdout: '', stderr: '' }, // 12. branch -D
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -449,7 +443,7 @@ describe('resetToMainAfterMerge', () => {
 			expect(result.success).toBe(true);
 			expect(result.changesDiscarded).toBe(false);
 			expect(result.warnings).toContain(
-				'Could not discard all uncommitted changes before reset',
+				'Could not discard all uncommitted changes after reset',
 			);
 		});
 	});
@@ -693,19 +687,19 @@ describe('resetToMainAfterMerge', () => {
 		test('discard succeeds on 3rd retry on Windows', () => {
 			// On Windows, discard retries 4 times with busy-wait delay between
 			// This test simulates the 3rd retry succeeding
+			// New order: reset --hard runs BEFORE hasUncommittedChanges check
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
 				{ status: 0, stdout: '', stderr: '' }, // 3. log
 				{ status: 0, stdout: '', stderr: '' }, // 4. fetch
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
-				{ status: 0, stdout: ' M dirty.txt\n', stderr: '' }, // 6. hasUncommittedChanges (dirty)
-				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 7. discard FAIL 1
-				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 8. discard FAIL 2
-				{ status: 0, stdout: '', stderr: '' }, // 9. discard SUCCESS 3
-				{ status: 0, stdout: '', stderr: '' }, // 10. hasUncommittedChanges (clean)
-				{ status: 0, stdout: '', stderr: '' }, // 11. reset
-				{ status: 0, stdout: '', stderr: '' }, // 12. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 6. reset --hard
+				{ status: 0, stdout: ' M dirty.txt\n', stderr: '' }, // 7. hasUncommittedChanges (dirty)
+				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 8. discard FAIL 1
+				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 9. discard FAIL 2
+				{ status: 0, stdout: '', stderr: '' }, // 10. discard SUCCESS 3
+				{ status: 0, stdout: '', stderr: '' }, // 11. branch -D
 			);
 
 			// Simulate Windows behavior by temporarily patching process.platform

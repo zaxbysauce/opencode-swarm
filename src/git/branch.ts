@@ -598,9 +598,26 @@ export function resetToMainAfterMerge(
 			}
 		}
 
-		// Step 6 (moved from before checkout): Discard uncommitted changes
-		// This runs AFTER checkout succeeds so if anything fails below,
-		// we can return without having lost data.
+		// Step 6: Hard reset to origin/{default}
+		// Run BEFORE discard so that if reset fails, the user still has their
+		// uncommitted changes (checked out to default branch but not yet discarded).
+		try {
+			_internals.gitExec(['reset', '--hard', targetBranch], cwd);
+		} catch (err) {
+			return {
+				success: false,
+				targetBranch,
+				previousBranch,
+				message: `Reset to ${targetBranch} failed: ${err instanceof Error ? err.message : String(err)}`,
+				branchDeleted: false,
+				changesDiscarded: false,
+				warnings,
+			};
+		}
+
+		// Step 7: Discard remaining uncommitted/untracked changes
+		// This runs AFTER reset succeeds so that if reset fails, the user still
+		// has their changes (checked out to default branch but not yet discarded).
 		let changesDiscarded = false;
 		if (hasUncommittedChanges(cwd)) {
 			let discardSucceeded = false;
@@ -622,24 +639,9 @@ export function resetToMainAfterMerge(
 			if (!discardSucceeded) {
 				// Could not discard changes — this is a soft failure
 				// Don't abort, but track it
-				warnings.push('Could not discard all uncommitted changes before reset');
+				warnings.push('Could not discard all uncommitted changes after reset');
 			}
 			changesDiscarded = discardSucceeded;
-		}
-
-		// Step 7: Hard reset to origin/{default}
-		try {
-			_internals.gitExec(['reset', '--hard', targetBranch], cwd);
-		} catch (err) {
-			return {
-				success: false,
-				targetBranch,
-				previousBranch,
-				message: `Reset to ${targetBranch} failed: ${err instanceof Error ? err.message : String(err)}`,
-				branchDeleted: false,
-				changesDiscarded,
-				warnings,
-			};
 		}
 
 		// Step 8: Delete previous branch if it's not the default

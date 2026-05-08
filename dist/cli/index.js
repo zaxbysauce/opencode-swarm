@@ -34613,6 +34613,19 @@ function resetToMainAfterMerge(cwd, options) {
         };
       }
     }
+    try {
+      _internals6.gitExec(["reset", "--hard", targetBranch], cwd);
+    } catch (err) {
+      return {
+        success: false,
+        targetBranch,
+        previousBranch,
+        message: `Reset to ${targetBranch} failed: ${err instanceof Error ? err.message : String(err)}`,
+        branchDeleted: false,
+        changesDiscarded: false,
+        warnings
+      };
+    }
     let changesDiscarded = false;
     if (hasUncommittedChanges(cwd)) {
       let discardSucceeded = false;
@@ -34628,22 +34641,9 @@ function resetToMainAfterMerge(cwd, options) {
         } catch {}
       }
       if (!discardSucceeded) {
-        warnings.push("Could not discard all uncommitted changes before reset");
+        warnings.push("Could not discard all uncommitted changes after reset");
       }
       changesDiscarded = discardSucceeded;
-    }
-    try {
-      _internals6.gitExec(["reset", "--hard", targetBranch], cwd);
-    } catch (err) {
-      return {
-        success: false,
-        targetBranch,
-        previousBranch,
-        message: `Reset to ${targetBranch} failed: ${err instanceof Error ? err.message : String(err)}`,
-        branchDeleted: false,
-        changesDiscarded,
-        warnings
-      };
     }
     let branchDeleted = false;
     if (switchedBranch && previousBranch !== defaultBranch) {
