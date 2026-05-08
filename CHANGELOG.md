@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.11.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.10.0...v7.11.0) (2026-05-08)
+
+
+### Features
+
+* **knowledge:** actionable directives, skill compiler, real-LLM skill_improver, spec_writer (closes [#629](https://github.com/zaxbysauce/opencode-swarm/issues/629)) ([#799](https://github.com/zaxbysauce/opencode-swarm/issues/799)) ([6e68db1](https://github.com/zaxbysauce/opencode-swarm/commit/6e68db1599879e7b160e93d85e4166e9481451dc))
+
 ## [7.10.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.9.0...v7.10.0) (2026-05-08)
 
 
