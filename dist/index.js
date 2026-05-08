@@ -65367,27 +65367,32 @@ __export(exports_runtime, {
   isGrammarAvailable: () => isGrammarAvailable,
   getSupportedLanguages: () => getSupportedLanguages,
   getInitializedLanguages: () => getInitializedLanguages,
-  clearParserCache: () => clearParserCache
+  clearParserCache: () => clearParserCache,
+  _internals: () => _internals25
 });
 import * as path67 from "node:path";
 import { fileURLToPath as fileURLToPath2 } from "node:url";
 async function initTreeSitter() {
-  if (treeSitterInitialized) {
-    return;
-  }
-  const thisDir = path67.dirname(fileURLToPath2(import.meta.url));
-  const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
-  if (isSource) {
-    await Parser.init();
-  } else {
-    const grammarsDir = getGrammarsDirAbsolute();
-    await Parser.init({
-      locateFile(scriptName) {
-        return path67.join(grammarsDir, scriptName);
+  if (!treeSitterInitPromise) {
+    treeSitterInitPromise = (async () => {
+      const thisDir = path67.dirname(fileURLToPath2(import.meta.url));
+      const isSource = thisDir.replace(/\\/g, "/").endsWith("/src/lang");
+      if (isSource) {
+        await _internals25.parserInit();
+      } else {
+        const grammarsDir = getGrammarsDirAbsolute();
+        await _internals25.parserInit({
+          locateFile(scriptName) {
+            return path67.join(grammarsDir, scriptName);
+          }
+        });
       }
+    })().catch((err2) => {
+      treeSitterInitPromise = null;
+      throw err2;
     });
   }
-  treeSitterInitialized = true;
+  return treeSitterInitPromise;
 }
 function sanitizeLanguageId(languageId) {
   const normalized = languageId.toLowerCase();
@@ -65470,7 +65475,7 @@ async function isGrammarAvailable(languageId) {
 function clearParserCache() {
   parserCache.clear();
   initializedLanguages.clear();
-  treeSitterInitialized = false;
+  treeSitterInitPromise = null;
 }
 function getInitializedLanguages() {
   return Array.from(initializedLanguages);
@@ -65478,11 +65483,14 @@ function getInitializedLanguages() {
 function getSupportedLanguages() {
   return Object.keys(LANGUAGE_WASM_MAP);
 }
-var parserCache, initializedLanguages, treeSitterInitialized = false, LANGUAGE_WASM_MAP;
+var parserCache, initializedLanguages, treeSitterInitPromise = null, _internals25, LANGUAGE_WASM_MAP;
 var init_runtime = __esm(() => {
   init_tree_sitter();
   parserCache = new Map;
   initializedLanguages = new Set;
+  _internals25 = {
+    parserInit: Parser.init
+  };
   LANGUAGE_WASM_MAP = {
     javascript: "tree-sitter-javascript.wasm",
     typescript: "tree-sitter-typescript.wasm",
@@ -65900,9 +65908,9 @@ var init_doc_scan = __esm(() => {
 var exports_knowledge_recall = {};
 __export(exports_knowledge_recall, {
   knowledge_recall: () => knowledge_recall,
-  _internals: () => _internals25
+  _internals: () => _internals26
 });
-var knowledge_recall, _internals25;
+var knowledge_recall, _internals26;
 var init_knowledge_recall = __esm(() => {
   init_zod();
   init_knowledge_store();
@@ -65988,7 +65996,7 @@ var init_knowledge_recall = __esm(() => {
       return JSON.stringify(result);
     }
   });
-  _internals25 = {
+  _internals26 = {
     knowledge_recall
   };
 });
@@ -66043,7 +66051,7 @@ __export(exports_curator_drift, {
   runDeterministicDriftCheck: () => runDeterministicDriftCheck,
   readPriorDriftReports: () => readPriorDriftReports,
   buildDriftInjectionText: () => buildDriftInjectionText,
-  _internals: () => _internals27
+  _internals: () => _internals28
 });
 import * as fs54 from "node:fs";
 import * as path73 from "node:path";
@@ -66088,7 +66096,7 @@ async function runDeterministicDriftCheck(directory, phase, curatorResult, confi
   try {
     const planMd = await readSwarmFileAsync(directory, "plan.md");
     const specMd = await readSwarmFileAsync(directory, "spec.md");
-    const priorReports = await _internals27.readPriorDriftReports(directory);
+    const priorReports = await _internals28.readPriorDriftReports(directory);
     const complianceCount = curatorResult.compliance.length;
     const warningCompliance = curatorResult.compliance.filter((obs) => obs.severity === "warning");
     let alignment = "ALIGNED";
@@ -66137,7 +66145,7 @@ async function runDeterministicDriftCheck(directory, phase, curatorResult, confi
       scope_additions: [],
       injection_summary: injectionSummary
     };
-    const reportPath = await _internals27.writeDriftReport(directory, report);
+    const reportPath = await _internals28.writeDriftReport(directory, report);
     getGlobalEventBus().publish("curator.drift.completed", {
       phase,
       alignment,
@@ -66200,12 +66208,12 @@ function buildDriftInjectionText(report, maxChars) {
   }
   return text.slice(0, maxChars);
 }
-var DRIFT_REPORT_PREFIX = "drift-report-phase-", _internals27;
+var DRIFT_REPORT_PREFIX = "drift-report-phase-", _internals28;
 var init_curator_drift = __esm(() => {
   init_event_bus();
   init_logger();
   init_utils2();
-  _internals27 = {
+  _internals28 = {
     readPriorDriftReports,
     writeDriftReport,
     runDeterministicDriftCheck,
@@ -76337,10 +76345,10 @@ async function getRunMemorySummary(directory) {
   if (entries.length === 0) {
     return null;
   }
-  const groups = _internals26.groupByTaskId(entries);
+  const groups = _internals27.groupByTaskId(entries);
   const summaries = [];
   for (const [taskId, taskEntries] of groups) {
-    const summary = _internals26.summarizeTask(taskId, taskEntries);
+    const summary = _internals27.summarizeTask(taskId, taskEntries);
     if (summary) {
       summaries.push(summary);
     }
@@ -76373,7 +76381,7 @@ Use this data to avoid repeating known failure patterns.`;
   }
   return prefix + summaryText + suffix;
 }
-var _internals26 = {
+var _internals27 = {
   generateTaskFingerprint,
   recordOutcome,
   getTaskHistory,
@@ -86472,11 +86480,11 @@ var quality_budget = createSwarmTool({
     }).optional().describe("Quality budget thresholds")
   },
   async execute(args2, directory) {
-    const result = await _internals28.qualityBudget(args2, directory);
+    const result = await _internals29.qualityBudget(args2, directory);
     return JSON.stringify(result);
   }
 });
-var _internals28 = {
+var _internals29 = {
   qualityBudget
 };
 
@@ -87205,7 +87213,7 @@ import * as path97 from "node:path";
 var semgrepAvailableCache = null;
 var DEFAULT_RULES_DIR = ".swarm/semgrep-rules";
 var DEFAULT_TIMEOUT_MS3 = 30000;
-var _internals29 = {
+var _internals30 = {
   isSemgrepAvailable,
   checkSemgrepAvailable,
   resetSemgrepCache,
@@ -87230,7 +87238,7 @@ function isSemgrepAvailable() {
   }
 }
 async function checkSemgrepAvailable() {
-  return _internals29.isSemgrepAvailable();
+  return _internals30.isSemgrepAvailable();
 }
 function resetSemgrepCache() {
   semgrepAvailableCache = null;
@@ -87327,12 +87335,12 @@ async function runSemgrep(options) {
   const timeoutMs = options.timeoutMs || DEFAULT_TIMEOUT_MS3;
   if (files.length === 0) {
     return {
-      available: _internals29.isSemgrepAvailable(),
+      available: _internals30.isSemgrepAvailable(),
       findings: [],
       engine: "tier_a"
     };
   }
-  if (!_internals29.isSemgrepAvailable()) {
+  if (!_internals30.isSemgrepAvailable()) {
     return {
       available: false,
       findings: [],
@@ -87491,7 +87499,7 @@ function assignOccurrenceIndices(findings, directory) {
     }
     const occIdx = countMap.get(baseKey) ?? 0;
     countMap.set(baseKey, occIdx + 1);
-    const fp = _internals30.fingerprintFinding(finding, directory, occIdx);
+    const fp = _internals31.fingerprintFinding(finding, directory, occIdx);
     return {
       finding,
       index: occIdx,
@@ -87560,7 +87568,7 @@ async function captureOrMergeBaseline(directory, phase, findings, engine, scanne
       }
     } catch {}
     const scannedRelFiles = new Set(scannedFiles.map((f) => normalizeFindingPath(directory, f)));
-    const indexed = _internals30.assignOccurrenceIndices(findings, directory);
+    const indexed = _internals31.assignOccurrenceIndices(findings, directory);
     if (existing && !opts?.force) {
       const prunedFingerprints = existing.fingerprints.filter((fp) => {
         const relFile = fp.slice(0, fp.indexOf("|"));
@@ -87700,7 +87708,7 @@ function loadBaseline(directory, phase) {
     };
   }
 }
-var _internals30 = {
+var _internals31 = {
   fingerprintFinding,
   assignOccurrenceIndices,
   captureOrMergeBaseline,
@@ -88110,11 +88118,11 @@ var sast_scan = createSwarmTool({
       capture_baseline: safeArgs.capture_baseline,
       phase: safeArgs.phase
     };
-    const result = await _internals31.sastScan(input, directory);
+    const result = await _internals32.sastScan(input, directory);
     return JSON.stringify(result, null, 2);
   }
 });
-var _internals31 = {
+var _internals32 = {
   sastScan,
   sast_scan
 };
@@ -92541,7 +92549,7 @@ function isStaticallyEquivalent(originalCode, mutatedCode) {
   const strippedMutated = stripCode(mutatedCode);
   return strippedOriginal === strippedMutated;
 }
-var _internals32 = {
+var _internals33 = {
   isStaticallyEquivalent,
   checkEquivalence,
   batchCheckEquivalence
@@ -92581,7 +92589,7 @@ async function batchCheckEquivalence(patches, llmJudge) {
   const results = [];
   for (const { patch, originalCode, mutatedCode } of patches) {
     try {
-      const result = await _internals32.checkEquivalence(patch, originalCode, mutatedCode, llmJudge);
+      const result = await _internals33.checkEquivalence(patch, originalCode, mutatedCode, llmJudge);
       results.push(result);
     } catch (err3) {
       results.push({
@@ -92881,7 +92889,7 @@ async function executeMutationSuite(patches, testCommand, testFiles, workingDir,
 }
 
 // src/mutation/gate.ts
-var _internals33 = {
+var _internals34 = {
   evaluateMutationGate,
   buildTestImprovementPrompt,
   buildMessage
@@ -92902,8 +92910,8 @@ function evaluateMutationGate(report, passThreshold = PASS_THRESHOLD, warnThresh
   } else {
     verdict = "fail";
   }
-  const testImprovementPrompt = _internals33.buildTestImprovementPrompt(report, passThreshold, verdict);
-  const message = _internals33.buildMessage(verdict, adjustedKillRate, report.killed, report.totalMutants, report.equivalent, warnThreshold);
+  const testImprovementPrompt = _internals34.buildTestImprovementPrompt(report, passThreshold, verdict);
+  const message = _internals34.buildMessage(verdict, adjustedKillRate, report.killed, report.totalMutants, report.equivalent, warnThreshold);
   return {
     verdict,
     killRate: report.killRate,
@@ -93520,7 +93528,7 @@ import * as path114 from "node:path";
 init_bun_compat();
 import * as fs92 from "node:fs";
 import * as path113 from "node:path";
-var _internals34 = { bunSpawn };
+var _internals35 = { bunSpawn };
 var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
   for (const rawLine of content.split(`
@@ -93553,7 +93561,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
       checkIgnoreExitCode
     ] = await Promise.all([
       (async () => {
-        const proc = _internals34.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+        const proc = _internals35.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
         try {
           return await Promise.all([proc.exited, proc.stdout.text()]);
         } finally {
@@ -93563,7 +93571,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       })(),
       (async () => {
-        const proc = _internals34.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+        const proc = _internals35.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
         try {
           return await Promise.all([proc.exited, proc.stdout.text()]);
         } finally {
@@ -93573,7 +93581,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       })(),
       (async () => {
-        const proc = _internals34.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+        const proc = _internals35.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
         try {
           return await proc.exited;
         } finally {
@@ -93612,7 +93620,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       } catch {}
     }
-    const trackedProc = _internals34.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
+    const trackedProc = _internals35.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
     let trackedExitCode;
     let trackedOutput;
     try {
@@ -93637,7 +93645,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
 }
 
 // src/hooks/diff-scope.ts
-var _internals35 = { bunSpawn };
+var _internals36 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
     const planPath = path114.join(directory, ".swarm", "plan.json");
@@ -93672,7 +93680,7 @@ var GIT_DIFF_SPAWN_OPTIONS = {
 };
 async function getChangedFiles(directory) {
   try {
-    const proc = _internals35.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
+    const proc = _internals36.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
@@ -93689,7 +93697,7 @@ async function getChangedFiles(directory) {
       return stdout.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
     }
-    const proc2 = _internals35.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
+    const proc2 = _internals36.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
