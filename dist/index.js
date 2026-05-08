@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.7.0",
+    version: "7.8.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -43853,8 +43853,10 @@ async function runCuratorInit(directory, config3, llmDelegate) {
         const timer = setTimeout(() => ac.abort(), timeoutMs);
         let llmOutput;
         try {
+          const delegatePromise = llmDelegate(systemPrompt, userInput, ac.signal);
+          delegatePromise.catch(() => {});
           llmOutput = await Promise.race([
-            llmDelegate(systemPrompt, userInput, ac.signal),
+            delegatePromise,
             new Promise((_, reject) => {
               ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
             })
@@ -43981,8 +43983,10 @@ async function runCuratorPhase(directory, phase, agentsDispatched, config3, _kno
         const timer = setTimeout(() => ac.abort(), timeoutMs);
         let llmOutput;
         try {
+          const delegatePromise = llmDelegate(systemPrompt, userInput, ac.signal);
+          delegatePromise.catch(() => {});
           llmOutput = await Promise.race([
-            llmDelegate(systemPrompt, userInput, ac.signal),
+            delegatePromise,
             new Promise((_, reject) => {
               ac.signal.addEventListener("abort", () => reject(new Error("CURATOR_LLM_TIMEOUT")));
             })
@@ -67921,14 +67925,22 @@ function createCuratorLLMDelegate(directory, mode = "init", sessionId) {
         throw new Error("CURATOR_LLM_TIMEOUT");
       }
       const agentName = resolveCuratorAgentName(mode, sessionId);
-      const promptResult = await client.session.prompt({
-        path: { id: ephemeralSessionId },
-        body: {
-          agent: agentName,
-          tools: { write: false, edit: false, patch: false },
-          parts: [{ type: "text", text: userInput }]
+      let promptResult;
+      try {
+        promptResult = await client.session.prompt({
+          path: { id: ephemeralSessionId },
+          body: {
+            agent: agentName,
+            tools: { write: false, edit: false, patch: false },
+            parts: [{ type: "text", text: userInput }]
+          }
+        });
+      } catch (promptErr) {
+        if (signal?.aborted) {
+          throw new Error("CURATOR_LLM_TIMEOUT");
         }
-      });
+        throw promptErr;
+      }
       if (!promptResult.data) {
         throw new Error(`Curator LLM prompt failed: ${JSON.stringify(promptResult.error)}`);
       }

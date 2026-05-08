@@ -582,8 +582,19 @@ export async function runCuratorInit(
 				const timer = setTimeout(() => ac.abort(), timeoutMs);
 				let llmOutput: string;
 				try {
+					// Hoist the delegate promise so we can attach a no-op catch
+					// before the race. Without this, if the timeout fires first,
+					// the delegate promise becomes the race loser and its
+					// subsequent rejection (NotFoundError from the deleted
+					// ephemeral session) would be an unhandled rejection.
+					const delegatePromise = llmDelegate(
+						systemPrompt,
+						userInput,
+						ac.signal,
+					);
+					void delegatePromise.catch(() => {});
 					llmOutput = await Promise.race([
-						llmDelegate(systemPrompt, userInput, ac.signal),
+						delegatePromise,
 						new Promise<never>((_, reject) => {
 							ac.signal.addEventListener('abort', () =>
 								reject(new Error('CURATOR_LLM_TIMEOUT')),
@@ -791,8 +802,19 @@ export async function runCuratorPhase(
 				const timer = setTimeout(() => ac.abort(), timeoutMs);
 				let llmOutput: string;
 				try {
+					// Hoist the delegate promise so we can attach a no-op catch
+					// before the race. Without this, if the timeout fires first,
+					// the delegate promise becomes the race loser and its
+					// subsequent rejection (NotFoundError from the deleted
+					// ephemeral session) would be an unhandled rejection.
+					const delegatePromise = llmDelegate(
+						systemPrompt,
+						userInput,
+						ac.signal,
+					);
+					void delegatePromise.catch(() => {});
 					llmOutput = await Promise.race([
-						llmDelegate(systemPrompt, userInput, ac.signal),
+						delegatePromise,
 						new Promise<never>((_, reject) => {
 							ac.signal.addEventListener('abort', () =>
 								reject(new Error('CURATOR_LLM_TIMEOUT')),
