@@ -116,7 +116,7 @@ describe('parseDraftFrontmatter', () => {
 		expect(parseDraftFrontmatter('---\nname: foo\nno close')).toBeNull();
 	});
 
-	it('accepts Windows CRLF line endings', () => {
+	it('accepts Windows CRLF line endings (rendered output)', () => {
 		const cluster = clusterEntries([makeEntry('w1'), makeEntry('w2')])[0];
 		const crlf = renderSkillMarkdown(cluster, 'draft').replace(/\n/g, '\r\n');
 		const fm = parseDraftFrontmatter(crlf);
@@ -124,6 +124,35 @@ describe('parseDraftFrontmatter', () => {
 		expect(fm!.name).toBe(cluster.slug);
 		expect(fm!.status).toBe('draft');
 		expect(fm!.sourceKnowledgeIds.sort()).toEqual(['w1', 'w2']);
+	});
+
+	it('accepts hand-authored pure-CRLF frontmatter directly', () => {
+		const crlf =
+			'---\r\nname: hand-authored\r\nstatus: draft\r\ngenerated_from_knowledge:\r\n  - id-a\r\n  - id-b\r\n---\r\n# body\r\n';
+		const fm = parseDraftFrontmatter(crlf);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('hand-authored');
+		expect(fm!.status).toBe('draft');
+		expect(fm!.sourceKnowledgeIds.sort()).toEqual(['id-a', 'id-b']);
+	});
+
+	it('accepts mixed LF / CRLF without crashing', () => {
+		const mixed =
+			'---\r\nname: mixed\nstatus: active\r\ngenerated_from_knowledge:\n  - x1\r\n---\nbody';
+		const fm = parseDraftFrontmatter(mixed);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('mixed');
+		expect(fm!.status).toBe('active');
+		expect(fm!.sourceKnowledgeIds).toEqual(['x1']);
+	});
+
+	it('returns empty list when generated_from_knowledge has no entries', () => {
+		const md =
+			'---\nname: empty-ids\nstatus: draft\ngenerated_from_knowledge:\n---\nbody\n';
+		const fm = parseDraftFrontmatter(md);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe('empty-ids');
+		expect(fm!.sourceKnowledgeIds).toEqual([]);
 	});
 });
 
