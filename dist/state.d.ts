@@ -269,6 +269,27 @@ export declare const swarmState: {
      * name at call time by matching the active session's agent prefix. */
     curatorInitAgentNames: string[];
     curatorPhaseAgentNames: string[];
+    /** All registered skill_improver / spec_writer agent names across swarms,
+     * mirroring curatorInitAgentNames so the LLM delegate factory can resolve
+     * the correct prefixed agent under multi-swarm configs. */
+    skillImproverAgentNames: string[];
+    specWriterAgentNames: string[];
+    /** v2: in-memory cache of "currently-active critical directive ids" per
+     *  session+task, populated by the knowledge-injector when it injects a
+     *  critical+matching directive. Read by the toolBefore enforcement gate
+     *  so we don't re-scan the entire knowledge file on every high-risk tool
+     *  call. Cleared by phase change, curator commits, knowledge mutations,
+     *  and resetSwarmState. */
+    currentCriticalShownIds: Map<string, {
+        ids: string[];
+        taskId?: string;
+        phase?: string;
+        generatedAt: number;
+    }>;
+    /** v2: dedup set for ack records. Key = `${sessionId}|${id}|${result}|${dayKey}`.
+     *  Prevents the chat.messages.transform path AND a knowledge_ack tool call
+     *  from double-counting the same ack within a session-day. */
+    knowledgeAckDedup: Set<string>;
     /**
      * All generated agent names registered with OpenCode at plugin init.
      * Used by Full-Auto v2 delegation guard to apply strict registry-aware

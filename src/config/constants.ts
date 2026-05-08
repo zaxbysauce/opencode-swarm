@@ -18,6 +18,8 @@ export const ALL_SUBAGENT_NAMES = [
 	'council_generalist',
 	'council_skeptic',
 	'council_domain_expert',
+	'skill_improver',
+	'spec_writer',
 	...QA_AGENTS,
 	...PIPELINE_AGENTS,
 ] as const;
@@ -271,6 +273,12 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 		'convene_general_council',
 		'web_search',
 		'write_final_council_evidence',
+		'skill_generate',
+		'skill_list',
+		'skill_apply',
+		'skill_inspect',
+		'skill_improve',
+		'knowledge_ack',
 	],
 	explorer: [
 		'complexity_hotspots',
@@ -448,6 +456,36 @@ export const AGENT_TOOL_MAP: Record<AgentName, ToolName[]> = {
 	council_generalist: [],
 	council_skeptic: [],
 	council_domain_expert: [],
+	// v2: skill_improver — reviews knowledge/skills/spec/architect-prompt under
+	// daily quota. Default mode is proposal-only (no source mutation). May draft
+	// SKILL.md proposals when explicitly invoked with mode='draft_skills'.
+	skill_improver: [
+		'knowledge_recall',
+		'knowledge_query',
+		'skill_list',
+		'skill_inspect',
+		'skill_generate',
+		'skill_improve',
+		'search',
+		'doc_scan',
+		'doc_extract',
+		'web_search',
+	],
+	// v2: spec_writer — independent agent for authoring .swarm/spec.md. Has
+	// read tools and the safe spec_write tool only.
+	spec_writer: [
+		'search',
+		'knowledge_recall',
+		'knowledge_query',
+		'doc_scan',
+		'doc_extract',
+		'req_coverage',
+		'lint_spec',
+		'retrieve_summary',
+		'symbols',
+		'extract_code_blocks',
+		'spec_write',
+	],
 };
 
 /**
@@ -602,6 +640,14 @@ export const DEFAULT_MODELS: Record<string, string> = {
 	curator_init: 'opencode/gpt-5-nano',
 	curator_phase: 'opencode/gpt-5-nano',
 
+	// v2: Skill improver — defaults to a strong reasoning model, but is gated
+	// behind skill_improver.enabled and a daily quota (issue #629).
+	skill_improver: 'opencode/big-pickle',
+
+	// v2: Spec writer — independent from architect so users can run a
+	// high-capability model on spec while keeping architect cheaper.
+	spec_writer: 'opencode/big-pickle',
+
 	// Fallback
 	default: 'opencode/big-pickle',
 };
@@ -669,6 +715,14 @@ export const DEFAULT_AGENT_CONFIGS: Record<
 	curator_phase: {
 		model: 'opencode/gpt-5-nano',
 		fallback_models: ['opencode/big-pickle'],
+	},
+	skill_improver: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano'],
+	},
+	spec_writer: {
+		model: 'opencode/big-pickle',
+		fallback_models: ['opencode/gpt-5-nano'],
 	},
 };
 
