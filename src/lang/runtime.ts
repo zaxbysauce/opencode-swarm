@@ -31,7 +31,9 @@ let treeSitterInitPromise: Promise<void> | null = null;
  * mock.module leakage. Restore the original reference in afterEach.
  */
 export const _internals = {
-	parserInit: TreeSitterParser.init as (opts?: { locateFile: (scriptName: string) => string }) => Promise<void>,
+	parserInit: TreeSitterParser.init as (opts?: {
+		locateFile: (scriptName: string) => string;
+	}) => Promise<void>,
 };
 
 /**
