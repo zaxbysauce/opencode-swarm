@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.8.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.8.0...v7.8.1) (2026-05-08)
+
+
+### Bug Fixes
+
+* **curator:** suppress unhandled NotFoundError when curator LLM times out ([#793](https://github.com/zaxbysauce/opencode-swarm/issues/793)) ([44058bd](https://github.com/zaxbysauce/opencode-swarm/commit/44058bde3b224012f029d97e890a3015357ddf68))
+* **lang:** prevent concurrent Parser.init() calls with promise memoization ([#794](https://github.com/zaxbysauce/opencode-swarm/issues/794)) ([d05065e](https://github.com/zaxbysauce/opencode-swarm/commit/d05065e8e182d15f3ce15720d548914055058bd7))
+
 ## [7.8.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.7.0...v7.8.0) (2026-05-07)
 
 
