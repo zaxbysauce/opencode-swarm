@@ -599,6 +599,14 @@ export const TOOL_DESCRIPTIONS: Partial<Record<ToolName, string>> = {
 		'configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council.',
 	req_coverage:
 		'query requirement coverage status for tracked functional requirements',
+	skill_generate: 'compile knowledge entries into a structured SKILL.md draft',
+	skill_list: 'list generated skill files and their status',
+	skill_apply: 'activate a draft skill proposal',
+	skill_inspect: 'inspect the content and source entries of a skill file',
+	skill_improve: 'run the skill_improver agent to review and refine skills',
+	spec_write: 'author or update .swarm/spec.md for the current project',
+	knowledge_ack:
+		'record an explicit KNOWLEDGE_APPLIED/IGNORED/VIOLATED acknowledgment',
 };
 
 // Runtime validation: ensure all tool names in AGENT_TOOL_MAP are registered

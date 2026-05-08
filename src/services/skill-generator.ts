@@ -502,10 +502,12 @@ async function stampSourceEntries(
 export function parseDraftFrontmatter(
 	content: string,
 ): { name?: string; status?: string; sourceKnowledgeIds: string[] } | null {
-	if (!content.startsWith('---\n')) return null;
-	const end = content.indexOf('\n---', 4);
+	if (!content.startsWith('---\n') && !content.startsWith('---\r\n'))
+		return null;
+	const fenceLen = content.startsWith('---\r\n') ? 5 : 4;
+	const end = content.indexOf('\n---', fenceLen);
 	if (end < 0) return null;
-	const body = content.slice(4, end);
+	const body = content.slice(fenceLen, end).replace(/\r\n/g, '\n');
 	const lines = body.split('\n');
 	const out: { name?: string; status?: string; sourceKnowledgeIds: string[] } =
 		{

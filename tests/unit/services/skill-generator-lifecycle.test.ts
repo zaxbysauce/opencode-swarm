@@ -115,6 +115,16 @@ describe('parseDraftFrontmatter', () => {
 	it('returns null for unterminated frontmatter', () => {
 		expect(parseDraftFrontmatter('---\nname: foo\nno close')).toBeNull();
 	});
+
+	it('accepts Windows CRLF line endings', () => {
+		const cluster = clusterEntries([makeEntry('w1'), makeEntry('w2')])[0];
+		const crlf = renderSkillMarkdown(cluster, 'draft').replace(/\n/g, '\r\n');
+		const fm = parseDraftFrontmatter(crlf);
+		expect(fm).not.toBeNull();
+		expect(fm!.name).toBe(cluster.slug);
+		expect(fm!.status).toBe('draft');
+		expect(fm!.sourceKnowledgeIds.sort()).toEqual(['w1', 'w2']);
+	});
 });
 
 describe('activateProposal stamps source knowledge entries', () => {

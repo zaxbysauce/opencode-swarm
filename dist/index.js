@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.9.0",
+    version: "7.10.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -767,7 +767,14 @@ var init_constants = __esm(() => {
     repo_map: "query the repo code graph: importers, dependencies, blast radius, and localization context for structural awareness before refactoring",
     get_qa_gate_profile: "retrieve the QA gate profile for the current plan: gates (reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council), lock state, and profile hash. Read-only.",
     set_qa_gates: "configure the QA gate profile for the current plan. Architect-only. Ratchet-tighter only — rejected once the profile is locked after critic approval. Supports: reviewer, test_engineer, sme_enabled, critic_pre_plan, sast_enabled, council_mode, hallucination_guard, mutation_test, council_general_review, drift_check, final_council.",
-    req_coverage: "query requirement coverage status for tracked functional requirements"
+    req_coverage: "query requirement coverage status for tracked functional requirements",
+    skill_generate: "compile knowledge entries into a structured SKILL.md draft",
+    skill_list: "list generated skill files and their status",
+    skill_apply: "activate a draft skill proposal",
+    skill_inspect: "inspect the content and source entries of a skill file",
+    skill_improve: "run the skill_improver agent to review and refine skills",
+    spec_write: "author or update .swarm/spec.md for the current project",
+    knowledge_ack: "record an explicit KNOWLEDGE_APPLIED/IGNORED/VIOLATED acknowledgment"
   };
   for (const [agentName, tools] of Object.entries(AGENT_TOOL_MAP)) {
     const invalidTools = tools.filter((tool) => !TOOL_NAME_SET.has(tool));
@@ -41071,6 +41078,205 @@ function resetToRemoteBranch(cwd, options) {
     };
   }
 }
+function resetToMainAfterMerge(cwd, options) {
+  const warnings = [];
+  try {
+    const defaultBranch = _internals10.detectDefaultRemoteBranch(cwd);
+    if (!defaultBranch) {
+      return {
+        success: false,
+        targetBranch: "",
+        previousBranch: "",
+        message: "Could not detect default remote branch",
+        branchDeleted: false,
+        changesDiscarded: false,
+        warnings
+      };
+    }
+    const currentBranch = getCurrentBranch(cwd);
+    const targetBranch = `origin/${defaultBranch}`;
+    if (currentBranch === "HEAD") {
+      return {
+        success: false,
+        targetBranch,
+        previousBranch: "HEAD",
+        message: "Cannot reset: detached HEAD state",
+        branchDeleted: false,
+        changesDiscarded: false,
+        warnings
+      };
+    }
+    if (currentBranch === defaultBranch) {
+      try {
+        const logOutput = _internals10.gitExec(["log", `${targetBranch}..HEAD`, "--oneline"], cwd);
+        if (logOutput.trim().length > 0) {
+          return {
+            success: false,
+            targetBranch,
+            previousBranch: currentBranch,
+            message: `Cannot reset: ${defaultBranch} has unpushed commits. Push them first.`,
+            branchDeleted: false,
+            changesDiscarded: false,
+            warnings
+          };
+        }
+      } catch {}
+    } else {
+      try {
+        _internals10.gitExec(["rev-parse", "--abbrev-ref", `${currentBranch}@{upstream}`], cwd);
+      } catch {
+        try {
+          const localSha = _internals10.gitExec(["rev-parse", "HEAD"], cwd).trim();
+          const remoteSha = _internals10.gitExec(["rev-parse", targetBranch], cwd).trim();
+          if (localSha !== remoteSha) {
+            return {
+              success: false,
+              targetBranch,
+              previousBranch: currentBranch,
+              message: `Cannot reset: branch ${currentBranch} is local-only and diverges from ${defaultBranch}. Push or check manually.`,
+              branchDeleted: false,
+              changesDiscarded: false,
+              warnings
+            };
+          }
+        } catch {
+          return {
+            success: false,
+            targetBranch,
+            previousBranch: currentBranch,
+            message: `Cannot reset: unable to compare ${currentBranch} with ${defaultBranch}`,
+            branchDeleted: false,
+            changesDiscarded: false,
+            warnings
+          };
+        }
+      }
+    }
+    try {
+      _internals10.gitExec(["fetch", "--prune", "origin"], cwd);
+    } catch (err2) {
+      return {
+        success: false,
+        targetBranch,
+        previousBranch: currentBranch,
+        message: `Cannot reset: fetch failed — ${err2 instanceof Error ? err2.message : String(err2)}`,
+        branchDeleted: false,
+        changesDiscarded: false,
+        warnings
+      };
+    }
+    const previousBranch = currentBranch;
+    let switchedBranch = false;
+    if (currentBranch !== defaultBranch) {
+      try {
+        _internals10.gitExec(["checkout", defaultBranch], cwd);
+        switchedBranch = true;
+      } catch (err2) {
+        return {
+          success: false,
+          targetBranch,
+          previousBranch,
+          message: `Checkout to ${defaultBranch} failed: ${err2 instanceof Error ? err2.message : String(err2)}`,
+          branchDeleted: false,
+          changesDiscarded: false,
+          warnings
+        };
+      }
+    }
+    try {
+      _internals10.gitExec(["reset", "--hard", targetBranch], cwd);
+    } catch (err2) {
+      return {
+        success: false,
+        targetBranch,
+        previousBranch,
+        message: `Reset to ${targetBranch} failed: ${err2 instanceof Error ? err2.message : String(err2)}`,
+        branchDeleted: false,
+        changesDiscarded: false,
+        warnings
+      };
+    }
+    let changesDiscarded = false;
+    if (hasUncommittedChanges(cwd)) {
+      let discardSucceeded = false;
+      for (let retry = 0;retry < 4; retry++) {
+        if (retry > 0 && process.platform === "win32") {
+          const endTime = Date.now() + 500;
+          while (Date.now() < endTime) {}
+        }
+        try {
+          _internals10.gitExec(["checkout", "--", "."], cwd);
+          discardSucceeded = true;
+          break;
+        } catch {}
+      }
+      if (!discardSucceeded) {
+        warnings.push("Could not discard all uncommitted changes after reset");
+      }
+      changesDiscarded = discardSucceeded;
+    }
+    try {
+      _internals10.gitExec(["clean", "-fd"], cwd);
+    } catch {
+      warnings.push("Could not clean untracked files");
+    }
+    let branchDeleted = false;
+    if (switchedBranch && previousBranch !== defaultBranch) {
+      try {
+        const mergedOutput = _internals10.gitExec(["branch", "--merged", defaultBranch], cwd);
+        const isMerged = mergedOutput.split(`
+`).some((line) => line.trim() === previousBranch || line.trim() === `* ${previousBranch}`);
+        if (isMerged) {
+          _internals10.gitExec(["branch", "-d", previousBranch], cwd);
+          branchDeleted = true;
+        } else {
+          warnings.push(`Branch ${previousBranch} is not merged into ${defaultBranch} — keeping it`);
+        }
+      } catch {
+        warnings.push(`Could not delete branch ${previousBranch}`);
+      }
+    }
+    if (options?.pruneBranches) {
+      try {
+        const mergedOutput = _internals10.gitExec(["branch", "--merged", defaultBranch], cwd);
+        const mergedLines = mergedOutput.split(`
+`);
+        for (const line of mergedLines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine || trimmedLine.startsWith("*") || trimmedLine === defaultBranch) {
+            continue;
+          }
+          try {
+            _internals10.gitExec(["branch", "-d", trimmedLine], cwd);
+          } catch {
+            warnings.push(`Could not prune branch: ${trimmedLine}`);
+          }
+        }
+      } catch (err2) {
+        warnings.push(`Prune failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      }
+    }
+    return {
+      success: true,
+      targetBranch,
+      previousBranch,
+      message: branchDeleted ? `Reset to ${defaultBranch} and deleted branch ${previousBranch}` : `Reset to ${defaultBranch}`,
+      branchDeleted,
+      changesDiscarded,
+      warnings
+    };
+  } catch (err2) {
+    return {
+      success: false,
+      targetBranch: "",
+      previousBranch: "",
+      message: `Unexpected error: ${err2 instanceof Error ? err2.message : String(err2)}`,
+      branchDeleted: false,
+      changesDiscarded: false,
+      warnings
+    };
+  }
+}
 var GIT_TIMEOUT_MS2 = 30000, _internals10;
 var init_branch = __esm(() => {
   init_logger();
@@ -41078,2430 +41284,9 @@ var init_branch = __esm(() => {
     gitExec: gitExec2,
     detectDefaultRemoteBranch,
     getDefaultBaseBranch,
-    resetToRemoteBranch
+    resetToRemoteBranch,
+    resetToMainAfterMerge
   };
-});
-
-// src/hooks/knowledge-store.ts
-import { existsSync as existsSync9 } from "node:fs";
-import { appendFile as appendFile3, mkdir as mkdir3, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
-import * as os3 from "node:os";
-import * as path15 from "node:path";
-function resolveSwarmKnowledgePath(directory) {
-  return path15.join(directory, ".swarm", "knowledge.jsonl");
-}
-function resolveSwarmRejectedPath(directory) {
-  return path15.join(directory, ".swarm", "knowledge-rejected.jsonl");
-}
-function resolveHiveKnowledgePath() {
-  const platform = process.platform;
-  const home = process.env.HOME || os3.homedir();
-  let dataDir;
-  if (platform === "win32") {
-    dataDir = path15.join(process.env.LOCALAPPDATA || path15.join(home, "AppData", "Local"), "opencode-swarm", "Data");
-  } else if (platform === "darwin") {
-    dataDir = path15.join(home, "Library", "Application Support", "opencode-swarm");
-  } else {
-    dataDir = path15.join(process.env.XDG_DATA_HOME || path15.join(home, ".local", "share"), "opencode-swarm");
-  }
-  return path15.join(dataDir, "shared-learnings.jsonl");
-}
-function resolveHiveRejectedPath() {
-  const hivePath = resolveHiveKnowledgePath();
-  return path15.join(path15.dirname(hivePath), "shared-learnings-rejected.jsonl");
-}
-async function readKnowledge(filePath) {
-  if (!existsSync9(filePath))
-    return [];
-  const content = await readFile5(filePath, "utf-8");
-  const results = [];
-  for (const line of content.split(`
-`)) {
-    const trimmed = line.trim();
-    if (!trimmed)
-      continue;
-    try {
-      const raw = JSON.parse(trimmed);
-      results.push(normalizeEntry(raw));
-    } catch {
-      console.warn(`[knowledge-store] Skipping corrupted JSONL line in ${filePath}: ${trimmed.slice(0, 80)}`);
-    }
-  }
-  return results;
-}
-function normalizeEntry(raw) {
-  if (!raw || typeof raw !== "object")
-    return raw;
-  const obj = raw;
-  if (!("retrieval_outcomes" in obj))
-    return raw;
-  const ro = obj.retrieval_outcomes;
-  if (ro && typeof ro === "object") {
-    if (typeof ro.shown_count !== "number") {
-      ro.shown_count = typeof ro.applied_count === "number" ? ro.applied_count : 0;
-    }
-    if (typeof ro.acknowledged_count !== "number")
-      ro.acknowledged_count = 0;
-    if (typeof ro.applied_explicit_count !== "number") {
-      ro.applied_explicit_count = 0;
-    }
-    if (typeof ro.ignored_count !== "number")
-      ro.ignored_count = 0;
-    if (typeof ro.violated_count !== "number")
-      ro.violated_count = 0;
-    if (typeof ro.succeeded_after_shown_count !== "number") {
-      ro.succeeded_after_shown_count = typeof ro.succeeded_after_count === "number" ? ro.succeeded_after_count : 0;
-    }
-    if (typeof ro.failed_after_shown_count !== "number") {
-      ro.failed_after_shown_count = typeof ro.failed_after_count === "number" ? ro.failed_after_count : 0;
-    }
-  }
-  const arrayFields = [
-    "triggers",
-    "required_actions",
-    "forbidden_actions",
-    "applies_to_agents",
-    "applies_to_tools",
-    "verification_checks",
-    "source_refs",
-    "source_knowledge_ids"
-  ];
-  for (const f of arrayFields) {
-    const v = obj[f];
-    if (v !== undefined && !Array.isArray(v)) {
-      delete obj[f];
-    }
-  }
-  return raw;
-}
-async function readRejectedLessons(directory) {
-  return readKnowledge(resolveSwarmRejectedPath(directory));
-}
-async function appendKnowledge(filePath, entry) {
-  await mkdir3(path15.dirname(filePath), { recursive: true });
-  await appendFile3(filePath, `${JSON.stringify(entry)}
-`, "utf-8");
-}
-async function rewriteKnowledge(filePath, entries) {
-  const dir = path15.dirname(filePath);
-  await mkdir3(dir, { recursive: true });
-  let release = null;
-  try {
-    release = await import_proper_lockfile3.default.lock(dir, {
-      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
-      stale: 5000
-    });
-    const content = entries.map((e) => JSON.stringify(e)).join(`
-`) + (entries.length > 0 ? `
-` : "");
-    await writeFile3(filePath, content, "utf-8");
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {}
-    }
-  }
-}
-async function enforceKnowledgeCap(filePath, maxEntries) {
-  const entries = await readKnowledge(filePath);
-  if (entries.length > maxEntries) {
-    const trimmed = entries.slice(entries.length - maxEntries);
-    await rewriteKnowledge(filePath, trimmed);
-  }
-}
-async function sweepAgedEntries(filePath, defaultMaxPhases) {
-  let release = null;
-  try {
-    const dir = path15.dirname(filePath);
-    await mkdir3(dir, { recursive: true });
-    release = await import_proper_lockfile3.default.lock(dir, {
-      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
-      stale: 5000
-    });
-    const entries = await readKnowledge(filePath);
-    const result = {
-      scanned: entries.length,
-      aged: 0,
-      archived: 0,
-      removed: 0,
-      skipped_promoted: 0
-    };
-    if (entries.length === 0)
-      return result;
-    const now = new Date().toISOString();
-    let mutated = false;
-    for (const entry of entries) {
-      if (entry.status === "archived")
-        continue;
-      if (entry.status === "promoted") {
-        result.skipped_promoted++;
-        continue;
-      }
-      entry.phases_alive = (entry.phases_alive ?? 0) + 1;
-      result.aged++;
-      mutated = true;
-      const ttl = entry.max_phases ?? defaultMaxPhases;
-      if (entry.phases_alive > ttl) {
-        entry.status = "archived";
-        entry.updated_at = now;
-        result.archived++;
-      }
-    }
-    if (mutated) {
-      const content = entries.map((e) => JSON.stringify(e)).join(`
-`) + (entries.length > 0 ? `
-` : "");
-      await writeFile3(filePath, content, "utf-8");
-    }
-    return result;
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {}
-    }
-  }
-}
-async function sweepStaleTodos(filePath, todoMaxPhases) {
-  let release = null;
-  try {
-    const dir = path15.dirname(filePath);
-    await mkdir3(dir, { recursive: true });
-    release = await import_proper_lockfile3.default.lock(dir, {
-      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
-      stale: 5000
-    });
-    const entries = await readKnowledge(filePath);
-    const result = {
-      scanned: entries.length,
-      aged: 0,
-      archived: 0,
-      removed: 0,
-      skipped_promoted: 0
-    };
-    if (entries.length === 0)
-      return result;
-    const kept = entries.filter((e) => {
-      if (e.category !== "todo" || e.status === "promoted")
-        return true;
-      const age = e.phases_alive ?? 0;
-      if (age > todoMaxPhases) {
-        result.removed++;
-        return false;
-      }
-      return true;
-    });
-    if (result.removed > 0) {
-      const content = kept.map((e) => JSON.stringify(e)).join(`
-`) + (kept.length > 0 ? `
-` : "");
-      await writeFile3(filePath, content, "utf-8");
-    }
-    return result;
-  } finally {
-    if (release) {
-      try {
-        await release();
-      } catch {}
-    }
-  }
-}
-async function appendRejectedLesson(directory, lesson) {
-  const filePath = resolveSwarmRejectedPath(directory);
-  const existing = await readRejectedLessons(directory);
-  const MAX = 20;
-  const updated = [...existing, lesson];
-  if (updated.length > MAX) {
-    const trimmed = updated.slice(updated.length - MAX);
-    await rewriteKnowledge(filePath, trimmed);
-  } else {
-    await appendKnowledge(filePath, lesson);
-  }
-}
-function normalize2(text) {
-  return text.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-function wordBigrams(text) {
-  const words = normalize2(text).split(" ").filter(Boolean);
-  const bigrams = new Set;
-  for (let i2 = 0;i2 < words.length - 1; i2++) {
-    bigrams.add(`${words[i2]} ${words[i2 + 1]}`);
-  }
-  return bigrams;
-}
-function jaccardBigram(a, b) {
-  if (a.size === 0 && b.size === 0)
-    return 1;
-  const aArr = Array.from(a);
-  const intersection3 = new Set(aArr.filter((x) => b.has(x)));
-  const union3 = new Set([...aArr, ...Array.from(b)]);
-  return intersection3.size / union3.size;
-}
-function findNearDuplicate(candidate, entries, threshold = 0.6) {
-  const candidateBigrams = wordBigrams(candidate);
-  return entries.find((entry) => {
-    const entryBigrams = wordBigrams(entry.lesson);
-    return jaccardBigram(candidateBigrams, entryBigrams) >= threshold;
-  });
-}
-function computeConfidence(confirmedByCount, autoGenerated) {
-  let score = 0.5;
-  score += Math.min(confirmedByCount, 3) * 0.1;
-  if (!autoGenerated)
-    score += 0.1;
-  return Math.min(score, 1);
-}
-function inferTags(lesson) {
-  const lower = lesson.toLowerCase();
-  const tags = [];
-  if (/(^|\s)(?:todo|remember|don't?(?:\s+)?forget)(?:\s|:|,|$)/i.test(lesson))
-    tags.push("todo");
-  if (/\b(?:typescript|ts)\b/.test(lower))
-    tags.push("typescript");
-  if (/\b(?:javascript|js)\b/.test(lower))
-    tags.push("javascript");
-  if (/\b(?:python)\b/.test(lower))
-    tags.push("python");
-  if (/\b(?:bun|node|deno)\b/.test(lower))
-    tags.push("runtime");
-  if (/\b(?:react|vue|svelte|angular)\b/.test(lower))
-    tags.push("frontend");
-  if (/\b(?:git|github|gitlab)\b/.test(lower))
-    tags.push("git");
-  if (/\b(?:docker|kubernetes|k8s)\b/.test(lower))
-    tags.push("container");
-  if (/\b(?:sql|postgres|mysql|sqlite)\b/.test(lower))
-    tags.push("database");
-  if (/\b(?:test|spec|vitest|jest|mocha)\b/.test(lower))
-    tags.push("testing");
-  if (/\b(?:ci|cd|pipeline|workflow|action)\b/.test(lower))
-    tags.push("ci-cd");
-  if (/\b(?:security|auth|token|password|encrypt)\b/.test(lower))
-    tags.push("security");
-  if (/\b(?:performance|latency|throughput|cache)\b/.test(lower))
-    tags.push("performance");
-  if (/\b(?:api|rest|graphql|grpc|endpoint)\b/.test(lower))
-    tags.push("api");
-  if (/\b(?:swarm|architect|agent|hook|plan)\b/.test(lower))
-    tags.push("opencode-swarm");
-  return Array.from(new Set(tags));
-}
-var import_proper_lockfile3;
-var init_knowledge_store = __esm(() => {
-  import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
-});
-
-// src/hooks/knowledge-reader.ts
-import { existsSync as existsSync10 } from "node:fs";
-import { mkdir as mkdir4, readFile as readFile6, writeFile as writeFile4 } from "node:fs/promises";
-import * as path16 from "node:path";
-function inferCategoriesFromPhase(phaseDescription) {
-  const lower = phaseDescription.toLowerCase();
-  const patterns = [
-    {
-      pattern: /\b(?:test|qa|quality|verification|validation)\b/,
-      categories: ["testing", "debugging"]
-    },
-    {
-      pattern: /\b(?:implement|build|develop|coding|code)\b/,
-      categories: ["tooling", "architecture", "debugging"]
-    },
-    {
-      pattern: /\b(?:integrat|deploy|ci|cd|release|publish)\b/,
-      categories: ["integration", "tooling", "performance"]
-    },
-    {
-      pattern: /\b(?:plan|design|architect|spec|requirement)\b/,
-      categories: ["architecture", "process"]
-    },
-    {
-      pattern: /\b(?:review|refactor|cleanup|polish|optimi)\b/,
-      categories: ["performance", "architecture", "process"]
-    },
-    {
-      pattern: /\b(?:secur|audit|harden|compliance)\b/,
-      categories: ["security", "testing"]
-    },
-    {
-      pattern: /\b(?:setup|config|scaffold|init|bootstrap)\b/,
-      categories: ["tooling", "other"]
-    },
-    {
-      pattern: /\b(?:doc|readme|changelog)\b/,
-      categories: ["process", "tooling"]
-    }
-  ];
-  for (const { pattern, categories } of patterns) {
-    if (pattern.test(lower)) {
-      return categories;
-    }
-  }
-  return ["process", "tooling"];
-}
-async function recordLessonsShown(directory, lessonIds, currentPhase) {
-  const shownFile = path16.join(directory, ".swarm", ".knowledge-shown.json");
-  try {
-    let shownData = {};
-    if (existsSync10(shownFile)) {
-      const content = await readFile6(shownFile, "utf-8");
-      shownData = JSON.parse(content);
-    }
-    const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
-    const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
-    shownData[canonicalKey] = lessonIds;
-    await mkdir4(path16.dirname(shownFile), { recursive: true });
-    await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-  } catch {
-    warn("[swarm] Knowledge: failed to record shown lessons");
-  }
-}
-async function readMergedKnowledge(directory, config3, context) {
-  const swarmPath = resolveSwarmKnowledgePath(directory);
-  const swarmEntries = await readKnowledge(swarmPath);
-  let hiveEntries = [];
-  if (config3.hive_enabled !== false) {
-    const hivePath = resolveHiveKnowledgePath();
-    hiveEntries = await readKnowledge(hivePath);
-  }
-  const seenLessons = new Set;
-  const merged = [];
-  for (const entry of hiveEntries) {
-    const normalized = normalize2(entry.lesson);
-    seenLessons.add(normalized);
-    merged.push({
-      ...entry,
-      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
-      finalScore: 0
-    });
-  }
-  for (const entry of swarmEntries) {
-    const normalized = normalize2(entry.lesson);
-    if (seenLessons.has(normalized)) {
-      continue;
-    }
-    const swarmBigrams = wordBigrams(normalized);
-    const isHiveNearDup = hiveEntries.some((hiveEntry) => jaccardBigram(swarmBigrams, wordBigrams(normalize2(hiveEntry.lesson))) >= JACCARD_THRESHOLD);
-    if (isHiveNearDup)
-      continue;
-    const isSwarmNearDup = merged.some((m) => m.tier === "swarm" && jaccardBigram(swarmBigrams, wordBigrams(normalize2(m.lesson))) >= JACCARD_THRESHOLD);
-    if (isSwarmNearDup)
-      continue;
-    seenLessons.add(normalized);
-    merged.push({
-      ...entry,
-      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
-      finalScore: 0
-    });
-  }
-  const scopeFilter = config3.scope_filter ?? ["global"];
-  const filtered = merged.filter((entry) => scopeFilter.some((pattern) => (entry.scope ?? "global") === pattern) && entry.status !== "archived");
-  const ranked = filtered.map((entry) => {
-    let categoryScore = 0;
-    if (context?.currentPhase) {
-      const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
-      if (phaseCategories.includes(entry.category)) {
-        categoryScore = 1;
-      } else if (entry.category === "process") {
-        categoryScore = 0.5;
-      }
-    } else {
-      categoryScore = 0.5;
-    }
-    const confidenceScore = entry.confidence;
-    let keywordsScore = 0;
-    if (context?.techStack && entry.tags.length > 0) {
-      const matchingTags = entry.tags.filter((t) => context.techStack.some((s) => t.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(t.toLowerCase()))).length;
-      keywordsScore = Math.min(matchingTags / Math.max(entry.tags.length, 1), 1);
-    } else if (entry.tags.length === 0) {
-      keywordsScore = 0.5;
-    }
-    const tierBoost = entry.tier === "hive" ? HIVE_TIER_BOOST : 0;
-    const isSameProjectSource = context?.projectName && entry.tier === "hive" && "source_project" in entry && entry.source_project === context.projectName;
-    const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
-    const finalScore = categoryScore * 0.4 + confidenceScore * 0.35 + keywordsScore * 0.25 + tierBoost + sameProjectPenalty;
-    const relevanceScore = {
-      category: categoryScore,
-      confidence: confidenceScore,
-      keywords: keywordsScore
-    };
-    return {
-      ...entry,
-      relevanceScore,
-      finalScore: Math.min(Math.max(finalScore, 0), 1)
-    };
-  });
-  ranked.sort((a, b) => {
-    const scoreDiff = b.finalScore - a.finalScore;
-    if (Math.abs(scoreDiff) > 0.001)
-      return scoreDiff;
-    const dateA = new Date(a.created_at).getTime();
-    const dateB = new Date(b.created_at).getTime();
-    return dateB - dateA;
-  });
-  const maxInject = config3.max_inject_count ?? 5;
-  const topN = ranked.slice(0, maxInject);
-  if (topN.length > 0 && context?.currentPhase) {
-    recordLessonsShown(directory, topN.map((e) => e.id), context.currentPhase).catch(() => {});
-  }
-  return topN;
-}
-async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
-  const shownFile = path16.join(directory, ".swarm", ".knowledge-shown.json");
-  try {
-    if (!existsSync10(shownFile)) {
-      return;
-    }
-    const content = await readFile6(shownFile, "utf-8");
-    const shownData = JSON.parse(content);
-    const shownIds = shownData[phaseInfo];
-    if (!shownIds || shownIds.length === 0) {
-      return;
-    }
-    const swarmPath = resolveSwarmKnowledgePath(directory);
-    const entries = await readKnowledge(swarmPath);
-    let updated = false;
-    const foundInSwarm = new Set;
-    for (const entry of entries) {
-      if (shownIds.includes(entry.id)) {
-        const ro = entry.retrieval_outcomes;
-        if (phaseSucceeded) {
-          ro.succeeded_after_shown_count = (ro.succeeded_after_shown_count ?? 0) + 1;
-        } else {
-          ro.failed_after_shown_count = (ro.failed_after_shown_count ?? 0) + 1;
-        }
-        updated = true;
-        foundInSwarm.add(entry.id);
-      }
-    }
-    if (updated) {
-      await rewriteKnowledge(swarmPath, entries);
-    }
-    const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
-    if (remainingIds.length === 0) {
-      delete shownData[phaseInfo];
-      await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-      return;
-    }
-    const hivePath = resolveHiveKnowledgePath();
-    const hiveEntries = await readKnowledge(hivePath);
-    let hiveUpdated = false;
-    for (const entry of hiveEntries) {
-      if (remainingIds.includes(entry.id)) {
-        const ro = entry.retrieval_outcomes;
-        if (phaseSucceeded) {
-          ro.succeeded_after_shown_count = (ro.succeeded_after_shown_count ?? 0) + 1;
-        } else {
-          ro.failed_after_shown_count = (ro.failed_after_shown_count ?? 0) + 1;
-        }
-        hiveUpdated = true;
-      }
-    }
-    if (hiveUpdated) {
-      await rewriteKnowledge(hivePath, hiveEntries);
-    }
-    delete shownData[phaseInfo];
-    await writeFile4(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
-  } catch {
-    warn("[swarm] Knowledge: failed to update retrieval outcomes");
-  }
-}
-function lc(s) {
-  return (s ?? "").toLowerCase();
-}
-function anyMatch(haystack, needles) {
-  if (needles.length === 0)
-    return false;
-  const hay = haystack.map(lc);
-  return needles.some((n) => hay.some((h) => h.includes(lc(n))));
-}
-function tokenizeContext(ctx) {
-  const parts2 = [];
-  if (ctx.taskTitle)
-    parts2.push(ctx.taskTitle);
-  if (ctx.taskDescription)
-    parts2.push(ctx.taskDescription);
-  if (ctx.lastUserMessage)
-    parts2.push(ctx.lastUserMessage);
-  if (ctx.currentAction)
-    parts2.push(ctx.currentAction);
-  if (ctx.currentTool)
-    parts2.push(ctx.currentTool);
-  if (ctx.targetAgent)
-    parts2.push(ctx.targetAgent);
-  if (ctx.declaredScope)
-    parts2.push(ctx.declaredScope);
-  if (ctx.recentReviewerFailures)
-    parts2.push(...ctx.recentReviewerFailures);
-  if (ctx.recentTestFailures)
-    parts2.push(...ctx.recentTestFailures);
-  if (ctx.recentToolErrors)
-    parts2.push(...ctx.recentToolErrors);
-  if (ctx.planConstraints)
-    parts2.push(...ctx.planConstraints);
-  if (ctx.filePaths)
-    parts2.push(...ctx.filePaths);
-  return parts2.map(lc);
-}
-function scoreDirectiveAgainstContext(entry, ctx) {
-  const haystack = tokenizeContext(ctx);
-  const triggerHit = entry.triggers && entry.triggers.length > 0 ? anyMatch(haystack, entry.triggers) : false;
-  const actionHit = entry.applies_to_tools && entry.applies_to_tools.length > 0 ? entry.applies_to_tools.map(lc).some((t) => t === lc(ctx.currentTool) || t === lc(ctx.currentAction)) : false;
-  const agentHit = entry.applies_to_agents && entry.applies_to_agents.length > 0 ? entry.applies_to_agents.map(lc).some((a) => a === lc(ctx.targetAgent)) : false;
-  let score = 0;
-  if (triggerHit)
-    score += 0.5;
-  if (actionHit)
-    score += 0.35;
-  if (agentHit)
-    score += 0.25;
-  if (entry.directive_priority === "critical")
-    score += 0.4;
-  else if (entry.directive_priority === "high")
-    score += 0.2;
-  else if (entry.directive_priority === "medium")
-    score += 0.1;
-  return { triggerHit, actionHit, agentHit, score: Math.min(1, score) };
-}
-async function readContextualKnowledge(directory, config3, ctx) {
-  const projected = {
-    projectName: ctx.projectName ?? "unknown",
-    currentPhase: ctx.currentPhase ?? "Phase 0",
-    techStack: ctx.techStack,
-    recentErrors: [
-      ...ctx.recentReviewerFailures ?? [],
-      ...ctx.recentTestFailures ?? [],
-      ...ctx.recentToolErrors ?? []
-    ]
-  };
-  const wideCfg = {
-    ...config3,
-    max_inject_count: Math.max(20, config3.max_inject_count ?? 5)
-  };
-  const candidates = await readMergedKnowledge(directory, wideCfg, projected) ?? [];
-  const minConf = typeof config3.directive_min_confidence === "number" ? config3.directive_min_confidence : DIRECTIVE_BOOST_MIN_CONFIDENCE;
-  const rescored = candidates.map((entry) => {
-    const ds = scoreDirectiveAgainstContext(entry, ctx);
-    const confBoost = entry.confidence >= minConf && (ds.actionHit || ds.agentHit) ? 0.25 : 0;
-    const generatedSkillBoost = entry.generated_skill_path && entry.status !== "archived" ? 0.05 : 0;
-    const finalScore = Math.min(1, entry.finalScore + ds.score + confBoost + generatedSkillBoost);
-    return {
-      ...entry,
-      finalScore,
-      __directive: ds
-    };
-  });
-  rescored.sort((a, b) => b.finalScore - a.finalScore);
-  const max = config3.max_inject_count ?? 5;
-  const top = [];
-  const seen = new Set;
-  for (const e of rescored) {
-    if (top.length >= max)
-      break;
-    const ds = e.__directive;
-    const isCritical = e.directive_priority === "critical" && (ds.triggerHit || ds.actionHit || ds.agentHit);
-    if (isCritical && !seen.has(e.id)) {
-      top.push(e);
-      seen.add(e.id);
-    }
-  }
-  for (const e of rescored) {
-    if (top.length >= max)
-      break;
-    if (!seen.has(e.id)) {
-      top.push(e);
-      seen.add(e.id);
-    }
-  }
-  return top.map(({ __directive: _d, ...rest }) => rest);
-}
-var JACCARD_THRESHOLD = 0.6, HIVE_TIER_BOOST = 0.05, SAME_PROJECT_PENALTY = -0.05, DIRECTIVE_BOOST_MIN_CONFIDENCE = 0.75;
-var init_knowledge_reader = __esm(() => {
-  init_logger();
-  init_knowledge_store();
-});
-
-// src/hooks/knowledge-validator.ts
-import { appendFile as appendFile4, mkdir as mkdir5, writeFile as writeFile5 } from "node:fs/promises";
-import * as path17 from "node:path";
-function normalizeText(text) {
-  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-function detectContradiction(candidate, existingLessons) {
-  const candidateTags = inferTags(candidate);
-  if (candidateTags.length === 0)
-    return false;
-  const candidateNorm = normalizeText(candidate);
-  for (const existing of existingLessons) {
-    const existingTags = inferTags(existing);
-    const shared = candidateTags.some((t) => existingTags.includes(t));
-    if (!shared)
-      continue;
-    const existingNorm = normalizeText(existing);
-    for (const [wordA, wordB] of NEGATION_PAIRS) {
-      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
-      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
-      if (hasA || hasB)
-        return true;
-    }
-  }
-  return false;
-}
-function isVagueLesson(lesson) {
-  const lower = normalizeText(lesson);
-  const words = lower.split(/\s+/);
-  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
-  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
-  return !hasTechRef && !hasActionVerb;
-}
-function validateLesson(candidate, existingLessons, meta3) {
-  if (!candidate || typeof candidate !== "string") {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (!Array.isArray(existingLessons)) {
-    existingLessons = [];
-  }
-  if (candidate.length < 15) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too short (min 15 chars)",
-      severity: "error"
-    };
-  }
-  if (candidate.length > 280) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "lesson too long (max 280 chars)",
-      severity: "error"
-    };
-  }
-  if (!VALID_CATEGORIES.has(meta3.category)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: `invalid category: ${meta3.category}`,
-      severity: "error"
-    };
-  }
-  const isGlobalScope = meta3.scope === "global";
-  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
-  if (!isGlobalScope && !isStackScope) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "invalid scope: must be 'global' or 'stack:<name>'",
-      severity: "error"
-    };
-  }
-  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
-    return {
-      valid: false,
-      layer: 1,
-      reason: "confidence out of range [0.0, 1.0]",
-      severity: "error"
-    };
-  }
-  const normalizedCandidate = candidate.normalize("NFKC").replace(INVISIBLE_FORMAT_CHARS, " ").replace(/\s+/g, " ").toLowerCase();
-  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "dangerous command pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
-    if (pattern.test(normalizedCandidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "security-degrading instruction detected",
-        severity: "error"
-      };
-    }
-  }
-  for (const pattern of INJECTION_PATTERNS) {
-    if (pattern.test(candidate)) {
-      return {
-        valid: false,
-        layer: 2,
-        reason: "injection pattern detected",
-        severity: "error"
-      };
-    }
-  }
-  if (detectContradiction(candidate, existingLessons)) {
-    return {
-      valid: false,
-      layer: 3,
-      reason: "lesson contradicts an existing lesson with shared tags",
-      severity: "error"
-    };
-  }
-  if (isVagueLesson(candidate)) {
-    return {
-      valid: true,
-      layer: 3,
-      reason: "lesson may be too vague (no tech reference or action verb)",
-      severity: "warning"
-    };
-  }
-  return {
-    valid: true,
-    layer: null,
-    reason: null,
-    severity: null
-  };
-}
-function validateSkillPath(p) {
-  if (typeof p !== "string")
-    return false;
-  if (p.length === 0 || p.length > 256)
-    return false;
-  if (p.includes("\x00"))
-    return false;
-  if (path17.isAbsolute(p))
-    return false;
-  if (p.includes(".."))
-    return false;
-  const norm = p.replace(/\\/g, "/");
-  return ALLOWED_SKILL_PATH_PREFIXES.some((prefix) => norm.startsWith(prefix));
-}
-async function quarantineEntry(directory, entryId, reason, reportedBy) {
-  if (!directory || directory.includes("..")) {
-    warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
-    return;
-  }
-  const validReportedBy = ["architect", "user", "auto"];
-  if (!validReportedBy.includes(reportedBy)) {
-    return;
-  }
-  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
-  const knowledgePath = path17.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path17.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path17.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path17.join(directory, ".swarm");
-  await mkdir5(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile4.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const entries = await readKnowledge(knowledgePath);
-    const entry = entries.find((e) => e.id === entryId);
-    if (!entry) {
-      return;
-    }
-    const remaining = entries.filter((e) => e.id !== entryId);
-    const quarantined = {
-      ...entry,
-      quarantine_reason: sanitizedReason,
-      quarantined_at: new Date().toISOString(),
-      reported_by: reportedBy
-    };
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile5(knowledgePath, jsonlContent, "utf-8");
-    await appendFile4(quarantinePath, `${JSON.stringify(quarantined)}
-`, "utf-8");
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    if (quarantinedEntries.length > 100) {
-      const trimmed = quarantinedEntries.slice(-100);
-      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-      await writeFile5(quarantinePath, capContent, "utf-8");
-    }
-    const rejectedRecord = {
-      id: entryId,
-      lesson: entry.lesson,
-      rejection_reason: sanitizedReason,
-      rejected_at: new Date().toISOString(),
-      rejection_layer: 3
-    };
-    await appendKnowledge(rejectedPath, rejectedRecord);
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-async function restoreEntry(directory, entryId) {
-  if (!directory || directory.includes("..")) {
-    warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
-    return;
-  }
-  if (!entryId || entryId.includes("\x00") || entryId.includes(`
-`)) {
-    warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
-    return;
-  }
-  const knowledgePath = path17.join(directory, ".swarm", "knowledge.jsonl");
-  const quarantinePath = path17.join(directory, ".swarm", "knowledge-quarantined.jsonl");
-  const rejectedPath = path17.join(directory, ".swarm", "knowledge-rejected.jsonl");
-  const swarmDir = path17.join(directory, ".swarm");
-  await mkdir5(swarmDir, { recursive: true });
-  let release;
-  try {
-    release = await import_proper_lockfile4.default.lock(swarmDir, {
-      retries: { retries: 3, minTimeout: 100 }
-    });
-    const quarantinedEntries = await readKnowledge(quarantinePath);
-    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
-    if (!entryToRestore) {
-      return;
-    }
-    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
-    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
-    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile5(quarantinePath, jsonlContent, "utf-8");
-    await appendFile4(knowledgePath, `${JSON.stringify(original)}
-`, "utf-8");
-    const rejectedEntries = await readKnowledge(rejectedPath);
-    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
-    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
-`)}
-` : "";
-    await writeFile5(rejectedPath, rejectedContent, "utf-8");
-  } finally {
-    if (release) {
-      await release();
-    }
-  }
-}
-var import_proper_lockfile4, DANGEROUS_COMMAND_PATTERNS, SECURITY_DEGRADING_PATTERNS, INVISIBLE_FORMAT_CHARS, INJECTION_PATTERNS, VALID_CATEGORIES, TECH_REFERENCE_WORDS, ACTION_VERB_WORDS, NEGATION_PAIRS, ALLOWED_SKILL_PATH_PREFIXES, VALID_DIRECTIVE_PRIORITIES;
-var init_knowledge_validator = __esm(() => {
-  init_logger();
-  init_knowledge_store();
-  import_proper_lockfile4 = __toESM(require_proper_lockfile(), 1);
-  DANGEROUS_COMMAND_PATTERNS = [
-    /\brm\s+-rf\b/,
-    /\bsudo\s+rm\b/,
-    /\bformat\b/,
-    /\bmkfs\b/,
-    /\bdd\s+if=/,
-    /:\(\)\s*\{/,
-    /\bchmod\s+-R\s+777\b/,
-    /\bdeltree\b/,
-    /\brmdir\s+\/s\b/,
-    /\bkill\s+-9\b/,
-    /\bpkill\b/,
-    /\bkillall\b/,
-    /`[^`]*`/,
-    /\$\([^)]*\)/
-  ];
-  SECURITY_DEGRADING_PATTERNS = [
-    /disable\s+.{0,50}firewall/i,
-    /turn\s+off\s+.{0,50}security/i,
-    /skip\s+.{0,50}auth/i,
-    /bypass\s+.{0,50}auth/i,
-    /ignore\s+.{0,50}certificate/i,
-    /disable\s+.{0,50}tls/i,
-    /disable\s+.{0,50}ssl/i,
-    /no\s+.{0,50}validation/i,
-    /disable\s+.{0,50}2fa/i,
-    /remove\s+.{0,50}password/i
-  ];
-  INVISIBLE_FORMAT_CHARS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
-  INJECTION_PATTERNS = [
-    /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
-    /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/,
-    /^system\s*:/i,
-    /<script/i,
-    /javascript:/i,
-    /\beval\(/i,
-    /\b__proto__\b/,
-    /\bconstructor\[/,
-    /\.prototype\[/
-  ];
-  VALID_CATEGORIES = new Set([
-    "process",
-    "architecture",
-    "tooling",
-    "security",
-    "testing",
-    "debugging",
-    "performance",
-    "integration",
-    "todo",
-    "other"
-  ]);
-  TECH_REFERENCE_WORDS = new Set([
-    "git",
-    "docker",
-    "typescript",
-    "bun",
-    "vitest",
-    "node",
-    "python",
-    "react",
-    "sql",
-    "api",
-    "hook",
-    "test",
-    "schema",
-    "config",
-    "file",
-    "function",
-    "class",
-    "module",
-    "import",
-    "export"
-  ]);
-  ACTION_VERB_WORDS = new Set([
-    "use",
-    "avoid",
-    "prefer",
-    "run",
-    "check",
-    "always",
-    "never",
-    "ensure",
-    "call",
-    "write",
-    "add",
-    "remove",
-    "update",
-    "set",
-    "enable",
-    "disable"
-  ]);
-  NEGATION_PAIRS = [
-    ["always", "never"],
-    ["must", "must not"],
-    ["must", "should not"],
-    ["enable", "disable"],
-    ["use", "avoid"],
-    ["use", "don't use"],
-    ["recommended", "not recommended"]
-  ];
-  ALLOWED_SKILL_PATH_PREFIXES = [
-    ".opencode/skills/generated/",
-    ".swarm/skills/proposals/"
-  ];
-  VALID_DIRECTIVE_PRIORITIES = new Set([
-    "low",
-    "medium",
-    "high",
-    "critical"
-  ]);
-});
-
-// src/hooks/knowledge-curator.ts
-function pruneSeenRetroSections() {
-  const cutoff = Date.now() - 86400000;
-  for (const [key, entry] of seenRetroSections) {
-    if (entry.timestamp < cutoff) {
-      seenRetroSections.delete(key);
-    }
-  }
-}
-function isWriteToSwarmPlan(input) {
-  if (typeof input !== "object" || input === null)
-    return false;
-  const record3 = input;
-  const toolName = record3.toolName;
-  if (typeof toolName !== "string")
-    return false;
-  if (!["write", "edit", "apply_patch"].includes(toolName))
-    return false;
-  const rawPath = record3.path;
-  const rawFile = record3.file;
-  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
-  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
-  if (typeof pathField === "string" && pathField.includes(".swarm/plan.md")) {
-    return true;
-  }
-  if (typeof fileField === "string" && fileField.includes(".swarm/plan.md")) {
-    return true;
-  }
-  return false;
-}
-function isWriteToEvidenceFile(input) {
-  if (typeof input !== "object" || input === null)
-    return false;
-  const record3 = input;
-  const toolName = record3.toolName;
-  if (typeof toolName !== "string")
-    return false;
-  if (!["write", "edit", "apply_patch"].includes(toolName))
-    return false;
-  const rawPath = record3.path;
-  const rawFile = record3.file;
-  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
-  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
-  const evidenceRegex = /\.swarm\/+evidence\/+/i;
-  if (typeof pathField === "string" && evidenceRegex.test(pathField)) {
-    return true;
-  }
-  if (typeof fileField === "string" && evidenceRegex.test(fileField)) {
-    return true;
-  }
-  return false;
-}
-function extractRetrospectiveSection(planContent) {
-  const headingRegex = /^###\s+Lessons\s+Learned$/m;
-  const match = headingRegex.exec(planContent);
-  if (!match)
-    return null;
-  const startIndex = match.index;
-  const restOfContent = planContent.slice(startIndex);
-  const firstNewline = restOfContent.indexOf(`
-`);
-  const contentAfterHeading = firstNewline === -1 ? "" : restOfContent.slice(firstNewline + 1);
-  const nextHeadingRegex = /^#{1,2}\s+/m;
-  const nextMatch = nextHeadingRegex.exec(contentAfterHeading);
-  let endIndex;
-  if (nextMatch) {
-    endIndex = startIndex + firstNewline + 1 + nextMatch.index;
-  } else {
-    endIndex = planContent.length;
-  }
-  return planContent.slice(startIndex, endIndex).trim();
-}
-function checkRetroChanged(sessionID, section) {
-  const hash3 = `${section.length}:${section.slice(0, 100)}`;
-  const lastSeen = seenRetroSections.get(sessionID);
-  if (lastSeen?.value === hash3) {
-    return false;
-  }
-  seenRetroSections.set(sessionID, { value: hash3, timestamp: Date.now() });
-  return true;
-}
-function extractLessonsFromRetro(section) {
-  const lessons = [];
-  const lines = section.split(`
-`);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    const bulletMatch = /^[-*]\s+(.+)$/.exec(trimmed);
-    if (bulletMatch) {
-      const content = bulletMatch[1].trim();
-      if (content) {
-        lessons.push(content);
-      }
-    }
-  }
-  return lessons;
-}
-function extractRetractionsAndLessons(allLessons) {
-  const retractions = [];
-  const normalLessons = [];
-  for (const lesson of allLessons) {
-    const upper = lesson.trimStart().toUpperCase();
-    if (upper.startsWith("RETRACT:") || upper.startsWith("BAD RULE:")) {
-      const colonIdx = lesson.indexOf(":");
-      const text = colonIdx !== -1 ? lesson.slice(colonIdx + 1).trim() : "";
-      if (text)
-        retractions.push(text);
-    } else {
-      normalLessons.push(lesson);
-    }
-  }
-  return { retractions, normalLessons };
-}
-async function processRetractions(retractions, directory) {
-  if (retractions.length === 0)
-    return;
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const entries = await readKnowledge(knowledgePath) ?? [];
-  for (const retractionText of retractions) {
-    const normalizedRetraction = normalize2(retractionText);
-    for (const entry of entries) {
-      const normalizedLesson = normalize2(entry.lesson);
-      if (normalizedLesson === normalizedRetraction) {
-        await quarantineEntry(directory, entry.id, `Retracted by architect: ${retractionText}`, "architect");
-        console.info(`[knowledge-curator] Quarantined entry ${entry.id}: "${entry.lesson}"`);
-      }
-    }
-  }
-}
-async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const existingEntries = await readKnowledge(knowledgePath) ?? [];
-  let stored = 0;
-  let skipped = 0;
-  let rejected = 0;
-  const categoryByTag = new Map([
-    ["process", "process"],
-    ["architecture", "architecture"],
-    ["tooling", "tooling"],
-    ["security", "security"],
-    ["testing", "testing"],
-    ["debugging", "debugging"],
-    ["performance", "performance"],
-    ["integration", "integration"],
-    ["other", "other"],
-    ["todo", "todo"]
-  ]);
-  for (const lesson of lessons) {
-    const tags = inferTags(lesson);
-    let category = "process";
-    for (const tag of tags) {
-      if (categoryByTag.has(tag)) {
-        category = categoryByTag.get(tag);
-        break;
-      }
-    }
-    const meta3 = {
-      category,
-      scope: "global",
-      confidence: computeConfidence(0, true)
-    };
-    const result = validateLesson(lesson, existingEntries.map((e) => e.lesson), meta3);
-    if (result.valid === false || result.severity === "error") {
-      const rejectedLesson = {
-        id: crypto.randomUUID(),
-        lesson,
-        rejection_reason: result.reason ?? "unknown",
-        rejected_at: new Date().toISOString(),
-        rejection_layer: result.layer ?? 1
-      };
-      await appendRejectedLesson(directory, rejectedLesson);
-      rejected++;
-      continue;
-    }
-    const duplicate = findNearDuplicate(lesson, existingEntries, config3.dedup_threshold);
-    if (duplicate) {
-      skipped++;
-      continue;
-    }
-    const entry = {
-      id: crypto.randomUUID(),
-      tier: "swarm",
-      lesson,
-      category,
-      tags,
-      scope: "global",
-      confidence: computeConfidence(1, true),
-      status: "candidate",
-      confirmed_by: [
-        {
-          phase_number: phaseInfo.phase_number,
-          confirmed_at: new Date().toISOString(),
-          project_name: projectName
-        }
-      ],
-      retrieval_outcomes: {
-        applied_count: 0,
-        succeeded_after_count: 0,
-        failed_after_count: 0
-      },
-      schema_version: config3.schema_version,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-      project_name: projectName,
-      auto_generated: true
-    };
-    await appendKnowledge(knowledgePath, entry);
-    stored++;
-    existingEntries.push(entry);
-  }
-  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
-  await _internals11.runAutoPromotion(directory, config3);
-  return { stored, skipped, rejected };
-}
-async function runAutoPromotion(directory, config3) {
-  const knowledgePath = resolveSwarmKnowledgePath(directory);
-  const entries = await readKnowledge(knowledgePath) ?? [];
-  let changed = false;
-  for (const entry of entries) {
-    if (entry.status === "promoted")
-      continue;
-    const distinctPhases = new Set((entry.confirmed_by ?? []).map((c) => c.phase_number)).size;
-    if (entry.status === "candidate" && distinctPhases >= 3) {
-      entry.status = "established";
-      entry.updated_at = new Date().toISOString();
-      changed = true;
-      continue;
-    }
-    if (entry.status === "established") {
-      const createdAt = Date.parse(entry.created_at ?? "");
-      const ageMs = Number.isNaN(createdAt) ? 0 : Date.now() - createdAt;
-      const ageThresholdMs = config3.auto_promote_days * 86400000;
-      if (distinctPhases >= 3 || ageMs >= ageThresholdMs) {
-        entry.status = "promoted";
-        entry.hive_eligible = true;
-        entry.updated_at = new Date().toISOString();
-        changed = true;
-      }
-    }
-  }
-  if (changed) {
-    await rewriteKnowledge(knowledgePath, entries);
-  }
-}
-function createKnowledgeCuratorHook(directory, config3) {
-  const handler = async (input, _output) => {
-    pruneSeenRetroSections();
-    if (!config3.enabled)
-      return;
-    if (!isWriteToSwarmPlan(input) && !isWriteToEvidenceFile(input))
-      return;
-    const sessionID = input?.sessionID ?? "default";
-    const isEvidenceTrigger = isWriteToEvidenceFile(input) && !isWriteToSwarmPlan(input);
-    if (isEvidenceTrigger) {
-      const record3 = input;
-      const rawPath = record3.path;
-      const rawFile = record3.file;
-      const filePath = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : null;
-      if (!filePath)
-        return;
-      const evidenceKey = `evidence:${sessionID}:${filePath}`;
-      const lastSeenEvidence = seenRetroSections.get(evidenceKey);
-      const evidenceContent = await readSwarmFileAsync(directory, filePath.replace(/^.*\.swarm\//, ""));
-      if (!evidenceContent)
-        return;
-      let evidenceData;
-      try {
-        evidenceData = JSON.parse(evidenceContent);
-      } catch {
-        return;
-      }
-      let lessons = [];
-      if (Array.isArray(evidenceData.entries) && evidenceData.entries.length > 0) {
-        const firstEntry = evidenceData.entries[0];
-        if (Array.isArray(firstEntry.lessons_learned)) {
-          lessons = firstEntry.lessons_learned;
-        }
-      } else if (Array.isArray(evidenceData.lessons_learned)) {
-        lessons = evidenceData.lessons_learned;
-      }
-      if (lessons.length === 0)
-        return;
-      const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join("|")}`;
-      if (lastSeenEvidence?.value === evidenceHash) {
-        return;
-      }
-      seenRetroSections.set(evidenceKey, {
-        value: evidenceHash,
-        timestamp: Date.now()
-      });
-      const projectName2 = evidenceData.project_name ?? "unknown";
-      const phaseNumber2 = typeof evidenceData.phase_number === "number" ? evidenceData.phase_number : 1;
-      await _internals11.curateAndStoreSwarm(lessons, projectName2, { phase_number: phaseNumber2 }, directory, config3);
-      await updateRetrievalOutcome(directory, `Phase ${phaseNumber2}`, true);
-      return;
-    }
-    const planContent = await readSwarmFileAsync(directory, "plan.md");
-    if (!planContent)
-      return;
-    const section = extractRetrospectiveSection(planContent);
-    if (!section)
-      return;
-    if (!checkRetroChanged(sessionID, section))
-      return;
-    const allLessons = extractLessonsFromRetro(section);
-    if (allLessons.length === 0)
-      return;
-    const { retractions, normalLessons } = extractRetractionsAndLessons(allLessons);
-    await processRetractions(retractions, directory);
-    if (normalLessons.length === 0)
-      return;
-    const projectNameMatch = /^#\s+(.+)$/m.exec(planContent);
-    const projectName = projectNameMatch ? projectNameMatch[1].trim() : "unknown";
-    const phaseMatch = /^Phase:\s*(\d+)/m.exec(planContent);
-    const phaseNumber = phaseMatch ? parseInt(phaseMatch[1], 10) : 1;
-    await _internals11.curateAndStoreSwarm(normalLessons, projectName, { phase_number: phaseNumber }, directory, config3);
-    await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
-  };
-  return safeHook(handler);
-}
-var seenRetroSections, _internals11;
-var init_knowledge_curator = __esm(() => {
-  init_knowledge_reader();
-  init_knowledge_store();
-  init_knowledge_validator();
-  init_utils2();
-  seenRetroSections = new Map;
-  _internals11 = {
-    isWriteToEvidenceFile,
-    curateAndStoreSwarm,
-    runAutoPromotion,
-    createKnowledgeCuratorHook
-  };
-});
-
-// src/session/snapshot-writer.ts
-import { mkdirSync as mkdirSync9, renameSync as renameSync7 } from "node:fs";
-import * as path18 from "node:path";
-function serializeAgentSession(s) {
-  const gateLog = {};
-  const rawGateLog = s.gateLog ?? new Map;
-  for (const [taskId, gates] of rawGateLog) {
-    gateLog[taskId] = Array.from(gates ?? []);
-  }
-  const reviewerCallCount = {};
-  const rawReviewerCallCount = s.reviewerCallCount ?? new Map;
-  for (const [phase, count] of rawReviewerCallCount) {
-    reviewerCallCount[String(phase)] = count;
-  }
-  const partialGateWarningsIssuedForTask = Array.from(s.partialGateWarningsIssuedForTask ?? new Set);
-  const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
-  const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
-  const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
-  const windows = {};
-  const rawWindows = s.windows ?? {};
-  for (const [key, win] of Object.entries(rawWindows)) {
-    windows[key] = {
-      id: win.id,
-      agentName: win.agentName,
-      startedAtMs: win.startedAtMs,
-      toolCalls: win.toolCalls,
-      consecutiveErrors: win.consecutiveErrors,
-      hardLimitHit: win.hardLimitHit,
-      lastSuccessTimeMs: win.lastSuccessTimeMs,
-      recentToolCalls: win.recentToolCalls,
-      warningIssued: win.warningIssued,
-      warningReason: win.warningReason,
-      transientRetryCount: win.transientRetryCount ?? 0
-    };
-  }
-  return {
-    agentName: s.agentName,
-    lastToolCallTime: s.lastToolCallTime,
-    lastAgentEventTime: s.lastAgentEventTime,
-    delegationActive: s.delegationActive,
-    activeInvocationId: s.activeInvocationId,
-    lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
-    windows,
-    lastCompactionHint: s.lastCompactionHint ?? 0,
-    architectWriteCount: s.architectWriteCount ?? 0,
-    lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
-    currentTaskId: s.currentTaskId ?? null,
-    turboMode: s.turboMode ?? false,
-    gateLog,
-    reviewerCallCount,
-    lastGateFailure: s.lastGateFailure ?? null,
-    partialGateWarningsIssuedForTask,
-    selfFixAttempted: s.selfFixAttempted ?? false,
-    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
-    catastrophicPhaseWarnings,
-    lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
-    lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
-    phaseAgentsDispatched,
-    lastCompletedPhaseAgentsDispatched,
-    qaSkipCount: s.qaSkipCount ?? 0,
-    qaSkipTaskIds: s.qaSkipTaskIds ?? [],
-    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
-    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
-    ...s.scopeViolationDetected !== undefined && {
-      scopeViolationDetected: s.scopeViolationDetected
-    },
-    model_fallback_index: s.model_fallback_index ?? 0,
-    modelFallbackExhausted: s.modelFallbackExhausted ?? false,
-    coderRevisions: s.coderRevisions ?? 0,
-    revisionLimitHit: s.revisionLimitHit ?? false,
-    fullAutoMode: s.fullAutoMode ?? false,
-    fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
-    fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
-    fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
-  };
-}
-async function writeSnapshot(directory, state) {
-  try {
-    const snapshot = {
-      version: 2,
-      writtenAt: Date.now(),
-      toolAggregates: Object.fromEntries(state.toolAggregates),
-      activeAgent: Object.fromEntries(state.activeAgent),
-      delegationChains: Object.fromEntries(state.delegationChains),
-      agentSessions: {}
-    };
-    for (const [sessionId, sessionState] of state.agentSessions) {
-      snapshot.agentSessions[sessionId] = serializeAgentSession(sessionState);
-    }
-    const content = JSON.stringify(snapshot, null, 2);
-    const resolvedPath = validateSwarmPath(directory, "session/state.json");
-    const dir = path18.dirname(resolvedPath);
-    mkdirSync9(dir, { recursive: true });
-    const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
-    await bunWrite(tempPath, content);
-    renameSync7(tempPath, resolvedPath);
-  } catch (error93) {
-    log("[snapshot-writer] write failed", {
-      error: error93 instanceof Error ? error93.message : String(error93)
-    });
-  }
-}
-function createSnapshotWriterHook(directory) {
-  return (_input, _output) => {
-    _writeInFlight = _writeInFlight.then(() => _internals12.writeSnapshot(directory, swarmState), () => _internals12.writeSnapshot(directory, swarmState));
-    return _writeInFlight;
-  };
-}
-async function flushPendingSnapshot(directory) {
-  _writeInFlight = _writeInFlight.then(() => _internals12.writeSnapshot(directory, swarmState), () => _internals12.writeSnapshot(directory, swarmState));
-  await _writeInFlight;
-}
-var _writeInFlight, _internals12;
-var init_snapshot_writer = __esm(() => {
-  init_utils2();
-  init_state();
-  init_utils();
-  init_bun_compat();
-  _writeInFlight = Promise.resolve();
-  _internals12 = {
-    writeSnapshot,
-    createSnapshotWriterHook,
-    flushPendingSnapshot
-  };
-});
-
-// src/tools/write-retro.ts
-async function executeWriteRetro(args2, directory) {
-  if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
-    return JSON.stringify({
-      success: false,
-      message: "Invalid directory: reserved device name"
-    }, null, 2);
-  }
-  const phase = args2.phase;
-  if (!Number.isInteger(phase) || phase < 1) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid phase: must be a positive integer"
-    }, null, 2);
-  }
-  const validComplexities = [
-    "trivial",
-    "simple",
-    "moderate",
-    "complex"
-  ];
-  if (!validComplexities.includes(args2.task_complexity)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: `Invalid task_complexity: must be one of 'trivial'|'simple'|'moderate'|'complex'`
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.task_count) || args2.task_count < 1) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid task_count: must be a positive integer >= 1"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.total_tool_calls) || args2.total_tool_calls < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid total_tool_calls: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.coder_revisions) || args2.coder_revisions < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid coder_revisions: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.reviewer_rejections) || args2.reviewer_rejections < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid reviewer_rejections: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.test_failures) || args2.test_failures < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid test_failures: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.security_findings) || args2.security_findings < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid security_findings: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (!Number.isInteger(args2.integration_issues) || args2.integration_issues < 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid integration_issues: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.loop_detections !== undefined && (!Number.isInteger(args2.loop_detections) || args2.loop_detections < 0)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid loop_detections: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.circuit_breaker_trips !== undefined && (!Number.isInteger(args2.circuit_breaker_trips) || args2.circuit_breaker_trips < 0)) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid circuit_breaker_trips: must be a non-negative integer"
-    }, null, 2);
-  }
-  if (args2.phase > 99) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid phase: must be <= 99"
-    }, null, 2);
-  }
-  if (args2.task_count > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid task_count: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.total_tool_calls > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid total_tool_calls: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.coder_revisions > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid coder_revisions: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.reviewer_rejections > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid reviewer_rejections: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.loop_detections !== undefined && args2.loop_detections > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid loop_detections: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.circuit_breaker_trips !== undefined && args2.circuit_breaker_trips > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid circuit_breaker_trips: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.test_failures > 9999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid test_failures: must be <= 9999"
-    }, null, 2);
-  }
-  if (args2.security_findings > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid security_findings: must be <= 999"
-    }, null, 2);
-  }
-  if (args2.integration_issues > 999) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid integration_issues: must be <= 999"
-    }, null, 2);
-  }
-  const summary = args2.summary;
-  if (typeof summary !== "string" || summary.trim().length === 0) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: "Invalid summary: must be a non-empty string"
-    }, null, 2);
-  }
-  if (args2.task_id !== undefined) {
-    const tid = args2.task_id;
-    if (!tid || tid.length === 0 || tid.length > 200) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: must match pattern"
-      }, null, 2);
-    }
-    if (/\0/.test(tid)) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: contains null bytes"
-      }, null, 2);
-    }
-    for (let i2 = 0;i2 < tid.length; i2++) {
-      if (tid.charCodeAt(i2) < 32) {
-        return JSON.stringify({
-          success: false,
-          phase,
-          message: "Invalid task ID: contains control characters"
-        }, null, 2);
-      }
-    }
-    if (tid.includes("..") || tid.includes("/") || tid.includes("\\")) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: path traversal detected"
-      }, null, 2);
-    }
-    const VALID_TASK_ID = /^(retro-[a-zA-Z0-9][a-zA-Z0-9_-]*|\d+\.\d+(\.\d+)*)$/;
-    if (!VALID_TASK_ID.test(tid)) {
-      return JSON.stringify({
-        success: false,
-        phase,
-        message: "Invalid task ID: must match pattern"
-      }, null, 2);
-    }
-  }
-  const taskId = args2.task_id ?? `retro-${phase}`;
-  const retroEntry = {
-    task_id: taskId,
-    type: "retrospective",
-    timestamp: new Date().toISOString(),
-    agent: "architect",
-    verdict: "pass",
-    summary,
-    metadata: args2.metadata,
-    phase_number: phase,
-    total_tool_calls: args2.total_tool_calls,
-    coder_revisions: args2.coder_revisions,
-    reviewer_rejections: args2.reviewer_rejections,
-    loop_detections: args2.loop_detections,
-    circuit_breaker_trips: args2.circuit_breaker_trips,
-    test_failures: args2.test_failures,
-    security_findings: args2.security_findings,
-    integration_issues: args2.integration_issues,
-    task_count: args2.task_count,
-    task_complexity: args2.task_complexity,
-    top_rejection_reasons: args2.top_rejection_reasons ?? [],
-    lessons_learned: (args2.lessons_learned ?? []).slice(0, 5),
-    user_directives: [],
-    approaches_tried: [],
-    error_taxonomy: []
-  };
-  const taxonomy = [];
-  try {
-    const allTaskIds = await listEvidenceTaskIds(directory);
-    const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
-    const sessionStart = args2.metadata && typeof args2.metadata.session_start === "string" ? args2.metadata.session_start : undefined;
-    for (const phaseTaskId of phaseTaskIds) {
-      const result = await loadEvidence(directory, phaseTaskId);
-      if (result.status !== "found")
-        continue;
-      const bundle = result.bundle;
-      if (sessionStart && bundle.updated_at < sessionStart)
-        continue;
-      for (const entry of bundle.entries) {
-        const e = entry;
-        if (e.type === "review" && e.verdict === "fail") {
-          const reasonParts = [];
-          if (typeof e.summary === "string")
-            reasonParts.push(e.summary);
-          if (Array.isArray(e.issues)) {
-            for (const iss of e.issues) {
-              if (typeof iss.message === "string")
-                reasonParts.push(iss.message);
-            }
-          }
-          const reason = reasonParts.join(" ");
-          if (/signature|type|contract|interface/i.test(reason)) {
-            taxonomy.push("interface_mismatch");
-          } else {
-            taxonomy.push("logic_error");
-          }
-        } else if (e.type === "test" && e.verdict === "fail") {
-          taxonomy.push("logic_error");
-        } else if (e.agent === "scope_guard" && e.verdict === "fail") {
-          taxonomy.push("scope_creep");
-        } else if (e.agent === "loop_detector" && e.verdict === "fail") {
-          taxonomy.push("gate_evasion");
-        }
-      }
-    }
-  } catch {}
-  retroEntry.error_taxonomy = [...new Set(taxonomy)];
-  const validationResult = RetrospectiveEvidenceSchema.safeParse(retroEntry);
-  if (!validationResult.success) {
-    return JSON.stringify({
-      success: false,
-      error: `Retrospective entry failed validation: ${validationResult.error.message}`
-    }, null, 2);
-  }
-  try {
-    await saveEvidence(directory, taskId, retroEntry);
-    return JSON.stringify({
-      success: true,
-      task_id: taskId,
-      phase,
-      message: `Retrospective evidence written to .swarm/evidence/${taskId}/evidence.json`
-    }, null, 2);
-  } catch (error93) {
-    return JSON.stringify({
-      success: false,
-      phase,
-      message: error93 instanceof Error ? error93.message : String(error93)
-    }, null, 2);
-  }
-}
-var write_retro, _internals13;
-var init_write_retro = __esm(() => {
-  init_zod();
-  init_evidence_schema();
-  init_manager2();
-  init_create_tool();
-  write_retro = createSwarmTool({
-    description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
-    args: {
-      phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
-      summary: exports_external.string().describe("Human-readable summary of the phase"),
-      task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
-      task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
-      total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
-      coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
-      reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
-      loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
-      circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
-      test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
-      security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
-      integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
-      lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
-      top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
-      task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
-      metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
-    },
-    execute: async (args2, directory) => {
-      const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
-      try {
-        const writeRetroArgs = {
-          phase: Number(args2.phase),
-          summary: String(args2.summary ?? ""),
-          task_count: Number(args2.task_count),
-          task_complexity: args2.task_complexity,
-          total_tool_calls: Number(args2.total_tool_calls),
-          coder_revisions: Number(args2.coder_revisions),
-          reviewer_rejections: Number(args2.reviewer_rejections),
-          loop_detections: args2.loop_detections != null ? Number(args2.loop_detections) : undefined,
-          circuit_breaker_trips: args2.circuit_breaker_trips != null ? Number(args2.circuit_breaker_trips) : undefined,
-          test_failures: Number(args2.test_failures),
-          security_findings: Number(args2.security_findings),
-          integration_issues: Number(args2.integration_issues),
-          lessons_learned: Array.isArray(args2.lessons_learned) ? args2.lessons_learned.map(String) : undefined,
-          top_rejection_reasons: Array.isArray(args2.top_rejection_reasons) ? args2.top_rejection_reasons.map(String) : undefined,
-          task_id: args2.task_id !== undefined ? String(args2.task_id) : undefined,
-          metadata: args2.metadata
-        };
-        return await _internals13.executeWriteRetro(writeRetroArgs, directory);
-      } catch {
-        return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
-      }
-    }
-  });
-  _internals13 = {
-    executeWriteRetro,
-    write_retro
-  };
-});
-
-// src/commands/close.ts
-import { promises as fs12 } from "node:fs";
-import path19 from "node:path";
-function guaranteeAllPlansComplete(planData) {
-  const closedPhaseIds = [];
-  const closedTaskIds = [];
-  for (const phase of planData.phases ?? []) {
-    const wasComplete = phase.status === "complete" || phase.status === "completed" || phase.status === "closed";
-    if (!wasComplete) {
-      phase.status = "closed";
-      closedPhaseIds.push(phase.id);
-    }
-    for (const task of phase.tasks ?? []) {
-      const wasTaskDone = task.status === "completed" || task.status === "complete" || task.status === "closed";
-      if (!wasTaskDone) {
-        task.status = "closed";
-        task.close_reason = "session_terminated";
-        closedTaskIds.push(task.id);
-      }
-    }
-  }
-  return { closedPhaseIds, closedTaskIds };
-}
-async function handleCloseCommand(directory, args2) {
-  const planPath = validateSwarmPath(directory, "plan.json");
-  const swarmDir = path19.join(directory, ".swarm");
-  let planExists = false;
-  let planData = {
-    title: path19.basename(directory) || "Ad-hoc session",
-    phases: []
-  };
-  try {
-    const content = await fs12.readFile(planPath, "utf-8");
-    planData = JSON.parse(content);
-    planExists = true;
-  } catch (error93) {
-    if (error93?.code !== "ENOENT") {
-      return `❌ Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
-    }
-    const swarmDirExists = await fs12.access(swarmDir).then(() => true).catch(() => false);
-    if (!swarmDirExists) {
-      return `❌ No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
-    }
-  }
-  const phases = planData.phases ?? [];
-  const inProgressPhases = phases.filter((p) => p.status === "in_progress");
-  const isForced = args2.includes("--force");
-  let planAlreadyDone = false;
-  if (planExists) {
-    planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
-  }
-  const config3 = KnowledgeConfigSchema.parse({});
-  const projectName = planData.title ?? "Unknown Project";
-  const closedPhases = [];
-  const closedTasks = [];
-  const warnings = [];
-  if (!planAlreadyDone) {
-    for (const phase of inProgressPhases) {
-      closedPhases.push(phase.id);
-      let retroResult;
-      try {
-        retroResult = await executeWriteRetro({
-          phase: phase.id,
-          summary: isForced ? `Phase force-closed via /swarm close --force` : `Phase closed via /swarm close`,
-          task_count: Math.max(1, (phase.tasks ?? []).length),
-          task_complexity: "simple",
-          total_tool_calls: 0,
-          coder_revisions: 0,
-          reviewer_rejections: 0,
-          test_failures: 0,
-          security_findings: 0,
-          integration_issues: 0
-        }, directory);
-      } catch (retroError) {
-        warnings.push(`Retrospective write threw for phase ${phase.id}: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
-      }
-      if (retroResult !== undefined) {
-        try {
-          const parsed = JSON.parse(retroResult);
-          if (parsed.success !== true) {
-            warnings.push(`Retrospective write failed for phase ${phase.id}`);
-          }
-        } catch {}
-      }
-      for (const task of phase.tasks ?? []) {
-        if (task.status !== "completed" && task.status !== "complete") {
-          closedTasks.push(task.id);
-        }
-      }
-    }
-  }
-  let sessionStart;
-  {
-    let earliest = Infinity;
-    for (const [, session] of swarmState.agentSessions) {
-      if (session.lastAgentEventTime > 0 && session.lastAgentEventTime < earliest) {
-        earliest = session.lastAgentEventTime;
-      }
-    }
-    if (earliest < Infinity) {
-      sessionStart = new Date(earliest).toISOString();
-    }
-  }
-  const wrotePhaseRetro = closedPhases.length > 0;
-  if (!wrotePhaseRetro && !planExists) {
-    try {
-      const sessionRetroResult = await executeWriteRetro({
-        phase: 1,
-        task_id: "retro-session",
-        summary: isForced ? "Plan-free session force-closed via /swarm close --force" : "Plan-free session closed via /swarm close",
-        task_count: 1,
-        task_complexity: "simple",
-        total_tool_calls: 0,
-        coder_revisions: 0,
-        reviewer_rejections: 0,
-        test_failures: 0,
-        security_findings: 0,
-        integration_issues: 0,
-        metadata: {
-          session_scope: "plan_free",
-          ...sessionStart ? { session_start: sessionStart } : {}
-        }
-      }, directory);
-      try {
-        const parsed = JSON.parse(sessionRetroResult);
-        if (parsed.success !== true) {
-          warnings.push(`Session retrospective write failed: ${parsed.message ?? "unknown"}`);
-        }
-      } catch {}
-    } catch (retroError) {
-      warnings.push(`Session retrospective write threw: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
-    }
-  }
-  const lessonsFilePath = path19.join(swarmDir, "close-lessons.md");
-  let explicitLessons = [];
-  try {
-    const lessonsText = await fs12.readFile(lessonsFilePath, "utf-8");
-    explicitLessons = lessonsText.split(`
-`).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
-  } catch {}
-  const retroLessons = [];
-  try {
-    const evidenceDir = path19.join(swarmDir, "evidence");
-    const evidenceEntries = await fs12.readdir(evidenceDir);
-    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
-    for (const retroDir of retroDirs) {
-      const evidencePath = path19.join(evidenceDir, retroDir, "evidence.json");
-      try {
-        const content = await fs12.readFile(evidencePath, "utf-8");
-        const parsed = JSON.parse(content);
-        const entries = parsed.entries ?? [parsed];
-        for (const entry of entries) {
-          if (Array.isArray(entry.lessons_learned)) {
-            for (const lesson of entry.lessons_learned) {
-              if (typeof lesson === "string" && lesson.trim().length > 0) {
-                retroLessons.push(lesson.trim());
-              }
-            }
-          }
-        }
-      } catch {}
-    }
-  } catch {}
-  const allLessons = [...new Set([...explicitLessons, ...retroLessons])];
-  let curationSucceeded = false;
-  try {
-    await curateAndStoreSwarm(allLessons, projectName, { phase_number: 0 }, directory, config3);
-    curationSucceeded = true;
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    warnings.push(`Lessons curation failed: ${msg}`);
-    console.warn("[close-command] curateAndStoreSwarm error:", error93);
-  }
-  if (curationSucceeded && allLessons.length > 0) {
-    await fs12.unlink(lessonsFilePath).catch(() => {});
-  }
-  if (planExists) {
-    const guaranteeResult = guaranteeAllPlansComplete(planData);
-    for (const phaseId of guaranteeResult.closedPhaseIds) {
-      if (!closedPhases.includes(phaseId)) {
-        closedPhases.push(phaseId);
-      }
-    }
-    for (const taskId of guaranteeResult.closedTaskIds) {
-      if (!closedTasks.includes(taskId)) {
-        closedTasks.push(taskId);
-      }
-    }
-    if (!planAlreadyDone || guaranteeResult.closedPhaseIds.length > 0 || guaranteeResult.closedTaskIds.length > 0) {
-      try {
-        await fs12.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
-      } catch (error93) {
-        const msg = error93 instanceof Error ? error93.message : String(error93);
-        warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
-        console.warn("[close-command] Failed to write plan.json:", error93);
-      }
-    }
-  }
-  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
-  const suffix = Math.random().toString(36).slice(2, 8);
-  const archiveDir = path19.join(swarmDir, "archive", `swarm-${timestamp}-${suffix}`);
-  let archiveResult = "";
-  let archivedFileCount = 0;
-  const archivedActiveStateFiles = new Set;
-  try {
-    await fs12.mkdir(archiveDir, { recursive: true });
-    for (const artifact of ARCHIVE_ARTIFACTS) {
-      const srcPath = path19.join(swarmDir, artifact);
-      const destPath = path19.join(archiveDir, artifact);
-      try {
-        await fs12.copyFile(srcPath, destPath);
-        archivedFileCount++;
-        if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
-          archivedActiveStateFiles.add(artifact);
-        }
-      } catch {}
-    }
-    const evidenceDir = path19.join(swarmDir, "evidence");
-    const archiveEvidenceDir = path19.join(archiveDir, "evidence");
-    try {
-      const evidenceEntries = await fs12.readdir(evidenceDir);
-      if (evidenceEntries.length > 0) {
-        await fs12.mkdir(archiveEvidenceDir, { recursive: true });
-        for (const entry of evidenceEntries) {
-          const srcEntry = path19.join(evidenceDir, entry);
-          const destEntry = path19.join(archiveEvidenceDir, entry);
-          try {
-            const stat3 = await fs12.stat(srcEntry);
-            if (stat3.isDirectory()) {
-              await fs12.mkdir(destEntry, { recursive: true });
-              const subEntries = await fs12.readdir(srcEntry);
-              for (const sub of subEntries) {
-                await fs12.copyFile(path19.join(srcEntry, sub), path19.join(destEntry, sub)).catch(() => {});
-              }
-            } else {
-              await fs12.copyFile(srcEntry, destEntry);
-            }
-            archivedFileCount++;
-          } catch {}
-        }
-      }
-    } catch {}
-    const sessionStatePath = path19.join(swarmDir, "session", "state.json");
-    try {
-      const archiveSessionDir = path19.join(archiveDir, "session");
-      await fs12.mkdir(archiveSessionDir, { recursive: true });
-      await fs12.copyFile(sessionStatePath, path19.join(archiveSessionDir, "state.json"));
-      archivedFileCount++;
-    } catch {}
-    archiveResult = `Archived ${archivedFileCount} artifact(s) to .swarm/archive/swarm-${timestamp}/`;
-  } catch (archiveError) {
-    warnings.push(`Archive creation failed: ${archiveError instanceof Error ? archiveError.message : String(archiveError)}`);
-    archiveResult = "Archive creation failed (see warnings)";
-  }
-  try {
-    await archiveEvidence(directory, 30, 10);
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    warnings.push(`Evidence retention archive failed: ${msg}`);
-    console.warn("[close-command] archiveEvidence error:", error93);
-  }
-  let configBackupsRemoved = 0;
-  const cleanedFiles = [];
-  if (archivedActiveStateFiles.size > 0) {
-    for (const artifact of ACTIVE_STATE_TO_CLEAN) {
-      if (!archivedActiveStateFiles.has(artifact)) {
-        warnings.push(`Preserved ${artifact} because it was not successfully archived.`);
-        continue;
-      }
-      const filePath = path19.join(swarmDir, artifact);
-      try {
-        await fs12.unlink(filePath);
-        cleanedFiles.push(artifact);
-      } catch {}
-    }
-  } else {
-    warnings.push("Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.");
-  }
-  try {
-    const swarmFiles = await fs12.readdir(swarmDir);
-    const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
-    for (const backup of configBackups) {
-      try {
-        await fs12.unlink(path19.join(swarmDir, backup));
-        configBackupsRemoved++;
-      } catch {}
-    }
-    const ledgerSiblings = swarmFiles.filter((f) => (f.startsWith("plan-ledger.archived-") || f.startsWith("plan-ledger.backup-")) && f.endsWith(".jsonl"));
-    for (const sibling of ledgerSiblings) {
-      try {
-        await fs12.unlink(path19.join(swarmDir, sibling));
-      } catch {}
-    }
-  } catch {}
-  let swarmPlanFilesRemoved = 0;
-  const candidates = [
-    path19.join(directory, ".swarm", "SWARM_PLAN.json"),
-    path19.join(directory, ".swarm", "SWARM_PLAN.md"),
-    path19.join(directory, "SWARM_PLAN.json"),
-    path19.join(directory, "SWARM_PLAN.md")
-  ];
-  for (const candidate of candidates) {
-    try {
-      await fs12.unlink(candidate);
-      swarmPlanFilesRemoved++;
-    } catch (err2) {
-      if (err2?.code !== "ENOENT") {
-        warnings.push(`Failed to remove ${path19.basename(candidate)}: ${err2 instanceof Error ? err2.message : String(err2)}`);
-      }
-    }
-  }
-  clearAllScopes(directory);
-  const contextPath = path19.join(swarmDir, "context.md");
-  const contextContent = [
-    "# Context",
-    "",
-    "## Status",
-    `Session closed after: ${projectName}`,
-    `Closed: ${new Date().toISOString()}`,
-    `Finalization: ${isForced ? "forced" : planAlreadyDone ? "plan-already-done" : "normal"}`,
-    "No active plan. Next session starts fresh.",
-    ""
-  ].join(`
-`);
-  try {
-    await fs12.writeFile(contextPath, contextContent, "utf-8");
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    warnings.push(`Failed to reset context.md: ${msg}`);
-    console.warn("[close-command] Failed to write context.md:", error93);
-  }
-  const pruneBranches = args2.includes("--prune-branches");
-  let gitAlignResult = "";
-  const prunedBranches = [];
-  const isGit = isGitRepo2(directory);
-  if (isGit) {
-    const alignResult = resetToRemoteBranch(directory, { pruneBranches });
-    gitAlignResult = alignResult.message;
-    prunedBranches.push(...alignResult.prunedBranches);
-    if (!alignResult.success) {
-      warnings.push(`Git alignment: ${alignResult.message}`);
-    }
-    if (alignResult.alreadyAligned) {
-      gitAlignResult = `Already aligned with ${alignResult.targetBranch}`;
-    }
-    for (const w of alignResult.warnings) {
-      warnings.push(w);
-    }
-  } else {
-    gitAlignResult = "Not a git repository — skipped git alignment";
-  }
-  const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
-  const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal — cleanup only" : "Normal finalization";
-  const summaryContent = [
-    "# Swarm Close Summary",
-    "",
-    `**Project:** ${projectName}`,
-    `**Closed:** ${new Date().toISOString()}`,
-    `**Finalization:** ${finalizationType}`,
-    "",
-    "## Retrospective",
-    !planExists ? "_No plan — ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id} closed`).join(`
-`) : "_No phases closed this run_",
-    ...closedTasks.length > 0 ? [
-      "",
-      `**Tasks marked closed:** ${closedTasks.length}`,
-      ...closedTasks.map((id) => `- ${id}`)
-    ] : [],
-    "",
-    "## Lessons Committed",
-    allLessons.length > 0 ? `| # | Lesson |` : "_No lessons committed_",
-    ...allLessons.length > 0 ? ["| --- | --- |", ...allLessons.map((l, i2) => `| ${i2 + 1} | ${l} |`)] : [],
-    "",
-    "## Local Repo State",
-    ...gitAlignResult ? [`- **Git:** ${gitAlignResult}`] : ["- Git alignment skipped"],
-    ...prunedBranches.length > 0 ? [`- **Pruned branches:** ${prunedBranches.join(", ")}`] : [],
-    `- **Archive:** ${archiveResult}`,
-    ...cleanedFiles.length > 0 ? [`- **Cleaned:** ${cleanedFiles.length} file(s)`] : [],
-    "",
-    "## Context",
-    "- Reset context.md for next session",
-    "- Cleared agent sessions and delegation chains",
-    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
-    ...swarmPlanFilesRemoved > 0 ? [`- Removed ${swarmPlanFilesRemoved} SWARM_PLAN checkpoint artifact(s)`] : [],
-    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
-    ...curationSucceeded && allLessons.length > 0 ? [`- Committed ${allLessons.length} lesson(s) to knowledge store`] : [],
-    "",
-    ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
-  ].join(`
-`);
-  try {
-    await fs12.writeFile(closeSummaryPath, summaryContent, "utf-8");
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    warnings.push(`Failed to write close-summary.md: ${msg}`);
-    console.warn("[close-command] Failed to write close-summary.md:", error93);
-  }
-  try {
-    await flushPendingSnapshot(directory);
-  } catch (error93) {
-    const msg = error93 instanceof Error ? error93.message : String(error93);
-    warnings.push(`flushPendingSnapshot failed: ${msg}`);
-    console.warn("[close-command] flushPendingSnapshot error:", error93);
-  }
-  const preservedClient = swarmState.opencodeClient;
-  const preservedFullAutoFlag = swarmState.fullAutoEnabledInConfig;
-  const preservedCuratorInitNames = swarmState.curatorInitAgentNames;
-  const preservedCuratorPhaseNames = swarmState.curatorPhaseAgentNames;
-  resetSwarmState();
-  swarmState.opencodeClient = preservedClient;
-  swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
-  swarmState.curatorInitAgentNames = preservedCuratorInitNames;
-  swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
-  const retroWarnings = warnings.filter((w) => w.includes("Retrospective write") || w.includes("retrospective write") || w.includes("Session retrospective"));
-  const otherWarnings = warnings.filter((w) => !w.includes("Retrospective write") && !w.includes("retrospective write") && !w.includes("Session retrospective"));
-  let warningMsg = "";
-  if (retroWarnings.length > 0) {
-    warningMsg += `
-
-**⚠ Retrospective evidence incomplete:**
-${retroWarnings.map((w) => `- ${w}`).join(`
-`)}`;
-  }
-  if (otherWarnings.length > 0) {
-    warningMsg += `
-
-**Warnings:**
-${otherWarnings.map((w) => `- ${w}`).join(`
-`)}`;
-  }
-  const lessonSummary = curationSucceeded && allLessons.length > 0 ? `
-
-**Lessons Committed:** ${allLessons.length} lesson(s) committed to knowledge store` : "";
-  if (planAlreadyDone) {
-    return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.
-
-**Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
-  }
-  return `✅ Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
-
-**Archive:** ${archiveResult}
-**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
-}
-var ARCHIVE_ARTIFACTS, ACTIVE_STATE_TO_CLEAN;
-var init_close = __esm(() => {
-  init_schema();
-  init_manager2();
-  init_branch();
-  init_knowledge_curator();
-  init_utils2();
-  init_scope_persistence();
-  init_snapshot_writer();
-  init_state();
-  init_write_retro();
-  ARCHIVE_ARTIFACTS = [
-    "plan.json",
-    "plan.md",
-    "plan-ledger.jsonl",
-    "context.md",
-    "events.jsonl",
-    "handoff.md",
-    "handoff-prompt.md",
-    "handoff-consumed.md",
-    "escalation-report.md",
-    "close-lessons.md"
-  ];
-  ACTIVE_STATE_TO_CLEAN = [
-    "plan.json",
-    "plan.md",
-    "plan-ledger.jsonl",
-    "events.jsonl",
-    "handoff.md",
-    "handoff-prompt.md",
-    "handoff-consumed.md",
-    "escalation-report.md"
-  ];
-});
-
-// src/commands/config.ts
-import * as os4 from "node:os";
-import * as path20 from "node:path";
-function getUserConfigDir2() {
-  return process.env.XDG_CONFIG_HOME || path20.join(os4.homedir(), ".config");
-}
-async function handleConfigCommand(directory, _args) {
-  const config3 = loadPluginConfig(directory);
-  const userConfigPath = path20.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path20.join(directory, ".opencode", "opencode-swarm.json");
-  const lines = [
-    "## Swarm Configuration",
-    "",
-    "### Config Files",
-    `- User: \`${userConfigPath}\``,
-    `- Project: \`${projectConfigPath}\``,
-    "",
-    "### Resolved Config",
-    "```json",
-    JSON.stringify(config3, null, 2),
-    "```"
-  ];
-  return lines.join(`
-`);
-}
-var init_config2 = __esm(() => {
-  init_loader();
-});
-
-// src/commands/council.ts
-function sanitizeQuestion(raw) {
-  const collapsed = raw.replace(/\s+/g, " ").trim();
-  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
-  const normalized = stripped.replace(/\s+/g, " ").trim();
-  if (normalized.length <= MAX_QUESTION_LEN)
-    return normalized;
-  return `${normalized.slice(0, MAX_QUESTION_LEN)}…`;
-}
-function sanitizePresetName(raw) {
-  const trimmed = raw.trim();
-  if (!trimmed)
-    return null;
-  if (trimmed.length > 64)
-    return null;
-  if (!/^[A-Za-z0-9_-]+$/.test(trimmed))
-    return null;
-  return trimmed;
-}
-function parseArgs(args2) {
-  const out2 = { specReview: false, rest: [] };
-  for (let i2 = 0;i2 < args2.length; i2++) {
-    const token = args2[i2];
-    if (token === "--spec-review") {
-      out2.specReview = true;
-      continue;
-    }
-    if (token === "--preset") {
-      const next = args2[i2 + 1];
-      if (next !== undefined) {
-        const sanitized = sanitizePresetName(next);
-        if (sanitized)
-          out2.preset = sanitized;
-        i2++;
-      }
-      continue;
-    }
-    out2.rest.push(token);
-  }
-  return out2;
-}
-async function handleCouncilCommand(_directory, args2) {
-  const parsed = parseArgs(args2);
-  const question = sanitizeQuestion(parsed.rest.join(" "));
-  if (!question) {
-    return USAGE;
-  }
-  const tokens = ["MODE: COUNCIL"];
-  if (parsed.preset) {
-    tokens.push(`preset=${parsed.preset}`);
-  }
-  if (parsed.specReview) {
-    tokens.push("spec_review");
-  }
-  return `[${tokens.join(" ")}] ${question}`;
-}
-var MAX_QUESTION_LEN = 2000, USAGE;
-var init_council = __esm(() => {
-  USAGE = [
-    "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
-    "",
-    "  question         The question to put to the council",
-    "  --preset <name>  Use a named member preset from council.general.presets",
-    "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
-    "",
-    "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
-  ].join(`
-`);
 });
 
 // src/agents/explorer.ts
@@ -43844,6 +41629,699 @@ var init_event_bus = __esm(() => {
   init_utils();
 });
 
+// src/hooks/knowledge-store.ts
+import { existsSync as existsSync9 } from "node:fs";
+import { appendFile as appendFile3, mkdir as mkdir3, readFile as readFile5, writeFile as writeFile3 } from "node:fs/promises";
+import * as os3 from "node:os";
+import * as path15 from "node:path";
+function resolveSwarmKnowledgePath(directory) {
+  return path15.join(directory, ".swarm", "knowledge.jsonl");
+}
+function resolveSwarmRejectedPath(directory) {
+  return path15.join(directory, ".swarm", "knowledge-rejected.jsonl");
+}
+function resolveHiveKnowledgePath() {
+  const platform = process.platform;
+  const home = process.env.HOME || os3.homedir();
+  let dataDir;
+  if (platform === "win32") {
+    dataDir = path15.join(process.env.LOCALAPPDATA || path15.join(home, "AppData", "Local"), "opencode-swarm", "Data");
+  } else if (platform === "darwin") {
+    dataDir = path15.join(home, "Library", "Application Support", "opencode-swarm");
+  } else {
+    dataDir = path15.join(process.env.XDG_DATA_HOME || path15.join(home, ".local", "share"), "opencode-swarm");
+  }
+  return path15.join(dataDir, "shared-learnings.jsonl");
+}
+function resolveHiveRejectedPath() {
+  const hivePath = resolveHiveKnowledgePath();
+  return path15.join(path15.dirname(hivePath), "shared-learnings-rejected.jsonl");
+}
+async function readKnowledge(filePath) {
+  if (!existsSync9(filePath))
+    return [];
+  const content = await readFile5(filePath, "utf-8");
+  const results = [];
+  for (const line of content.split(`
+`)) {
+    const trimmed = line.trim();
+    if (!trimmed)
+      continue;
+    try {
+      const raw = JSON.parse(trimmed);
+      results.push(normalizeEntry(raw));
+    } catch {
+      console.warn(`[knowledge-store] Skipping corrupted JSONL line in ${filePath}: ${trimmed.slice(0, 80)}`);
+    }
+  }
+  return results;
+}
+function normalizeEntry(raw) {
+  if (!raw || typeof raw !== "object")
+    return raw;
+  const obj = raw;
+  if (!("retrieval_outcomes" in obj))
+    return raw;
+  const ro = obj.retrieval_outcomes;
+  if (ro && typeof ro === "object") {
+    if (typeof ro.shown_count !== "number") {
+      ro.shown_count = typeof ro.applied_count === "number" ? ro.applied_count : 0;
+    }
+    if (typeof ro.acknowledged_count !== "number")
+      ro.acknowledged_count = 0;
+    if (typeof ro.applied_explicit_count !== "number") {
+      ro.applied_explicit_count = 0;
+    }
+    if (typeof ro.ignored_count !== "number")
+      ro.ignored_count = 0;
+    if (typeof ro.violated_count !== "number")
+      ro.violated_count = 0;
+    if (typeof ro.succeeded_after_shown_count !== "number") {
+      ro.succeeded_after_shown_count = typeof ro.succeeded_after_count === "number" ? ro.succeeded_after_count : 0;
+    }
+    if (typeof ro.failed_after_shown_count !== "number") {
+      ro.failed_after_shown_count = typeof ro.failed_after_count === "number" ? ro.failed_after_count : 0;
+    }
+  }
+  const arrayFields = [
+    "triggers",
+    "required_actions",
+    "forbidden_actions",
+    "applies_to_agents",
+    "applies_to_tools",
+    "verification_checks",
+    "source_refs",
+    "source_knowledge_ids"
+  ];
+  for (const f of arrayFields) {
+    const v = obj[f];
+    if (v !== undefined && !Array.isArray(v)) {
+      delete obj[f];
+    }
+  }
+  return raw;
+}
+async function readRejectedLessons(directory) {
+  return readKnowledge(resolveSwarmRejectedPath(directory));
+}
+async function appendKnowledge(filePath, entry) {
+  await mkdir3(path15.dirname(filePath), { recursive: true });
+  await appendFile3(filePath, `${JSON.stringify(entry)}
+`, "utf-8");
+}
+async function rewriteKnowledge(filePath, entries) {
+  const dir = path15.dirname(filePath);
+  await mkdir3(dir, { recursive: true });
+  let release = null;
+  try {
+    release = await import_proper_lockfile3.default.lock(dir, {
+      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+      stale: 5000
+    });
+    const content = entries.map((e) => JSON.stringify(e)).join(`
+`) + (entries.length > 0 ? `
+` : "");
+    await writeFile3(filePath, content, "utf-8");
+  } finally {
+    if (release) {
+      try {
+        await release();
+      } catch {}
+    }
+  }
+}
+async function enforceKnowledgeCap(filePath, maxEntries) {
+  const entries = await readKnowledge(filePath);
+  if (entries.length > maxEntries) {
+    const trimmed = entries.slice(entries.length - maxEntries);
+    await rewriteKnowledge(filePath, trimmed);
+  }
+}
+async function sweepAgedEntries(filePath, defaultMaxPhases) {
+  let release = null;
+  try {
+    const dir = path15.dirname(filePath);
+    await mkdir3(dir, { recursive: true });
+    release = await import_proper_lockfile3.default.lock(dir, {
+      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+      stale: 5000
+    });
+    const entries = await readKnowledge(filePath);
+    const result = {
+      scanned: entries.length,
+      aged: 0,
+      archived: 0,
+      removed: 0,
+      skipped_promoted: 0
+    };
+    if (entries.length === 0)
+      return result;
+    const now = new Date().toISOString();
+    let mutated = false;
+    for (const entry of entries) {
+      if (entry.status === "archived")
+        continue;
+      if (entry.status === "promoted") {
+        result.skipped_promoted++;
+        continue;
+      }
+      entry.phases_alive = (entry.phases_alive ?? 0) + 1;
+      result.aged++;
+      mutated = true;
+      const ttl = entry.max_phases ?? defaultMaxPhases;
+      if (entry.phases_alive > ttl) {
+        entry.status = "archived";
+        entry.updated_at = now;
+        result.archived++;
+      }
+    }
+    if (mutated) {
+      const content = entries.map((e) => JSON.stringify(e)).join(`
+`) + (entries.length > 0 ? `
+` : "");
+      await writeFile3(filePath, content, "utf-8");
+    }
+    return result;
+  } finally {
+    if (release) {
+      try {
+        await release();
+      } catch {}
+    }
+  }
+}
+async function sweepStaleTodos(filePath, todoMaxPhases) {
+  let release = null;
+  try {
+    const dir = path15.dirname(filePath);
+    await mkdir3(dir, { recursive: true });
+    release = await import_proper_lockfile3.default.lock(dir, {
+      retries: { retries: 5, minTimeout: 100, maxTimeout: 500 },
+      stale: 5000
+    });
+    const entries = await readKnowledge(filePath);
+    const result = {
+      scanned: entries.length,
+      aged: 0,
+      archived: 0,
+      removed: 0,
+      skipped_promoted: 0
+    };
+    if (entries.length === 0)
+      return result;
+    const kept = entries.filter((e) => {
+      if (e.category !== "todo" || e.status === "promoted")
+        return true;
+      const age = e.phases_alive ?? 0;
+      if (age > todoMaxPhases) {
+        result.removed++;
+        return false;
+      }
+      return true;
+    });
+    if (result.removed > 0) {
+      const content = kept.map((e) => JSON.stringify(e)).join(`
+`) + (kept.length > 0 ? `
+` : "");
+      await writeFile3(filePath, content, "utf-8");
+    }
+    return result;
+  } finally {
+    if (release) {
+      try {
+        await release();
+      } catch {}
+    }
+  }
+}
+async function appendRejectedLesson(directory, lesson) {
+  const filePath = resolveSwarmRejectedPath(directory);
+  const existing = await readRejectedLessons(directory);
+  const MAX = 20;
+  const updated = [...existing, lesson];
+  if (updated.length > MAX) {
+    const trimmed = updated.slice(updated.length - MAX);
+    await rewriteKnowledge(filePath, trimmed);
+  } else {
+    await appendKnowledge(filePath, lesson);
+  }
+}
+function normalize2(text) {
+  return text.toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function wordBigrams(text) {
+  const words = normalize2(text).split(" ").filter(Boolean);
+  const bigrams = new Set;
+  for (let i2 = 0;i2 < words.length - 1; i2++) {
+    bigrams.add(`${words[i2]} ${words[i2 + 1]}`);
+  }
+  return bigrams;
+}
+function jaccardBigram(a, b) {
+  if (a.size === 0 && b.size === 0)
+    return 1;
+  const aArr = Array.from(a);
+  const intersection3 = new Set(aArr.filter((x) => b.has(x)));
+  const union3 = new Set([...aArr, ...Array.from(b)]);
+  return intersection3.size / union3.size;
+}
+function findNearDuplicate(candidate, entries, threshold = 0.6) {
+  const candidateBigrams = wordBigrams(candidate);
+  return entries.find((entry) => {
+    const entryBigrams = wordBigrams(entry.lesson);
+    return jaccardBigram(candidateBigrams, entryBigrams) >= threshold;
+  });
+}
+function computeConfidence(confirmedByCount, autoGenerated) {
+  let score = 0.5;
+  score += Math.min(confirmedByCount, 3) * 0.1;
+  if (!autoGenerated)
+    score += 0.1;
+  return Math.min(score, 1);
+}
+function inferTags(lesson) {
+  const lower = lesson.toLowerCase();
+  const tags = [];
+  if (/(^|\s)(?:todo|remember|don't?(?:\s+)?forget)(?:\s|:|,|$)/i.test(lesson))
+    tags.push("todo");
+  if (/\b(?:typescript|ts)\b/.test(lower))
+    tags.push("typescript");
+  if (/\b(?:javascript|js)\b/.test(lower))
+    tags.push("javascript");
+  if (/\b(?:python)\b/.test(lower))
+    tags.push("python");
+  if (/\b(?:bun|node|deno)\b/.test(lower))
+    tags.push("runtime");
+  if (/\b(?:react|vue|svelte|angular)\b/.test(lower))
+    tags.push("frontend");
+  if (/\b(?:git|github|gitlab)\b/.test(lower))
+    tags.push("git");
+  if (/\b(?:docker|kubernetes|k8s)\b/.test(lower))
+    tags.push("container");
+  if (/\b(?:sql|postgres|mysql|sqlite)\b/.test(lower))
+    tags.push("database");
+  if (/\b(?:test|spec|vitest|jest|mocha)\b/.test(lower))
+    tags.push("testing");
+  if (/\b(?:ci|cd|pipeline|workflow|action)\b/.test(lower))
+    tags.push("ci-cd");
+  if (/\b(?:security|auth|token|password|encrypt)\b/.test(lower))
+    tags.push("security");
+  if (/\b(?:performance|latency|throughput|cache)\b/.test(lower))
+    tags.push("performance");
+  if (/\b(?:api|rest|graphql|grpc|endpoint)\b/.test(lower))
+    tags.push("api");
+  if (/\b(?:swarm|architect|agent|hook|plan)\b/.test(lower))
+    tags.push("opencode-swarm");
+  return Array.from(new Set(tags));
+}
+var import_proper_lockfile3;
+var init_knowledge_store = __esm(() => {
+  import_proper_lockfile3 = __toESM(require_proper_lockfile(), 1);
+});
+
+// src/hooks/knowledge-validator.ts
+import { appendFile as appendFile4, mkdir as mkdir4, writeFile as writeFile4 } from "node:fs/promises";
+import * as path16 from "node:path";
+function normalizeText(text) {
+  return text.normalize("NFKC").toLowerCase().replace(/[^\w\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function detectContradiction(candidate, existingLessons) {
+  const candidateTags = inferTags(candidate);
+  if (candidateTags.length === 0)
+    return false;
+  const candidateNorm = normalizeText(candidate);
+  for (const existing of existingLessons) {
+    const existingTags = inferTags(existing);
+    const shared = candidateTags.some((t) => existingTags.includes(t));
+    if (!shared)
+      continue;
+    const existingNorm = normalizeText(existing);
+    for (const [wordA, wordB] of NEGATION_PAIRS) {
+      const hasA = candidateNorm.includes(wordA) && existingNorm.includes(wordB);
+      const hasB = candidateNorm.includes(wordB) && existingNorm.includes(wordA);
+      if (hasA || hasB)
+        return true;
+    }
+  }
+  return false;
+}
+function isVagueLesson(lesson) {
+  const lower = normalizeText(lesson);
+  const words = lower.split(/\s+/);
+  const hasTechRef = words.some((w) => TECH_REFERENCE_WORDS.has(w));
+  const hasActionVerb = words.some((w) => ACTION_VERB_WORDS.has(w));
+  return !hasTechRef && !hasActionVerb;
+}
+function validateLesson(candidate, existingLessons, meta3) {
+  if (!candidate || typeof candidate !== "string") {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (!Array.isArray(existingLessons)) {
+    existingLessons = [];
+  }
+  if (candidate.length < 15) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too short (min 15 chars)",
+      severity: "error"
+    };
+  }
+  if (candidate.length > 280) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "lesson too long (max 280 chars)",
+      severity: "error"
+    };
+  }
+  if (!VALID_CATEGORIES.has(meta3.category)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: `invalid category: ${meta3.category}`,
+      severity: "error"
+    };
+  }
+  const isGlobalScope = meta3.scope === "global";
+  const isStackScope = /^stack:[a-zA-Z0-9_-]{1,64}$/.test(meta3.scope);
+  if (!isGlobalScope && !isStackScope) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "invalid scope: must be 'global' or 'stack:<name>'",
+      severity: "error"
+    };
+  }
+  if (!(meta3.confidence >= 0 && meta3.confidence <= 1)) {
+    return {
+      valid: false,
+      layer: 1,
+      reason: "confidence out of range [0.0, 1.0]",
+      severity: "error"
+    };
+  }
+  const normalizedCandidate = candidate.normalize("NFKC").replace(INVISIBLE_FORMAT_CHARS, " ").replace(/\s+/g, " ").toLowerCase();
+  for (const pattern of DANGEROUS_COMMAND_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "dangerous command pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of SECURITY_DEGRADING_PATTERNS) {
+    if (pattern.test(normalizedCandidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "security-degrading instruction detected",
+        severity: "error"
+      };
+    }
+  }
+  for (const pattern of INJECTION_PATTERNS) {
+    if (pattern.test(candidate)) {
+      return {
+        valid: false,
+        layer: 2,
+        reason: "injection pattern detected",
+        severity: "error"
+      };
+    }
+  }
+  if (detectContradiction(candidate, existingLessons)) {
+    return {
+      valid: false,
+      layer: 3,
+      reason: "lesson contradicts an existing lesson with shared tags",
+      severity: "error"
+    };
+  }
+  if (isVagueLesson(candidate)) {
+    return {
+      valid: true,
+      layer: 3,
+      reason: "lesson may be too vague (no tech reference or action verb)",
+      severity: "warning"
+    };
+  }
+  return {
+    valid: true,
+    layer: null,
+    reason: null,
+    severity: null
+  };
+}
+function validateSkillPath(p) {
+  if (typeof p !== "string")
+    return false;
+  if (p.length === 0 || p.length > 256)
+    return false;
+  if (p.includes("\x00"))
+    return false;
+  if (path16.isAbsolute(p))
+    return false;
+  if (p.includes(".."))
+    return false;
+  const norm = p.replace(/\\/g, "/");
+  return ALLOWED_SKILL_PATH_PREFIXES.some((prefix) => norm.startsWith(prefix));
+}
+async function quarantineEntry(directory, entryId, reason, reportedBy) {
+  if (!directory || directory.includes("..")) {
+    warn("[knowledge-validator] quarantineEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    warn("[knowledge-validator] quarantineEntry: invalid entryId rejected");
+    return;
+  }
+  const validReportedBy = ["architect", "user", "auto"];
+  if (!validReportedBy.includes(reportedBy)) {
+    return;
+  }
+  const sanitizedReason = reason.slice(0, 500).replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, "");
+  const knowledgePath = path16.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path16.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path16.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path16.join(directory, ".swarm");
+  await mkdir4(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile4.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const entries = await readKnowledge(knowledgePath);
+    const entry = entries.find((e) => e.id === entryId);
+    if (!entry) {
+      return;
+    }
+    const remaining = entries.filter((e) => e.id !== entryId);
+    const quarantined = {
+      ...entry,
+      quarantine_reason: sanitizedReason,
+      quarantined_at: new Date().toISOString(),
+      reported_by: reportedBy
+    };
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile4(knowledgePath, jsonlContent, "utf-8");
+    await appendFile4(quarantinePath, `${JSON.stringify(quarantined)}
+`, "utf-8");
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    if (quarantinedEntries.length > 100) {
+      const trimmed = quarantinedEntries.slice(-100);
+      const capContent = trimmed.length > 0 ? `${trimmed.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+      await writeFile4(quarantinePath, capContent, "utf-8");
+    }
+    const rejectedRecord = {
+      id: entryId,
+      lesson: entry.lesson,
+      rejection_reason: sanitizedReason,
+      rejected_at: new Date().toISOString(),
+      rejection_layer: 3
+    };
+    await appendKnowledge(rejectedPath, rejectedRecord);
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+async function restoreEntry(directory, entryId) {
+  if (!directory || directory.includes("..")) {
+    warn("[knowledge-validator] restoreEntry: directory traversal attempt blocked");
+    return;
+  }
+  if (!entryId || entryId.includes("\x00") || entryId.includes(`
+`)) {
+    warn("[knowledge-validator] restoreEntry: invalid entryId rejected");
+    return;
+  }
+  const knowledgePath = path16.join(directory, ".swarm", "knowledge.jsonl");
+  const quarantinePath = path16.join(directory, ".swarm", "knowledge-quarantined.jsonl");
+  const rejectedPath = path16.join(directory, ".swarm", "knowledge-rejected.jsonl");
+  const swarmDir = path16.join(directory, ".swarm");
+  await mkdir4(swarmDir, { recursive: true });
+  let release;
+  try {
+    release = await import_proper_lockfile4.default.lock(swarmDir, {
+      retries: { retries: 3, minTimeout: 100 }
+    });
+    const quarantinedEntries = await readKnowledge(quarantinePath);
+    const entryToRestore = quarantinedEntries.find((e) => e.id === entryId);
+    if (!entryToRestore) {
+      return;
+    }
+    const remaining = quarantinedEntries.filter((e) => e.id !== entryId);
+    const { quarantine_reason, quarantined_at, reported_by, ...original } = entryToRestore;
+    const jsonlContent = remaining.length > 0 ? `${remaining.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile4(quarantinePath, jsonlContent, "utf-8");
+    await appendFile4(knowledgePath, `${JSON.stringify(original)}
+`, "utf-8");
+    const rejectedEntries = await readKnowledge(rejectedPath);
+    const filtered = rejectedEntries.filter((e) => e.id !== entryId);
+    const rejectedContent = filtered.length > 0 ? `${filtered.map((e) => JSON.stringify(e)).join(`
+`)}
+` : "";
+    await writeFile4(rejectedPath, rejectedContent, "utf-8");
+  } finally {
+    if (release) {
+      await release();
+    }
+  }
+}
+var import_proper_lockfile4, DANGEROUS_COMMAND_PATTERNS, SECURITY_DEGRADING_PATTERNS, INVISIBLE_FORMAT_CHARS, INJECTION_PATTERNS, VALID_CATEGORIES, TECH_REFERENCE_WORDS, ACTION_VERB_WORDS, NEGATION_PAIRS, ALLOWED_SKILL_PATH_PREFIXES, VALID_DIRECTIVE_PRIORITIES;
+var init_knowledge_validator = __esm(() => {
+  init_logger();
+  init_knowledge_store();
+  import_proper_lockfile4 = __toESM(require_proper_lockfile(), 1);
+  DANGEROUS_COMMAND_PATTERNS = [
+    /\brm\s+-rf\b/,
+    /\bsudo\s+rm\b/,
+    /\bformat\b/,
+    /\bmkfs\b/,
+    /\bdd\s+if=/,
+    /:\(\)\s*\{/,
+    /\bchmod\s+-R\s+777\b/,
+    /\bdeltree\b/,
+    /\brmdir\s+\/s\b/,
+    /\bkill\s+-9\b/,
+    /\bpkill\b/,
+    /\bkillall\b/,
+    /`[^`]*`/,
+    /\$\([^)]*\)/
+  ];
+  SECURITY_DEGRADING_PATTERNS = [
+    /disable\s+.{0,50}firewall/i,
+    /turn\s+off\s+.{0,50}security/i,
+    /skip\s+.{0,50}auth/i,
+    /bypass\s+.{0,50}auth/i,
+    /ignore\s+.{0,50}certificate/i,
+    /disable\s+.{0,50}tls/i,
+    /disable\s+.{0,50}ssl/i,
+    /no\s+.{0,50}validation/i,
+    /disable\s+.{0,50}2fa/i,
+    /remove\s+.{0,50}password/i
+  ];
+  INVISIBLE_FORMAT_CHARS = /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/g;
+  INJECTION_PATTERNS = [
+    /[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/,
+    /[\u00AD\u200B-\u200F\u202A-\u202E\u2060-\u2064\u2066-\u2069\uFEFF]/,
+    /^system\s*:/i,
+    /<script/i,
+    /javascript:/i,
+    /\beval\(/i,
+    /\b__proto__\b/,
+    /\bconstructor\[/,
+    /\.prototype\[/
+  ];
+  VALID_CATEGORIES = new Set([
+    "process",
+    "architecture",
+    "tooling",
+    "security",
+    "testing",
+    "debugging",
+    "performance",
+    "integration",
+    "todo",
+    "other"
+  ]);
+  TECH_REFERENCE_WORDS = new Set([
+    "git",
+    "docker",
+    "typescript",
+    "bun",
+    "vitest",
+    "node",
+    "python",
+    "react",
+    "sql",
+    "api",
+    "hook",
+    "test",
+    "schema",
+    "config",
+    "file",
+    "function",
+    "class",
+    "module",
+    "import",
+    "export"
+  ]);
+  ACTION_VERB_WORDS = new Set([
+    "use",
+    "avoid",
+    "prefer",
+    "run",
+    "check",
+    "always",
+    "never",
+    "ensure",
+    "call",
+    "write",
+    "add",
+    "remove",
+    "update",
+    "set",
+    "enable",
+    "disable"
+  ]);
+  NEGATION_PAIRS = [
+    ["always", "never"],
+    ["must", "must not"],
+    ["must", "should not"],
+    ["enable", "disable"],
+    ["use", "avoid"],
+    ["use", "don't use"],
+    ["recommended", "not recommended"]
+  ];
+  ALLOWED_SKILL_PATH_PREFIXES = [
+    ".opencode/skills/generated/",
+    ".swarm/skills/proposals/"
+  ];
+  VALID_DIRECTIVE_PRIORITIES = new Set([
+    "low",
+    "medium",
+    "high",
+    "critical"
+  ]);
+});
+
 // src/services/skill-generator.ts
 var exports_skill_generator = {};
 __export(exports_skill_generator, {
@@ -43860,14 +42338,14 @@ __export(exports_skill_generator, {
   activeRepoRelativePath: () => activeRepoRelativePath,
   activePath: () => activePath,
   activateProposal: () => activateProposal,
-  _internals: () => _internals14
+  _internals: () => _internals11
 });
-import { existsSync as existsSync11 } from "node:fs";
-import { mkdir as mkdir6, readFile as readFile7, rename as rename3, writeFile as writeFile6 } from "node:fs/promises";
-import * as path21 from "node:path";
+import { existsSync as existsSync10 } from "node:fs";
+import { mkdir as mkdir5, readFile as readFile6, rename as rename3, writeFile as writeFile5 } from "node:fs/promises";
+import * as path17 from "node:path";
 function sanitizeSlug(input) {
-  const lc2 = input.toLowerCase().trim();
-  const mapped = lc2.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-");
+  const lc = input.toLowerCase().trim();
+  const mapped = lc.replace(/[^a-z0-9-]+/g, "-").replace(/-+/g, "-");
   const trimmed = mapped.replace(/^-+|-+$/g, "");
   return trimmed.slice(0, 64);
 }
@@ -43875,10 +42353,10 @@ function isValidSlug(slug) {
   return SLUG_PATTERN.test(slug);
 }
 function proposalPath(directory, slug) {
-  return path21.join(directory, ".swarm", "skills", "proposals", `${slug}.md`);
+  return path17.join(directory, ".swarm", "skills", "proposals", `${slug}.md`);
 }
 function activePath(directory, slug) {
-  return path21.join(directory, ".opencode", "skills", "generated", slug, "SKILL.md");
+  return path17.join(directory, ".opencode", "skills", "generated", slug, "SKILL.md");
 }
 function activeRepoRelativePath(slug) {
   return `.opencode/skills/generated/${slug}/SKILL.md`;
@@ -43886,7 +42364,7 @@ function activeRepoRelativePath(slug) {
 async function selectCandidateEntries(directory, opts) {
   const swarm = await readKnowledge(resolveSwarmKnowledgePath(directory));
   const hivePath = resolveHiveKnowledgePath();
-  const hive = existsSync11(hivePath) ? await readKnowledge(hivePath) : [];
+  const hive = existsSync10(hivePath) ? await readKnowledge(hivePath) : [];
   const all = [...swarm, ...hive];
   return all.filter((e) => {
     if (e.status === "archived")
@@ -44034,9 +42512,9 @@ function escapeMarkdown(s) {
   return s.replace(/[\r\n]+/g, " ").slice(0, 280);
 }
 async function atomicWrite3(p, content) {
-  await mkdir6(path21.dirname(p), { recursive: true });
+  await mkdir5(path17.dirname(p), { recursive: true });
   const tmp = `${p}.tmp-${process.pid}-${Date.now()}`;
-  await writeFile6(tmp, content, "utf-8");
+  await writeFile5(tmp, content, "utf-8");
   await rename3(tmp, p);
 }
 async function generateSkills(req) {
@@ -44051,7 +42529,7 @@ async function generateSkills(req) {
     const idSet = new Set(req.sourceKnowledgeIds);
     const swarm = await readKnowledge(resolveSwarmKnowledgePath(req.directory));
     const hivePath = resolveHiveKnowledgePath();
-    const hive = existsSync11(hivePath) ? await readKnowledge(hivePath) : [];
+    const hive = existsSync10(hivePath) ? await readKnowledge(hivePath) : [];
     pool = [...swarm, ...hive].filter((e) => idSet.has(e.id) && e.status !== "archived");
   } else {
     pool = candidates;
@@ -44079,7 +42557,7 @@ async function generateSkills(req) {
       continue;
     }
     const targetPath = req.mode === "active" ? activePath(req.directory, cluster.slug) : proposalPath(req.directory, cluster.slug);
-    const repoRel = path21.relative(req.directory, targetPath).replace(/\\/g, "/");
+    const repoRel = path17.relative(req.directory, targetPath).replace(/\\/g, "/");
     if (!validateSkillPath(repoRel)) {
       result.skipped.push({
         slug: cluster.slug,
@@ -44088,8 +42566,8 @@ async function generateSkills(req) {
       continue;
     }
     let preserved = false;
-    if (req.mode === "active" && existsSync11(targetPath) && !req.force) {
-      const existing = await readFile7(targetPath, "utf-8");
+    if (req.mode === "active" && existsSync10(targetPath) && !req.force) {
+      const existing = await readFile6(targetPath, "utf-8");
       if (!existing.includes("generated by opencode-swarm skill-generator")) {
         preserved = true;
         result.skipped.push({
@@ -44133,7 +42611,7 @@ async function stampSourceEntries(directory, slug, ids) {
   if (touched)
     await rewriteKnowledge(swarmPath, swarm);
   const hivePath = resolveHiveKnowledgePath();
-  if (!existsSync11(hivePath))
+  if (!existsSync10(hivePath))
     return;
   const hive = await readKnowledge(hivePath);
   let touchedHive = false;
@@ -44150,13 +42628,17 @@ async function stampSourceEntries(directory, slug, ids) {
 }
 function parseDraftFrontmatter(content) {
   if (!content.startsWith(`---
+`) && !content.startsWith(`---\r
 `))
     return null;
+  const fenceLen = content.startsWith(`---\r
+`) ? 5 : 4;
   const end = content.indexOf(`
----`, 4);
+---`, fenceLen);
   if (end < 0)
     return null;
-  const body2 = content.slice(4, end);
+  const body2 = content.slice(fenceLen, end).replace(/\r\n/g, `
+`);
   const lines = body2.split(`
 `);
   const out2 = {
@@ -44201,7 +42683,7 @@ async function activateProposal(directory, slug, force = false) {
   }
   const from = proposalPath(directory, cleanSlug);
   const to = activePath(directory, cleanSlug);
-  if (!existsSync11(from)) {
+  if (!existsSync10(from)) {
     return {
       activated: false,
       from,
@@ -44209,8 +42691,8 @@ async function activateProposal(directory, slug, force = false) {
       reason: `proposal not found: ${from}`
     };
   }
-  if (existsSync11(to) && !force) {
-    const existing = await readFile7(to, "utf-8");
+  if (existsSync10(to) && !force) {
+    const existing = await readFile6(to, "utf-8");
     if (!existing.includes("generated by opencode-swarm skill-generator")) {
       return {
         activated: false,
@@ -44220,7 +42702,7 @@ async function activateProposal(directory, slug, force = false) {
       };
     }
   }
-  const proposalContent = await readFile7(from, "utf-8");
+  const proposalContent = await readFile6(from, "utf-8");
   const flipped = proposalContent.replace(/^status:\s*draft\s*$/m, "status: active");
   await atomicWrite3(to, flipped);
   const fm = parseDraftFrontmatter(proposalContent);
@@ -44257,28 +42739,28 @@ async function listSkills(directory) {
     proposals: [],
     active: []
   };
-  const proposalsDir = path21.join(directory, ".swarm", "skills", "proposals");
-  const activeDir = path21.join(directory, ".opencode", "skills", "generated");
-  const fs13 = await import("node:fs/promises");
-  if (existsSync11(proposalsDir)) {
-    const entries = await fs13.readdir(proposalsDir);
+  const proposalsDir = path17.join(directory, ".swarm", "skills", "proposals");
+  const activeDir = path17.join(directory, ".opencode", "skills", "generated");
+  const fs12 = await import("node:fs/promises");
+  if (existsSync10(proposalsDir)) {
+    const entries = await fs12.readdir(proposalsDir);
     for (const f of entries) {
       if (!f.endsWith(".md"))
         continue;
       const slug = f.replace(/\.md$/, "");
       result.proposals.push({
         slug,
-        path: path21.join(proposalsDir, f)
+        path: path17.join(proposalsDir, f)
       });
     }
   }
-  if (existsSync11(activeDir)) {
-    const entries = await fs13.readdir(activeDir, { withFileTypes: true });
+  if (existsSync10(activeDir)) {
+    const entries = await fs12.readdir(activeDir, { withFileTypes: true });
     for (const e of entries) {
       if (!e.isDirectory())
         continue;
-      const skillPath = path21.join(activeDir, e.name, "SKILL.md");
-      if (existsSync11(skillPath)) {
+      const skillPath = path17.join(activeDir, e.name, "SKILL.md");
+      if (existsSync10(skillPath)) {
         result.active.push({
           slug: e.name,
           path: skillPath
@@ -44298,20 +42780,20 @@ async function inspectSkill(directory, slug, prefer = "auto") {
   if (prefer === "proposal" || prefer === "auto")
     candidates.push({ p: proposalPath(directory, cleanSlug), m: "draft" });
   for (const c of candidates) {
-    if (existsSync11(c.p)) {
-      const content = await readFile7(c.p, "utf-8");
+    if (existsSync10(c.p)) {
+      const content = await readFile6(c.p, "utf-8");
       return { found: true, path: c.p, content, mode: c.m };
     }
   }
   return { found: false };
 }
-var SLUG_PATTERN, _internals14;
+var SLUG_PATTERN, _internals11;
 var init_skill_generator = __esm(() => {
   init_knowledge_store();
   init_knowledge_validator();
   init_logger();
   SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{0,63}$/;
-  _internals14 = {
+  _internals11 = {
     sanitizeSlug,
     isValidSlug,
     selectCandidateEntries,
@@ -44328,8 +42810,8 @@ var init_skill_generator = __esm(() => {
 
 // src/hooks/curator.ts
 import { randomUUID } from "node:crypto";
-import * as fs13 from "node:fs";
-import * as path22 from "node:path";
+import * as fs12 from "node:fs";
+import * as path18 from "node:path";
 function parseKnowledgeRecommendations(llmOutput) {
   const recommendations = [];
   const UUID_V4 = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -44496,10 +42978,10 @@ async function readCuratorSummary(directory) {
 }
 async function writeCuratorSummary(directory, summary) {
   const resolvedPath = validateSwarmPath(directory, "curator-summary.json");
-  fs13.mkdirSync(path22.dirname(resolvedPath), { recursive: true });
+  fs12.mkdirSync(path18.dirname(resolvedPath), { recursive: true });
   const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
   await bunWrite(tempPath, JSON.stringify(summary, null, 2));
-  fs13.renameSync(tempPath, resolvedPath);
+  fs12.renameSync(tempPath, resolvedPath);
 }
 function normalizeAgentName(name2) {
   const registry3 = swarmState.generatedAgentNames.length > 0 ? swarmState.generatedAgentNames : undefined;
@@ -44533,8 +43015,8 @@ function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, pha
   const observations = [];
   const timestamp = new Date().toISOString();
   for (const agent of requiredAgents) {
-    const normalizedAgent = _internals15.normalizeAgentName(agent);
-    const isDispatched = agentsDispatched.some((a) => _internals15.normalizeAgentName(a) === normalizedAgent);
+    const normalizedAgent = _internals12.normalizeAgentName(agent);
+    const isDispatched = agentsDispatched.some((a) => _internals12.normalizeAgentName(a) === normalizedAgent);
     if (!isDispatched) {
       observations.push({
         phase,
@@ -44553,7 +43035,7 @@ function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, pha
       if (e.type === "agent.delegation") {
         const agent = e.agent;
         if (agent && typeof agent === "string") {
-          const normalized = _internals15.normalizeAgentName(agent);
+          const normalized = _internals12.normalizeAgentName(agent);
           if (normalized === "coder") {
             coderDelegations.push({ event: e, index: i2 });
           } else if (normalized === "reviewer") {
@@ -44610,7 +43092,7 @@ function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, pha
       if (e.type === "agent.delegation" && e.agent) {
         const agent = e.agent;
         if (agent && typeof agent === "string") {
-          const normalized = _internals15.normalizeAgentName(agent);
+          const normalized = _internals12.normalizeAgentName(agent);
           if (normalized === "sme") {
             smeDelegations.push({ event: e, index: i2 });
           }
@@ -44634,7 +43116,7 @@ function checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, pha
 }
 async function runCuratorInit(directory, config3, llmDelegate) {
   try {
-    const priorSummary = await _internals15.readCuratorSummary(directory);
+    const priorSummary = await _internals12.readCuratorSummary(directory);
     const knowledgePath = resolveSwarmKnowledgePath(directory);
     const allEntries = await readKnowledge(knowledgePath);
     const highConfidenceEntries = allEntries.filter((e) => typeof e.confidence === "number" && e.confidence >= config3.min_knowledge_confidence);
@@ -44755,7 +43237,7 @@ Could not load prior session context.`,
 }
 async function runCuratorPhase(directory, phase, agentsDispatched, config3, _knowledgeConfig, llmDelegate) {
   try {
-    const priorSummary = await _internals15.readCuratorSummary(directory);
+    const priorSummary = await _internals12.readCuratorSummary(directory);
     if (priorSummary?.phase_digests.some((d) => d.phase === phase)) {
       const existingDigest = priorSummary.phase_digests.find((d) => d.phase === phase);
       return {
@@ -44767,10 +43249,10 @@ async function runCuratorPhase(directory, phase, agentsDispatched, config3, _kno
       };
     }
     const eventsJsonlContent = await readSwarmFileAsync(directory, "events.jsonl");
-    const phaseEvents = eventsJsonlContent ? _internals15.filterPhaseEvents(eventsJsonlContent, phase) : [];
+    const phaseEvents = eventsJsonlContent ? _internals12.filterPhaseEvents(eventsJsonlContent, phase) : [];
     const contextMd = await readSwarmFileAsync(directory, "context.md");
     const requiredAgents = ["reviewer", "test_engineer"];
-    const complianceObservations = _internals15.checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase);
+    const complianceObservations = _internals12.checkPhaseCompliance(phaseEvents, agentsDispatched, requiredAgents, phase);
     const plan = await loadPlanJsonOnly(directory);
     const phaseData = plan?.phases.find((p) => p.id === phase);
     const tasksCompleted = phaseData ? phaseData.tasks.filter((t) => t.status === "completed").length : 0;
@@ -44794,7 +43276,7 @@ async function runCuratorPhase(directory, phase, agentsDispatched, config3, _kno
       timestamp: new Date().toISOString(),
       summary: `Phase ${phase} completed. ${tasksCompleted}/${tasksTotal} tasks completed. ${complianceObservations.length} compliance observations.`,
       agents_used: [
-        ...new Set(agentsDispatched.map((a) => _internals15.normalizeAgentName(a)))
+        ...new Set(agentsDispatched.map((a) => _internals12.normalizeAgentName(a)))
       ],
       tasks_completed: tasksCompleted,
       tasks_total: tasksTotal,
@@ -44844,7 +43326,7 @@ async function runCuratorPhase(directory, phase, agentsDispatched, config3, _kno
           clearTimeout(timer);
         }
         if (llmOutput?.trim()) {
-          knowledgeRecommendations = _internals15.parseKnowledgeRecommendations(llmOutput);
+          knowledgeRecommendations = _internals12.parseKnowledgeRecommendations(llmOutput);
           const structured = parseStructuredCuratorBlocks(llmOutput);
           knowledgeApplicationFindings = structured.findings;
           skillCandidates = structured.candidates;
@@ -44895,8 +43377,8 @@ ${phaseDigest.summary}`,
         knowledge_recommendations: knowledgeRecommendations
       };
     }
-    await _internals15.writeCuratorSummary(directory, updatedSummary);
-    const eventsPath = path22.join(directory, ".swarm", "events.jsonl");
+    await _internals12.writeCuratorSummary(directory, updatedSummary);
+    const eventsPath = path18.join(directory, ".swarm", "events.jsonl");
     for (const obs of complianceObservations) {
       await appendKnowledge(eventsPath, {
         type: "curator_compliance",
@@ -45093,7 +43575,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
       created_at: now,
       updated_at: now,
       auto_generated: true,
-      project_name: path22.basename(directory)
+      project_name: path18.basename(directory)
     };
     await appendKnowledge(knowledgePath, newEntry);
     applied++;
@@ -45101,7 +43583,7 @@ async function applyCuratorKnowledgeUpdates(directory, recommendations, knowledg
   }
   return { applied, skipped };
 }
-var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000, _internals15;
+var DEFAULT_CURATOR_LLM_TIMEOUT_MS = 300000, _internals12;
 var init_curator = __esm(() => {
   init_event_bus();
   init_schema();
@@ -45112,7 +43594,7 @@ var init_curator = __esm(() => {
   init_knowledge_store();
   init_knowledge_validator();
   init_utils2();
-  _internals15 = {
+  _internals12 = {
     parseKnowledgeRecommendations,
     readCuratorSummary,
     writeCuratorSummary,
@@ -45123,7 +43605,7 @@ var init_curator = __esm(() => {
 });
 
 // src/hooks/hive-promoter.ts
-import path23 from "node:path";
+import path19 from "node:path";
 function isAlreadyInHive(entry, hiveEntries, threshold) {
   return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
 }
@@ -45330,7 +43812,7 @@ async function promoteToHive(directory, lesson, category) {
     schema_version: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-    source_project: path23.basename(directory) || "unknown",
+    source_project: path19.basename(directory) || "unknown",
     encounter_score: 1
   };
   await appendKnowledge(resolveHiveKnowledgePath(), newHiveEntry);
@@ -45385,6 +43867,1671 @@ var init_hive_promoter = __esm(() => {
   init_utils2();
 });
 
+// src/hooks/knowledge-reader.ts
+import { existsSync as existsSync11 } from "node:fs";
+import { mkdir as mkdir6, readFile as readFile7, writeFile as writeFile6 } from "node:fs/promises";
+import * as path20 from "node:path";
+function inferCategoriesFromPhase(phaseDescription) {
+  const lower = phaseDescription.toLowerCase();
+  const patterns = [
+    {
+      pattern: /\b(?:test|qa|quality|verification|validation)\b/,
+      categories: ["testing", "debugging"]
+    },
+    {
+      pattern: /\b(?:implement|build|develop|coding|code)\b/,
+      categories: ["tooling", "architecture", "debugging"]
+    },
+    {
+      pattern: /\b(?:integrat|deploy|ci|cd|release|publish)\b/,
+      categories: ["integration", "tooling", "performance"]
+    },
+    {
+      pattern: /\b(?:plan|design|architect|spec|requirement)\b/,
+      categories: ["architecture", "process"]
+    },
+    {
+      pattern: /\b(?:review|refactor|cleanup|polish|optimi)\b/,
+      categories: ["performance", "architecture", "process"]
+    },
+    {
+      pattern: /\b(?:secur|audit|harden|compliance)\b/,
+      categories: ["security", "testing"]
+    },
+    {
+      pattern: /\b(?:setup|config|scaffold|init|bootstrap)\b/,
+      categories: ["tooling", "other"]
+    },
+    {
+      pattern: /\b(?:doc|readme|changelog)\b/,
+      categories: ["process", "tooling"]
+    }
+  ];
+  for (const { pattern, categories } of patterns) {
+    if (pattern.test(lower)) {
+      return categories;
+    }
+  }
+  return ["process", "tooling"];
+}
+async function recordLessonsShown(directory, lessonIds, currentPhase) {
+  const shownFile = path20.join(directory, ".swarm", ".knowledge-shown.json");
+  try {
+    let shownData = {};
+    if (existsSync11(shownFile)) {
+      const content = await readFile7(shownFile, "utf-8");
+      shownData = JSON.parse(content);
+    }
+    const phaseMatch = /^Phase\s+(\d+)/i.exec(currentPhase);
+    const canonicalKey = phaseMatch ? `Phase ${phaseMatch[1]}` : currentPhase;
+    shownData[canonicalKey] = lessonIds;
+    await mkdir6(path20.dirname(shownFile), { recursive: true });
+    await writeFile6(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+  } catch {
+    warn("[swarm] Knowledge: failed to record shown lessons");
+  }
+}
+async function readMergedKnowledge(directory, config3, context) {
+  const swarmPath = resolveSwarmKnowledgePath(directory);
+  const swarmEntries = await readKnowledge(swarmPath);
+  let hiveEntries = [];
+  if (config3.hive_enabled !== false) {
+    const hivePath = resolveHiveKnowledgePath();
+    hiveEntries = await readKnowledge(hivePath);
+  }
+  const seenLessons = new Set;
+  const merged = [];
+  for (const entry of hiveEntries) {
+    const normalized = normalize2(entry.lesson);
+    seenLessons.add(normalized);
+    merged.push({
+      ...entry,
+      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
+      finalScore: 0
+    });
+  }
+  for (const entry of swarmEntries) {
+    const normalized = normalize2(entry.lesson);
+    if (seenLessons.has(normalized)) {
+      continue;
+    }
+    const swarmBigrams = wordBigrams(normalized);
+    const isHiveNearDup = hiveEntries.some((hiveEntry) => jaccardBigram(swarmBigrams, wordBigrams(normalize2(hiveEntry.lesson))) >= JACCARD_THRESHOLD);
+    if (isHiveNearDup)
+      continue;
+    const isSwarmNearDup = merged.some((m) => m.tier === "swarm" && jaccardBigram(swarmBigrams, wordBigrams(normalize2(m.lesson))) >= JACCARD_THRESHOLD);
+    if (isSwarmNearDup)
+      continue;
+    seenLessons.add(normalized);
+    merged.push({
+      ...entry,
+      relevanceScore: { category: 0, confidence: 0, keywords: 0 },
+      finalScore: 0
+    });
+  }
+  const scopeFilter = config3.scope_filter ?? ["global"];
+  const filtered = merged.filter((entry) => scopeFilter.some((pattern) => (entry.scope ?? "global") === pattern) && entry.status !== "archived");
+  const ranked = filtered.map((entry) => {
+    let categoryScore = 0;
+    if (context?.currentPhase) {
+      const phaseCategories = inferCategoriesFromPhase(context.currentPhase);
+      if (phaseCategories.includes(entry.category)) {
+        categoryScore = 1;
+      } else if (entry.category === "process") {
+        categoryScore = 0.5;
+      }
+    } else {
+      categoryScore = 0.5;
+    }
+    const confidenceScore = entry.confidence;
+    let keywordsScore = 0;
+    if (context?.techStack && entry.tags.length > 0) {
+      const matchingTags = entry.tags.filter((t) => context.techStack.some((s) => t.toLowerCase().includes(s.toLowerCase()) || s.toLowerCase().includes(t.toLowerCase()))).length;
+      keywordsScore = Math.min(matchingTags / Math.max(entry.tags.length, 1), 1);
+    } else if (entry.tags.length === 0) {
+      keywordsScore = 0.5;
+    }
+    const tierBoost = entry.tier === "hive" ? HIVE_TIER_BOOST : 0;
+    const isSameProjectSource = context?.projectName && entry.tier === "hive" && "source_project" in entry && entry.source_project === context.projectName;
+    const sameProjectPenalty = isSameProjectSource ? SAME_PROJECT_PENALTY : 0;
+    const finalScore = categoryScore * 0.4 + confidenceScore * 0.35 + keywordsScore * 0.25 + tierBoost + sameProjectPenalty;
+    const relevanceScore = {
+      category: categoryScore,
+      confidence: confidenceScore,
+      keywords: keywordsScore
+    };
+    return {
+      ...entry,
+      relevanceScore,
+      finalScore: Math.min(Math.max(finalScore, 0), 1)
+    };
+  });
+  ranked.sort((a, b) => {
+    const scoreDiff = b.finalScore - a.finalScore;
+    if (Math.abs(scoreDiff) > 0.001)
+      return scoreDiff;
+    const dateA = new Date(a.created_at).getTime();
+    const dateB = new Date(b.created_at).getTime();
+    return dateB - dateA;
+  });
+  const maxInject = config3.max_inject_count ?? 5;
+  const topN = ranked.slice(0, maxInject);
+  if (topN.length > 0 && context?.currentPhase) {
+    recordLessonsShown(directory, topN.map((e) => e.id), context.currentPhase).catch(() => {});
+  }
+  return topN;
+}
+async function updateRetrievalOutcome(directory, phaseInfo, phaseSucceeded) {
+  const shownFile = path20.join(directory, ".swarm", ".knowledge-shown.json");
+  try {
+    if (!existsSync11(shownFile)) {
+      return;
+    }
+    const content = await readFile7(shownFile, "utf-8");
+    const shownData = JSON.parse(content);
+    const shownIds = shownData[phaseInfo];
+    if (!shownIds || shownIds.length === 0) {
+      return;
+    }
+    const swarmPath = resolveSwarmKnowledgePath(directory);
+    const entries = await readKnowledge(swarmPath);
+    let updated = false;
+    const foundInSwarm = new Set;
+    for (const entry of entries) {
+      if (shownIds.includes(entry.id)) {
+        const ro = entry.retrieval_outcomes;
+        if (phaseSucceeded) {
+          ro.succeeded_after_shown_count = (ro.succeeded_after_shown_count ?? 0) + 1;
+        } else {
+          ro.failed_after_shown_count = (ro.failed_after_shown_count ?? 0) + 1;
+        }
+        updated = true;
+        foundInSwarm.add(entry.id);
+      }
+    }
+    if (updated) {
+      await rewriteKnowledge(swarmPath, entries);
+    }
+    const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
+    if (remainingIds.length === 0) {
+      delete shownData[phaseInfo];
+      await writeFile6(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+      return;
+    }
+    const hivePath = resolveHiveKnowledgePath();
+    const hiveEntries = await readKnowledge(hivePath);
+    let hiveUpdated = false;
+    for (const entry of hiveEntries) {
+      if (remainingIds.includes(entry.id)) {
+        const ro = entry.retrieval_outcomes;
+        if (phaseSucceeded) {
+          ro.succeeded_after_shown_count = (ro.succeeded_after_shown_count ?? 0) + 1;
+        } else {
+          ro.failed_after_shown_count = (ro.failed_after_shown_count ?? 0) + 1;
+        }
+        hiveUpdated = true;
+      }
+    }
+    if (hiveUpdated) {
+      await rewriteKnowledge(hivePath, hiveEntries);
+    }
+    delete shownData[phaseInfo];
+    await writeFile6(shownFile, JSON.stringify(shownData, null, 2), "utf-8");
+  } catch {
+    warn("[swarm] Knowledge: failed to update retrieval outcomes");
+  }
+}
+function lc(s) {
+  return (s ?? "").toLowerCase();
+}
+function anyMatch(haystack, needles) {
+  if (needles.length === 0)
+    return false;
+  const hay = haystack.map(lc);
+  return needles.some((n) => hay.some((h) => h.includes(lc(n))));
+}
+function tokenizeContext(ctx) {
+  const parts2 = [];
+  if (ctx.taskTitle)
+    parts2.push(ctx.taskTitle);
+  if (ctx.taskDescription)
+    parts2.push(ctx.taskDescription);
+  if (ctx.lastUserMessage)
+    parts2.push(ctx.lastUserMessage);
+  if (ctx.currentAction)
+    parts2.push(ctx.currentAction);
+  if (ctx.currentTool)
+    parts2.push(ctx.currentTool);
+  if (ctx.targetAgent)
+    parts2.push(ctx.targetAgent);
+  if (ctx.declaredScope)
+    parts2.push(ctx.declaredScope);
+  if (ctx.recentReviewerFailures)
+    parts2.push(...ctx.recentReviewerFailures);
+  if (ctx.recentTestFailures)
+    parts2.push(...ctx.recentTestFailures);
+  if (ctx.recentToolErrors)
+    parts2.push(...ctx.recentToolErrors);
+  if (ctx.planConstraints)
+    parts2.push(...ctx.planConstraints);
+  if (ctx.filePaths)
+    parts2.push(...ctx.filePaths);
+  return parts2.map(lc);
+}
+function scoreDirectiveAgainstContext(entry, ctx) {
+  const haystack = tokenizeContext(ctx);
+  const triggerHit = entry.triggers && entry.triggers.length > 0 ? anyMatch(haystack, entry.triggers) : false;
+  const actionHit = entry.applies_to_tools && entry.applies_to_tools.length > 0 ? entry.applies_to_tools.map(lc).some((t) => t === lc(ctx.currentTool) || t === lc(ctx.currentAction)) : false;
+  const agentHit = entry.applies_to_agents && entry.applies_to_agents.length > 0 ? entry.applies_to_agents.map(lc).some((a) => a === lc(ctx.targetAgent)) : false;
+  let score = 0;
+  if (triggerHit)
+    score += 0.5;
+  if (actionHit)
+    score += 0.35;
+  if (agentHit)
+    score += 0.25;
+  if (entry.directive_priority === "critical")
+    score += 0.4;
+  else if (entry.directive_priority === "high")
+    score += 0.2;
+  else if (entry.directive_priority === "medium")
+    score += 0.1;
+  return { triggerHit, actionHit, agentHit, score: Math.min(1, score) };
+}
+async function readContextualKnowledge(directory, config3, ctx) {
+  const projected = {
+    projectName: ctx.projectName ?? "unknown",
+    currentPhase: ctx.currentPhase ?? "Phase 0",
+    techStack: ctx.techStack,
+    recentErrors: [
+      ...ctx.recentReviewerFailures ?? [],
+      ...ctx.recentTestFailures ?? [],
+      ...ctx.recentToolErrors ?? []
+    ]
+  };
+  const wideCfg = {
+    ...config3,
+    max_inject_count: Math.max(20, config3.max_inject_count ?? 5)
+  };
+  const candidates = await readMergedKnowledge(directory, wideCfg, projected) ?? [];
+  const minConf = typeof config3.directive_min_confidence === "number" ? config3.directive_min_confidence : DIRECTIVE_BOOST_MIN_CONFIDENCE;
+  const rescored = candidates.map((entry) => {
+    const ds = scoreDirectiveAgainstContext(entry, ctx);
+    const confBoost = entry.confidence >= minConf && (ds.actionHit || ds.agentHit) ? 0.25 : 0;
+    const generatedSkillBoost = entry.generated_skill_path && entry.status !== "archived" ? 0.05 : 0;
+    const finalScore = Math.min(1, entry.finalScore + ds.score + confBoost + generatedSkillBoost);
+    return {
+      ...entry,
+      finalScore,
+      __directive: ds
+    };
+  });
+  rescored.sort((a, b) => b.finalScore - a.finalScore);
+  const max = config3.max_inject_count ?? 5;
+  const top = [];
+  const seen = new Set;
+  for (const e of rescored) {
+    if (top.length >= max)
+      break;
+    const ds = e.__directive;
+    const isCritical = e.directive_priority === "critical" && (ds.triggerHit || ds.actionHit || ds.agentHit);
+    if (isCritical && !seen.has(e.id)) {
+      top.push(e);
+      seen.add(e.id);
+    }
+  }
+  for (const e of rescored) {
+    if (top.length >= max)
+      break;
+    if (!seen.has(e.id)) {
+      top.push(e);
+      seen.add(e.id);
+    }
+  }
+  return top.map(({ __directive: _d, ...rest }) => rest);
+}
+var JACCARD_THRESHOLD = 0.6, HIVE_TIER_BOOST = 0.05, SAME_PROJECT_PENALTY = -0.05, DIRECTIVE_BOOST_MIN_CONFIDENCE = 0.75;
+var init_knowledge_reader = __esm(() => {
+  init_logger();
+  init_knowledge_store();
+});
+
+// src/hooks/knowledge-curator.ts
+function pruneSeenRetroSections() {
+  const cutoff = Date.now() - 86400000;
+  for (const [key, entry] of seenRetroSections) {
+    if (entry.timestamp < cutoff) {
+      seenRetroSections.delete(key);
+    }
+  }
+}
+function isWriteToSwarmPlan(input) {
+  if (typeof input !== "object" || input === null)
+    return false;
+  const record3 = input;
+  const toolName = record3.toolName;
+  if (typeof toolName !== "string")
+    return false;
+  if (!["write", "edit", "apply_patch"].includes(toolName))
+    return false;
+  const rawPath = record3.path;
+  const rawFile = record3.file;
+  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
+  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
+  if (typeof pathField === "string" && pathField.includes(".swarm/plan.md")) {
+    return true;
+  }
+  if (typeof fileField === "string" && fileField.includes(".swarm/plan.md")) {
+    return true;
+  }
+  return false;
+}
+function isWriteToEvidenceFile(input) {
+  if (typeof input !== "object" || input === null)
+    return false;
+  const record3 = input;
+  const toolName = record3.toolName;
+  if (typeof toolName !== "string")
+    return false;
+  if (!["write", "edit", "apply_patch"].includes(toolName))
+    return false;
+  const rawPath = record3.path;
+  const rawFile = record3.file;
+  const pathField = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : undefined;
+  const fileField = typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : undefined;
+  const evidenceRegex = /\.swarm\/+evidence\/+/i;
+  if (typeof pathField === "string" && evidenceRegex.test(pathField)) {
+    return true;
+  }
+  if (typeof fileField === "string" && evidenceRegex.test(fileField)) {
+    return true;
+  }
+  return false;
+}
+function extractRetrospectiveSection(planContent) {
+  const headingRegex = /^###\s+Lessons\s+Learned$/m;
+  const match = headingRegex.exec(planContent);
+  if (!match)
+    return null;
+  const startIndex = match.index;
+  const restOfContent = planContent.slice(startIndex);
+  const firstNewline = restOfContent.indexOf(`
+`);
+  const contentAfterHeading = firstNewline === -1 ? "" : restOfContent.slice(firstNewline + 1);
+  const nextHeadingRegex = /^#{1,2}\s+/m;
+  const nextMatch = nextHeadingRegex.exec(contentAfterHeading);
+  let endIndex;
+  if (nextMatch) {
+    endIndex = startIndex + firstNewline + 1 + nextMatch.index;
+  } else {
+    endIndex = planContent.length;
+  }
+  return planContent.slice(startIndex, endIndex).trim();
+}
+function checkRetroChanged(sessionID, section) {
+  const hash3 = `${section.length}:${section.slice(0, 100)}`;
+  const lastSeen = seenRetroSections.get(sessionID);
+  if (lastSeen?.value === hash3) {
+    return false;
+  }
+  seenRetroSections.set(sessionID, { value: hash3, timestamp: Date.now() });
+  return true;
+}
+function extractLessonsFromRetro(section) {
+  const lessons = [];
+  const lines = section.split(`
+`);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    const bulletMatch = /^[-*]\s+(.+)$/.exec(trimmed);
+    if (bulletMatch) {
+      const content = bulletMatch[1].trim();
+      if (content) {
+        lessons.push(content);
+      }
+    }
+  }
+  return lessons;
+}
+function extractRetractionsAndLessons(allLessons) {
+  const retractions = [];
+  const normalLessons = [];
+  for (const lesson of allLessons) {
+    const upper = lesson.trimStart().toUpperCase();
+    if (upper.startsWith("RETRACT:") || upper.startsWith("BAD RULE:")) {
+      const colonIdx = lesson.indexOf(":");
+      const text = colonIdx !== -1 ? lesson.slice(colonIdx + 1).trim() : "";
+      if (text)
+        retractions.push(text);
+    } else {
+      normalLessons.push(lesson);
+    }
+  }
+  return { retractions, normalLessons };
+}
+async function processRetractions(retractions, directory) {
+  if (retractions.length === 0)
+    return;
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const entries = await readKnowledge(knowledgePath) ?? [];
+  for (const retractionText of retractions) {
+    const normalizedRetraction = normalize2(retractionText);
+    for (const entry of entries) {
+      const normalizedLesson = normalize2(entry.lesson);
+      if (normalizedLesson === normalizedRetraction) {
+        await quarantineEntry(directory, entry.id, `Retracted by architect: ${retractionText}`, "architect");
+        console.info(`[knowledge-curator] Quarantined entry ${entry.id}: "${entry.lesson}"`);
+      }
+    }
+  }
+}
+async function curateAndStoreSwarm(lessons, projectName, phaseInfo, directory, config3) {
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const existingEntries = await readKnowledge(knowledgePath) ?? [];
+  let stored = 0;
+  let skipped = 0;
+  let rejected = 0;
+  const categoryByTag = new Map([
+    ["process", "process"],
+    ["architecture", "architecture"],
+    ["tooling", "tooling"],
+    ["security", "security"],
+    ["testing", "testing"],
+    ["debugging", "debugging"],
+    ["performance", "performance"],
+    ["integration", "integration"],
+    ["other", "other"],
+    ["todo", "todo"]
+  ]);
+  for (const lesson of lessons) {
+    const tags = inferTags(lesson);
+    let category = "process";
+    for (const tag of tags) {
+      if (categoryByTag.has(tag)) {
+        category = categoryByTag.get(tag);
+        break;
+      }
+    }
+    const meta3 = {
+      category,
+      scope: "global",
+      confidence: computeConfidence(0, true)
+    };
+    const result = validateLesson(lesson, existingEntries.map((e) => e.lesson), meta3);
+    if (result.valid === false || result.severity === "error") {
+      const rejectedLesson = {
+        id: crypto.randomUUID(),
+        lesson,
+        rejection_reason: result.reason ?? "unknown",
+        rejected_at: new Date().toISOString(),
+        rejection_layer: result.layer ?? 1
+      };
+      await appendRejectedLesson(directory, rejectedLesson);
+      rejected++;
+      continue;
+    }
+    const duplicate = findNearDuplicate(lesson, existingEntries, config3.dedup_threshold);
+    if (duplicate) {
+      skipped++;
+      continue;
+    }
+    const entry = {
+      id: crypto.randomUUID(),
+      tier: "swarm",
+      lesson,
+      category,
+      tags,
+      scope: "global",
+      confidence: computeConfidence(1, true),
+      status: "candidate",
+      confirmed_by: [
+        {
+          phase_number: phaseInfo.phase_number,
+          confirmed_at: new Date().toISOString(),
+          project_name: projectName
+        }
+      ],
+      retrieval_outcomes: {
+        applied_count: 0,
+        succeeded_after_count: 0,
+        failed_after_count: 0
+      },
+      schema_version: config3.schema_version,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+      project_name: projectName,
+      auto_generated: true
+    };
+    await appendKnowledge(knowledgePath, entry);
+    stored++;
+    existingEntries.push(entry);
+  }
+  await enforceKnowledgeCap(knowledgePath, config3.swarm_max_entries);
+  await _internals13.runAutoPromotion(directory, config3);
+  return { stored, skipped, rejected };
+}
+async function runAutoPromotion(directory, config3) {
+  const knowledgePath = resolveSwarmKnowledgePath(directory);
+  const entries = await readKnowledge(knowledgePath) ?? [];
+  let changed = false;
+  for (const entry of entries) {
+    if (entry.status === "promoted")
+      continue;
+    const distinctPhases = new Set((entry.confirmed_by ?? []).map((c) => c.phase_number)).size;
+    if (entry.status === "candidate" && distinctPhases >= 3) {
+      entry.status = "established";
+      entry.updated_at = new Date().toISOString();
+      changed = true;
+      continue;
+    }
+    if (entry.status === "established") {
+      const createdAt = Date.parse(entry.created_at ?? "");
+      const ageMs = Number.isNaN(createdAt) ? 0 : Date.now() - createdAt;
+      const ageThresholdMs = config3.auto_promote_days * 86400000;
+      if (distinctPhases >= 3 || ageMs >= ageThresholdMs) {
+        entry.status = "promoted";
+        entry.hive_eligible = true;
+        entry.updated_at = new Date().toISOString();
+        changed = true;
+      }
+    }
+  }
+  if (changed) {
+    await rewriteKnowledge(knowledgePath, entries);
+  }
+}
+function createKnowledgeCuratorHook(directory, config3) {
+  const handler = async (input, _output) => {
+    pruneSeenRetroSections();
+    if (!config3.enabled)
+      return;
+    if (!isWriteToSwarmPlan(input) && !isWriteToEvidenceFile(input))
+      return;
+    const sessionID = input?.sessionID ?? "default";
+    const isEvidenceTrigger = isWriteToEvidenceFile(input) && !isWriteToSwarmPlan(input);
+    if (isEvidenceTrigger) {
+      const record3 = input;
+      const rawPath = record3.path;
+      const rawFile = record3.file;
+      const filePath = typeof rawPath === "string" ? rawPath.replace(/\\/g, "/") : typeof rawFile === "string" ? rawFile.replace(/\\/g, "/") : null;
+      if (!filePath)
+        return;
+      const evidenceKey = `evidence:${sessionID}:${filePath}`;
+      const lastSeenEvidence = seenRetroSections.get(evidenceKey);
+      const evidenceContent = await readSwarmFileAsync(directory, filePath.replace(/^.*\.swarm\//, ""));
+      if (!evidenceContent)
+        return;
+      let evidenceData;
+      try {
+        evidenceData = JSON.parse(evidenceContent);
+      } catch {
+        return;
+      }
+      let lessons = [];
+      if (Array.isArray(evidenceData.entries) && evidenceData.entries.length > 0) {
+        const firstEntry = evidenceData.entries[0];
+        if (Array.isArray(firstEntry.lessons_learned)) {
+          lessons = firstEntry.lessons_learned;
+        }
+      } else if (Array.isArray(evidenceData.lessons_learned)) {
+        lessons = evidenceData.lessons_learned;
+      }
+      if (lessons.length === 0)
+        return;
+      const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join("|")}`;
+      if (lastSeenEvidence?.value === evidenceHash) {
+        return;
+      }
+      seenRetroSections.set(evidenceKey, {
+        value: evidenceHash,
+        timestamp: Date.now()
+      });
+      const projectName2 = evidenceData.project_name ?? "unknown";
+      const phaseNumber2 = typeof evidenceData.phase_number === "number" ? evidenceData.phase_number : 1;
+      await _internals13.curateAndStoreSwarm(lessons, projectName2, { phase_number: phaseNumber2 }, directory, config3);
+      await updateRetrievalOutcome(directory, `Phase ${phaseNumber2}`, true);
+      return;
+    }
+    const planContent = await readSwarmFileAsync(directory, "plan.md");
+    if (!planContent)
+      return;
+    const section = extractRetrospectiveSection(planContent);
+    if (!section)
+      return;
+    if (!checkRetroChanged(sessionID, section))
+      return;
+    const allLessons = extractLessonsFromRetro(section);
+    if (allLessons.length === 0)
+      return;
+    const { retractions, normalLessons } = extractRetractionsAndLessons(allLessons);
+    await processRetractions(retractions, directory);
+    if (normalLessons.length === 0)
+      return;
+    const projectNameMatch = /^#\s+(.+)$/m.exec(planContent);
+    const projectName = projectNameMatch ? projectNameMatch[1].trim() : "unknown";
+    const phaseMatch = /^Phase:\s*(\d+)/m.exec(planContent);
+    const phaseNumber = phaseMatch ? parseInt(phaseMatch[1], 10) : 1;
+    await _internals13.curateAndStoreSwarm(normalLessons, projectName, { phase_number: phaseNumber }, directory, config3);
+    await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
+  };
+  return safeHook(handler);
+}
+var seenRetroSections, _internals13;
+var init_knowledge_curator = __esm(() => {
+  init_knowledge_reader();
+  init_knowledge_store();
+  init_knowledge_validator();
+  init_utils2();
+  seenRetroSections = new Map;
+  _internals13 = {
+    isWriteToEvidenceFile,
+    curateAndStoreSwarm,
+    runAutoPromotion,
+    createKnowledgeCuratorHook
+  };
+});
+
+// src/tools/write-retro.ts
+async function executeWriteRetro(args2, directory) {
+  if (/^(CON|PRN|AUX|NUL|COM[0-9]|LPT[0-9])(:|$)/i.test(directory)) {
+    return JSON.stringify({
+      success: false,
+      message: "Invalid directory: reserved device name"
+    }, null, 2);
+  }
+  const phase = args2.phase;
+  if (!Number.isInteger(phase) || phase < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be a positive integer"
+    }, null, 2);
+  }
+  const validComplexities = [
+    "trivial",
+    "simple",
+    "moderate",
+    "complex"
+  ];
+  if (!validComplexities.includes(args2.task_complexity)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: `Invalid task_complexity: must be one of 'trivial'|'simple'|'moderate'|'complex'`
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.task_count) || args2.task_count < 1) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be a positive integer >= 1"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.total_tool_calls) || args2.total_tool_calls < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.coder_revisions) || args2.coder_revisions < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.reviewer_rejections) || args2.reviewer_rejections < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.test_failures) || args2.test_failures < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.security_findings) || args2.security_findings < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (!Number.isInteger(args2.integration_issues) || args2.integration_issues < 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.loop_detections !== undefined && (!Number.isInteger(args2.loop_detections) || args2.loop_detections < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.circuit_breaker_trips !== undefined && (!Number.isInteger(args2.circuit_breaker_trips) || args2.circuit_breaker_trips < 0)) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be a non-negative integer"
+    }, null, 2);
+  }
+  if (args2.phase > 99) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid phase: must be <= 99"
+    }, null, 2);
+  }
+  if (args2.task_count > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid task_count: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.total_tool_calls > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid total_tool_calls: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.coder_revisions > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid coder_revisions: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.reviewer_rejections > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid reviewer_rejections: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.loop_detections !== undefined && args2.loop_detections > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid loop_detections: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.circuit_breaker_trips !== undefined && args2.circuit_breaker_trips > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid circuit_breaker_trips: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.test_failures > 9999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid test_failures: must be <= 9999"
+    }, null, 2);
+  }
+  if (args2.security_findings > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid security_findings: must be <= 999"
+    }, null, 2);
+  }
+  if (args2.integration_issues > 999) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid integration_issues: must be <= 999"
+    }, null, 2);
+  }
+  const summary = args2.summary;
+  if (typeof summary !== "string" || summary.trim().length === 0) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: "Invalid summary: must be a non-empty string"
+    }, null, 2);
+  }
+  if (args2.task_id !== undefined) {
+    const tid = args2.task_id;
+    if (!tid || tid.length === 0 || tid.length > 200) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+    if (/\0/.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: contains null bytes"
+      }, null, 2);
+    }
+    for (let i2 = 0;i2 < tid.length; i2++) {
+      if (tid.charCodeAt(i2) < 32) {
+        return JSON.stringify({
+          success: false,
+          phase,
+          message: "Invalid task ID: contains control characters"
+        }, null, 2);
+      }
+    }
+    if (tid.includes("..") || tid.includes("/") || tid.includes("\\")) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: path traversal detected"
+      }, null, 2);
+    }
+    const VALID_TASK_ID = /^(retro-[a-zA-Z0-9][a-zA-Z0-9_-]*|\d+\.\d+(\.\d+)*)$/;
+    if (!VALID_TASK_ID.test(tid)) {
+      return JSON.stringify({
+        success: false,
+        phase,
+        message: "Invalid task ID: must match pattern"
+      }, null, 2);
+    }
+  }
+  const taskId = args2.task_id ?? `retro-${phase}`;
+  const retroEntry = {
+    task_id: taskId,
+    type: "retrospective",
+    timestamp: new Date().toISOString(),
+    agent: "architect",
+    verdict: "pass",
+    summary,
+    metadata: args2.metadata,
+    phase_number: phase,
+    total_tool_calls: args2.total_tool_calls,
+    coder_revisions: args2.coder_revisions,
+    reviewer_rejections: args2.reviewer_rejections,
+    loop_detections: args2.loop_detections,
+    circuit_breaker_trips: args2.circuit_breaker_trips,
+    test_failures: args2.test_failures,
+    security_findings: args2.security_findings,
+    integration_issues: args2.integration_issues,
+    task_count: args2.task_count,
+    task_complexity: args2.task_complexity,
+    top_rejection_reasons: args2.top_rejection_reasons ?? [],
+    lessons_learned: (args2.lessons_learned ?? []).slice(0, 5),
+    user_directives: [],
+    approaches_tried: [],
+    error_taxonomy: []
+  };
+  const taxonomy = [];
+  try {
+    const allTaskIds = await listEvidenceTaskIds(directory);
+    const phaseTaskIds = allTaskIds.filter((id) => id.startsWith(`${phase}.`));
+    const sessionStart = args2.metadata && typeof args2.metadata.session_start === "string" ? args2.metadata.session_start : undefined;
+    for (const phaseTaskId of phaseTaskIds) {
+      const result = await loadEvidence(directory, phaseTaskId);
+      if (result.status !== "found")
+        continue;
+      const bundle = result.bundle;
+      if (sessionStart && bundle.updated_at < sessionStart)
+        continue;
+      for (const entry of bundle.entries) {
+        const e = entry;
+        if (e.type === "review" && e.verdict === "fail") {
+          const reasonParts = [];
+          if (typeof e.summary === "string")
+            reasonParts.push(e.summary);
+          if (Array.isArray(e.issues)) {
+            for (const iss of e.issues) {
+              if (typeof iss.message === "string")
+                reasonParts.push(iss.message);
+            }
+          }
+          const reason = reasonParts.join(" ");
+          if (/signature|type|contract|interface/i.test(reason)) {
+            taxonomy.push("interface_mismatch");
+          } else {
+            taxonomy.push("logic_error");
+          }
+        } else if (e.type === "test" && e.verdict === "fail") {
+          taxonomy.push("logic_error");
+        } else if (e.agent === "scope_guard" && e.verdict === "fail") {
+          taxonomy.push("scope_creep");
+        } else if (e.agent === "loop_detector" && e.verdict === "fail") {
+          taxonomy.push("gate_evasion");
+        }
+      }
+    }
+  } catch {}
+  retroEntry.error_taxonomy = [...new Set(taxonomy)];
+  const validationResult = RetrospectiveEvidenceSchema.safeParse(retroEntry);
+  if (!validationResult.success) {
+    return JSON.stringify({
+      success: false,
+      error: `Retrospective entry failed validation: ${validationResult.error.message}`
+    }, null, 2);
+  }
+  try {
+    await saveEvidence(directory, taskId, retroEntry);
+    return JSON.stringify({
+      success: true,
+      task_id: taskId,
+      phase,
+      message: `Retrospective evidence written to .swarm/evidence/${taskId}/evidence.json`
+    }, null, 2);
+  } catch (error93) {
+    return JSON.stringify({
+      success: false,
+      phase,
+      message: error93 instanceof Error ? error93.message : String(error93)
+    }, null, 2);
+  }
+}
+var write_retro, _internals14;
+var init_write_retro = __esm(() => {
+  init_zod();
+  init_evidence_schema();
+  init_manager2();
+  init_create_tool();
+  write_retro = createSwarmTool({
+    description: "Write a retrospective evidence bundle for a completed phase. " + "Accepts flat retro fields and writes a correctly-wrapped EvidenceBundle to " + ".swarm/evidence/retro-{phase}/evidence.json. " + "Use this instead of manually writing retro JSON to avoid schema validation failures in phase_complete.",
+    args: {
+      phase: exports_external.number().int().min(1).max(99).describe("The phase number being completed (e.g., 1, 2, 3)"),
+      summary: exports_external.string().describe("Human-readable summary of the phase"),
+      task_count: exports_external.number().int().min(1).max(9999).describe("Count of tasks completed in this phase"),
+      task_complexity: exports_external.enum(["trivial", "simple", "moderate", "complex"]).describe("Complexity level of the completed tasks"),
+      total_tool_calls: exports_external.number().int().min(0).max(9999).describe("Total number of tool calls in this phase"),
+      coder_revisions: exports_external.number().int().min(0).max(999).describe("Number of coder revisions made"),
+      reviewer_rejections: exports_external.number().int().min(0).max(999).describe("Number of reviewer rejections received"),
+      loop_detections: exports_external.number().int().min(0).max(9999).optional().describe("Number of loop detection events in this phase"),
+      circuit_breaker_trips: exports_external.number().int().min(0).max(9999).optional().describe("Number of circuit breaker trips in this phase"),
+      test_failures: exports_external.number().int().min(0).max(9999).describe("Number of test failures encountered"),
+      security_findings: exports_external.number().int().min(0).max(999).describe("Number of security findings"),
+      integration_issues: exports_external.number().int().min(0).max(999).describe("Number of integration issues"),
+      lessons_learned: exports_external.array(exports_external.string()).max(5).optional().describe("Key lessons learned from this phase (max 5)"),
+      top_rejection_reasons: exports_external.array(exports_external.string()).optional().describe("Top reasons for reviewer rejections"),
+      task_id: exports_external.string().optional().describe("Optional custom task ID (defaults to retro-{phase})"),
+      metadata: exports_external.record(exports_external.string(), exports_external.unknown()).optional().describe("Optional additional metadata")
+    },
+    execute: async (args2, directory) => {
+      const rawPhase = args2.phase !== undefined ? Number(args2.phase) : 0;
+      try {
+        const writeRetroArgs = {
+          phase: Number(args2.phase),
+          summary: String(args2.summary ?? ""),
+          task_count: Number(args2.task_count),
+          task_complexity: args2.task_complexity,
+          total_tool_calls: Number(args2.total_tool_calls),
+          coder_revisions: Number(args2.coder_revisions),
+          reviewer_rejections: Number(args2.reviewer_rejections),
+          loop_detections: args2.loop_detections != null ? Number(args2.loop_detections) : undefined,
+          circuit_breaker_trips: args2.circuit_breaker_trips != null ? Number(args2.circuit_breaker_trips) : undefined,
+          test_failures: Number(args2.test_failures),
+          security_findings: Number(args2.security_findings),
+          integration_issues: Number(args2.integration_issues),
+          lessons_learned: Array.isArray(args2.lessons_learned) ? args2.lessons_learned.map(String) : undefined,
+          top_rejection_reasons: Array.isArray(args2.top_rejection_reasons) ? args2.top_rejection_reasons.map(String) : undefined,
+          task_id: args2.task_id !== undefined ? String(args2.task_id) : undefined,
+          metadata: args2.metadata
+        };
+        return await _internals14.executeWriteRetro(writeRetroArgs, directory);
+      } catch {
+        return JSON.stringify({ success: false, phase: rawPhase, message: "Invalid arguments" }, null, 2);
+      }
+    }
+  });
+  _internals14 = {
+    executeWriteRetro,
+    write_retro
+  };
+});
+
+// src/commands/close.ts
+import { promises as fs13 } from "node:fs";
+import path21 from "node:path";
+function guaranteeAllPlansComplete(planData) {
+  const closedPhaseIds = [];
+  const closedTaskIds = [];
+  for (const phase of planData.phases ?? []) {
+    const wasComplete = phase.status === "complete" || phase.status === "completed" || phase.status === "closed";
+    if (!wasComplete) {
+      phase.status = "closed";
+      closedPhaseIds.push(phase.id);
+    }
+    for (const task of phase.tasks ?? []) {
+      const wasTaskDone = task.status === "completed" || task.status === "complete" || task.status === "closed";
+      if (!wasTaskDone) {
+        task.status = "closed";
+        task.close_reason = "session_terminated";
+        closedTaskIds.push(task.id);
+      }
+    }
+  }
+  return { closedPhaseIds, closedTaskIds };
+}
+async function handleCloseCommand(directory, args2) {
+  const planPath = validateSwarmPath(directory, "plan.json");
+  const swarmDir = path21.join(directory, ".swarm");
+  let planExists = false;
+  let planData = {
+    title: path21.basename(directory) || "Ad-hoc session",
+    phases: []
+  };
+  try {
+    const content = await fs13.readFile(planPath, "utf-8");
+    planData = JSON.parse(content);
+    planExists = true;
+  } catch (error93) {
+    if (error93?.code !== "ENOENT") {
+      return `❌ Failed to read plan.json: ${error93 instanceof Error ? error93.message : String(error93)}`;
+    }
+    const swarmDirExists = await fs13.access(swarmDir).then(() => true).catch(() => false);
+    if (!swarmDirExists) {
+      return `❌ No .swarm/ directory found in ${directory}. Run /swarm close from the project root, or run /swarm plan first.`;
+    }
+  }
+  const phases = planData.phases ?? [];
+  const inProgressPhases = phases.filter((p) => p.status === "in_progress");
+  const isForced = args2.includes("--force");
+  let planAlreadyDone = false;
+  if (planExists) {
+    planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
+  }
+  const config3 = KnowledgeConfigSchema.parse({});
+  const projectName = planData.title ?? "Unknown Project";
+  const closedPhases = [];
+  const closedTasks = [];
+  const warnings = [];
+  let hivePromoted = 0;
+  if (!planAlreadyDone) {
+    for (const phase of inProgressPhases) {
+      closedPhases.push(phase.id);
+      let retroResult;
+      try {
+        retroResult = await executeWriteRetro({
+          phase: phase.id,
+          summary: isForced ? `Phase force-closed via /swarm close --force` : `Phase closed via /swarm close`,
+          task_count: Math.max(1, (phase.tasks ?? []).length),
+          task_complexity: "simple",
+          total_tool_calls: 0,
+          coder_revisions: 0,
+          reviewer_rejections: 0,
+          test_failures: 0,
+          security_findings: 0,
+          integration_issues: 0
+        }, directory);
+      } catch (retroError) {
+        warnings.push(`Retrospective write threw for phase ${phase.id}: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
+      }
+      if (retroResult !== undefined) {
+        try {
+          const parsed = JSON.parse(retroResult);
+          if (parsed.success !== true) {
+            warnings.push(`Retrospective write failed for phase ${phase.id}`);
+          }
+        } catch {}
+      }
+      for (const task of phase.tasks ?? []) {
+        if (task.status !== "completed" && task.status !== "complete") {
+          closedTasks.push(task.id);
+        }
+      }
+    }
+  }
+  let sessionStart;
+  {
+    let earliest = Infinity;
+    for (const [, session] of swarmState.agentSessions) {
+      if (session.lastAgentEventTime > 0 && session.lastAgentEventTime < earliest) {
+        earliest = session.lastAgentEventTime;
+      }
+    }
+    if (earliest < Infinity) {
+      sessionStart = new Date(earliest).toISOString();
+    }
+  }
+  const wrotePhaseRetro = closedPhases.length > 0;
+  if (!wrotePhaseRetro && !planExists) {
+    try {
+      const sessionRetroResult = await executeWriteRetro({
+        phase: 1,
+        task_id: "retro-session",
+        summary: isForced ? "Plan-free session force-closed via /swarm close --force" : "Plan-free session closed via /swarm close",
+        task_count: 1,
+        task_complexity: "simple",
+        total_tool_calls: 0,
+        coder_revisions: 0,
+        reviewer_rejections: 0,
+        test_failures: 0,
+        security_findings: 0,
+        integration_issues: 0,
+        metadata: {
+          session_scope: "plan_free",
+          ...sessionStart ? { session_start: sessionStart } : {}
+        }
+      }, directory);
+      try {
+        const parsed = JSON.parse(sessionRetroResult);
+        if (parsed.success !== true) {
+          warnings.push(`Session retrospective write failed: ${parsed.message ?? "unknown"}`);
+        }
+      } catch {}
+    } catch (retroError) {
+      warnings.push(`Session retrospective write threw: ${retroError instanceof Error ? retroError.message : String(retroError)}`);
+    }
+  }
+  const lessonsFilePath = path21.join(swarmDir, "close-lessons.md");
+  let explicitLessons = [];
+  try {
+    const lessonsText = await fs13.readFile(lessonsFilePath, "utf-8");
+    explicitLessons = lessonsText.split(`
+`).map((line) => line.trim()).filter((line) => line.length > 0 && !line.startsWith("#"));
+  } catch {}
+  const retroLessons = [];
+  try {
+    const evidenceDir = path21.join(swarmDir, "evidence");
+    const evidenceEntries = await fs13.readdir(evidenceDir);
+    const retroDirs = evidenceEntries.filter((e) => e.startsWith("retro-")).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+    for (const retroDir of retroDirs) {
+      const evidencePath = path21.join(evidenceDir, retroDir, "evidence.json");
+      try {
+        const content = await fs13.readFile(evidencePath, "utf-8");
+        const parsed = JSON.parse(content);
+        const entries = parsed.entries ?? [parsed];
+        for (const entry of entries) {
+          if (Array.isArray(entry.lessons_learned)) {
+            for (const lesson of entry.lessons_learned) {
+              if (typeof lesson === "string" && lesson.trim().length > 0) {
+                retroLessons.push(lesson.trim());
+              }
+            }
+          }
+        }
+      } catch {}
+    }
+  } catch {}
+  const allLessons = [...new Set([...explicitLessons, ...retroLessons])];
+  let curationSucceeded = false;
+  try {
+    await curateAndStoreSwarm(allLessons, projectName, { phase_number: 0 }, directory, config3);
+    curationSucceeded = true;
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Lessons curation failed: ${msg}`);
+    console.warn("[close-command] curateAndStoreSwarm error:", error93);
+  }
+  if (curationSucceeded && allLessons.length > 0) {
+    await fs13.unlink(lessonsFilePath).catch(() => {});
+  }
+  if (curationSucceeded) {
+    try {
+      const knowledgePath = resolveSwarmKnowledgePath(directory);
+      const entries = await readKnowledge(knowledgePath);
+      if (entries.length > 0) {
+        for (const entry of entries) {
+          try {
+            await promoteToHive(directory, entry.lesson, entry.category);
+            hivePromoted++;
+          } catch (promotionErr) {
+            const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
+            warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+          }
+        }
+      }
+    } catch (hiveErr) {
+      const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
+      warnings.push(`Hive promotion failed: ${msg}`);
+    }
+  }
+  if (planExists) {
+    const guaranteeResult = guaranteeAllPlansComplete(planData);
+    for (const phaseId of guaranteeResult.closedPhaseIds) {
+      if (!closedPhases.includes(phaseId)) {
+        closedPhases.push(phaseId);
+      }
+    }
+    for (const taskId of guaranteeResult.closedTaskIds) {
+      if (!closedTasks.includes(taskId)) {
+        closedTasks.push(taskId);
+      }
+    }
+    if (!planAlreadyDone || guaranteeResult.closedPhaseIds.length > 0 || guaranteeResult.closedTaskIds.length > 0) {
+      try {
+        await fs13.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
+      } catch (error93) {
+        const msg = error93 instanceof Error ? error93.message : String(error93);
+        warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
+        console.warn("[close-command] Failed to write plan.json:", error93);
+      }
+    }
+  }
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const suffix = Math.random().toString(36).slice(2, 8);
+  const archiveDir = path21.join(swarmDir, "archive", `swarm-${timestamp}-${suffix}`);
+  let archiveResult = "";
+  let archivedFileCount = 0;
+  const archivedActiveStateFiles = new Set;
+  const archivedActiveStateDirs = new Set;
+  try {
+    await fs13.mkdir(archiveDir, { recursive: true });
+    for (const artifact of ARCHIVE_ARTIFACTS) {
+      const srcPath = path21.join(swarmDir, artifact);
+      const destPath = path21.join(archiveDir, artifact);
+      try {
+        await fs13.copyFile(srcPath, destPath);
+        archivedFileCount++;
+        if (ACTIVE_STATE_TO_CLEAN.includes(artifact)) {
+          archivedActiveStateFiles.add(artifact);
+        }
+      } catch {}
+    }
+    for (const dirName of ACTIVE_STATE_DIRS_TO_CLEAN) {
+      const srcDir = path21.join(swarmDir, dirName);
+      const destDir = path21.join(archiveDir, dirName);
+      try {
+        const entries = await fs13.readdir(srcDir);
+        if (entries.length > 0) {
+          await fs13.mkdir(destDir, { recursive: true });
+          for (const entry of entries) {
+            const srcEntry = path21.join(srcDir, entry);
+            const destEntry = path21.join(destDir, entry);
+            try {
+              const stat3 = await fs13.stat(srcEntry);
+              if (stat3.isDirectory()) {
+                await fs13.mkdir(destEntry, { recursive: true });
+                const subEntries = await fs13.readdir(srcEntry);
+                for (const sub of subEntries) {
+                  await fs13.copyFile(path21.join(srcEntry, sub), path21.join(destEntry, sub)).catch(() => {});
+                }
+              } else {
+                await fs13.copyFile(srcEntry, destEntry);
+              }
+              archivedFileCount++;
+            } catch {}
+          }
+        }
+        archivedActiveStateDirs.add(dirName);
+      } catch {}
+    }
+    archiveResult = `Archived ${archivedFileCount} artifact(s) to .swarm/archive/swarm-${timestamp}/`;
+  } catch (archiveError) {
+    warnings.push(`Archive creation failed: ${archiveError instanceof Error ? archiveError.message : String(archiveError)}`);
+    archiveResult = "Archive creation failed (see warnings)";
+  }
+  try {
+    await archiveEvidence(directory, 30, 10);
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Evidence retention archive failed: ${msg}`);
+    console.warn("[close-command] archiveEvidence error:", error93);
+  }
+  let configBackupsRemoved = 0;
+  const cleanedFiles = [];
+  if (archivedActiveStateFiles.size > 0) {
+    for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+      if (!archivedActiveStateFiles.has(artifact)) {
+        warnings.push(`Preserved ${artifact} because it was not successfully archived.`);
+        continue;
+      }
+      const filePath = path21.join(swarmDir, artifact);
+      try {
+        await fs13.unlink(filePath);
+        cleanedFiles.push(artifact);
+      } catch {}
+    }
+  } else {
+    warnings.push("Skipped active-state cleanup because no active-state files were archived. Files preserved to prevent data loss.");
+  }
+  for (const dirName of ACTIVE_STATE_DIRS_TO_CLEAN) {
+    if (!archivedActiveStateDirs.has(dirName)) {
+      continue;
+    }
+    const dirPath = path21.join(swarmDir, dirName);
+    try {
+      await fs13.rm(dirPath, { recursive: true, force: true });
+      cleanedFiles.push(`${dirName}/`);
+    } catch {}
+  }
+  try {
+    const swarmFiles = await fs13.readdir(swarmDir);
+    const configBackups = swarmFiles.filter((f) => f.startsWith("config-backup-") && f.endsWith(".json"));
+    for (const backup of configBackups) {
+      try {
+        await fs13.unlink(path21.join(swarmDir, backup));
+        configBackupsRemoved++;
+      } catch {}
+    }
+    const ledgerSiblings = swarmFiles.filter((f) => (f.startsWith("plan-ledger.archived-") || f.startsWith("plan-ledger.backup-")) && f.endsWith(".jsonl"));
+    for (const sibling of ledgerSiblings) {
+      try {
+        await fs13.unlink(path21.join(swarmDir, sibling));
+      } catch {}
+    }
+  } catch {}
+  let swarmPlanFilesRemoved = 0;
+  const candidates = [
+    path21.join(directory, ".swarm", "SWARM_PLAN.json"),
+    path21.join(directory, ".swarm", "SWARM_PLAN.md"),
+    path21.join(directory, "SWARM_PLAN.json"),
+    path21.join(directory, "SWARM_PLAN.md")
+  ];
+  for (const candidate of candidates) {
+    try {
+      await fs13.unlink(candidate);
+      swarmPlanFilesRemoved++;
+    } catch (err2) {
+      if (err2?.code !== "ENOENT") {
+        warnings.push(`Failed to remove ${path21.basename(candidate)}: ${err2 instanceof Error ? err2.message : String(err2)}`);
+      }
+    }
+  }
+  clearAllScopes(directory);
+  const contextPath = path21.join(swarmDir, "context.md");
+  const contextContent = [
+    "# Context",
+    "",
+    "## Status",
+    `Session closed after: ${projectName}`,
+    `Closed: ${new Date().toISOString()}`,
+    `Finalization: ${isForced ? "forced" : planAlreadyDone ? "plan-already-done" : "normal"}`,
+    "No active plan. Next session starts fresh.",
+    ""
+  ].join(`
+`);
+  try {
+    await fs13.writeFile(contextPath, contextContent, "utf-8");
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Failed to reset context.md: ${msg}`);
+    console.warn("[close-command] Failed to write context.md:", error93);
+  }
+  const pruneBranches = args2.includes("--prune-branches");
+  let gitAlignResult = "";
+  const prunedBranches = [];
+  const isGit = isGitRepo2(directory);
+  if (isGit) {
+    const aggressiveResult = resetToMainAfterMerge(directory, {
+      pruneBranches
+    });
+    if (aggressiveResult.success) {
+      gitAlignResult = aggressiveResult.message;
+      for (const w of aggressiveResult.warnings) {
+        warnings.push(w);
+      }
+      if (aggressiveResult.changesDiscarded) {
+        warnings.push("Uncommitted changes were discarded during git alignment");
+      }
+    } else {
+      const alignResult = resetToRemoteBranch(directory, { pruneBranches });
+      gitAlignResult = alignResult.message;
+      prunedBranches.push(...alignResult.prunedBranches);
+      if (!alignResult.success) {
+        warnings.push(`Git alignment: ${alignResult.message}`);
+      }
+      if (alignResult.alreadyAligned) {
+        gitAlignResult = `Already aligned with ${alignResult.targetBranch}`;
+      }
+      for (const w of alignResult.warnings) {
+        warnings.push(w);
+      }
+    }
+  } else {
+    gitAlignResult = "Not a git repository — skipped git alignment";
+  }
+  const closeSummaryPath = validateSwarmPath(directory, "close-summary.md");
+  const finalizationType = isForced ? "Forced closure" : planAlreadyDone ? "Plan already terminal — cleanup only" : "Normal finalization";
+  const summaryContent = [
+    "# Swarm Close Summary",
+    "",
+    `**Project:** ${projectName}`,
+    `**Closed:** ${new Date().toISOString()}`,
+    `**Finalization:** ${finalizationType}`,
+    "",
+    "## Retrospective",
+    !planExists ? "_No plan — ad-hoc session_" : closedPhases.length > 0 ? closedPhases.map((id) => `- Phase ${id} closed`).join(`
+`) : "_No phases closed this run_",
+    ...closedTasks.length > 0 ? [
+      "",
+      `**Tasks marked closed:** ${closedTasks.length}`,
+      ...closedTasks.map((id) => `- ${id}`)
+    ] : [],
+    "",
+    "## Lessons Committed",
+    allLessons.length > 0 ? `| # | Lesson |` : "_No lessons committed_",
+    ...allLessons.length > 0 ? ["| --- | --- |", ...allLessons.map((l, i2) => `| ${i2 + 1} | ${l} |`)] : [],
+    "",
+    "## Local Repo State",
+    ...gitAlignResult ? [`- **Git:** ${gitAlignResult}`] : ["- Git alignment skipped"],
+    ...prunedBranches.length > 0 ? [`- **Pruned branches:** ${prunedBranches.join(", ")}`] : [],
+    `- **Archive:** ${archiveResult}`,
+    ...cleanedFiles.length > 0 ? [`- **Cleaned:** ${cleanedFiles.length} file(s)`] : [],
+    "",
+    "## Context",
+    "- Reset context.md for next session",
+    "- Cleared agent sessions and delegation chains",
+    ...configBackupsRemoved > 0 ? [`- Removed ${configBackupsRemoved} stale config backup file(s)`] : [],
+    ...swarmPlanFilesRemoved > 0 ? [`- Removed ${swarmPlanFilesRemoved} SWARM_PLAN checkpoint artifact(s)`] : [],
+    ...planExists && !planAlreadyDone ? ["- Set non-completed phases/tasks to closed status"] : [],
+    ...curationSucceeded && allLessons.length > 0 ? [`- Committed ${allLessons.length} lesson(s) to knowledge store`] : [],
+    ...hivePromoted > 0 ? [`- Promoted ${hivePromoted} lesson(s) to hive knowledge`] : [],
+    "",
+    ...warnings.length > 0 ? ["## Warnings", ...warnings.map((w) => `- ${w}`), ""] : []
+  ].join(`
+`);
+  try {
+    await fs13.writeFile(closeSummaryPath, summaryContent, "utf-8");
+  } catch (error93) {
+    const msg = error93 instanceof Error ? error93.message : String(error93);
+    warnings.push(`Failed to write close-summary.md: ${msg}`);
+    console.warn("[close-command] Failed to write close-summary.md:", error93);
+  }
+  const preservedClient = swarmState.opencodeClient;
+  const preservedFullAutoFlag = swarmState.fullAutoEnabledInConfig;
+  const preservedCuratorInitNames = swarmState.curatorInitAgentNames;
+  const preservedCuratorPhaseNames = swarmState.curatorPhaseAgentNames;
+  resetSwarmState();
+  swarmState.opencodeClient = preservedClient;
+  swarmState.fullAutoEnabledInConfig = preservedFullAutoFlag;
+  swarmState.curatorInitAgentNames = preservedCuratorInitNames;
+  swarmState.curatorPhaseAgentNames = preservedCuratorPhaseNames;
+  const retroWarnings = warnings.filter((w) => w.includes("Retrospective write") || w.includes("retrospective write") || w.includes("Session retrospective"));
+  const otherWarnings = warnings.filter((w) => !w.includes("Retrospective write") && !w.includes("retrospective write") && !w.includes("Session retrospective"));
+  let warningMsg = "";
+  if (retroWarnings.length > 0) {
+    warningMsg += `
+
+**⚠ Retrospective evidence incomplete:**
+${retroWarnings.map((w) => `- ${w}`).join(`
+`)}`;
+  }
+  if (otherWarnings.length > 0) {
+    warningMsg += `
+
+**Warnings:**
+${otherWarnings.map((w) => `- ${w}`).join(`
+`)}`;
+  }
+  const lessonSummary = curationSucceeded && allLessons.length > 0 ? `
+
+**Lessons Committed:** ${allLessons.length} lesson(s) committed to knowledge store` : "";
+  if (planAlreadyDone) {
+    return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
+  }
+  return `✅ Swarm finalized. ${closedPhases.length} phase(s) closed, ${closedTasks.length} incomplete task(s) marked closed.
+
+**Archive:** ${archiveResult}
+**Git:** ${gitAlignResult}${lessonSummary}${warningMsg}`;
+}
+var ARCHIVE_ARTIFACTS, ACTIVE_STATE_TO_CLEAN, ACTIVE_STATE_DIRS_TO_CLEAN;
+var init_close = __esm(() => {
+  init_schema();
+  init_manager2();
+  init_branch();
+  init_hive_promoter();
+  init_knowledge_curator();
+  init_knowledge_store();
+  init_utils2();
+  init_scope_persistence();
+  init_state();
+  init_write_retro();
+  ARCHIVE_ARTIFACTS = [
+    "plan.json",
+    "plan.md",
+    "plan-ledger.jsonl",
+    "context.md",
+    "events.jsonl",
+    "handoff.md",
+    "handoff-prompt.md",
+    "handoff-consumed.md",
+    "escalation-report.md",
+    "close-lessons.md",
+    "knowledge.jsonl",
+    "knowledge-rejected.jsonl",
+    "repo-graph.json",
+    "doc-manifest.json",
+    "dark-matter.md",
+    "telemetry.jsonl",
+    "swarm.db",
+    "swarm.db-shm",
+    "swarm.db-wal",
+    "close-summary.md",
+    "spec.md"
+  ];
+  ACTIVE_STATE_TO_CLEAN = [
+    "plan.json",
+    "plan.md",
+    "plan-ledger.jsonl",
+    "events.jsonl",
+    "handoff.md",
+    "handoff-prompt.md",
+    "handoff-consumed.md",
+    "escalation-report.md",
+    "knowledge.jsonl",
+    "knowledge-rejected.jsonl",
+    "repo-graph.json",
+    "doc-manifest.json",
+    "dark-matter.md",
+    "telemetry.jsonl",
+    "swarm.db",
+    "swarm.db-shm",
+    "swarm.db-wal"
+  ];
+  ACTIVE_STATE_DIRS_TO_CLEAN = [
+    "evidence",
+    "session",
+    "scopes",
+    "locks",
+    "spec-archive"
+  ];
+});
+
+// src/commands/config.ts
+import * as os4 from "node:os";
+import * as path22 from "node:path";
+function getUserConfigDir2() {
+  return process.env.XDG_CONFIG_HOME || path22.join(os4.homedir(), ".config");
+}
+async function handleConfigCommand(directory, _args) {
+  const config3 = loadPluginConfig(directory);
+  const userConfigPath = path22.join(getUserConfigDir2(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path22.join(directory, ".opencode", "opencode-swarm.json");
+  const lines = [
+    "## Swarm Configuration",
+    "",
+    "### Config Files",
+    `- User: \`${userConfigPath}\``,
+    `- Project: \`${projectConfigPath}\``,
+    "",
+    "### Resolved Config",
+    "```json",
+    JSON.stringify(config3, null, 2),
+    "```"
+  ];
+  return lines.join(`
+`);
+}
+var init_config2 = __esm(() => {
+  init_loader();
+});
+
+// src/commands/council.ts
+function sanitizeQuestion(raw) {
+  const collapsed = raw.replace(/\s+/g, " ").trim();
+  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const normalized = stripped.replace(/\s+/g, " ").trim();
+  if (normalized.length <= MAX_QUESTION_LEN)
+    return normalized;
+  return `${normalized.slice(0, MAX_QUESTION_LEN)}…`;
+}
+function sanitizePresetName(raw) {
+  const trimmed = raw.trim();
+  if (!trimmed)
+    return null;
+  if (trimmed.length > 64)
+    return null;
+  if (!/^[A-Za-z0-9_-]+$/.test(trimmed))
+    return null;
+  return trimmed;
+}
+function parseArgs(args2) {
+  const out2 = { specReview: false, rest: [] };
+  for (let i2 = 0;i2 < args2.length; i2++) {
+    const token = args2[i2];
+    if (token === "--spec-review") {
+      out2.specReview = true;
+      continue;
+    }
+    if (token === "--preset") {
+      const next = args2[i2 + 1];
+      if (next !== undefined) {
+        const sanitized = sanitizePresetName(next);
+        if (sanitized)
+          out2.preset = sanitized;
+        i2++;
+      }
+      continue;
+    }
+    out2.rest.push(token);
+  }
+  return out2;
+}
+async function handleCouncilCommand(_directory, args2) {
+  const parsed = parseArgs(args2);
+  const question = sanitizeQuestion(parsed.rest.join(" "));
+  if (!question) {
+    return USAGE;
+  }
+  const tokens = ["MODE: COUNCIL"];
+  if (parsed.preset) {
+    tokens.push(`preset=${parsed.preset}`);
+  }
+  if (parsed.specReview) {
+    tokens.push("spec_review");
+  }
+  return `[${tokens.join(" ")}] ${question}`;
+}
+var MAX_QUESTION_LEN = 2000, USAGE;
+var init_council = __esm(() => {
+  USAGE = [
+    "Usage: /swarm council <question> [--preset <name>] [--spec-review]",
+    "",
+    "  question         The question to put to the council",
+    "  --preset <name>  Use a named member preset from council.general.presets",
+    "  --spec-review    Use spec_review mode (single advisory pass on a draft spec)",
+    "",
+    "Requires council.general.enabled: true and a configured search API key in opencode-swarm.json."
+  ].join(`
+`);
+});
+
 // src/commands/curate.ts
 async function handleCurateCommand(directory, _args) {
   try {
@@ -45428,12 +45575,12 @@ __export(exports_co_change_analyzer, {
   darkMatterToKnowledgeEntries: () => darkMatterToKnowledgeEntries,
   co_change_analyzer: () => co_change_analyzer,
   buildCoChangeMatrix: () => buildCoChangeMatrix,
-  _internals: () => _internals16
+  _internals: () => _internals15
 });
 import * as child_process3 from "node:child_process";
 import { randomUUID as randomUUID2 } from "node:crypto";
 import { readdir as readdir2, readFile as readFile8, stat as stat3 } from "node:fs/promises";
-import * as path24 from "node:path";
+import * as path23 from "node:path";
 import { promisify } from "node:util";
 function getExecFileAsync() {
   return promisify(child_process3.execFile);
@@ -45535,7 +45682,7 @@ async function scanSourceFiles(dir) {
   try {
     const entries = await readdir2(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path24.join(dir, entry.name);
+      const fullPath = path23.join(dir, entry.name);
       if (entry.isDirectory()) {
         if (skipDirs.has(entry.name)) {
           continue;
@@ -45543,7 +45690,7 @@ async function scanSourceFiles(dir) {
         const subFiles = await scanSourceFiles(fullPath);
         results.push(...subFiles);
       } else if (entry.isFile()) {
-        const ext = path24.extname(entry.name);
+        const ext = path23.extname(entry.name);
         if ([".ts", ".tsx", ".js", ".jsx", ".mjs"].includes(ext)) {
           results.push(fullPath);
         }
@@ -45565,8 +45712,8 @@ async function getStaticEdges(directory) {
           continue;
         }
         try {
-          const sourceDir = path24.dirname(sourceFile);
-          const resolvedPath = path24.resolve(sourceDir, importPath);
+          const sourceDir = path23.dirname(sourceFile);
+          const resolvedPath = path23.resolve(sourceDir, importPath);
           const extensions = [
             "",
             ".ts",
@@ -45591,8 +45738,8 @@ async function getStaticEdges(directory) {
           if (!targetFile) {
             continue;
           }
-          const relSource = path24.relative(directory, sourceFile).replace(/\\/g, "/");
-          const relTarget = path24.relative(directory, targetFile).replace(/\\/g, "/");
+          const relSource = path23.relative(directory, sourceFile).replace(/\\/g, "/");
+          const relTarget = path23.relative(directory, targetFile).replace(/\\/g, "/");
           const [key] = relSource < relTarget ? [`${relSource}::${relTarget}`, relSource, relTarget] : [`${relTarget}::${relSource}`, relTarget, relSource];
           edges.add(key);
         } catch {}
@@ -45604,7 +45751,7 @@ async function getStaticEdges(directory) {
 function isTestImplementationPair(fileA, fileB) {
   const testPatterns = [".test.ts", ".test.js", ".spec.ts", ".spec.js"];
   const getBaseName = (filePath) => {
-    const base = path24.basename(filePath);
+    const base = path23.basename(filePath);
     for (const pattern of testPatterns) {
       if (base.endsWith(pattern)) {
         return base.slice(0, -pattern.length);
@@ -45614,16 +45761,16 @@ function isTestImplementationPair(fileA, fileB) {
   };
   const baseA = getBaseName(fileA);
   const baseB = getBaseName(fileB);
-  return baseA === baseB && baseA !== path24.basename(fileA) && baseA !== path24.basename(fileB);
+  return baseA === baseB && baseA !== path23.basename(fileA) && baseA !== path23.basename(fileB);
 }
 function hasSharedPrefix(fileA, fileB) {
-  const dirA = path24.dirname(fileA);
-  const dirB = path24.dirname(fileB);
+  const dirA = path23.dirname(fileA);
+  const dirB = path23.dirname(fileB);
   if (dirA !== dirB) {
     return false;
   }
-  const baseA = path24.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
-  const baseB = path24.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseA = path23.basename(fileA).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
+  const baseB = path23.basename(fileB).replace(/\.(ts|js|tsx|jsx|mjs)$/, "");
   if (baseA.startsWith(baseB) || baseB.startsWith(baseA)) {
     return true;
   }
@@ -45651,9 +45798,9 @@ async function detectDarkMatter(directory, options) {
   } catch {
     return [];
   }
-  const commitMap = await _internals16.parseGitLog(directory, maxCommitsToAnalyze);
-  const matrix = _internals16.buildCoChangeMatrix(commitMap);
-  const staticEdges = await _internals16.getStaticEdges(directory);
+  const commitMap = await _internals15.parseGitLog(directory, maxCommitsToAnalyze);
+  const matrix = _internals15.buildCoChangeMatrix(commitMap);
+  const staticEdges = await _internals15.getStaticEdges(directory);
   const results = [];
   for (const entry of matrix.values()) {
     const key = `${entry.fileA}::${entry.fileB}`;
@@ -45677,8 +45824,8 @@ function darkMatterToKnowledgeEntries(pairs, projectName) {
   const entries = [];
   const now = new Date().toISOString();
   for (const pair of pairs.slice(0, 10)) {
-    const baseA = path24.basename(pair.fileA);
-    const baseB = path24.basename(pair.fileB);
+    const baseA = path23.basename(pair.fileA);
+    const baseB = path23.basename(pair.fileB);
     let lesson = `Files ${pair.fileA} and ${pair.fileB} co-change with NPMI=${pair.npmi.toFixed(3)} but have no import relationship. This hidden coupling suggests a shared architectural concern — changes to one likely require changes to the other.`;
     if (lesson.length > 280) {
       lesson = `Files ${baseA} and ${baseB} co-change with NPMI=${pair.npmi.toFixed(3)} but have no import relationship. This hidden coupling suggests a shared architectural concern — changes to one likely require changes to the other.`;
@@ -45733,7 +45880,7 @@ ${rows}
 These pairs likely share an architectural concern invisible to static analysis.
 Consider adding explicit documentation or extracting the shared concern.`;
 }
-var co_change_analyzer, _internals16;
+var co_change_analyzer, _internals15;
 var init_co_change_analyzer = __esm(() => {
   init_zod();
   init_create_tool();
@@ -45765,11 +45912,11 @@ var init_co_change_analyzer = __esm(() => {
         npmiThreshold,
         maxCommitsToAnalyze
       };
-      const pairs = await _internals16.detectDarkMatter(directory, options);
-      return _internals16.formatDarkMatterOutput(pairs);
+      const pairs = await _internals15.detectDarkMatter(directory, options);
+      return _internals15.formatDarkMatterOutput(pairs);
     }
   });
-  _internals16 = {
+  _internals15 = {
     parseGitLog,
     buildCoChangeMatrix,
     getStaticEdges,
@@ -45780,7 +45927,7 @@ var init_co_change_analyzer = __esm(() => {
 });
 
 // src/commands/dark-matter.ts
-import path25 from "node:path";
+import path24 from "node:path";
 async function handleDarkMatterCommand(directory, args2) {
   const options = {};
   for (let i2 = 0;i2 < args2.length; i2++) {
@@ -45800,7 +45947,7 @@ async function handleDarkMatterCommand(directory, args2) {
   }
   let pairs;
   try {
-    pairs = await _internals16.detectDarkMatter(directory, options);
+    pairs = await _internals15.detectDarkMatter(directory, options);
   } catch (err2) {
     const errMsg = err2 instanceof Error ? err2.message : String(err2);
     return `## Dark Matter Analysis Failed
@@ -45812,7 +45959,7 @@ Ensure this is a git repository with commit history.`;
   const output = formatDarkMatterOutput(pairs);
   if (pairs.length > 0) {
     try {
-      const projectName = path25.basename(path25.resolve(directory));
+      const projectName = path24.basename(path24.resolve(directory));
       const entries = darkMatterToKnowledgeEntries(pairs, projectName);
       if (entries.length > 0) {
         const knowledgePath = resolveSwarmKnowledgePath(directory);
@@ -45837,33 +45984,33 @@ var init_dark_matter = __esm(() => {
 
 // src/config/cache-paths.ts
 import * as os5 from "node:os";
-import * as path26 from "node:path";
+import * as path25 from "node:path";
 function getPluginConfigDir() {
-  return path26.join(process.env.XDG_CONFIG_HOME || path26.join(os5.homedir(), ".config"), "opencode");
+  return path25.join(process.env.XDG_CONFIG_HOME || path25.join(os5.homedir(), ".config"), "opencode");
 }
 function getPluginCachePaths() {
-  const cacheBase = process.env.XDG_CACHE_HOME || path26.join(os5.homedir(), ".cache");
+  const cacheBase = process.env.XDG_CACHE_HOME || path25.join(os5.homedir(), ".cache");
   const configDir = getPluginConfigDir();
   const paths = [
-    path26.join(cacheBase, "opencode", "node_modules", "opencode-swarm"),
-    path26.join(cacheBase, "opencode", "packages", "opencode-swarm@latest"),
-    path26.join(configDir, "node_modules", "opencode-swarm")
+    path25.join(cacheBase, "opencode", "node_modules", "opencode-swarm"),
+    path25.join(cacheBase, "opencode", "packages", "opencode-swarm@latest"),
+    path25.join(configDir, "node_modules", "opencode-swarm")
   ];
   if (process.platform === "darwin") {
-    const libCaches = path26.join(os5.homedir(), "Library", "Caches");
-    paths.push(path26.join(libCaches, "opencode", "node_modules", "opencode-swarm"), path26.join(libCaches, "opencode", "packages", "opencode-swarm@latest"));
+    const libCaches = path25.join(os5.homedir(), "Library", "Caches");
+    paths.push(path25.join(libCaches, "opencode", "node_modules", "opencode-swarm"), path25.join(libCaches, "opencode", "packages", "opencode-swarm@latest"));
   }
   if (process.platform === "win32") {
-    const localAppData = process.env.LOCALAPPDATA || path26.join(os5.homedir(), "AppData", "Local");
-    const appData = process.env.APPDATA || path26.join(os5.homedir(), "AppData", "Roaming");
-    paths.push(path26.join(localAppData, "opencode", "node_modules", "opencode-swarm"), path26.join(localAppData, "opencode", "packages", "opencode-swarm@latest"), path26.join(appData, "opencode", "node_modules", "opencode-swarm"));
+    const localAppData = process.env.LOCALAPPDATA || path25.join(os5.homedir(), "AppData", "Local");
+    const appData = process.env.APPDATA || path25.join(os5.homedir(), "AppData", "Roaming");
+    paths.push(path25.join(localAppData, "opencode", "node_modules", "opencode-swarm"), path25.join(localAppData, "opencode", "packages", "opencode-swarm@latest"), path25.join(appData, "opencode", "node_modules", "opencode-swarm"));
   }
   return paths;
 }
 var init_cache_paths = () => {};
 
 // src/services/version-check.ts
-import { existsSync as existsSync12, mkdirSync as mkdirSync11, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "node:fs";
+import { existsSync as existsSync12, mkdirSync as mkdirSync10, readFileSync as readFileSync6, writeFileSync as writeFileSync4 } from "node:fs";
 import { homedir as homedir5 } from "node:os";
 import { join as join24 } from "node:path";
 function cacheDir() {
@@ -45876,10 +46023,10 @@ function cacheFile() {
 }
 function readVersionCache() {
   try {
-    const path27 = cacheFile();
-    if (!existsSync12(path27))
+    const path26 = cacheFile();
+    if (!existsSync12(path26))
       return null;
-    const raw = readFileSync6(path27, "utf-8");
+    const raw = readFileSync6(path26, "utf-8");
     const parsed = JSON.parse(raw);
     if (typeof parsed?.checkedAt !== "number")
       return null;
@@ -45892,7 +46039,7 @@ function readVersionCache() {
 function writeVersionCache(entry) {
   try {
     const dir = cacheDir();
-    mkdirSync11(dir, { recursive: true });
+    mkdirSync10(dir, { recursive: true });
     writeFileSync4(cacheFile(), JSON.stringify(entry, null, 2), "utf-8");
   } catch {}
 }
@@ -45977,7 +46124,7 @@ var init_version_check = __esm(() => {
 // src/services/diagnose-service.ts
 import * as child_process4 from "node:child_process";
 import { existsSync as existsSync13, readdirSync as readdirSync4, readFileSync as readFileSync7, statSync as statSync7 } from "node:fs";
-import path27 from "node:path";
+import path26 from "node:path";
 import { fileURLToPath } from "node:url";
 function validateTaskDag(plan) {
   const allTaskIds = new Set;
@@ -46274,7 +46421,7 @@ async function checkSpecStaleness(directory, plan) {
   };
 }
 async function checkConfigParseability(directory) {
-  const configPath = path27.join(directory, ".opencode/opencode-swarm.json");
+  const configPath = path26.join(directory, ".opencode/opencode-swarm.json");
   if (!existsSync13(configPath)) {
     return {
       name: "Config Parseability",
@@ -46303,7 +46450,7 @@ function resolveGrammarDir(thisDir) {
   const normalized = thisDir.replace(/\\/g, "/");
   const isSource = normalized.endsWith("/src/services");
   const isCliBundle = normalized.endsWith("/cli");
-  return isSource || isCliBundle ? path27.join(thisDir, "..", "lang", "grammars") : path27.join(thisDir, "lang", "grammars");
+  return isSource || isCliBundle ? path26.join(thisDir, "..", "lang", "grammars") : path26.join(thisDir, "lang", "grammars");
 }
 async function checkGrammarWasmFiles() {
   const grammarFiles = [
@@ -46327,14 +46474,14 @@ async function checkGrammarWasmFiles() {
     "tree-sitter-ini.wasm",
     "tree-sitter-regex.wasm"
   ];
-  const thisDir = path27.dirname(fileURLToPath(import.meta.url));
+  const thisDir = path26.dirname(fileURLToPath(import.meta.url));
   const grammarDir = resolveGrammarDir(thisDir);
   const missing = [];
-  if (!existsSync13(path27.join(grammarDir, "tree-sitter.wasm"))) {
+  if (!existsSync13(path26.join(grammarDir, "tree-sitter.wasm"))) {
     missing.push("tree-sitter.wasm (core runtime)");
   }
   for (const file3 of grammarFiles) {
-    if (!existsSync13(path27.join(grammarDir, file3))) {
+    if (!existsSync13(path26.join(grammarDir, file3))) {
       missing.push(file3);
     }
   }
@@ -46352,7 +46499,7 @@ async function checkGrammarWasmFiles() {
   };
 }
 async function checkCheckpointManifest(directory) {
-  const manifestPath = path27.join(directory, ".swarm/checkpoints.json");
+  const manifestPath = path26.join(directory, ".swarm/checkpoints.json");
   if (!existsSync13(manifestPath)) {
     return {
       name: "Checkpoint Manifest",
@@ -46404,7 +46551,7 @@ async function checkCheckpointManifest(directory) {
   }
 }
 async function checkEventStreamIntegrity(directory) {
-  const eventsPath = path27.join(directory, ".swarm/events.jsonl");
+  const eventsPath = path26.join(directory, ".swarm/events.jsonl");
   if (!existsSync13(eventsPath)) {
     return {
       name: "Event Stream",
@@ -46445,7 +46592,7 @@ async function checkEventStreamIntegrity(directory) {
   }
 }
 async function checkSteeringDirectives(directory) {
-  const eventsPath = path27.join(directory, ".swarm/events.jsonl");
+  const eventsPath = path26.join(directory, ".swarm/events.jsonl");
   if (!existsSync13(eventsPath)) {
     return {
       name: "Steering Directives",
@@ -46501,7 +46648,7 @@ async function checkCurator(directory) {
         detail: "Disabled (enable via curator.enabled)"
       };
     }
-    const summaryPath = path27.join(directory, ".swarm/curator-summary.json");
+    const summaryPath = path26.join(directory, ".swarm/curator-summary.json");
     if (!existsSync13(summaryPath)) {
       return {
         name: "Curator",
@@ -46667,7 +46814,7 @@ async function getDiagnoseData(directory) {
   checks5.push(await checkSteeringDirectives(directory));
   checks5.push(await checkCurator(directory));
   try {
-    const evidenceDir = path27.join(directory, ".swarm", "evidence");
+    const evidenceDir = path26.join(directory, ".swarm", "evidence");
     const snapshotFiles = existsSync13(evidenceDir) ? readdirSync4(evidenceDir).filter((f) => f.startsWith("agent-tools-") && f.endsWith(".json")) : [];
     if (snapshotFiles.length > 0) {
       const latest = snapshotFiles.sort().pop();
@@ -46705,7 +46852,7 @@ async function getDiagnoseData(directory) {
         cacheRows.push(`⬜ ${cachePath} — absent`);
         continue;
       }
-      const pkgJsonPath = path27.join(cachePath, "package.json");
+      const pkgJsonPath = path26.join(cachePath, "package.json");
       try {
         const raw = readFileSync7(pkgJsonPath, "utf-8");
         const parsed = JSON.parse(raw);
@@ -46793,13 +46940,13 @@ __export(exports_config_doctor, {
 import * as crypto3 from "node:crypto";
 import * as fs14 from "node:fs";
 import * as os6 from "node:os";
-import * as path28 from "node:path";
+import * as path27 from "node:path";
 function getUserConfigDir3() {
-  return process.env.XDG_CONFIG_HOME || path28.join(os6.homedir(), ".config");
+  return process.env.XDG_CONFIG_HOME || path27.join(os6.homedir(), ".config");
 }
 function getConfigPaths(directory) {
-  const userConfigPath = path28.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
-  const projectConfigPath = path28.join(directory, ".opencode", "opencode-swarm.json");
+  const userConfigPath = path27.join(getUserConfigDir3(), "opencode", "opencode-swarm.json");
+  const projectConfigPath = path27.join(directory, ".opencode", "opencode-swarm.json");
   return { userConfigPath, projectConfigPath };
 }
 function computeHash(content) {
@@ -46824,9 +46971,9 @@ function isValidConfigPath(configPath, directory) {
   const normalizedUser = userConfigPath.replace(/\\/g, "/");
   const normalizedProject = projectConfigPath.replace(/\\/g, "/");
   try {
-    const resolvedConfig = path28.resolve(configPath);
-    const resolvedUser = path28.resolve(normalizedUser);
-    const resolvedProject = path28.resolve(normalizedProject);
+    const resolvedConfig = path27.resolve(configPath);
+    const resolvedUser = path27.resolve(normalizedUser);
+    const resolvedProject = path27.resolve(normalizedProject);
     return resolvedConfig === resolvedUser || resolvedConfig === resolvedProject;
   } catch {
     return false;
@@ -46866,12 +47013,12 @@ function createConfigBackup(directory) {
   };
 }
 function writeBackupArtifact(directory, backup) {
-  const swarmDir = path28.join(directory, ".swarm");
+  const swarmDir = path27.join(directory, ".swarm");
   if (!fs14.existsSync(swarmDir)) {
     fs14.mkdirSync(swarmDir, { recursive: true });
   }
   const backupFilename = `config-backup-${backup.createdAt}.json`;
-  const backupPath = path28.join(swarmDir, backupFilename);
+  const backupPath = path27.join(swarmDir, backupFilename);
   const artifact = {
     createdAt: backup.createdAt,
     configPath: backup.configPath,
@@ -46901,7 +47048,7 @@ function restoreFromBackup(backupPath, directory) {
       return null;
     }
     const targetPath = artifact.configPath;
-    const targetDir = path28.dirname(targetPath);
+    const targetDir = path27.dirname(targetPath);
     if (!fs14.existsSync(targetDir)) {
       fs14.mkdirSync(targetDir, { recursive: true });
     }
@@ -46932,9 +47079,9 @@ function readConfigFromFile(directory) {
     return null;
   }
 }
-function validateConfigKey(path29, value, _config) {
+function validateConfigKey(path28, value, _config) {
   const findings = [];
-  switch (path29) {
+  switch (path28) {
     case "agents": {
       if (value !== undefined) {
         findings.push({
@@ -47181,27 +47328,27 @@ function validateConfigKey(path29, value, _config) {
   }
   return findings;
 }
-function walkConfigAndValidate(obj, path29, config3, findings) {
+function walkConfigAndValidate(obj, path28, config3, findings) {
   if (obj === null || obj === undefined) {
     return;
   }
-  if (path29 && typeof obj === "object" && !Array.isArray(obj)) {
-    const keyFindings = validateConfigKey(path29, obj, config3);
+  if (path28 && typeof obj === "object" && !Array.isArray(obj)) {
+    const keyFindings = validateConfigKey(path28, obj, config3);
     findings.push(...keyFindings);
   }
   if (typeof obj !== "object") {
-    const keyFindings = validateConfigKey(path29, obj, config3);
+    const keyFindings = validateConfigKey(path28, obj, config3);
     findings.push(...keyFindings);
     return;
   }
   if (Array.isArray(obj)) {
     obj.forEach((item, index) => {
-      walkConfigAndValidate(item, `${path29}[${index}]`, config3, findings);
+      walkConfigAndValidate(item, `${path28}[${index}]`, config3, findings);
     });
     return;
   }
   for (const [key, value] of Object.entries(obj)) {
-    const newPath = path29 ? `${path29}.${key}` : key;
+    const newPath = path28 ? `${path28}.${key}` : key;
     walkConfigAndValidate(value, newPath, config3, findings);
   }
 }
@@ -47321,7 +47468,7 @@ function applySafeAutoFixes(directory, result) {
     }
   }
   if (appliedFixes.length > 0) {
-    const configDir = path28.dirname(configPath);
+    const configDir = path27.dirname(configPath);
     if (!fs14.existsSync(configDir)) {
       fs14.mkdirSync(configDir, { recursive: true });
     }
@@ -47331,12 +47478,12 @@ function applySafeAutoFixes(directory, result) {
   return { appliedFixes, updatedConfigPath };
 }
 function writeDoctorArtifact(directory, result) {
-  const swarmDir = path28.join(directory, ".swarm");
+  const swarmDir = path27.join(directory, ".swarm");
   if (!fs14.existsSync(swarmDir)) {
     fs14.mkdirSync(swarmDir, { recursive: true });
   }
   const artifactFilename = "config-doctor.json";
-  const artifactPath = path28.join(swarmDir, artifactFilename);
+  const artifactPath = path27.join(swarmDir, artifactFilename);
   const guiOutput = {
     timestamp: result.timestamp,
     summary: result.summary,
@@ -48445,7 +48592,7 @@ var init_detector = __esm(() => {
 
 // src/build/discovery.ts
 import * as fs15 from "node:fs";
-import * as path29 from "node:path";
+import * as path28 from "node:path";
 function isCommandAvailable(command) {
   if (toolchainCache.has(command)) {
     return toolchainCache.get(command);
@@ -48477,11 +48624,11 @@ function findBuildFiles(workingDir, patterns) {
         const regex = simpleGlobToRegex(pattern);
         const matches = files.filter((f) => regex.test(f));
         if (matches.length > 0) {
-          return path29.join(dir, matches[0]);
+          return path28.join(dir, matches[0]);
         }
       } catch {}
     } else {
-      const filePath = path29.join(workingDir, pattern);
+      const filePath = path28.join(workingDir, pattern);
       if (fs15.existsSync(filePath)) {
         return filePath;
       }
@@ -48490,7 +48637,7 @@ function findBuildFiles(workingDir, patterns) {
   return null;
 }
 function getRepoDefinedScripts(workingDir, scripts) {
-  const packageJsonPath = path29.join(workingDir, "package.json");
+  const packageJsonPath = path28.join(workingDir, "package.json");
   if (!fs15.existsSync(packageJsonPath)) {
     return [];
   }
@@ -48531,7 +48678,7 @@ function findAllBuildFiles(workingDir) {
         const regex = simpleGlobToRegex(pattern);
         findFilesRecursive(workingDir, regex, allBuildFiles);
       } else {
-        const filePath = path29.join(workingDir, pattern);
+        const filePath = path28.join(workingDir, pattern);
         if (fs15.existsSync(filePath)) {
           allBuildFiles.add(filePath);
         }
@@ -48544,7 +48691,7 @@ function findFilesRecursive(dir, regex, results) {
   try {
     const entries = fs15.readdirSync(dir, { withFileTypes: true });
     for (const entry of entries) {
-      const fullPath = path29.join(dir, entry.name);
+      const fullPath = path28.join(dir, entry.name);
       if (entry.isDirectory() && !["node_modules", ".git", "dist", "build", "target"].includes(entry.name)) {
         findFilesRecursive(fullPath, regex, results);
       } else if (entry.isFile() && regex.test(entry.name)) {
@@ -48567,7 +48714,7 @@ async function discoverBuildCommandsFromProfiles(workingDir) {
     let foundCommand = false;
     for (const cmd of sortedCommands) {
       if (cmd.detectFile) {
-        const detectFilePath = path29.join(workingDir, cmd.detectFile);
+        const detectFilePath = path28.join(workingDir, cmd.detectFile);
         if (!fs15.existsSync(detectFilePath)) {
           continue;
         }
@@ -48600,7 +48747,7 @@ async function discoverBuildCommands(workingDir, options) {
   const scope = options?.scope ?? "all";
   const changedFiles = options?.changedFiles ?? [];
   const _filesToCheck = filterByScope(workingDir, scope, changedFiles);
-  const profileResult = await _internals17.discoverBuildCommandsFromProfiles(workingDir);
+  const profileResult = await _internals16.discoverBuildCommandsFromProfiles(workingDir);
   const profileCommands = profileResult.commands;
   const profileSkipped = profileResult.skipped;
   const coveredEcosystems = new Set;
@@ -48663,7 +48810,7 @@ function clearToolchainCache() {
 function getEcosystems() {
   return ECOSYSTEMS.map((e) => e.ecosystem);
 }
-var ECOSYSTEMS, PROFILE_TO_ECOSYSTEM_NAMES, toolchainCache, _internals17, build_discovery;
+var ECOSYSTEMS, PROFILE_TO_ECOSYSTEM_NAMES, toolchainCache, _internals16, build_discovery;
 var init_discovery = __esm(() => {
   init_dist();
   init_detector();
@@ -48781,7 +48928,7 @@ var init_discovery = __esm(() => {
     php: ["php-composer"]
   };
   toolchainCache = new Map;
-  _internals17 = {
+  _internals16 = {
     isCommandAvailable,
     discoverBuildCommandsFromProfiles,
     discoverBuildCommands,
@@ -48812,7 +48959,7 @@ __export(exports_tool_doctor, {
   getBinaryReadinessAdvisory: () => getBinaryReadinessAdvisory
 });
 import * as fs16 from "node:fs";
-import * as path30 from "node:path";
+import * as path29 from "node:path";
 function extractRegisteredToolKeys(indexPath) {
   const registeredKeys = new Set;
   try {
@@ -48879,8 +49026,8 @@ function getBinaryReadinessAdvisory() {
 }
 function runToolDoctor(_directory, pluginRoot) {
   const findings = [];
-  const resolvedPluginRoot = pluginRoot ?? path30.resolve(import.meta.dir, "..", "..");
-  const indexPath = path30.join(resolvedPluginRoot, "src", "index.ts");
+  const resolvedPluginRoot = pluginRoot ?? path29.resolve(import.meta.dir, "..", "..");
+  const indexPath = path29.join(resolvedPluginRoot, "src", "index.ts");
   if (!fs16.existsSync(indexPath)) {
     return {
       findings: [
@@ -49050,7 +49197,7 @@ var exports_evidence_summary_service = {};
 __export(exports_evidence_summary_service, {
   isAutoSummaryEnabled: () => isAutoSummaryEnabled,
   buildEvidenceSummary: () => buildEvidenceSummary,
-  _internals: () => _internals18,
+  _internals: () => _internals17,
   REQUIRED_EVIDENCE_TYPES: () => REQUIRED_EVIDENCE_TYPES,
   EVIDENCE_SUMMARY_VERSION: () => EVIDENCE_SUMMARY_VERSION
 });
@@ -49088,14 +49235,14 @@ function getTaskStatus(task, bundle) {
   if (task?.status) {
     return task.status;
   }
-  const entries = _internals18.normalizeBundleEntries(bundle);
+  const entries = _internals17.normalizeBundleEntries(bundle);
   if (entries.length > 0) {
     return "completed";
   }
   return "pending";
 }
 function isEvidenceComplete(bundle) {
-  const entries = _internals18.normalizeBundleEntries(bundle);
+  const entries = _internals17.normalizeBundleEntries(bundle);
   if (entries.length === 0) {
     return {
       isComplete: false,
@@ -49131,10 +49278,10 @@ async function buildTaskSummary(directory, task, taskId) {
   const result = await loadEvidence(directory, taskId);
   const bundle = result.status === "found" ? result.bundle : null;
   const phase = task?.phase ?? 0;
-  const status = _internals18.getTaskStatus(task, bundle);
-  const evidenceCheck = _internals18.isEvidenceComplete(bundle);
-  const blockers = _internals18.getTaskBlockers(task, evidenceCheck, status);
-  const entries = _internals18.normalizeBundleEntries(bundle);
+  const status = _internals17.getTaskStatus(task, bundle);
+  const evidenceCheck = _internals17.isEvidenceComplete(bundle);
+  const blockers = _internals17.getTaskBlockers(task, evidenceCheck, status);
+  const entries = _internals17.normalizeBundleEntries(bundle);
   const hasReview = entries.some((e) => e.type === "review");
   const hasTest = entries.some((e) => e.type === "test");
   const hasApproval = entries.some((e) => e.type === "approval");
@@ -49163,12 +49310,12 @@ async function buildPhaseSummary(directory, phase) {
   const taskSummaries = [];
   const _taskMap = new Map(phase.tasks.map((t) => [t.id, t]));
   for (const task of phase.tasks) {
-    const summary = await _internals18.buildTaskSummary(directory, task, task.id);
+    const summary = await _internals17.buildTaskSummary(directory, task, task.id);
     taskSummaries.push(summary);
   }
   const extraTaskIds = taskIds.filter((id) => !phaseTaskIds.has(id));
   for (const taskId of extraTaskIds) {
-    const summary = await _internals18.buildTaskSummary(directory, undefined, taskId);
+    const summary = await _internals17.buildTaskSummary(directory, undefined, taskId);
     if (summary.phase === phase.id) {
       taskSummaries.push(summary);
     }
@@ -49269,7 +49416,7 @@ async function buildEvidenceSummary(directory, currentPhase) {
   let totalTasks = 0;
   let completedTasks = 0;
   for (const phase of phasesToProcess) {
-    const summary = await _internals18.buildPhaseSummary(directory, phase);
+    const summary = await _internals17.buildPhaseSummary(directory, phase);
     phaseSummaries.push(summary);
     totalTasks += summary.totalTasks;
     completedTasks += summary.completedTasks;
@@ -49291,7 +49438,7 @@ async function buildEvidenceSummary(directory, currentPhase) {
     overallBlockers,
     summaryText: ""
   };
-  artifact.summaryText = _internals18.generateSummaryText(artifact);
+  artifact.summaryText = _internals17.generateSummaryText(artifact);
   log("[EvidenceSummary] Summary built", {
     phases: phaseSummaries.length,
     totalTasks,
@@ -49310,7 +49457,7 @@ function isAutoSummaryEnabled(automationConfig) {
   }
   return automationConfig.capabilities?.evidence_auto_summaries === true;
 }
-var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0", _internals18;
+var VALID_EVIDENCE_TYPES2, REQUIRED_EVIDENCE_TYPES, EVIDENCE_SUMMARY_VERSION = "1.0.0", _internals17;
 var init_evidence_summary_service = __esm(() => {
   init_manager2();
   init_manager();
@@ -49324,7 +49471,7 @@ var init_evidence_summary_service = __esm(() => {
     "retrospective"
   ]);
   REQUIRED_EVIDENCE_TYPES = ["review", "test"];
-  _internals18 = {
+  _internals17 = {
     buildEvidenceSummary,
     isAutoSummaryEnabled,
     normalizeBundleEntries,
@@ -49571,12 +49718,12 @@ var init_export = __esm(() => {
 
 // src/full-auto/state.ts
 import * as fs17 from "node:fs";
-import * as path31 from "node:path";
+import * as path30 from "node:path";
 function nowISO() {
   return new Date().toISOString();
 }
 function ensureSwarmDir(directory) {
-  const swarmDir = path31.resolve(directory, ".swarm");
+  const swarmDir = path30.resolve(directory, ".swarm");
   if (!fs17.existsSync(swarmDir)) {
     fs17.mkdirSync(swarmDir, { recursive: true });
   }
@@ -50041,7 +50188,7 @@ function extractCurrentPhaseFromPlan2(plan) {
   if (!plan) {
     return { currentPhase: null, currentTask: null, incompleteTasks: [] };
   }
-  if (!_internals19.validatePlanPhases(plan)) {
+  if (!_internals18.validatePlanPhases(plan)) {
     return { currentPhase: null, currentTask: null, incompleteTasks: [] };
   }
   let currentPhase = null;
@@ -50183,9 +50330,9 @@ function extractPhaseMetrics(content) {
 async function getHandoffData(directory) {
   const now = new Date().toISOString();
   const sessionContent = await readSwarmFileAsync(directory, "session/state.json");
-  const sessionState = _internals19.parseSessionState(sessionContent);
+  const sessionState = _internals18.parseSessionState(sessionContent);
   const plan = await loadPlanJsonOnly(directory);
-  const planInfo = _internals19.extractCurrentPhaseFromPlan(plan);
+  const planInfo = _internals18.extractCurrentPhaseFromPlan(plan);
   if (!plan) {
     const planMdContent = await readSwarmFileAsync(directory, "plan.md");
     if (planMdContent) {
@@ -50204,8 +50351,8 @@ async function getHandoffData(directory) {
     }
   }
   const contextContent = await readSwarmFileAsync(directory, "context.md");
-  const recentDecisions = _internals19.extractDecisions(contextContent);
-  const rawPhaseMetrics = _internals19.extractPhaseMetrics(contextContent);
+  const recentDecisions = _internals18.extractDecisions(contextContent);
+  const rawPhaseMetrics = _internals18.extractPhaseMetrics(contextContent);
   const phaseMetrics = sanitizeString(rawPhaseMetrics, 1000);
   let delegationState = null;
   if (sessionState?.delegationState) {
@@ -50369,13 +50516,13 @@ ${lines.join(`
 `)}
 \`\`\``;
 }
-var RTL_OVERRIDE_PATTERN, MAX_TASK_ID_LENGTH = 100, MAX_DECISION_LENGTH = 500, MAX_INCOMPLETE_TASKS = 20, _internals19;
+var RTL_OVERRIDE_PATTERN, MAX_TASK_ID_LENGTH = 100, MAX_DECISION_LENGTH = 500, MAX_INCOMPLETE_TASKS = 20, _internals18;
 var init_handoff_service = __esm(() => {
   init_utils2();
   init_manager();
   init_utils();
   RTL_OVERRIDE_PATTERN = /[\u202e\u202d\u202c\u200f]/g;
-  _internals19 = {
+  _internals18 = {
     getHandoffData,
     formatHandoffMarkdown,
     formatContinuationPrompt,
@@ -50386,6 +50533,133 @@ var init_handoff_service = __esm(() => {
     parseSessionState,
     extractDecisions: extractDecisions2,
     extractPhaseMetrics
+  };
+});
+
+// src/session/snapshot-writer.ts
+import { mkdirSync as mkdirSync13, renameSync as renameSync9 } from "node:fs";
+import * as path31 from "node:path";
+function serializeAgentSession(s) {
+  const gateLog = {};
+  const rawGateLog = s.gateLog ?? new Map;
+  for (const [taskId, gates] of rawGateLog) {
+    gateLog[taskId] = Array.from(gates ?? []);
+  }
+  const reviewerCallCount = {};
+  const rawReviewerCallCount = s.reviewerCallCount ?? new Map;
+  for (const [phase, count] of rawReviewerCallCount) {
+    reviewerCallCount[String(phase)] = count;
+  }
+  const partialGateWarningsIssuedForTask = Array.from(s.partialGateWarningsIssuedForTask ?? new Set);
+  const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
+  const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
+  const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
+  const windows = {};
+  const rawWindows = s.windows ?? {};
+  for (const [key, win] of Object.entries(rawWindows)) {
+    windows[key] = {
+      id: win.id,
+      agentName: win.agentName,
+      startedAtMs: win.startedAtMs,
+      toolCalls: win.toolCalls,
+      consecutiveErrors: win.consecutiveErrors,
+      hardLimitHit: win.hardLimitHit,
+      lastSuccessTimeMs: win.lastSuccessTimeMs,
+      recentToolCalls: win.recentToolCalls,
+      warningIssued: win.warningIssued,
+      warningReason: win.warningReason,
+      transientRetryCount: win.transientRetryCount ?? 0
+    };
+  }
+  return {
+    agentName: s.agentName,
+    lastToolCallTime: s.lastToolCallTime,
+    lastAgentEventTime: s.lastAgentEventTime,
+    delegationActive: s.delegationActive,
+    activeInvocationId: s.activeInvocationId,
+    lastInvocationIdByAgent: s.lastInvocationIdByAgent ?? {},
+    windows,
+    lastCompactionHint: s.lastCompactionHint ?? 0,
+    architectWriteCount: s.architectWriteCount ?? 0,
+    lastCoderDelegationTaskId: s.lastCoderDelegationTaskId ?? null,
+    currentTaskId: s.currentTaskId ?? null,
+    turboMode: s.turboMode ?? false,
+    gateLog,
+    reviewerCallCount,
+    lastGateFailure: s.lastGateFailure ?? null,
+    partialGateWarningsIssuedForTask,
+    selfFixAttempted: s.selfFixAttempted ?? false,
+    selfCodingWarnedAtCount: s.selfCodingWarnedAtCount ?? 0,
+    catastrophicPhaseWarnings,
+    lastPhaseCompleteTimestamp: s.lastPhaseCompleteTimestamp ?? 0,
+    lastPhaseCompletePhase: s.lastPhaseCompletePhase ?? 0,
+    phaseAgentsDispatched,
+    lastCompletedPhaseAgentsDispatched,
+    qaSkipCount: s.qaSkipCount ?? 0,
+    qaSkipTaskIds: s.qaSkipTaskIds ?? [],
+    pendingAdvisoryMessages: s.pendingAdvisoryMessages ?? [],
+    taskWorkflowStates: Object.fromEntries(s.taskWorkflowStates ?? new Map),
+    ...s.scopeViolationDetected !== undefined && {
+      scopeViolationDetected: s.scopeViolationDetected
+    },
+    model_fallback_index: s.model_fallback_index ?? 0,
+    modelFallbackExhausted: s.modelFallbackExhausted ?? false,
+    coderRevisions: s.coderRevisions ?? 0,
+    revisionLimitHit: s.revisionLimitHit ?? false,
+    fullAutoMode: s.fullAutoMode ?? false,
+    fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
+    fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
+    fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+  };
+}
+async function writeSnapshot(directory, state) {
+  try {
+    const snapshot = {
+      version: 2,
+      writtenAt: Date.now(),
+      toolAggregates: Object.fromEntries(state.toolAggregates),
+      activeAgent: Object.fromEntries(state.activeAgent),
+      delegationChains: Object.fromEntries(state.delegationChains),
+      agentSessions: {}
+    };
+    for (const [sessionId, sessionState] of state.agentSessions) {
+      snapshot.agentSessions[sessionId] = serializeAgentSession(sessionState);
+    }
+    const content = JSON.stringify(snapshot, null, 2);
+    const resolvedPath = validateSwarmPath(directory, "session/state.json");
+    const dir = path31.dirname(resolvedPath);
+    mkdirSync13(dir, { recursive: true });
+    const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+    await bunWrite(tempPath, content);
+    renameSync9(tempPath, resolvedPath);
+  } catch (error93) {
+    log("[snapshot-writer] write failed", {
+      error: error93 instanceof Error ? error93.message : String(error93)
+    });
+  }
+}
+function createSnapshotWriterHook(directory) {
+  return (_input, _output) => {
+    _writeInFlight = _writeInFlight.then(() => _internals19.writeSnapshot(directory, swarmState), () => _internals19.writeSnapshot(directory, swarmState));
+    return _writeInFlight;
+  };
+}
+async function flushPendingSnapshot(directory) {
+  _writeInFlight = _writeInFlight.then(() => _internals19.writeSnapshot(directory, swarmState), () => _internals19.writeSnapshot(directory, swarmState));
+  await _writeInFlight;
+}
+var _writeInFlight, _internals19;
+var init_snapshot_writer = __esm(() => {
+  init_utils2();
+  init_state();
+  init_utils();
+  init_bun_compat();
+  _writeInFlight = Promise.resolve();
+  _internals19 = {
+    writeSnapshot,
+    createSnapshotWriterHook,
+    flushPendingSnapshot
   };
 });
 
@@ -56643,7 +56917,7 @@ async function handleSimulateCommand(directory, args2) {
   }
   let darkMatterPairs;
   try {
-    darkMatterPairs = await _internals16.detectDarkMatter(directory, options);
+    darkMatterPairs = await _internals15.detectDarkMatter(directory, options);
   } catch (err2) {
     const errMsg = err2 instanceof Error ? err2.message : String(err2);
     return `## Simulate Report
