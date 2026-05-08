@@ -16,7 +16,6 @@ import {
 import { validateSwarmPath } from '../hooks/utils';
 
 import { clearAllScopes } from '../scope/scope-persistence';
-import { flushPendingSnapshot } from '../session/snapshot-writer';
 import { resetSwarmState, swarmState } from '../state';
 import { executeWriteRetro } from '../tools/write-retro';
 
@@ -824,15 +823,6 @@ export async function handleCloseCommand(
 		const msg = error instanceof Error ? error.message : String(error);
 		warnings.push(`Failed to write close-summary.md: ${msg}`);
 		console.warn('[close-command] Failed to write close-summary.md:', error);
-	}
-
-	// Flush snapshot before clearing sessions
-	try {
-		await flushPendingSnapshot(directory);
-	} catch (error) {
-		const msg = error instanceof Error ? error.message : String(error);
-		warnings.push(`flushPendingSnapshot failed: ${msg}`);
-		console.warn('[close-command] flushPendingSnapshot error:', error);
 	}
 
 	// NOTE: writeCheckpoint is intentionally NOT called here. SWARM_PLAN.json and

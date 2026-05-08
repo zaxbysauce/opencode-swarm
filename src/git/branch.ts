@@ -644,12 +644,39 @@ export function resetToMainAfterMerge(
 			changesDiscarded = discardSucceeded;
 		}
 
+		// Step 7b: Remove untracked files/directories
+		// git checkout -- . only resets tracked files; git clean removes untracked.
+		try {
+			_internals.gitExec(['clean', '-fd'], cwd);
+		} catch {
+			warnings.push('Could not clean untracked files');
+		}
+
 		// Step 8: Delete previous branch if it's not the default
+		// Only delete if the branch was merged into the default branch.
 		let branchDeleted = false;
 		if (switchedBranch && previousBranch !== defaultBranch) {
 			try {
-				_internals.gitExec(['branch', '-D', previousBranch], cwd);
-				branchDeleted = true;
+				// Check if the previous branch was merged into default
+				const mergedOutput = _internals.gitExec(
+					['branch', '--merged', defaultBranch],
+					cwd,
+				);
+				const isMerged = mergedOutput
+					.split('\n')
+					.some(
+						(line) =>
+							line.trim() === previousBranch ||
+							line.trim() === `* ${previousBranch}`,
+					);
+				if (isMerged) {
+					_internals.gitExec(['branch', '-d', previousBranch], cwd);
+					branchDeleted = true;
+				} else {
+					warnings.push(
+						`Branch ${previousBranch} is not merged into ${defaultBranch} — keeping it`,
+					);
+				}
 			} catch {
 				warnings.push(`Could not delete branch ${previousBranch}`);
 			}

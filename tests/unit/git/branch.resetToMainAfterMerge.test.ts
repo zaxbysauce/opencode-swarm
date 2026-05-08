@@ -81,7 +81,9 @@ describe('resetToMainAfterMerge', () => {
 			// 5.  checkout main → ok
 			// 6.  hasUncommittedChanges → clean
 			// 7.  reset --hard origin/main → ok
-			// 8.  branch -D feat/x → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged
+			// 8.  branch -d feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
@@ -90,7 +92,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges (clean)
 				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 8. branch -D feat/x
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -103,9 +107,9 @@ describe('resetToMainAfterMerge', () => {
 			expect(result.warnings).toEqual([]);
 			expect(result.message).toContain('deleted branch feat/x');
 
-			// Verify branch -D was called with correct branch name
+			// Verify branch -d was called with correct branch name
 			const deleteCall = gitCalls.find(
-				(c) => c.args[0] === 'branch' && c.args[1] === '-D',
+				(c) => c.args[0] === 'branch' && c.args[1] === '-d',
 			);
 			expect(deleteCall).toBeDefined();
 			expect(deleteCall!.args[2]).toBe('feat/x');
@@ -241,7 +245,9 @@ describe('resetToMainAfterMerge', () => {
 			// 5.  checkout main → ok
 			// 6.  hasUncommittedChanges → clean
 			// 7.  reset --hard origin/main → ok
-			// 8.  branch -D feat/x → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged
+			// 8.  branch -d feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
@@ -254,7 +260,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 8. branch -D feat/x
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -379,7 +387,9 @@ describe('resetToMainAfterMerge', () => {
 			// 6.  reset --hard origin/main → ok
 			// 7.  hasUncommittedChanges → DIRTY (checked before discard loop)
 			// 8.  checkout -- . → ok (discard)
-			// 9.  branch -D feat/x → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged
+			// 8.  branch -d feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
@@ -389,7 +399,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 6. reset --hard
 				{ status: 0, stdout: ' M modified.txt\n', stderr: '' }, // 7. hasUncommittedChanges (dirty)
 				{ status: 0, stdout: '', stderr: '' }, // 8. checkout -- . (discard)
-				{ status: 0, stdout: '', stderr: '' }, // 9. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -422,7 +434,9 @@ describe('resetToMainAfterMerge', () => {
 			// 9.  checkout -- . → FAIL retry 2
 			// 10. checkout -- . → FAIL retry 3
 			// 11. checkout -- . → FAIL retry 4
-			// 12. branch -D feat/x → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged
+			// 8.  branch -d feat/x → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
@@ -435,7 +449,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 9. discard FAIL 2
 				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 10. discard FAIL 3
 				{ status: 1, stdout: '', stderr: 'unable to lock index' }, // 11. discard FAIL 4
-				{ status: 0, stdout: '', stderr: '' }, // 12. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -481,7 +497,7 @@ describe('resetToMainAfterMerge', () => {
 	// 13. Warning: branch deletion fails — warning in result
 	// -------------------------------------------------------------------------
 	describe('13. Warning: branch deletion fails — warning in result', () => {
-		test('branch -D throws, warning in result, success still true', () => {
+		test('branch -d throws, warning in result, success still true', () => {
 			// 1.  detectDefaultRemoteBranch → 'main'
 			// 2.  getCurrentBranch → 'feat/x'
 			// 3.  log origin/main..HEAD → empty
@@ -489,7 +505,9 @@ describe('resetToMainAfterMerge', () => {
 			// 5.  checkout main → ok
 			// 6.  hasUncommittedChanges → clean
 			// 7.  reset --hard origin/main → ok
-			// 8.  branch -D feat/x → FAIL
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged (returns merged list)
+			// 8.  branch -d feat/x → FAIL (not fully merged)
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
@@ -498,11 +516,13 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x appears merged)
 				{
 					status: 1,
 					stdout: '',
 					stderr: 'error: not fully merged',
-				}, // 8. branch -D FAIL
+				}, // 8. branch -d FAIL
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -529,8 +549,10 @@ describe('resetToMainAfterMerge', () => {
 			// 5.  checkout main → ok
 			// 6.  hasUncommittedChanges → clean
 			// 7.  reset --hard origin/main → ok
-			// 8.  branch -D feat/x → ok
-			// 9.  branch --merged main → shows merged branches
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if feat/x is merged
+			// 8.  branch -d feat/x → ok (previous branch deleted first)
+			// 9.  branch --merged main → shows merged branches for pruning
 			// 10. branch -d merged-branch-1 → ok
 			// 11. branch -d merged-branch-2 → ok
 			setupMock(
@@ -541,12 +563,18 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 8. branch -D feat/x
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{
+					status: 0,
+					stdout: '  feat/x\n  merged-branch-1\n  merged-branch-2\n* main\n',
+					stderr: '',
+				}, // 8. branch --merged (all appear merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 				{
 					status: 0,
 					stdout: '  merged-branch-1\n  merged-branch-2\n* main\n',
 					stderr: '',
-				}, // 9. branch --merged
+				}, // 9. branch --merged (for prune)
 				{ status: 0, stdout: '', stderr: '' }, // 10. branch -d merged-branch-1
 				{ status: 0, stdout: '', stderr: '' }, // 11. branch -d merged-branch-2
 			);
@@ -562,9 +590,10 @@ describe('resetToMainAfterMerge', () => {
 			const pruneCalls = gitCalls.filter(
 				(c) => c.args[0] === 'branch' && c.args[1] === '-d',
 			);
-			expect(pruneCalls.length).toBe(2);
-			expect(pruneCalls[0].args[2]).toBe('merged-branch-1');
-			expect(pruneCalls[1].args[2]).toBe('merged-branch-2');
+			expect(pruneCalls.length).toBe(3); // feat/x + 2 merged branches
+			expect(pruneCalls[0].args[2]).toBe('feat/x');
+			expect(pruneCalls[1].args[2]).toBe('merged-branch-1');
+			expect(pruneCalls[2].args[2]).toBe('merged-branch-2');
 		});
 
 		test('pruneBranches=false (default), no pruning happens', () => {
@@ -576,18 +605,27 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
-				{ status: 0, stdout: '', stderr: '' }, // 8. branch -D feat/x
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (check previous branch)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd); // no pruneBranches
 
 			expect(result.success).toBe(true);
 
-			// No branch --merged call should be made
+			// branch --merged IS called (Step 8 check for previous branch), but no pruning happens
 			const mergedCall = gitCalls.find(
 				(c) => c.args[0] === 'branch' && c.args[1] === '--merged',
 			);
-			expect(mergedCall).toBeUndefined();
+			expect(mergedCall).toBeDefined();
+			expect(mergedCall!.args[2]).toBe('main'); // --merged main (default branch)
+
+			// No additional branch --merged call for pruning (pruneBranches=false)
+			const allMergedCalls = gitCalls.filter(
+				(c) => c.args[0] === 'branch' && c.args[1] === '--merged',
+			);
+			expect(allMergedCalls.length).toBe(1); // Only the Step 8 check, not Step 9 prune
 		});
 	});
 
@@ -605,7 +643,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // checkout main
 				{ status: 0, stdout: '', stderr: '' }, // hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // reset
-				{ status: 0, stdout: '', stderr: '' }, // branch -D
+				{ status: 0, stdout: '', stderr: '' }, // clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // branch --merged
+				{ status: 0, stdout: '', stderr: '' }, // branch -d
 			);
 
 			const result1 = branch.resetToMainAfterMerge(testCwd);
@@ -699,7 +739,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 8. discard FAIL 1
 				{ status: 1, stdout: '', stderr: 'unable to lock' }, // 9. discard FAIL 2
 				{ status: 0, stdout: '', stderr: '' }, // 10. discard SUCCESS 3
-				{ status: 0, stdout: '', stderr: '' }, // 11. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/x\n* main\n', stderr: '' }, // 8. branch --merged (feat/x is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/x
 			);
 
 			// Simulate Windows behavior by temporarily patching process.platform
@@ -735,7 +777,9 @@ describe('resetToMainAfterMerge', () => {
 			// 7.  checkout main → ok
 			// 8.  hasUncommittedChanges → clean
 			// 9.  reset --hard origin/main → ok
-			// 10. branch -D feat/local → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → check if merged
+			// 8.  branch -d feat/local → ok
 			setupMock(
 				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
 				{ status: 0, stdout: 'feat/local', stderr: '' }, // 2. getCurrentBranch
@@ -746,7 +790,9 @@ describe('resetToMainAfterMerge', () => {
 				{ status: 0, stdout: '', stderr: '' }, // 7. checkout main
 				{ status: 0, stdout: '', stderr: '' }, // 8. hasUncommittedChanges
 				{ status: 0, stdout: '', stderr: '' }, // 9. reset
-				{ status: 0, stdout: '', stderr: '' }, // 10. branch -D
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '  feat/local\n* main\n', stderr: '' }, // 8. branch --merged (feat/local is merged)
+				{ status: 0, stdout: '', stderr: '' }, // 8. branch -d feat/local
 			);
 
 			const result = branch.resetToMainAfterMerge(testCwd);
@@ -778,6 +824,52 @@ describe('resetToMainAfterMerge', () => {
 			expect(result.message).toContain('unable to compare');
 			expect(result.branchDeleted).toBe(false);
 			expect(result.changesDiscarded).toBe(false);
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// Branch not merged — kept with warning
+	// -------------------------------------------------------------------------
+	describe('Branch not merged — kept with warning', () => {
+		test('branch has upstream but not merged into default — keeps branch with warning', () => {
+			// 1.  detectDefaultRemoteBranch → 'main'
+			// 2.  getCurrentBranch → 'feat/x'
+			// 3.  log origin/main..HEAD → empty (or has upstream, proceed)
+			// 4.  fetch --prune → ok
+			// 5.  checkout main → ok
+			// 6.  hasUncommittedChanges → clean
+			// 7.  reset --hard origin/main → ok
+			// 7b. clean -fd → ok
+			// 8.  branch --merged main → only shows main (feat/x NOT merged)
+			//     branch -d is NOT called since not merged
+			setupMock(
+				{ status: 0, stdout: 'refs/remotes/origin/main', stderr: '' }, // 1. symbolic-ref
+				{ status: 0, stdout: 'feat/x', stderr: '' }, // 2. getCurrentBranch
+				{ status: 0, stdout: '', stderr: '' }, // 3. log (no unpushed or branch has upstream)
+				{ status: 0, stdout: '', stderr: '' }, // 4. fetch
+				{ status: 0, stdout: '', stderr: '' }, // 5. checkout main
+				{ status: 0, stdout: '', stderr: '' }, // 6. hasUncommittedChanges
+				{ status: 0, stdout: '', stderr: '' }, // 7. reset --hard
+				{ status: 0, stdout: '', stderr: '' }, // 7b. clean -fd
+				{ status: 0, stdout: '* main\n', stderr: '' }, // 8. branch --merged (feat/x NOT listed)
+			);
+
+			const result = branch.resetToMainAfterMerge(testCwd);
+
+			expect(result.success).toBe(true);
+			expect(result.branchDeleted).toBe(false);
+			expect(result.previousBranch).toBe('feat/x');
+			expect(
+				result.warnings.some((w) =>
+					w.includes('is not merged into main — keeping it'),
+				),
+			).toBe(true);
+
+			// Verify branch -d was NOT called
+			const deleteCall = gitCalls.find(
+				(c) => c.args[0] === 'branch' && c.args[1] === '-d',
+			);
+			expect(deleteCall).toBeUndefined();
 		});
 	});
 });
