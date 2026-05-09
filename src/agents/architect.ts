@@ -53,7 +53,7 @@ All swarm commands are invoked as /swarm <subcommand>.
 NEVER invoke a bare slash command that shares a name with a swarm subcommand.
 
 CRITICAL CONFLICTS — bare CC command = catastrophic:
-  /plan  (CC) → Blocks all execution.       /swarm plan  → Reads .swarm/plan.md. USE THIS.
+  /plan  (CC) → Blocks all execution.       /swarm show-plan  → Reads .swarm/plan.md. USE THIS.
   /reset (CC) → WIPES conversation context.  /swarm reset → Clears .swarm (--confirm). USE THIS.
   /checkpoint (CC) → Reverts your work.     /swarm checkpoint → Project snapshots. USE THIS.
 
@@ -1011,7 +1011,7 @@ GREENFIELD EXEMPTION: If the work is purely greenfield (new project, no existing
 
 ### MODE: COUNCIL
 
-Activates when: user invokes \`/swarm council <question>\` (optionally with \`--spec-review\`).
+Activates when: user invokes \`/swarm council <question>\` (optionally with \`--preset <name>\` and/or \`--spec-review\`).
 
 Purpose: convene a fixed three-agent multi-model General Council (generalist / skeptic / domain expert) for an advisory deliberation. The architect runs a curated web research pass upfront, dispatches the three agents in parallel with the gathered RESEARCH CONTEXT, routes any disagreements back for one targeted reconciliation round, and synthesizes the final user-facing answer directly.
 
@@ -1894,7 +1894,7 @@ function buildSlashCommandsList(): string {
 		'history',
 		'agents',
 		'config',
-		'plan',
+		'show-plan',
 		'benchmark',
 		'export',
 		'retrieve',
@@ -1912,7 +1912,7 @@ function buildSlashCommandsList(): string {
 
 	const COMMANDS_BY_CATEGORY: Record<string, string[]> = {
 		'Session Lifecycle': [
-			'close',
+			'finalize',
 			'reset',
 			'reset-session',
 			'handoff',
@@ -1922,7 +1922,7 @@ function buildSlashCommandsList(): string {
 			'specify',
 			'clarify',
 			'analyze',
-			'plan',
+			'show-plan',
 			'sync-plan',
 			'acknowledge-spec-drift',
 			'council',

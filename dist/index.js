@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.11.0",
+    version: "7.11.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -57509,6 +57509,14 @@ var init_write_retro2 = __esm(() => {
   init_write_retro();
 });
 
+// src/commands/command-names.ts
+var COMMAND_NAMES, COMMAND_NAME_SET;
+var init_command_names = __esm(() => {
+  init_registry();
+  COMMAND_NAMES = Object.freeze(Object.keys(COMMAND_REGISTRY));
+  COMMAND_NAME_SET = new Set(COMMAND_NAMES);
+});
+
 // src/commands/index.ts
 var exports_commands = {};
 __export(exports_commands, {
@@ -57556,7 +57564,9 @@ __export(exports_commands, {
   createSwarmCommandHandler: () => createSwarmCommandHandler,
   buildHelpText: () => buildHelpText,
   VALID_COMMANDS: () => VALID_COMMANDS,
-  COMMAND_REGISTRY: () => COMMAND_REGISTRY
+  COMMAND_REGISTRY: () => COMMAND_REGISTRY,
+  COMMAND_NAME_SET: () => COMMAND_NAME_SET,
+  COMMAND_NAMES: () => COMMAND_NAMES
 });
 import fs30 from "node:fs";
 import path46 from "node:path";
@@ -57753,6 +57763,7 @@ var init_commands = __esm(() => {
   init_promote();
   init_qa_gates();
   init_registry();
+  init_command_names();
   init_registry();
   init_reset();
   init_reset_session();
@@ -57993,11 +58004,19 @@ var init_registry = __esm(() => {
       category: "core",
       clashesWithNativeCcCommand: "/status"
     },
+    "show-plan": {
+      handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
+      description: "Show current plan (optionally filter by phase number)",
+      category: "core",
+      args: "[phase-number]"
+    },
     plan: {
       handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
-      description: "Show plan (optionally filter by phase number)",
+      description: "Show current plan (deprecated alias for /swarm show-plan)",
       category: "core",
-      clashesWithNativeCcCommand: "/plan"
+      clashesWithNativeCcCommand: "/plan",
+      aliasOf: "show-plan",
+      deprecated: true
     },
     agents: {
       handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
@@ -58167,12 +58186,21 @@ var init_registry = __esm(() => {
       args: "--threshold <number>, --min-commits <number>",
       category: "diagnostics"
     },
-    close: {
+    finalize: {
       handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
-      description: "Use /swarm close to close the swarm project and archive evidence",
+      description: "Use /swarm finalize to finalize the swarm project and archive evidence",
       details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.",
       args: "--prune-branches",
       category: "core"
+    },
+    close: {
+      handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+      description: "Use /swarm close (deprecated alias) to finalize and archive swarm state",
+      details: "Deprecated alias for /swarm finalize. Preserved for backward compatibility.",
+      args: "--prune-branches",
+      category: "core",
+      aliasOf: "finalize",
+      deprecated: true
     },
     simulate: {
       handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
@@ -58207,9 +58235,9 @@ var init_registry = __esm(() => {
     },
     council: {
       handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
-      description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]",
-      args: "<question> [--spec-review]",
-      details: "Triggers the architect to convene a three-agent General Council: Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1–3 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). The architect synthesizes the final answer directly from convene_general_council output. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.",
+      description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]",
+      args: "<question> [--preset <name>] [--spec-review]",
+      details: "Triggers the architect to convene a three-agent General Council: Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). Use --preset <name> to choose a named member preset from council.general.presets. " + "The architect first runs 1–3 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). The architect synthesizes the final answer directly from convene_general_council output. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.",
       category: "agent"
     },
     "pr-review": {
@@ -58529,7 +58557,7 @@ function buildSlashCommandsList() {
     "history",
     "agents",
     "config",
-    "plan",
+    "show-plan",
     "benchmark",
     "export",
     "retrieve"
@@ -58545,7 +58573,7 @@ function buildSlashCommandsList() {
   ];
   const COMMANDS_BY_CATEGORY = {
     "Session Lifecycle": [
-      "close",
+      "finalize",
       "reset",
       "reset-session",
       "handoff",
@@ -58555,7 +58583,7 @@ function buildSlashCommandsList() {
       "specify",
       "clarify",
       "analyze",
-      "plan",
+      "show-plan",
       "sync-plan",
       "acknowledge-spec-drift",
       "council"
@@ -58710,7 +58738,7 @@ All swarm commands are invoked as /swarm <subcommand>.
 NEVER invoke a bare slash command that shares a name with a swarm subcommand.
 
 CRITICAL CONFLICTS — bare CC command = catastrophic:
-  /plan  (CC) → Blocks all execution.       /swarm plan  → Reads .swarm/plan.md. USE THIS.
+  /plan  (CC) → Blocks all execution.       /swarm show-plan  → Reads .swarm/plan.md. USE THIS.
   /reset (CC) → WIPES conversation context.  /swarm reset → Clears .swarm (--confirm). USE THIS.
   /checkpoint (CC) → Reverts your work.     /swarm checkpoint → Project snapshots. USE THIS.
 
@@ -59668,7 +59696,7 @@ GREENFIELD EXEMPTION: If the work is purely greenfield (new project, no existing
 
 ### MODE: COUNCIL
 
-Activates when: user invokes \`/swarm council <question>\` (optionally with \`--spec-review\`).
+Activates when: user invokes \`/swarm council <question>\` (optionally with \`--preset <name>\` and/or \`--spec-review\`).
 
 Purpose: convene a fixed three-agent multi-model General Council (generalist / skeptic / domain expert) for an advisory deliberation. The architect runs a curated web research pass upfront, dispatches the three agents in parallel with the gathered RESEARCH CONTEXT, routes any disagreements back for one targeted reconciliation round, and synthesizes the final user-facing answer directly.
 
@@ -67669,7 +67697,7 @@ var init_curator_drift = __esm(() => {
 init_package();
 init_agents2();
 init_critic();
-import * as path126 from "node:path";
+import * as path127 from "node:path";
 
 // src/background/index.ts
 init_event_bus();
@@ -68677,12 +68705,12 @@ ${content.substring(endIndex + 1)}`;
 // src/commands/conflict-registry.ts
 var CLAUDE_CODE_CONFLICTS = [
   {
-    swarmCommand: "plan",
+    swarmCommand: "show-plan",
     ccCommand: "/plan",
     severity: "CRITICAL",
     ccBehavior: "Enters Claude Code plan mode — Claude proposes all actions before executing them",
     swarmBehavior: "Displays the current .swarm/plan.md task list",
-    disambiguationNote: "Use /swarm plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution."
+    disambiguationNote: "Use /swarm show-plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution."
   },
   {
     swarmCommand: "reset",
@@ -94256,6 +94284,8 @@ ${content}
 // src/tools/submit-phase-council-verdicts.ts
 init_zod();
 init_loader();
+import { mkdirSync as mkdirSync28, readFileSync as readFileSync55, renameSync as renameSync18, writeFileSync as writeFileSync22 } from "node:fs";
+import path113 from "node:path";
 init_create_tool();
 init_resolve_working_directory();
 var VerdictSchema2 = exports_external.object({
@@ -94358,6 +94388,21 @@ var submit_phase_council_verdicts = createSwarmTool({
       }, null, 2);
     }
     const synthesis = synthesizePhaseCouncilAdvisory(input.phaseNumber, input.phaseSummary, input.verdicts, input.roundNumber ?? 1, config3.council, workingDir);
+    const existingMutationGapFinding = input.verdicts.some((verdict) => verdict.findings.some((finding) => finding.category === "mutation_gap"));
+    const mutationGapFinding = existingMutationGapFinding ? null : getPhaseMutationGapFinding(input.phaseNumber, workingDir);
+    if (mutationGapFinding) {
+      if (mutationGapFinding.severity === "HIGH" || mutationGapFinding.severity === "MEDIUM") {
+        synthesis.requiredFixes.push(mutationGapFinding);
+      } else {
+        synthesis.advisoryFindings.push(mutationGapFinding);
+      }
+      synthesis.unifiedFeedbackMd += `
+
+### Mutation Coverage Gap
+- **[${mutationGapFinding.severity}]** \`${mutationGapFinding.location}\` (${mutationGapFinding.category}) — ${mutationGapFinding.detail}
+  _Evidence:_ ${mutationGapFinding.evidence}`;
+      writePhaseCouncilEvidence(workingDir, synthesis);
+    }
     return JSON.stringify({
       success: true,
       overallVerdict: synthesis.overallVerdict,
@@ -94368,6 +94413,7 @@ var submit_phase_council_verdicts = createSwarmTool({
       advisoryFindingsCount: synthesis.advisoryFindings?.length ?? 0,
       unresolvedConflictsCount: synthesis.unresolvedConflicts?.length ?? 0,
       advisoryNotes: synthesis.advisoryNotes ?? [],
+      mutationGapEmitted: mutationGapFinding !== null,
       membersVoted,
       membersAbsent,
       quorumSize: membersVoted.length,
@@ -94377,12 +94423,103 @@ var submit_phase_council_verdicts = createSwarmTool({
     }, null, 2);
   }
 });
+function getPhaseMutationGapFinding(phaseNumber, workingDir) {
+  const mutationGatePath = path113.join(workingDir, ".swarm", "evidence", String(phaseNumber), "mutation-gate.json");
+  try {
+    const raw = readFileSync55(mutationGatePath, "utf-8");
+    const parsed = JSON.parse(raw);
+    const gateEntry = (parsed.entries ?? []).find((entry) => entry?.type === "mutation-gate");
+    if (!gateEntry) {
+      return {
+        severity: "HIGH",
+        category: "mutation_gap",
+        location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+        detail: "Mutation gate evidence is missing a mutation-gate entry for this phase.",
+        evidence: 'Expected entries[].type="mutation-gate" with verdict in mutation-gate.json.'
+      };
+    }
+    if (gateEntry.verdict === "skip") {
+      return {
+        severity: "MEDIUM",
+        category: "mutation_gap",
+        location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+        detail: "Mutation testing was skipped for this phase; coverage is unverified.",
+        evidence: 'mutation-gate.json recorded verdict="skip". Run mutation_test and write_mutation_evidence.'
+      };
+    }
+    if (gateEntry.verdict === "warn") {
+      return {
+        severity: "LOW",
+        category: "mutation_gap",
+        location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+        detail: "Mutation gate reported WARN; mutation coverage may be insufficient.",
+        evidence: 'mutation-gate.json recorded verdict="warn" indicating below-pass mutation quality.'
+      };
+    }
+    return null;
+  } catch (error93) {
+    if (error93.code === "ENOENT") {
+      return {
+        severity: "HIGH",
+        category: "mutation_gap",
+        location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+        detail: "Mutation gate evidence file is missing for this phase, so mutation coverage cannot be verified.",
+        evidence: "No .swarm/evidence/{phase}/mutation-gate.json was found at council synthesis time."
+      };
+    }
+    return {
+      severity: "MEDIUM",
+      category: "mutation_gap",
+      location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+      detail: "Mutation gate evidence could not be read, so mutation coverage cannot be verified.",
+      evidence: error93 instanceof Error ? error93.message : String(error93)
+    };
+  }
+}
+function writePhaseCouncilEvidence(workingDir, synthesis) {
+  const evidenceDir = path113.join(workingDir, ".swarm", "evidence", String(synthesis.phaseNumber));
+  mkdirSync28(evidenceDir, { recursive: true });
+  const evidenceFile = path113.join(evidenceDir, "phase-council.json");
+  const evidenceBundle = {
+    entries: [
+      {
+        type: "phase-council",
+        phase_number: synthesis.phaseNumber,
+        scope: "phase",
+        timestamp: synthesis.timestamp,
+        verdict: synthesis.overallVerdict,
+        quorumSize: synthesis.quorumSize,
+        phaseSummary: synthesis.phaseSummary ?? "",
+        requiredFixes: synthesis.requiredFixes.map((finding) => ({
+          severity: finding.severity,
+          category: finding.category,
+          location: finding.location,
+          detail: finding.detail,
+          evidence: finding.evidence
+        })),
+        advisoryNotes: synthesis.advisoryNotes,
+        advisoryFindings: synthesis.advisoryFindings.map((finding) => ({
+          severity: finding.severity,
+          category: finding.category,
+          location: finding.location,
+          detail: finding.detail,
+          evidence: finding.evidence
+        })),
+        roundNumber: synthesis.roundNumber,
+        allCriteriaMet: synthesis.allCriteriaMet
+      }
+    ]
+  };
+  const tempFile = `${evidenceFile}.tmp-${Date.now()}`;
+  writeFileSync22(tempFile, JSON.stringify(evidenceBundle, null, 2), "utf-8");
+  renameSync18(tempFile, evidenceFile);
+}
 // src/tools/suggest-patch.ts
 init_zod();
 init_path_security();
 init_create_tool();
 import * as fs87 from "node:fs";
-import * as path113 from "node:path";
+import * as path114 from "node:path";
 var WINDOWS_RESERVED_NAMES4 = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(\.|:|$)/i;
 function containsWindowsAttacks4(str) {
   if (/:[^\\/]/.test(str))
@@ -94396,14 +94533,14 @@ function containsWindowsAttacks4(str) {
 }
 function isPathInWorkspace4(filePath, workspace) {
   try {
-    const resolvedPath = path113.resolve(workspace, filePath);
+    const resolvedPath = path114.resolve(workspace, filePath);
     if (!fs87.existsSync(resolvedPath)) {
       return true;
     }
     const realWorkspace = fs87.realpathSync(workspace);
     const realResolvedPath = fs87.realpathSync(resolvedPath);
-    const relativePath = path113.relative(realWorkspace, realResolvedPath);
-    if (relativePath.startsWith("..") || path113.isAbsolute(relativePath)) {
+    const relativePath = path114.relative(realWorkspace, realResolvedPath);
+    if (relativePath.startsWith("..") || path114.isAbsolute(relativePath)) {
       return false;
     }
     return true;
@@ -94611,7 +94748,7 @@ var suggestPatch = createSwarmTool({
         });
         continue;
       }
-      const fullPath = path113.resolve(directory, change.file);
+      const fullPath = path114.resolve(directory, change.file);
       if (!fs87.existsSync(fullPath)) {
         errors5.push({
           success: false,
@@ -94874,7 +95011,7 @@ var generate_mutants = createSwarmTool({
 init_spec_schema();
 init_create_tool();
 import * as fs88 from "node:fs";
-import * as path114 from "node:path";
+import * as path115 from "node:path";
 var SPEC_FILE_NAME = "spec.md";
 var SWARM_DIR2 = ".swarm";
 var OBLIGATION_KEYWORDS2 = ["MUST", "SHALL", "SHOULD", "MAY"];
@@ -94927,7 +95064,7 @@ var lint_spec = createSwarmTool({
   async execute(_args, directory) {
     const errors5 = [];
     const warnings = [];
-    const specPath = path114.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
+    const specPath = path115.join(directory, SWARM_DIR2, SPEC_FILE_NAME);
     if (!fs88.existsSync(specPath)) {
       const result2 = {
         valid: false,
@@ -94998,12 +95135,12 @@ var lint_spec = createSwarmTool({
 // src/tools/mutation-test.ts
 init_zod();
 import * as fs89 from "node:fs";
-import * as path116 from "node:path";
+import * as path117 from "node:path";
 
 // src/mutation/engine.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { unlinkSync as unlinkSync14, writeFileSync as writeFileSync22 } from "node:fs";
-import * as path115 from "node:path";
+import { unlinkSync as unlinkSync14, writeFileSync as writeFileSync23 } from "node:fs";
+import * as path116 from "node:path";
 
 // src/mutation/equivalence.ts
 function isStaticallyEquivalent(originalCode, mutatedCode) {
@@ -95143,9 +95280,9 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   let patchFile;
   try {
     const safeId2 = patch.id.replace(/[^a-zA-Z0-9_-]/g, "_");
-    patchFile = path115.join(workingDir, `.mutation_patch_${safeId2}.diff`);
+    patchFile = path116.join(workingDir, `.mutation_patch_${safeId2}.diff`);
     try {
-      writeFileSync22(patchFile, patch.patch);
+      writeFileSync23(patchFile, patch.patch);
     } catch (writeErr) {
       error93 = `Failed to write patch file: ${writeErr}`;
       outcome = "error";
@@ -95542,7 +95679,7 @@ var mutation_test = createSwarmTool({
       ];
       for (const filePath of uniquePaths) {
         try {
-          const resolvedPath = path116.resolve(cwd, filePath);
+          const resolvedPath = path117.resolve(cwd, filePath);
           sourceFiles.set(filePath, fs89.readFileSync(resolvedPath, "utf-8"));
         } catch {}
       }
@@ -95562,7 +95699,7 @@ init_zod();
 init_manager2();
 init_detector();
 import * as fs90 from "node:fs";
-import * as path117 from "node:path";
+import * as path118 from "node:path";
 init_create_tool();
 var MAX_FILE_SIZE2 = 2 * 1024 * 1024;
 var BINARY_CHECK_BYTES = 8192;
@@ -95628,7 +95765,7 @@ async function syntaxCheck(input, directory, config3) {
   if (languages?.length) {
     const lowerLangs = languages.map((l) => l.toLowerCase());
     filesToCheck = filesToCheck.filter((file3) => {
-      const ext = path117.extname(file3.path).toLowerCase();
+      const ext = path118.extname(file3.path).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       const fileProfile = getProfileForFile(file3.path);
       const langId = fileProfile?.id || langDef?.id;
@@ -95641,7 +95778,7 @@ async function syntaxCheck(input, directory, config3) {
   let skippedCount = 0;
   for (const fileInfo of filesToCheck) {
     const { path: filePath } = fileInfo;
-    const fullPath = path117.isAbsolute(filePath) ? filePath : path117.join(directory, filePath);
+    const fullPath = path118.isAbsolute(filePath) ? filePath : path118.join(directory, filePath);
     const result = {
       path: filePath,
       language: "",
@@ -95690,7 +95827,7 @@ async function syntaxCheck(input, directory, config3) {
         results.push(result);
         continue;
       }
-      const ext = path117.extname(filePath).toLowerCase();
+      const ext = path118.extname(filePath).toLowerCase();
       const langDef = getLanguageForExtension(ext);
       result.language = profile?.id || langDef?.id || "unknown";
       const errors5 = extractSyntaxErrors(parser, content);
@@ -95783,7 +95920,7 @@ init_utils();
 init_create_tool();
 init_path_security();
 import * as fs91 from "node:fs";
-import * as path118 from "node:path";
+import * as path119 from "node:path";
 var MAX_TEXT_LENGTH = 200;
 var MAX_FILE_SIZE_BYTES11 = 1024 * 1024;
 var SUPPORTED_EXTENSIONS4 = new Set([
@@ -95849,9 +95986,9 @@ function validatePathsInput(paths, cwd) {
     return { error: "paths contains path traversal", resolvedPath: null };
   }
   try {
-    const resolvedPath = path118.resolve(paths);
-    const normalizedCwd = path118.resolve(cwd);
-    const normalizedResolved = path118.resolve(resolvedPath);
+    const resolvedPath = path119.resolve(paths);
+    const normalizedCwd = path119.resolve(cwd);
+    const normalizedResolved = path119.resolve(resolvedPath);
     if (!normalizedResolved.startsWith(normalizedCwd)) {
       return {
         error: "paths must be within the current working directory",
@@ -95867,7 +96004,7 @@ function validatePathsInput(paths, cwd) {
   }
 }
 function isSupportedExtension(filePath) {
-  const ext = path118.extname(filePath).toLowerCase();
+  const ext = path119.extname(filePath).toLowerCase();
   return SUPPORTED_EXTENSIONS4.has(ext);
 }
 function findSourceFiles3(dir, files = []) {
@@ -95882,7 +96019,7 @@ function findSourceFiles3(dir, files = []) {
     if (SKIP_DIRECTORIES5.has(entry)) {
       continue;
     }
-    const fullPath = path118.join(dir, entry);
+    const fullPath = path119.join(dir, entry);
     let stat7;
     try {
       stat7 = fs91.statSync(fullPath);
@@ -95994,7 +96131,7 @@ var todo_extract = createSwarmTool({
         filesToScan.push(scanPath);
       } else {
         const errorResult = {
-          error: `unsupported file extension: ${path118.extname(scanPath)}`,
+          error: `unsupported file extension: ${path119.extname(scanPath)}`,
           total: 0,
           byPriority: { high: 0, medium: 0, low: 0 },
           entries: []
@@ -96043,17 +96180,17 @@ init_schema();
 init_qa_gate_profile();
 init_gate_evidence();
 import * as fs94 from "node:fs";
-import * as path121 from "node:path";
+import * as path122 from "node:path";
 
 // src/hooks/diff-scope.ts
 init_bun_compat();
 import * as fs93 from "node:fs";
-import * as path120 from "node:path";
+import * as path121 from "node:path";
 
 // src/utils/gitignore-warning.ts
 init_bun_compat();
 import * as fs92 from "node:fs";
-import * as path119 from "node:path";
+import * as path120 from "node:path";
 var _internals36 = { bunSpawn };
 var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
@@ -96127,10 +96264,10 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
     const excludeRelPath = excludePathRaw.trim();
     if (!excludeRelPath)
       return;
-    const excludePath = path119.isAbsolute(excludeRelPath) ? excludeRelPath : path119.join(directory, excludeRelPath);
+    const excludePath = path120.isAbsolute(excludeRelPath) ? excludeRelPath : path120.join(directory, excludeRelPath);
     if (checkIgnoreExitCode !== 0) {
       try {
-        fs92.mkdirSync(path119.dirname(excludePath), { recursive: true });
+        fs92.mkdirSync(path120.dirname(excludePath), { recursive: true });
         let existing = "";
         try {
           existing = fs92.readFileSync(excludePath, "utf8");
@@ -96174,7 +96311,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
 var _internals37 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
-    const planPath = path120.join(directory, ".swarm", "plan.json");
+    const planPath = path121.join(directory, ".swarm", "plan.json");
     if (!fs93.existsSync(planPath))
       return null;
     const raw = fs93.readFileSync(planPath, "utf-8");
@@ -96311,7 +96448,7 @@ var TIER_3_PATTERNS = [
 ];
 function matchesTier3Pattern(files) {
   for (const file3 of files) {
-    const fileName = path121.basename(file3);
+    const fileName = path122.basename(file3);
     for (const pattern of TIER_3_PATTERNS) {
       if (pattern.test(fileName)) {
         return true;
@@ -96325,7 +96462,7 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     if (hasActiveTurboMode()) {
       const resolvedDir2 = workingDirectory;
       try {
-        const planPath = path121.join(resolvedDir2, ".swarm", "plan.json");
+        const planPath = path122.join(resolvedDir2, ".swarm", "plan.json");
         const planRaw = fs94.readFileSync(planPath, "utf-8");
         const plan = JSON.parse(planRaw);
         for (const planPhase of plan.phases ?? []) {
@@ -96392,7 +96529,7 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     }
     try {
       const resolvedDir2 = workingDirectory;
-      const planPath = path121.join(resolvedDir2, ".swarm", "plan.json");
+      const planPath = path122.join(resolvedDir2, ".swarm", "plan.json");
       const planRaw = fs94.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       for (const planPhase of plan.phases ?? []) {
@@ -96577,8 +96714,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         };
       }
     }
-    normalizedDir = path121.normalize(args2.working_directory);
-    const pathParts = normalizedDir.split(path121.sep);
+    normalizedDir = path122.normalize(args2.working_directory);
+    const pathParts = normalizedDir.split(path122.sep);
     if (pathParts.includes("..")) {
       return {
         success: false,
@@ -96588,10 +96725,10 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
         ]
       };
     }
-    const resolvedDir = path121.resolve(normalizedDir);
+    const resolvedDir = path122.resolve(normalizedDir);
     try {
       const realPath = fs94.realpathSync(resolvedDir);
-      const planPath = path121.join(realPath, ".swarm", "plan.json");
+      const planPath = path122.join(realPath, ".swarm", "plan.json");
       if (!fs94.existsSync(planPath)) {
         return {
           success: false,
@@ -96623,8 +96760,8 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
   }
   if (args2.status === "in_progress") {
     try {
-      const evidencePath = path121.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
-      fs94.mkdirSync(path121.dirname(evidencePath), { recursive: true });
+      const evidencePath = path122.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
+      fs94.mkdirSync(path122.dirname(evidencePath), { recursive: true });
       const fd = fs94.openSync(evidencePath, "wx");
       let writeOk = false;
       try {
@@ -96648,7 +96785,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir) {
     recoverTaskStateFromDelegations(args2.task_id);
     let phaseRequiresReviewer = true;
     try {
-      const planPath = path121.join(directory, ".swarm", "plan.json");
+      const planPath = path122.join(directory, ".swarm", "plan.json");
       const planRaw = fs94.readFileSync(planPath, "utf-8");
       const plan = JSON.parse(planRaw);
       const taskPhase = plan.phases.find((p) => p.tasks.some((t) => t.id === args2.task_id));
@@ -96960,7 +97097,7 @@ init_ledger();
 init_manager();
 init_create_tool();
 import fs95 from "node:fs";
-import path122 from "node:path";
+import path123 from "node:path";
 function normalizeVerdict(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -97008,7 +97145,7 @@ async function executeWriteDriftEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "drift-verifier.json";
-  const relativePath = path122.join("evidence", String(phase), filename);
+  const relativePath = path123.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -97019,10 +97156,10 @@ async function executeWriteDriftEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path122.dirname(validatedPath);
+  const evidenceDir = path123.dirname(validatedPath);
   try {
     await fs95.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path122.join(evidenceDir, `.${filename}.tmp`);
+    const tempPath = path123.join(evidenceDir, `.${filename}.tmp`);
     await fs95.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
     await fs95.promises.rename(tempPath, validatedPath);
     let snapshotInfo;
@@ -97120,7 +97257,7 @@ init_utils2();
 init_manager();
 init_create_tool();
 import fs96 from "node:fs";
-import path123 from "node:path";
+import path124 from "node:path";
 function normalizeVerdict2(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -97171,7 +97308,7 @@ async function executeWriteFinalCouncilEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "final-council.json";
-  const relativePath = path123.join("evidence", filename);
+  const relativePath = path124.join("evidence", filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -97182,10 +97319,10 @@ async function executeWriteFinalCouncilEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path123.dirname(validatedPath);
+  const evidenceDir = path124.dirname(validatedPath);
   try {
     await fs96.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path123.join(evidenceDir, `.${filename}.tmp`);
+    const tempPath = path124.join(evidenceDir, `.${filename}.tmp`);
     await fs96.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
     await fs96.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
@@ -97232,7 +97369,7 @@ init_zod();
 init_utils2();
 init_create_tool();
 import fs97 from "node:fs";
-import path124 from "node:path";
+import path125 from "node:path";
 function normalizeVerdict3(verdict) {
   switch (verdict) {
     case "APPROVED":
@@ -97280,7 +97417,7 @@ async function executeWriteHallucinationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "hallucination-guard.json";
-  const relativePath = path124.join("evidence", String(phase), filename);
+  const relativePath = path125.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -97291,10 +97428,10 @@ async function executeWriteHallucinationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path124.dirname(validatedPath);
+  const evidenceDir = path125.dirname(validatedPath);
   try {
     await fs97.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path124.join(evidenceDir, `.${filename}.tmp`);
+    const tempPath = path125.join(evidenceDir, `.${filename}.tmp`);
     await fs97.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
     await fs97.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
@@ -97343,7 +97480,7 @@ init_zod();
 init_utils2();
 init_create_tool();
 import fs98 from "node:fs";
-import path125 from "node:path";
+import path126 from "node:path";
 function normalizeVerdict4(verdict) {
   switch (verdict) {
     case "PASS":
@@ -97417,7 +97554,7 @@ async function executeWriteMutationEvidence(args2, directory) {
     entries: [evidenceEntry]
   };
   const filename = "mutation-gate.json";
-  const relativePath = path125.join("evidence", String(phase), filename);
+  const relativePath = path126.join("evidence", String(phase), filename);
   let validatedPath;
   try {
     validatedPath = validateSwarmPath(directory, relativePath);
@@ -97428,10 +97565,10 @@ async function executeWriteMutationEvidence(args2, directory) {
       message: error93 instanceof Error ? error93.message : "Failed to validate path"
     }, null, 2);
   }
-  const evidenceDir = path125.dirname(validatedPath);
+  const evidenceDir = path126.dirname(validatedPath);
   try {
     await fs98.promises.mkdir(evidenceDir, { recursive: true });
-    const tempPath = path125.join(evidenceDir, `.${filename}.tmp`);
+    const tempPath = path126.join(evidenceDir, `.${filename}.tmp`);
     await fs98.promises.writeFile(tempPath, JSON.stringify(evidenceContent, null, 2), "utf-8");
     await fs98.promises.rename(tempPath, validatedPath);
     return JSON.stringify({
@@ -97740,7 +97877,7 @@ async function initializeOpenCodeSwarm(ctx) {
     const { PreflightTriggerManager: PTM } = await Promise.resolve().then(() => (init_trigger(), exports_trigger));
     preflightTriggerManager = new PTM(automationConfig);
     const { AutomationStatusArtifact: ASA } = await Promise.resolve().then(() => (init_status_artifact(), exports_status_artifact));
-    const swarmDir = path126.resolve(ctx.directory, ".swarm");
+    const swarmDir = path127.resolve(ctx.directory, ".swarm");
     statusArtifact = new ASA(swarmDir);
     statusArtifact.updateConfig(automationConfig.mode, automationConfig.capabilities);
     if (automationConfig.capabilities?.evidence_auto_summaries === true) {
@@ -97919,15 +98056,19 @@ async function initializeOpenCodeSwarm(ctx) {
         ...opencodeConfig.command || {},
         swarm: {
           template: "/swarm $ARGUMENTS",
-          description: "Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]"
+          description: "Swarm management commands: /swarm [status|show-plan|plan|agents|history|config|help|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor tools|finalize|close]"
         },
         "swarm-status": {
           template: "/swarm status",
           description: "Use /swarm status to show current swarm status and active phase"
         },
+        "swarm-show-plan": {
+          template: "/swarm show-plan $ARGUMENTS",
+          description: "Use /swarm show-plan to view or filter the current execution plan"
+        },
         "swarm-plan": {
           template: "/swarm plan $ARGUMENTS",
-          description: "Use /swarm plan to view or filter the current execution plan"
+          description: "Deprecated alias for /swarm show-plan"
         },
         "swarm-agents": {
           template: "/swarm agents",
@@ -98007,7 +98148,7 @@ async function initializeOpenCodeSwarm(ctx) {
         },
         "swarm-council": {
           template: "/swarm council $ARGUMENTS",
-          description: "Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--spec-review]"
+          description: "Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--preset <name>] [--spec-review]"
         },
         "swarm-pr-review": {
           template: "/swarm pr-review $ARGUMENTS",
@@ -98069,9 +98210,13 @@ async function initializeOpenCodeSwarm(ctx) {
           template: "/swarm evidence summary",
           description: "Use /swarm evidence summary to generate evidence summaries"
         },
+        "swarm-finalize": {
+          template: "/swarm finalize",
+          description: "Use /swarm finalize to archive the swarm project and close active state"
+        },
         "swarm-close": {
           template: "/swarm close",
-          description: "Use /swarm close to close the swarm project and archive state"
+          description: "Deprecated alias for /swarm finalize"
         },
         "swarm-acknowledge-spec-drift": {
           template: "/swarm acknowledge-spec-drift",

@@ -45,8 +45,8 @@ describe('conflict-registry structural tests', () => {
 		}
 	});
 
-	test('4. CRITICAL_CONFLICTS set contains exactly: plan, reset, checkpoint', () => {
-		const criticalCommands = ['plan', 'reset', 'checkpoint'];
+	test('4. CRITICAL_CONFLICTS set contains exactly: show-plan, reset, checkpoint', () => {
+		const criticalCommands = ['show-plan', 'reset', 'checkpoint'];
 		expect(CRITICAL_CONFLICTS.size).toBe(3);
 		for (const cmd of criticalCommands) {
 			expect(CRITICAL_CONFLICTS.has(cmd)).toBe(true);

@@ -17,7 +17,7 @@ conflicting swarm subcommand by its bare name when inside a swarm agent context.
 
 | Swarm Command | Conflicts With | Severity | CC Behavior |
 |---|---|---|---|
-| `/swarm plan` | `/plan` | 🔴 CRITICAL | Enters plan mode — Claude proposes before executing |
+| `/swarm show-plan` | `/plan` | 🔴 CRITICAL | Enters plan mode — Claude proposes before executing |
 | `/swarm reset` | `/reset` | 🔴 CRITICAL | Alias for `/clear` — wipes entire conversation |
 | `/swarm checkpoint` | `/checkpoint` | 🔴 CRITICAL | Alias for `/rewind` — restores prior conversation state |
 | `/swarm status` | `/status` | 🟠 HIGH | Shows Claude version, model, account info |
@@ -66,14 +66,16 @@ List all registered agents with their model, temperature, read-only status, and 
 
 ## Plan Management
 
-### `/swarm plan [N]`
+### `/swarm show-plan [N]`
 
 Display the full `.swarm/plan.md`. With a phase number, show only that phase.
 
 ```text
-/swarm plan          # full plan
-/swarm plan 2        # Phase 2 tasks only
+/swarm show-plan      # full plan
+/swarm show-plan 2    # Phase 2 tasks only
 ```
+
+`/swarm plan [N]` remains available as a deprecated alias.
 
 ### `/swarm specify [description]`
 
@@ -300,7 +302,7 @@ Named snapshots of `.swarm/` state.
 
 Restore `.swarm/` to a phase checkpoint (`checkpoints/phase-<N>`). Writes a rollback event to `events.jsonl`. Without a phase argument, lists available checkpoints.
 
-### `/swarm close [--prune-branches]`
+### `/swarm finalize [--prune-branches]`
 
 Idempotent 4-stage project finalization:
 1. **Finalize** — write retrospectives for in-progress phases.
@@ -309,6 +311,8 @@ Idempotent 4-stage project finalization:
 4. **Align** — safe git `ff-only` to `main`.
 
 Reads `.swarm/close-lessons.md` for explicit lessons and runs curation.
+
+`/swarm close [--prune-branches]` remains available as a deprecated alias.
 
 ---
 
@@ -369,7 +373,7 @@ Nine swarm commands share names with Claude Code built-in slash commands. Using 
 
 | Swarm Command | CC Built-in | Severity | CC Behavior | Swarm Behavior |
 |---|---|---|---|---|
-| `/swarm plan` | `/plan` | CRITICAL | Enters Claude Code plan mode — Claude proposes all actions before executing | Displays the current `.swarm/plan.md` task list |
+| `/swarm show-plan` | `/plan` | CRITICAL | Enters Claude Code plan mode — Claude proposes all actions before executing | Displays the current `.swarm/plan.md` task list |
 | `/swarm reset` | `/reset` | CRITICAL | Alias for `/clear` — wipes the entire conversation context window | Clears `.swarm` state files (requires `--confirm` flag) |
 | `/swarm checkpoint` | `/checkpoint` | CRITICAL | Alias for `/rewind` — restores conversation and code to a prior state | Manages named swarm project snapshots (save\|restore\|delete\|list) |
 | `/swarm status` | `/status` | HIGH | Shows CC version, model, account, and API connectivity | Shows current swarm state: active phase, task counts, registered agents |
@@ -405,7 +409,7 @@ The standalone binary accepts three top-level commands: `install`, `uninstall`, 
 
 ```bash
 opencode-swarm run status
-opencode-swarm run plan 2
+opencode-swarm run show-plan 2
 opencode-swarm run evidence 2.1
 ```
 

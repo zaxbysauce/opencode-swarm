@@ -217,12 +217,12 @@ in your `opencode-swarm.json`.
 
 ## Commands
 
-All 41 subcommands at a glance:
+All 43 subcommands at a glance:
 
 ```bash
 /swarm help [command]      # List all commands or get detailed help for a specific command
 /swarm status              # Current phase and task
-/swarm plan [N]            # Full plan or filtered by phase
+/swarm show-plan [N]       # Full plan or filtered by phase
 /swarm agents              # Registered agents and models
 /swarm diagnose            # Health check
 /swarm evidence [task]     # Test and review results
@@ -233,7 +233,7 @@ Use `/swarm help` to see all available commands categorized by function. Use `/s
 
 Nine commands display a ⚠️ warning in help output because they share names with Claude Code built-in slash commands (e.g., `/plan`, `/reset`, `/status`). The warning reminds you to always use `/swarm <command>` — the bare CC command does something different and sometimes destructive. See [docs/commands.md#claude-code-command-conflicts](docs/commands.md#claude-code-command-conflicts) for the full conflict registry.
 
-See [docs/commands.md](docs/commands.md) for the full reference (41 commands).
+See [docs/commands.md](docs/commands.md) for the full reference (43 commands).
 
 ## Command Aliases
 
@@ -248,6 +248,8 @@ Some commands are available under deprecated names for backwards compatibility. 
 | `/swarm info` | `/swarm status` |
 | `/swarm list-agents` | `/swarm agents` |
 | `/swarm health` | `/swarm diagnose` |
+| `/swarm plan` | `/swarm show-plan` |
+| `/swarm close` | `/swarm finalize` |
 | `/swarm check` | `/swarm preflight` |
 | `/swarm clear` | `/swarm reset-session` |
 
@@ -1321,7 +1323,8 @@ Control how tool outputs are summarized for LLM context.
 |---------|-------------|
 | `/swarm help [command]` | List all commands or get detailed help for a specific command |
 | `/swarm status` | Current phase, task progress, agent count |
-| `/swarm plan [N]` | Full plan or filtered by phase |
+| `/swarm show-plan [N]` | Full plan or filtered by phase |
+| `/swarm plan [N]` | Deprecated alias for `/swarm show-plan [N]` |
 | `/swarm agents` | Registered agents with models and permissions |
 | `/swarm history` | Completed phases with status |
 | `/swarm config` | Current resolved configuration |
@@ -1340,7 +1343,8 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm specify [description]` | Generate or import a feature specification |
 | `/swarm clarify [topic]` | Clarify and refine an existing feature specification |
 | `/swarm analyze` | Analyze spec.md vs plan.md for requirement coverage gaps |
-| `/swarm close [--prune-branches]` | Idempotent session close-out: retrospectives, lesson curation, evidence archive, context.md reset, config-backup cleanup, optional branch pruning |
+| `/swarm finalize [--prune-branches]` | Idempotent session close-out: retrospectives, lesson curation, evidence archive, context.md reset, config-backup cleanup, optional branch pruning |
+| `/swarm close [--prune-branches]` | Deprecated alias for `/swarm finalize [--prune-branches]` |
 | `/swarm write-retro` | Write a phase retrospective manually |
 | `/swarm handoff` | Generate a handoff summary for context-budget-critical sessions |
 | `/swarm simulate` | Simulate plan execution without writing code |

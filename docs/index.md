@@ -27,7 +27,7 @@ OpenCode Swarm (v6.81.0) is an architect-centric agentic swarm plugin for OpenCo
 | Document | Covers |
 |----------|--------|
 | [Configuration Reference](configuration.md) | Config file locations, minimal example, all configuration keys |
-| [Commands Reference](commands.md) | All 41 `/swarm` subcommands, flags, and examples |
+| [Commands Reference](commands.md) | All 43 `/swarm` subcommands, flags, and examples |
 | [Modes: Swarm vs Turbo vs Full-Auto](modes.md) | Execution modes, safety gates, when to use each |
 | [Pre-Swarm Planning Guide](planning.md) | How to plan tasks before running, task field reference, multi-model planning, spec pipeline |
 | [Swarm Briefing for LLMs](swarm-briefing.md) | Pipeline steps, task format, state machine — written for LLM plan authors |

@@ -26,6 +26,8 @@ export { handlePromoteCommand } from './promote';
 export { handleQaGatesCommand } from './qa-gates';
 export { handleHelpCommand } from './registry';
 export type { CommandContext, CommandEntry, RegisteredCommand, } from './registry.js';
+export type { CommandName } from './command-names.js';
+export { COMMAND_NAME_SET, COMMAND_NAMES } from './command-names.js';
 export { COMMAND_REGISTRY, resolveCommand, VALID_COMMANDS, } from './registry.js';
 export { handleResetCommand } from './reset';
 export { handleResetSessionCommand } from './reset-session';

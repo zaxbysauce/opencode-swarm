@@ -49,6 +49,8 @@ export type {
 	CommandEntry,
 	RegisteredCommand,
 } from './registry.js';
+export type { CommandName } from './command-names.js';
+export { COMMAND_NAME_SET, COMMAND_NAMES } from './command-names.js';
 // Re-export registry for consumers
 export {
 	COMMAND_REGISTRY,

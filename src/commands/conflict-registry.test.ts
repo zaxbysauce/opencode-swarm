@@ -13,7 +13,11 @@ import {
 import { COMMAND_REGISTRY } from './registry.js';
 
 /** Approved CRITICAL-level swarm commands — adding a new one without updating this set fails the test. */
-const APPROVED_CRITICAL_CONFLICTS = new Set(['plan', 'reset', 'checkpoint']);
+const APPROVED_CRITICAL_CONFLICTS = new Set([
+	'show-plan',
+	'reset',
+	'checkpoint',
+]);
 
 describe('conflict-registry CI gate', () => {
 	// ========== GROUP 1: Registry completeness check ==========

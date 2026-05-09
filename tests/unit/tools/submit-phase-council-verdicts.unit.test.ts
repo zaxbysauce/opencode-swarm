@@ -25,6 +25,21 @@ const writeConfig = (dir: string, council: Record<string, unknown>): void => {
 	);
 };
 
+const writeMutationGateEvidence = (
+	dir: string,
+	phaseNumber: number,
+	verdict: 'pass' | 'warn' | 'fail' | 'skip',
+): void => {
+	const evidenceDir = join(dir, '.swarm', 'evidence', String(phaseNumber));
+	mkdirSync(evidenceDir, { recursive: true });
+	writeFileSync(
+		join(evidenceDir, 'mutation-gate.json'),
+		JSON.stringify({
+			entries: [{ type: 'mutation-gate', verdict, timestamp: '2026-01-01T00:00:00Z' }],
+		}),
+	);
+};
+
 const makeVerdict = (
 	agent: string,
 	verdict: 'APPROVE' | 'CONCERNS' | 'REJECT' = 'APPROVE',
@@ -307,6 +322,170 @@ describe('submit_phase_council_verdicts — args validation', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.reason).toBe('invalid arguments');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('submit_phase_council_verdicts — mutation_gap emission', () => {
+	test('emits mutation_gap when mutation gate evidence is missing', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-mutation-gap-missing-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 3,
+					swarmId: 'test',
+					phaseSummary: 'Phase 3 summary.',
+					verdicts: ALL_5_VERDICTS,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.mutationGapEmitted).toBe(true);
+			expect(parsed.requiredFixesCount).toBeGreaterThan(0);
+			expect(parsed.unifiedFeedbackMd).toContain('Mutation Coverage Gap');
+			expect(parsed.unifiedFeedbackMd).toContain('mutation_gap');
+			const phaseCouncilPath = join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'3',
+				'phase-council.json',
+			);
+			const phaseCouncil = JSON.parse(readFileSync(phaseCouncilPath, 'utf-8'));
+			expect(phaseCouncil.entries[0].requiredFixes).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ category: 'mutation_gap' }),
+				]),
+			);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('does not emit mutation_gap when mutation gate evidence verdict is pass', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-mutation-gap-pass-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			writeMutationGateEvidence(tempDir, 1, 'pass');
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 1,
+					swarmId: 'test',
+					phaseSummary: 'Phase 1 summary.',
+					verdicts: ALL_5_VERDICTS,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.mutationGapEmitted).toBe(false);
+			expect(parsed.unifiedFeedbackMd).not.toContain('Mutation Coverage Gap');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('emits mutation_gap when mutation gate evidence verdict is skip', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-mutation-gap-skip-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			writeMutationGateEvidence(tempDir, 2, 'skip');
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 2,
+					swarmId: 'test',
+					phaseSummary: 'Phase 2 summary.',
+					verdicts: ALL_5_VERDICTS,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.mutationGapEmitted).toBe(true);
+			expect(parsed.unifiedFeedbackMd).toContain('mutation_gap');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('emits mutation_gap when mutation gate evidence verdict is warn', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-mutation-gap-warn-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			writeMutationGateEvidence(tempDir, 4, 'warn');
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 4,
+					swarmId: 'test',
+					phaseSummary: 'Phase 4 summary.',
+					verdicts: ALL_5_VERDICTS,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.mutationGapEmitted).toBe(true);
+			expect(parsed.unifiedFeedbackMd).toContain('mutation_gap');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('does not emit duplicate mutation_gap when verdicts already include mutation_gap', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-mutation-gap-duplicate-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			const verdictsWithMutationGap = [
+				{
+					...ALL_5_VERDICTS[0],
+					findings: [
+						{
+							severity: 'LOW',
+							category: 'mutation_gap',
+							location: 'existing',
+							detail: 'already present',
+							evidence: 'existing evidence',
+						},
+					],
+				},
+				...ALL_5_VERDICTS.slice(1),
+			];
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 5,
+					swarmId: 'test',
+					phaseSummary: 'Phase 5 summary.',
+					verdicts: verdictsWithMutationGap,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.mutationGapEmitted).toBe(false);
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
 		}

@@ -50,11 +50,19 @@ export declare const COMMAND_REGISTRY: {
         readonly category: "core";
         readonly clashesWithNativeCcCommand: "/status";
     };
+    readonly 'show-plan': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Show current plan (optionally filter by phase number)";
+        readonly category: "core";
+        readonly args: "[phase-number]";
+    };
     readonly plan: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
-        readonly description: "Show plan (optionally filter by phase number)";
+        readonly description: "Show current plan (deprecated alias for /swarm show-plan)";
         readonly category: "core";
         readonly clashesWithNativeCcCommand: "/plan";
+        readonly aliasOf: "show-plan";
+        readonly deprecated: true;
     };
     readonly agents: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -224,12 +232,21 @@ export declare const COMMAND_REGISTRY: {
         readonly args: "--threshold <number>, --min-commits <number>";
         readonly category: "diagnostics";
     };
-    readonly close: {
+    readonly finalize: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
-        readonly description: "Use /swarm close to close the swarm project and archive evidence";
+        readonly description: "Use /swarm finalize to finalize the swarm project and archive evidence";
         readonly details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.";
         readonly args: "--prune-branches";
         readonly category: "core";
+    };
+    readonly close: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Use /swarm close (deprecated alias) to finalize and archive swarm state";
+        readonly details: "Deprecated alias for /swarm finalize. Preserved for backward compatibility.";
+        readonly args: "--prune-branches";
+        readonly category: "core";
+        readonly aliasOf: "finalize";
+        readonly deprecated: true;
     };
     readonly simulate: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
@@ -264,8 +281,8 @@ export declare const COMMAND_REGISTRY: {
     };
     readonly council: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
-        readonly description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]";
-        readonly args: "<question> [--spec-review]";
+        readonly description: "Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]";
+        readonly args: "<question> [--preset <name>] [--spec-review]";
         readonly details: string;
         readonly category: "agent";
     };

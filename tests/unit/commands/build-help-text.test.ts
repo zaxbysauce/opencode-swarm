@@ -51,12 +51,12 @@ describe('buildHelpText() — Task 2.2 changes', () => {
 		});
 
 		test('commands in Core category appear under ### Core header', () => {
-			// status, plan, agents, close, handoff are core commands
+			// status, show-plan, agents, finalize, handoff are core commands
 			const coreSection = helpText.split('### Core')[1].split('###')[0];
 			expect(coreSection).toContain('/swarm status');
-			expect(coreSection).toContain('/swarm plan');
+			expect(coreSection).toContain('/swarm show-plan');
 			expect(coreSection).toContain('/swarm agents');
-			expect(coreSection).toContain('/swarm close');
+			expect(coreSection).toContain('/swarm finalize');
 			expect(coreSection).toContain('/swarm handoff');
 		});
 
@@ -255,7 +255,7 @@ describe('buildHelpText() — Task 2.2 changes', () => {
 		test('command descriptions are preserved', () => {
 			// Core commands should have their descriptions
 			expect(helpText).toContain('Show current swarm state'); // status
-			expect(helpText).toContain('Show plan'); // plan
+			expect(helpText).toContain('Show current plan'); // show-plan
 			expect(helpText).toContain('List registered agents'); // agents
 			expect(helpText).toContain('Show current resolved configuration'); // config
 			expect(helpText).toContain('Run health check on swarm state'); // diagnose
