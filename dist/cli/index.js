@@ -20700,7 +20700,7 @@ var init_model_limits = __esm(() => {
 var init_normalize_tool_name = () => {};
 
 // src/hooks/guardrails.ts
-var storedInputArgs, toolCallsSinceLastWrite, noOpWarningIssued, consecutiveNoToolTurns, DC_SAFE_TARGETS, DC_FS_ROOTS, pathNormalizationCache, globMatcherCache;
+var storedInputArgs, TRANSIENT_STATUS_CODES, toolCallsSinceLastWrite, noOpWarningIssued, consecutiveNoToolTurns, DC_SAFE_TARGETS, DC_FS_ROOTS, pathNormalizationCache, globMatcherCache;
 var init_guardrails = __esm(() => {
   init_quick_lru();
   init_agents2();
@@ -20720,6 +20720,7 @@ var init_guardrails = __esm(() => {
   init_model_limits();
   init_normalize_tool_name();
   storedInputArgs = new Map;
+  TRANSIENT_STATUS_CODES = new Set([408, 429, 500, 502, 503, 504, 529]);
   toolCallsSinceLastWrite = new Map;
   noOpWarningIssued = new Set;
   consecutiveNoToolTurns = new Map;
