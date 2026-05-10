@@ -34,15 +34,15 @@ describe('buildSlashCommandsList (via createArchitectAgent)', () => {
 
 	it('commands appear in /swarm <name> format with description', () => {
 		// Check a known command appears in proper format
-		expect(prompt).toContain('`/swarm close`');
+		expect(prompt).toContain('`/swarm finalize`');
 		expect(prompt).toContain('`/swarm status`');
-		expect(prompt).toContain('`/swarm plan`');
+		expect(prompt).toContain('`/swarm show-plan`');
 	});
 
 	// ============ SIDE-EFFECT vs READ-ONLY ============
 
-	it('side-effect command "close" includes details text', () => {
-		// The "close" command has details about its 4-stage terminal finalization
+	it('side-effect command "finalize" includes details text', () => {
+		// The "finalize" command has details about its 4-stage terminal finalization
 		expect(prompt).toContain('Idempotent 4-stage terminal finalization');
 	});
 

@@ -1,8 +1,17 @@
+import {
+	existsSync,
+	mkdirSync,
+	readFileSync,
+	renameSync,
+	unlinkSync,
+	writeFileSync,
+} from 'node:fs';
+import path from 'node:path';
 import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { synthesizePhaseCouncilAdvisory } from '../council/council-service';
-import type { CouncilMemberVerdict } from '../council/types';
+import type { CouncilFinding, CouncilMemberVerdict } from '../council/types';
 import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
@@ -185,6 +194,16 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 				config.council,
 				workingDir,
 			);
+			const existingMutationGapFinding = input.verdicts.some((verdict) =>
+				verdict.findings.some((finding) => finding.category === 'mutation_gap'),
+			);
+			const mutationGapFinding = existingMutationGapFinding
+				? null
+				: getPhaseMutationGapFinding(input.phaseNumber, workingDir);
+			if (mutationGapFinding) {
+				addMutationGapFindingToSynthesis(synthesis, mutationGapFinding);
+			}
+			writePhaseCouncilEvidence(workingDir, synthesis);
 
 			return JSON.stringify(
 				{
@@ -197,6 +216,7 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 					advisoryFindingsCount: synthesis.advisoryFindings?.length ?? 0,
 					unresolvedConflictsCount: synthesis.unresolvedConflicts?.length ?? 0,
 					advisoryNotes: synthesis.advisoryNotes ?? [],
+					mutationGapEmitted: mutationGapFinding !== null,
 					membersVoted,
 					membersAbsent,
 					quorumSize: membersVoted.length,
@@ -209,3 +229,178 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 			);
 		},
 	});
+
+function getPhaseMutationGapFinding(
+	phaseNumber: number,
+	workingDir: string,
+): CouncilFinding | null {
+	const mutationGatePath = path.join(
+		workingDir,
+		'.swarm',
+		'evidence',
+		String(phaseNumber),
+		'mutation-gate.json',
+	);
+	try {
+		const raw = readFileSync(mutationGatePath, 'utf-8');
+		const parsed = JSON.parse(raw) as {
+			entries?: Array<{
+				type?: string;
+				verdict?: string;
+			}>;
+		};
+		const gateEntry = (parsed.entries ?? []).find(
+			(entry) => entry?.type === 'mutation-gate',
+		);
+		if (!gateEntry) {
+			return {
+				severity: 'HIGH',
+				category: 'mutation_gap',
+				location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+				detail:
+					'Mutation gate evidence is missing a mutation-gate entry for this phase.',
+				evidence:
+					'Expected entries[].type="mutation-gate" with verdict in mutation-gate.json.',
+			};
+		}
+		if (gateEntry.verdict === 'skip') {
+			return {
+				severity: 'MEDIUM',
+				category: 'mutation_gap',
+				location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+				detail:
+					'Mutation testing was skipped for this phase; coverage is unverified.',
+				evidence:
+					'mutation-gate.json recorded verdict="skip". Run mutation_test and write_mutation_evidence.',
+			};
+		}
+		if (gateEntry.verdict === 'warn') {
+			return {
+				severity: 'LOW',
+				category: 'mutation_gap',
+				location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+				detail:
+					'Mutation gate reported WARN; mutation coverage may be insufficient.',
+				evidence:
+					'mutation-gate.json recorded verdict="warn" indicating below-pass mutation quality.',
+			};
+		}
+		if (gateEntry.verdict === 'fail') {
+			return {
+				severity: 'HIGH',
+				category: 'mutation_gap',
+				location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+				detail:
+					'Mutation gate reported FAIL; mutation testing quality is below the required threshold.',
+				evidence:
+					'mutation-gate.json recorded verdict="fail" indicating insufficient mutation kill rate.',
+			};
+		}
+		return null;
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			return {
+				severity: 'HIGH',
+				category: 'mutation_gap',
+				location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+				detail:
+					'Mutation gate evidence file is missing for this phase, so mutation coverage cannot be verified.',
+				evidence:
+					'No .swarm/evidence/{phase}/mutation-gate.json was found at council synthesis time.',
+			};
+		}
+		return {
+			severity: 'MEDIUM',
+			category: 'mutation_gap',
+			location: `.swarm/evidence/${phaseNumber}/mutation-gate.json`,
+			detail:
+				'Mutation gate evidence could not be read, so mutation coverage cannot be verified.',
+			evidence: error instanceof Error ? error.message : String(error),
+		};
+	}
+}
+
+function writePhaseCouncilEvidence(
+	workingDir: string,
+	synthesis: {
+		phaseNumber: number;
+		timestamp: string;
+		overallVerdict: 'APPROVE' | 'CONCERNS' | 'REJECT';
+		quorumSize: number;
+		phaseSummary?: string;
+		requiredFixes: CouncilFinding[];
+		advisoryNotes: string[];
+		advisoryFindings: CouncilFinding[];
+		roundNumber: number;
+		allCriteriaMet: boolean;
+	},
+): void {
+	const evidenceDir = path.join(
+		workingDir,
+		'.swarm',
+		'evidence',
+		String(synthesis.phaseNumber),
+	);
+	mkdirSync(evidenceDir, { recursive: true });
+	const evidenceFile = path.join(evidenceDir, 'phase-council.json');
+	const evidenceBundle = {
+		entries: [
+			{
+				type: 'phase-council',
+				phase_number: synthesis.phaseNumber,
+				scope: 'phase',
+				timestamp: synthesis.timestamp,
+				verdict: synthesis.overallVerdict,
+				quorumSize: synthesis.quorumSize,
+				phaseSummary: synthesis.phaseSummary ?? '',
+				requiredFixes: synthesis.requiredFixes.map((finding) => ({
+					severity: finding.severity,
+					category: finding.category,
+					location: finding.location,
+					detail: finding.detail,
+					evidence: finding.evidence,
+				})),
+				advisoryNotes: synthesis.advisoryNotes,
+				advisoryFindings: synthesis.advisoryFindings.map((finding) => ({
+					severity: finding.severity,
+					category: finding.category,
+					location: finding.location,
+					detail: finding.detail,
+					evidence: finding.evidence,
+				})),
+				roundNumber: synthesis.roundNumber,
+				allCriteriaMet: synthesis.allCriteriaMet,
+			},
+		],
+	};
+
+	const tempFile = `${evidenceFile}.tmp-${Date.now()}`;
+	try {
+		writeFileSync(tempFile, JSON.stringify(evidenceBundle, null, 2), 'utf-8');
+		renameSync(tempFile, evidenceFile);
+	} finally {
+		if (existsSync(tempFile)) {
+			unlinkSync(tempFile);
+		}
+	}
+}
+
+function addMutationGapFindingToSynthesis(
+	synthesis: {
+		requiredFixes: CouncilFinding[];
+		advisoryFindings: CouncilFinding[];
+		unifiedFeedbackMd: string;
+	},
+	finding: CouncilFinding,
+): void {
+	if (finding.severity === 'HIGH' || finding.severity === 'MEDIUM') {
+		synthesis.requiredFixes.push(finding);
+	} else {
+		synthesis.advisoryFindings.push(finding);
+	}
+	synthesis.unifiedFeedbackMd += formatMutationGapFeedback(finding);
+}
+
+function formatMutationGapFeedback(finding: CouncilFinding): string {
+	return `\n\n### Mutation Coverage Gap\n- **[${finding.severity}]** \`${finding.location}\` (${finding.category}) — ${finding.detail}\n  _Evidence:_ ${finding.evidence}`;
+}

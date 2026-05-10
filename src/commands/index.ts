@@ -19,6 +19,8 @@ export { handleBrainstormCommand } from './brainstorm';
 export { handleCheckpointCommand } from './checkpoint';
 export { handleClarifyCommand } from './clarify';
 export { handleCloseCommand } from './close';
+export type { CommandName } from './command-names.js';
+export { COMMAND_NAME_SET, COMMAND_NAMES } from './command-names.js';
 export { handleConfigCommand } from './config';
 export { handleCouncilCommand } from './council';
 export { handleCurateCommand } from './curate';

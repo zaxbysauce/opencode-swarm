@@ -885,7 +885,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
+						'Swarm management commands: /swarm [status|show-plan|plan|agents|history|config|help|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor tools|finalize|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -893,10 +893,14 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					description:
 						'Use /swarm status to show current swarm status and active phase',
 				},
+				'swarm-show-plan': {
+					template: '/swarm show-plan $ARGUMENTS',
+					description:
+						'Use /swarm show-plan to view or filter the current execution plan',
+				},
 				'swarm-plan': {
 					template: '/swarm plan $ARGUMENTS',
-					description:
-						'Use /swarm plan to view or filter the current execution plan',
+					description: 'Deprecated alias for /swarm show-plan',
 				},
 				'swarm-agents': {
 					template: '/swarm agents',
@@ -989,7 +993,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				'swarm-council': {
 					template: '/swarm council $ARGUMENTS',
 					description:
-						'Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--spec-review]',
+						'Use /swarm council <question> to convene a multi-model General Council deliberation (generalist / skeptic / domain expert) [--preset <name>] [--spec-review]',
 				},
 				'swarm-pr-review': {
 					template: '/swarm pr-review $ARGUMENTS',
@@ -1063,10 +1067,14 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					description:
 						'Use /swarm evidence summary to generate evidence summaries',
 				},
+				'swarm-finalize': {
+					template: '/swarm finalize',
+					description:
+						'Use /swarm finalize to archive the swarm project and close active state',
+				},
 				'swarm-close': {
 					template: '/swarm close',
-					description:
-						'Use /swarm close to close the swarm project and archive state',
+					description: 'Deprecated alias for /swarm finalize',
 				},
 				'swarm-acknowledge-spec-drift': {
 					template: '/swarm acknowledge-spec-drift',

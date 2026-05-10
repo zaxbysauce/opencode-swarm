@@ -22,18 +22,18 @@ describe('buildHelpText()', () => {
 			expect(helpText).toContain(statusEntry.description);
 		});
 
-		test('contains /swarm close with its description', () => {
-			const closeEntry = COMMAND_REGISTRY.close;
-			expect(helpText).toContain(`/swarm close`);
-			expect(helpText).toContain(closeEntry.description);
+		test('contains /swarm finalize with its description', () => {
+			const finalizeEntry = COMMAND_REGISTRY.finalize;
+			expect(helpText).toContain(`/swarm finalize`);
+			expect(helpText).toContain(finalizeEntry.description);
 		});
 	});
 
 	describe('Args: for commands with args', () => {
-		test('close command includes Args: with --prune-branches', () => {
-			const closeEntry = COMMAND_REGISTRY.close;
-			expect(closeEntry.args).toBe('--prune-branches');
-			// The help text should have Args: indented under the close command
+		test('finalize command includes Args: with --prune-branches', () => {
+			const finalizeEntry = COMMAND_REGISTRY.finalize;
+			expect(finalizeEntry.args).toBe('--prune-branches');
+			// The help text should have Args: indented under the finalize command
 			expect(helpText).toContain('Args: `--prune-branches`');
 		});
 
@@ -45,9 +45,9 @@ describe('buildHelpText()', () => {
 	});
 
 	describe('details text for commands with details', () => {
-		test('close command includes "Idempotent 4-stage" details', () => {
-			const closeEntry = COMMAND_REGISTRY.close;
-			expect(closeEntry.details).toContain('Idempotent 4-stage');
+		test('finalize command includes "Idempotent 4-stage" details', () => {
+			const finalizeEntry = COMMAND_REGISTRY.finalize;
+			expect(finalizeEntry.details).toContain('Idempotent 4-stage');
 			expect(helpText).toContain('Idempotent 4-stage');
 		});
 

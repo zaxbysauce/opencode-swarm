@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.11.1",
+    version: "7.12.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -48539,6 +48539,14 @@ var init_write_retro2 = __esm(() => {
   init_write_retro();
 });
 
+// src/commands/command-names.ts
+var COMMAND_NAMES, COMMAND_NAME_SET;
+var init_command_names = __esm(() => {
+  init_registry();
+  COMMAND_NAMES = Object.freeze(Object.keys(COMMAND_REGISTRY));
+  COMMAND_NAME_SET = new Set(COMMAND_NAMES);
+});
+
 // src/commands/index.ts
 var exports_commands = {};
 __export(exports_commands, {
@@ -48586,7 +48594,9 @@ __export(exports_commands, {
   createSwarmCommandHandler: () => createSwarmCommandHandler,
   buildHelpText: () => buildHelpText,
   VALID_COMMANDS: () => VALID_COMMANDS,
-  COMMAND_REGISTRY: () => COMMAND_REGISTRY
+  COMMAND_REGISTRY: () => COMMAND_REGISTRY,
+  COMMAND_NAME_SET: () => COMMAND_NAME_SET,
+  COMMAND_NAMES: () => COMMAND_NAMES
 });
 import fs22 from "fs";
 import path37 from "path";
@@ -48766,6 +48776,7 @@ var init_commands = __esm(() => {
   init_benchmark();
   init_checkpoint2();
   init_close();
+  init_command_names();
   init_config2();
   init_council();
   init_curate();
@@ -49023,11 +49034,19 @@ var init_registry = __esm(() => {
       category: "core",
       clashesWithNativeCcCommand: "/status"
     },
+    "show-plan": {
+      handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
+      description: "Show current plan (optionally filter by phase number)",
+      category: "core",
+      args: "[phase-number]"
+    },
     plan: {
       handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
-      description: "Show plan (optionally filter by phase number)",
+      description: "Show current plan (deprecated alias for /swarm show-plan)",
       category: "core",
-      clashesWithNativeCcCommand: "/plan"
+      clashesWithNativeCcCommand: "/plan",
+      aliasOf: "show-plan",
+      deprecated: true
     },
     agents: {
       handler: (ctx) => Promise.resolve(handleAgentsCommand(ctx.agents, undefined)),
@@ -49197,12 +49216,21 @@ var init_registry = __esm(() => {
       args: "--threshold <number>, --min-commits <number>",
       category: "diagnostics"
     },
-    close: {
+    finalize: {
       handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
-      description: "Use /swarm close to close the swarm project and archive evidence",
+      description: "Use /swarm finalize to finalize the swarm project and archive evidence",
       details: "Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.",
       args: "--prune-branches",
       category: "core"
+    },
+    close: {
+      handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+      description: "Use /swarm close (deprecated alias) to finalize and archive swarm state",
+      details: "Deprecated alias for /swarm finalize. Preserved for backward compatibility.",
+      args: "--prune-branches",
+      category: "core",
+      aliasOf: "finalize",
+      deprecated: true
     },
     simulate: {
       handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
@@ -49237,9 +49265,9 @@ var init_registry = __esm(() => {
     },
     council: {
       handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
-      description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--spec-review]",
-      args: "<question> [--spec-review]",
-      details: "Triggers the architect to convene a three-agent General Council: Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). " + "The architect first runs 1\u20133 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). The architect synthesizes the final answer directly from convene_general_council output. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.",
+      description: "Enter architect MODE: COUNCIL \u2014 multi-model deliberation [question] [--preset <name>] [--spec-review]",
+      args: "<question> [--preset <name>] [--spec-review]",
+      details: "Triggers the architect to convene a three-agent General Council: Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). Use --preset <name> to choose a named member preset from council.general.presets. " + "The architect first runs 1\u20133 targeted web searches and passes a compiled RESEARCH CONTEXT " + "to all three agents before dispatching them in parallel. Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). The architect synthesizes the final answer directly from convene_general_council output. --spec-review switches to single-pass advisory mode for spec review. Requires council.general.enabled: true and a search API key in opencode-swarm.json.",
       category: "agent"
     },
     "pr-review": {

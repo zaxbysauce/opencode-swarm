@@ -97,7 +97,9 @@ describe('Task 3.2: Dynamic SKIP_ALIASES from COMMAND_REGISTRY', () => {
 	it('known aliases do NOT appear as commands', () => {
 		// These are aliases that should be filtered - check they don't appear as `/swarm alias`
 		const knownAliases = [
+			'plan',
 			'config-doctor',
+			'close',
 			'diagnosis',
 			'evidence-summary',
 			'doctor',
@@ -118,9 +120,9 @@ describe('Task 3.2: Dynamic SKIP_ALIASES from COMMAND_REGISTRY', () => {
 
 	it('non-alias commands still appear correctly', () => {
 		// These are NOT aliases and should appear
-		expect(commandAppears('close')).toBe(true);
+		expect(commandAppears('finalize')).toBe(true);
 		expect(commandAppears('status')).toBe(true);
-		expect(commandAppears('plan')).toBe(true);
+		expect(commandAppears('show-plan')).toBe(true);
 		expect(commandAppears('diagnose')).toBe(true);
 		expect(commandAppears('config doctor')).toBe(true);
 	});

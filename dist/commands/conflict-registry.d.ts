@@ -17,12 +17,12 @@ export interface CommandConflict {
     disambiguationNote: string;
 }
 export declare const CLAUDE_CODE_CONFLICTS: readonly [{
-    readonly swarmCommand: "plan";
+    readonly swarmCommand: "show-plan";
     readonly ccCommand: "/plan";
     readonly severity: "CRITICAL";
     readonly ccBehavior: "Enters Claude Code plan mode — Claude proposes all actions before executing them";
     readonly swarmBehavior: "Displays the current .swarm/plan.md task list";
-    readonly disambiguationNote: "Use /swarm plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution.";
+    readonly disambiguationNote: "Use /swarm show-plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution.";
 }, {
     readonly swarmCommand: "reset";
     readonly ccCommand: "/reset";

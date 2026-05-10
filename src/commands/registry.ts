@@ -245,11 +245,19 @@ export const COMMAND_REGISTRY = {
 		category: 'core',
 		clashesWithNativeCcCommand: '/status',
 	},
+	'show-plan': {
+		handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
+		description: 'Show current plan (optionally filter by phase number)',
+		category: 'core',
+		args: '[phase-number]',
+	},
 	plan: {
 		handler: (ctx) => handlePlanCommand(ctx.directory, ctx.args),
-		description: 'Show plan (optionally filter by phase number)',
+		description: 'Show current plan (deprecated alias for /swarm show-plan)',
 		category: 'core',
 		clashesWithNativeCcCommand: '/plan',
+		aliasOf: 'show-plan',
+		deprecated: true,
 	},
 	agents: {
 		// handleAgentsCommand is synchronous — wrap in Promise.resolve
@@ -435,14 +443,25 @@ export const COMMAND_REGISTRY = {
 		args: '--threshold <number>, --min-commits <number>',
 		category: 'diagnostics',
 	},
-	close: {
+	finalize: {
 		handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
 		description:
-			'Use /swarm close to close the swarm project and archive evidence',
+			'Use /swarm finalize to finalize the swarm project and archive evidence',
 		details:
 			'Idempotent 4-stage terminal finalization: (1) finalize writes retrospectives for in-progress phases, (2) archive creates timestamped bundle of swarm artifacts and evidence, (3) clean removes active-state files for a clean slate, (4) align performs safe git ff-only to main. Resets agent sessions and delegation chains. Reads .swarm/close-lessons.md for explicit lessons and runs curation.',
 		args: '--prune-branches',
 		category: 'core',
+	},
+	close: {
+		handler: (ctx) => handleCloseCommand(ctx.directory, ctx.args),
+		description:
+			'Use /swarm close (deprecated alias) to finalize and archive swarm state',
+		details:
+			'Deprecated alias for /swarm finalize. Preserved for backward compatibility.',
+		args: '--prune-branches',
+		category: 'core',
+		aliasOf: 'finalize',
+		deprecated: true,
 	},
 	simulate: {
 		handler: (ctx) => handleSimulateCommand(ctx.directory, ctx.args),
@@ -481,11 +500,12 @@ export const COMMAND_REGISTRY = {
 	council: {
 		handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
 		description:
-			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--spec-review]',
-		args: '<question> [--spec-review]',
+			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]',
+		args: '<question> [--preset <name>] [--spec-review]',
 		details:
 			'Triggers the architect to convene a three-agent General Council: ' +
 			'Generalist (reviewer model), Skeptic (critic model), and Domain Expert (SME model). ' +
+			'Use --preset <name> to choose a named member preset from council.general.presets. ' +
 			'The architect first runs 1–3 targeted web searches and passes a compiled RESEARCH CONTEXT ' +
 			'to all three agents before dispatching them in parallel. ' +
 			'Agents deliberate using the NSED peer-review protocol (Round 1 independent analysis, ' +

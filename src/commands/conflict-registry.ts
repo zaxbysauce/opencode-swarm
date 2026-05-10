@@ -22,14 +22,14 @@ export interface CommandConflict {
 export const CLAUDE_CODE_CONFLICTS = [
 	// CRITICAL (3)
 	{
-		swarmCommand: 'plan',
+		swarmCommand: 'show-plan',
 		ccCommand: '/plan',
 		severity: 'CRITICAL',
 		ccBehavior:
 			'Enters Claude Code plan mode — Claude proposes all actions before executing them',
 		swarmBehavior: 'Displays the current .swarm/plan.md task list',
 		disambiguationNote:
-			'Use /swarm plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution.',
+			'Use /swarm show-plan to read the swarm task plan. NEVER invoke the bare /plan command — it enters Claude Code plan mode and blocks execution.',
 	},
 	{
 		swarmCommand: 'reset',

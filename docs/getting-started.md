@@ -155,7 +155,7 @@ You'll see this progress in:
 
 ```bash
 /swarm status          # Current phase and active task
-/swarm plan            # The full multi-phase plan
+/swarm show-plan       # The full multi-phase plan
 /swarm evidence        # Test results, review findings per task
 ```
 
@@ -246,7 +246,7 @@ Swarm resumes from `.swarm/plan.md` instead of redoing discovery. This is expect
 
 ```bash
 /swarm status            # Current swarm state
-/swarm plan [phase]      # View the plan (optionally filtered by phase)
+/swarm show-plan [phase] # View the plan (optionally filtered by phase)
 /swarm agents            # List registered agents
 /swarm evidence          # Review test and code review results
 /swarm reset --confirm   # Clear swarm state and start over
