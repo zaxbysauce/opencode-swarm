@@ -8,6 +8,7 @@ import {
 	DEFAULT_AGENT_CONFIGS,
 	ORCHESTRATOR_NAME,
 } from '../../../src/config/constants';
+import { loadPluginConfig } from '../../../src/config/loader';
 
 const CLI_PATH = join(import.meta.dir, '../../../src/cli/index.ts');
 
@@ -127,7 +128,7 @@ describe('writeProjectConfigIfMissing', () => {
 		expect(existsSync(configPath)).toBe(true);
 	});
 
-	test('file contains agents key populated from DEFAULT_AGENT_CONFIGS', async () => {
+	test('file contains empty agents object (not populated from DEFAULT_AGENT_CONFIGS)', async () => {
 		await runCLI(['install'], { XDG_CONFIG_HOME: tempDir }, tempDir);
 
 		const configPath = join(tempDir, '.opencode', 'opencode-swarm.json');
@@ -135,23 +136,16 @@ describe('writeProjectConfigIfMissing', () => {
 
 		expect(parsed).toHaveProperty('agents');
 		expect(typeof parsed.agents).toBe('object');
-		expect(Object.keys(parsed.agents).length).toBeGreaterThan(0);
-
-		// Verify a specific agent config matches DEFAULT_AGENT_CONFIGS
-		expect(parsed.agents.coder.model).toBe(DEFAULT_AGENT_CONFIGS.coder.model);
-		expect(parsed.agents.coder.fallback_models).toEqual(
-			DEFAULT_AGENT_CONFIGS.coder.fallback_models,
-		);
+		expect(Object.keys(parsed.agents).length).toBe(0);
 	});
 
-	test('file contains default_agent: architect', async () => {
+	test('file does not contain default_agent (inherits from global config / schema defaults)', async () => {
 		await runCLI(['install'], { XDG_CONFIG_HOME: tempDir }, tempDir);
 
 		const configPath = join(tempDir, '.opencode', 'opencode-swarm.json');
 		const parsed = JSON.parse(await readFile(configPath, 'utf-8'));
 
-		expect(parsed).toHaveProperty('default_agent');
-		expect(parsed.default_agent).toBe('architect');
+		expect(parsed).not.toHaveProperty('default_agent');
 	});
 
 	test('does NOT overwrite existing project config', async () => {
@@ -186,9 +180,7 @@ describe('writeProjectConfigIfMissing', () => {
 		expect(existsSync(configPath)).toBe(true);
 
 		const parsed = JSON.parse(await readFile(configPath, 'utf-8'));
-		expect(parsed).toHaveProperty('agents');
-		expect(parsed).toHaveProperty('default_agent');
-		expect(parsed.default_agent).toBe('architect');
+		expect(parsed).toEqual({ agents: {} });
 	});
 });
 
@@ -266,7 +258,7 @@ describe('install() uses DEFAULT_AGENT_CONFIGS', () => {
 		expect(updated.agents.coder.model).toBe('custom/coder-model');
 	});
 
-	test('install creates project config with agents and default_agent: architect', async () => {
+	test('install creates project config with empty agents and no default_agent', async () => {
 		const result = await runCLI(
 			['install'],
 			{ XDG_CONFIG_HOME: tempDir },
@@ -281,9 +273,76 @@ describe('install() uses DEFAULT_AGENT_CONFIGS', () => {
 			await readFile(projectConfigPath, 'utf-8'),
 		);
 
-		expect(projectConfig).toHaveProperty('agents');
-		expect(projectConfig).toHaveProperty('default_agent');
-		expect(projectConfig.default_agent).toBe('architect');
+		expect(projectConfig).toEqual({ agents: {} });
+	});
+});
+
+describe('global config survives install', () => {
+	let tempDir: string;
+
+	beforeEach(async () => {
+		tempDir = await mkdtemp(join(tmpdir(), 'opencode-swarm-global-config-'));
+		await mkdir(join(tempDir, 'opencode'), { recursive: true });
+	});
+
+	afterEach(async () => {
+		if (existsSync(tempDir)) {
+			await rm(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('custom models in global config are preserved after install', async () => {
+		// Pre-populate global plugin config with a custom model
+		const globalPluginConfigPath = join(
+			tempDir,
+			'opencode',
+			'opencode-swarm.json',
+		);
+		const customGlobalConfig = {
+			agents: {
+				coder: {
+					model: 'my-custom/model',
+					fallback_models: ['my-custom/fallback'],
+				},
+			},
+		};
+		await writeFile(
+			globalPluginConfigPath,
+			JSON.stringify(customGlobalConfig, null, 2),
+		);
+
+		// Run install — should create minimal project config without clobbering global
+		const result = await runCLI(
+			['install'],
+			{ XDG_CONFIG_HOME: tempDir },
+			tempDir,
+		);
+		expect(result.exitCode).toBe(0);
+
+		// Project config must be minimal
+		const projectConfigPath = join(tempDir, '.opencode', 'opencode-swarm.json');
+		const projectConfig = JSON.parse(
+			await readFile(projectConfigPath, 'utf-8'),
+		);
+		expect(projectConfig).toEqual({ agents: {} });
+
+		// Loader must resolve global custom model, not the schema default.
+		// Set XDG_CONFIG_HOME so getUserConfigDir() points to our temp dir.
+		const origXdg = process.env.XDG_CONFIG_HOME;
+		process.env.XDG_CONFIG_HOME = tempDir;
+		try {
+			const resolved = loadPluginConfig(tempDir);
+			expect(resolved.agents?.coder?.model).toBe('my-custom/model');
+			expect(resolved.agents?.coder?.fallback_models).toEqual([
+				'my-custom/fallback',
+			]);
+		} finally {
+			if (origXdg === undefined) {
+				delete process.env.XDG_CONFIG_HOME;
+			} else {
+				process.env.XDG_CONFIG_HOME = origXdg;
+			}
+		}
 	});
 });
 
@@ -361,7 +420,7 @@ describe('backward compatibility', () => {
 		// Plugin config should be identical
 		expect(pluginConfig2).toEqual(pluginConfig1);
 
-		// Project config should still exist and be valid
-		expect(projectConfig2.default_agent).toBe('architect');
+		// Project config should still exist with minimal starter content
+		expect(projectConfig2).toEqual({ agents: {} });
 	});
 });

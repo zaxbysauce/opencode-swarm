@@ -145,12 +145,7 @@ function writeProjectConfigIfMissing(cwd: string): void {
 		// Create .opencode/ directory if it doesn't exist
 		ensureDir(opencodeDir);
 
-		// Write starter content with default agent configs
-		const starterConfig = {
-			agents: { ...DEFAULT_AGENT_CONFIGS },
-			default_agent: 'architect',
-		};
-		saveJson(projectConfigPath, starterConfig);
+		saveJson(projectConfigPath, { agents: {} });
 		console.log('✓ Created project config at:', projectConfigPath);
 	} catch (error) {
 		console.warn(

@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.12.0",
+    version: "7.13.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -49500,11 +49500,7 @@ function writeProjectConfigIfMissing(cwd) {
       return;
     }
     ensureDir(opencodeDir);
-    const starterConfig = {
-      agents: { ...DEFAULT_AGENT_CONFIGS },
-      default_agent: "architect"
-    };
-    saveJson(projectConfigPath, starterConfig);
+    saveJson(projectConfigPath, { agents: {} });
     console.log("\u2713 Created project config at:", projectConfigPath);
   } catch (error93) {
     console.warn("\u26A0 Could not create project config \u2014 installation will continue:");
