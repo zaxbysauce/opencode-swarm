@@ -130,7 +130,7 @@ Launch a structured deep PR review using multi-lane parallel analysis with indep
 
 **No-args behavior:** prints a usage string. The command never throws on bad input.
 
-### `/swarm deep-dive [--profile <name>] [--max-explorers <n>] [--json] [--skip-update] [--allow-dirty]`
+### `/swarm deep-dive <scope> [--profile <name>] [--max-explorers <n>] [--json] [--skip-update] [--allow-dirty]`
 
 Read-only codebase audit using parallel explorer waves with independent reviewer verification and sequential critic challenge.
 
@@ -139,10 +139,10 @@ Read-only codebase audit using parallel explorer waves with independent reviewer
 | `/swarm deep dive` |
 
 **Command forms:**
-- `/swarm deep-dive` — standard profile (default)
-- `/swarm deep-dive --profile security` — security-focused audit
-- `/swarm deep-dive --profile full --json` — full audit with machine-readable output
-- `/swarm deep dive --max-explorers 4` — alias form with reduced parallelism
+- `/swarm deep-dive auth` — standard profile (default)
+- `/swarm deep-dive src/security --profile security` — security-focused audit
+- `/swarm deep-dive "settings page" --profile full --json` — full audit with machine-readable output
+- `/swarm deep dive src/hooks --max-explorers 4` — alias form with reduced parallelism
 
 **Workflow:**
 1. **Repo Readiness** — verify clean git state (unless `--allow-dirty`)
@@ -157,7 +157,7 @@ Read-only codebase audit using parallel explorer waves with independent reviewer
 | Flag | Default | Description |
 |------|---------|-------------|
 | `--profile <name>` | `standard` | Audit profile: `standard`, `security`, `ux`, `architecture`, `full` |
-| `--max-explorers <n>` | `4` | Parallel explorer lanes (range: 1–8) |
+| `--max-explorers <n>` | `6` | Parallel explorer lanes (range: 1–8) |
 | `--json` | — | Emit machine-readable JSON output |
 | `--skip-update` | — | Skip OpenCode update check before audit |
 | `--allow-dirty` | — | Allow audit on dirty git state (uncommitted changes) |
