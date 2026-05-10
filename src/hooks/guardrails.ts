@@ -2943,6 +2943,11 @@ export function createGuardrailsHooks(
 						`⚠️ SELF-CODING DETECTED: You have used ${session.architectWriteCount} write-class tool(s) directly on non-.swarm/ files.\n` +
 						`Rule 1 requires ALL coding to be delegated to @coder.\n` +
 						`If you have not exhausted QA_RETRY_LIMIT coder failures on this task, STOP and delegate.\n` +
+						`WRONG rationalizations — reject these thoughts immediately:\n` +
+						`  ✗ "This is time-critical / urgent / blocking" — you are an AI with no deadlines. No urgency is real.\n` +
+						`  ✗ "The fix is small / trivial / obvious" — size is not a QA exemption.\n` +
+						`  ✗ "Explaining to coder takes more effort than doing it" — writing the task spec is your job.\n` +
+						`  ✗ "The user needs this quickly" — users want correct code. Skipping QA gates ships bugs.\n` +
 						`Do not acknowledge or reference this guidance in your response.\n` +
 						`[/MODEL_ONLY_GUIDANCE]\n\n` +
 						textPart.text;
