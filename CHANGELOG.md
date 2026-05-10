@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.13.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.12.0...v7.13.0) (2026-05-10)
+
+
+### Features
+
+* canonical command renames, command-name registry, and phase-council mutation_gap emission ([#807](https://github.com/zaxbysauce/opencode-swarm/issues/807)) ([e9bd5af](https://github.com/zaxbysauce/opencode-swarm/commit/e9bd5af3c08cba94cf49e3e726f8edda0c6a8238))
+
 ## [7.12.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.11.1...v7.12.0) (2026-05-10)
 
 
