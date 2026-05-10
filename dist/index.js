@@ -67039,7 +67039,14 @@ __export(exports_doc_scan, {
 });
 import * as crypto7 from "node:crypto";
 import * as fs47 from "node:fs";
-import { mkdir as mkdir11, readdir as readdir5, readFile as readFile11, stat as stat6, writeFile as writeFile10 } from "node:fs/promises";
+import {
+  mkdir as mkdir11,
+  readdir as readdir5,
+  readFile as readFile11,
+  realpath as realpath2,
+  stat as stat6,
+  writeFile as writeFile10
+} from "node:fs/promises";
 import * as path70 from "node:path";
 function normalizeSeparators(filePath) {
   return filePath.replace(/\\/g, "/");
@@ -67135,6 +67142,7 @@ async function scanDocIndex(directory) {
       }
     }
   } catch {}
+  const resolvedDirectory = await realpath2(directory).catch(() => directory);
   const discoveredFiles = [];
   let rootReadable = false;
   const walkDir = async (dir) => {
@@ -67147,11 +67155,18 @@ async function scanDocIndex(directory) {
       return;
     }
     for (const entry of entries) {
+      if (discoveredFiles.length >= MAX_INDEXED_FILES)
+        return;
       const isDir = entry.isDirectory();
       let isFile = entry.isFile();
       if (entry.isSymbolicLink()) {
         try {
-          const targetStat = await stat6(path70.join(dir, entry.name));
+          const symlinkPath = path70.join(dir, entry.name);
+          const resolved = await realpath2(symlinkPath);
+          const rel = path70.relative(resolvedDirectory, resolved);
+          if (rel.startsWith("..") || path70.isAbsolute(rel))
+            continue;
+          const targetStat = await stat6(symlinkPath);
           isFile = targetStat.isFile();
         } catch {
           continue;
