@@ -33,6 +33,7 @@ import { createReviewerAgent } from './reviewer';
 import { createSkillImproverAgent } from './skill-improver';
 import { createSMEAgent } from './sme';
 import { createSpecWriterAgent } from './spec-writer';
+import { emptyProjectContext, type ProjectContext } from './template';
 import { createTestEngineerAgent } from './test-engineer';
 
 export type { AgentDefinition } from './architect';
@@ -305,6 +306,7 @@ function createSwarmAgents(
 	swarmConfig: SwarmConfig,
 	isDefault: boolean,
 	pluginConfig?: PluginConfig,
+	projectContext: ProjectContext = emptyProjectContext(),
 ): AgentDefinition[] {
 	const agents: AgentDefinition[] = [];
 	const swarmAgents = swarmConfig.agents;
@@ -352,7 +354,29 @@ function createSwarmAgents(
 		architect.config.prompt = architect.config.prompt
 			?.replace(/\{\{SWARM_ID\}\}/g, swarmIdentity)
 			.replace(/\{\{AGENT_PREFIX\}\}/g, agentPrefix)
-			.replace(/\{\{QA_RETRY_LIMIT\}\}/g, String(qaRetryLimit));
+			.replace(/\{\{QA_RETRY_LIMIT\}\}/g, String(qaRetryLimit))
+			// Phase 4b: project-context placeholders. Defaults to UNRESOLVED
+			// sentinel when no projectContext was passed (architect's existing
+			// DISCOVER mode handles the sentinel). The session-init path in
+			// src/index.ts:initializeOpenCodeSwarm resolves these via
+			// withTimeout(2000ms)+pickBackend, fail-open per Invariant 1.
+			.replace(/\{\{PROJECT_LANGUAGE\}\}/g, projectContext.PROJECT_LANGUAGE)
+			.replace(/\{\{PROJECT_FRAMEWORK\}\}/g, projectContext.PROJECT_FRAMEWORK)
+			.replace(/\{\{BUILD_CMD\}\}/g, projectContext.BUILD_CMD)
+			.replace(/\{\{TEST_CMD\}\}/g, projectContext.TEST_CMD)
+			.replace(/\{\{LINT_CMD\}\}/g, projectContext.LINT_CMD)
+			.replace(/\{\{ENTRY_POINTS\}\}/g, projectContext.ENTRY_POINTS)
+			// Constraint / checklist blocks. These resolve to bulleted lists
+			// when a backend declares language-specific prompts and to empty
+			// strings (NOT the sentinel) when none are configured, so prompts
+			// without per-language overrides have no fake-bullet noise.
+			.replace(/\{\{CODER_CONSTRAINTS\}\}/g, projectContext.CODER_CONSTRAINTS)
+			.replace(/\{\{TEST_CONSTRAINTS\}\}/g, projectContext.TEST_CONSTRAINTS)
+			.replace(/\{\{REVIEWER_CHECKLIST\}\}/g, projectContext.REVIEWER_CHECKLIST)
+			.replace(
+				/\{\{PROJECT_CONTEXT_SECONDARY_LANGUAGES\}\}/g,
+				projectContext.PROJECT_CONTEXT_SECONDARY_LANGUAGES,
+			);
 
 		// Add swarm identity header for non-default swarms
 		if (!isDefault) {
@@ -643,7 +667,10 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 /**
  * Create all agent definitions with configuration applied
  */
-export function createAgents(config?: PluginConfig): AgentDefinition[] {
+export function createAgents(
+	config?: PluginConfig,
+	projectContext: ProjectContext = emptyProjectContext(),
+): AgentDefinition[] {
 	const allAgents: AgentDefinition[] = [];
 
 	// Check if we have swarms configured
@@ -661,6 +688,7 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
 				swarmConfig,
 				isDefault,
 				config,
+				projectContext,
 			);
 			allAgents.push(...swarmAgents);
 		}
@@ -675,6 +703,7 @@ export function createAgents(config?: PluginConfig): AgentDefinition[] {
 			legacySwarmConfig,
 			true,
 			config,
+			projectContext,
 		);
 		allAgents.push(...swarmAgents);
 	}
@@ -802,8 +831,9 @@ export function getAgentConfigs(
 	config?: PluginConfig,
 	directory?: string,
 	sessionId?: string,
+	projectContext?: ProjectContext,
 ): Record<string, SDKAgentConfig> {
-	const agents = createAgents(config);
+	const agents = createAgents(config, projectContext ?? emptyProjectContext());
 
 	// Check if tool filtering is disabled globally
 	const toolFilterEnabled = config?.tool_filter?.enabled ?? true;

@@ -7,6 +7,12 @@ export interface TestImpactResult {
 declare function normalizePath(p: string): string;
 declare function isCacheStale(impactMap: Record<string, string[]>, generatedAtMs: number): boolean;
 declare function resolveRelativeImport(fromDir: string, importPath: string): string | null;
+/**
+ * Test-only: clear the go-module memoization cache. Production code
+ * should never need this — the cache is per-call-graph scoped, but tests
+ * that reuse the same tempDir benefit from a fresh start.
+ */
+declare function _clearGoModuleCache(): void;
 declare function findTestFilesSync(cwd: string): string[];
 declare function extractImports(content: string): string[];
 declare function buildImpactMapInternal(cwd: string): Promise<Record<string, string[]>>;
@@ -21,6 +27,7 @@ export declare const _internals: {
     loadImpactMap: typeof loadImpactMap;
     saveImpactMap: typeof saveImpactMap;
     analyzeImpact: typeof analyzeImpact;
+    _clearGoModuleCache: typeof _clearGoModuleCache;
 };
 export declare function buildImpactMap(cwd: string): Promise<Record<string, string[]>>;
 export declare function loadImpactMap(cwd: string): Promise<Record<string, string[]>>;

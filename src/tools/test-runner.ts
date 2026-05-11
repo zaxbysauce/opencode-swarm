@@ -283,6 +283,136 @@ function detectMinitest(cwd: string): boolean {
 	);
 }
 
+/**
+ * Phase 3 dispatch path: detect the test framework via the
+ * `LanguageBackend` registry from `src/lang/dispatch.ts`. Currently
+ * opt-in via `SWARM_LANG_BACKEND=dispatch`; default remains the legacy
+ * `detectTestFramework` switch below. A future Phase 3b will flip the
+ * default and the env var becomes `SWARM_LANG_BACKEND=legacy` for
+ * one-release rollback.
+ *
+ * Maps `TestFrameworkSelection.name` (which mirrors the names in each
+ * profile's `test.frameworks[*].name`) back to the legacy `TestFramework`
+ * union string this function exists to produce. Names not in the
+ * union (e.g. PHP's "Pest"/"PHPUnit") collapse to `'none'`, preserving
+ * pre-Phase-3 behavior for languages whose tests the legacy path
+ * couldn't detect either.
+ */
+const DISPATCH_FRAMEWORK_MAP: Record<string, TestFramework> = {
+	'bun:test': 'bun',
+	bun: 'bun',
+	vitest: 'vitest',
+	jest: 'jest',
+	mocha: 'mocha',
+	pytest: 'pytest',
+	'cargo test': 'cargo',
+	cargo: 'cargo',
+	pester: 'pester',
+	'go test': 'go-test',
+	'maven-test': 'maven',
+	'gradle-test': 'gradle',
+	'gradle-test-groovy': 'gradle',
+	'gradle-kts': 'gradle',
+	'dotnet test': 'dotnet-test',
+	ctest: 'ctest',
+	'swift test': 'swift-test',
+	'xcodebuild-test': 'swift-test',
+	'flutter test': 'dart-test',
+	'dart test': 'dart-test',
+	rspec: 'rspec',
+	minitest: 'minitest',
+};
+
+export async function detectTestFrameworkViaDispatch(
+	cwd: string,
+): Promise<TestFramework> {
+	try {
+		// Lazy-load dispatch to keep the legacy code path import-graph small.
+		const { pickBackend } = await import('../lang/dispatch');
+		const backend = await pickBackend(cwd);
+		if (!backend?.selectTestFramework) return 'none';
+		const sel = await backend.selectTestFramework(cwd);
+		if (!sel) return 'none';
+		return DISPATCH_FRAMEWORK_MAP[sel.name] ?? 'none';
+	} catch {
+		// Defensive: dispatch failures must never break the test runner. Fall
+		// through to 'none' so the caller surfaces "no test framework
+		// detected" with the existing message.
+		return 'none';
+	}
+}
+
+/**
+ * Build a test command via the LanguageBackend dispatch path. Reverse-maps
+ * the union TestFramework string back to the profile name and asks the
+ * matching backend to produce a command. Falls back to the legacy switch
+ * (via `defaultBuildTestCommand` import) when no backend is registered or
+ * the backend has no `buildTestCommand` hook.
+ *
+ * Returns null on framework=`none` or when dispatch fails — callers (the
+ * test-runner) then surface "no test command available".
+ */
+export async function buildTestCommandViaDispatch(
+	framework: TestFramework,
+	scope: 'all' | 'convention' | 'graph' | 'impact',
+	files: string[],
+	coverage: boolean,
+	baseDir: string,
+): Promise<string[] | null> {
+	if (framework === 'none') return null;
+	try {
+		const { pickBackend } = await import('../lang/dispatch');
+		const backend = await pickBackend(baseDir);
+		if (backend?.buildTestCommand) {
+			const cmd = backend.buildTestCommand(framework, files, baseDir, {
+				scope,
+				coverage,
+			});
+			if (cmd) return cmd;
+		}
+		// No backend or hook → fall back to the registry-driven default with
+		// a synthesized profile lookup. Importing the default directly avoids
+		// the legacy-switch ping-pong: backend.buildTestCommand IS the legacy
+		// switch logic when the dispatch returns the default backend.
+		return null;
+	} catch {
+		return null;
+	}
+}
+
+/**
+ * Parse test output via the LanguageBackend dispatch path. Calls
+ * `backend.parseTestOutput` for the directory's resolved backend and
+ * returns the legacy-shaped `{ totals, coveragePercent? }` for the
+ * test-runner. Returns null when dispatch fails.
+ */
+export async function parseTestOutputViaDispatch(
+	framework: TestFramework,
+	output: string,
+	baseDir: string,
+): Promise<{ totals: TestTotals; coveragePercent?: number } | null> {
+	if (framework === 'none') return null;
+	try {
+		const { pickBackend } = await import('../lang/dispatch');
+		const backend = await pickBackend(baseDir);
+		if (!backend?.parseTestOutput) return null;
+		const summary = backend.parseTestOutput(framework, output, '', 0);
+		const passed = summary.passed ?? 0;
+		const failed = summary.failed ?? 0;
+		const skipped = summary.skipped ?? 0;
+		const total = summary.total ?? passed + failed + skipped;
+		const result: { totals: TestTotals; coveragePercent?: number } = {
+			totals: { passed, failed, skipped, total },
+		};
+		if (summary.coveragePercent !== undefined) {
+			result.coveragePercent = summary.coveragePercent;
+		}
+		return result;
+	} catch {
+		return null;
+	}
+}
+
 export async function detectTestFramework(cwd: string): Promise<TestFramework> {
 	const baseDir = cwd;
 	// Check for package.json to detect JS/TS frameworks
@@ -1362,8 +1492,21 @@ export async function runTests(
 		}
 	}
 
-	// Build the command
-	const command = buildTestCommand(framework, scope, files, coverage, cwd);
+	// Build the command. Phase 3b: route through dispatch by default; the
+	// resolved backend's `buildTestCommand` is the SAME logic as the legacy
+	// switch below (both delegate to `defaultBuildTestCommand` in
+	// `src/lang/default-backend.ts`). `SWARM_LANG_BACKEND=legacy` falls back
+	// to the inline switch for rollback parity.
+	const useDispatchBuild = process.env.SWARM_LANG_BACKEND !== 'legacy';
+	const command = useDispatchBuild
+		? ((await buildTestCommandViaDispatch(
+				framework,
+				scope,
+				files,
+				coverage,
+				cwd,
+			)) ?? buildTestCommand(framework, scope, files, coverage, cwd))
+		: buildTestCommand(framework, scope, files, coverage, cwd);
 
 	if (!command) {
 		return {
@@ -1433,8 +1576,15 @@ export async function runTests(
 			output += '\n... (output truncated at stream read limit)';
 		}
 
-		// Parse the output
-		const { totals, coveragePercent } = parseTestOutput(framework, output);
+		// Parse the output. Phase 3b: route through dispatch by default. The
+		// dispatch path delegates to the same `defaultParseTestOutput` switch
+		// the legacy path uses, so totals/coveragePercent shape is identical.
+		const useDispatchParse = process.env.SWARM_LANG_BACKEND !== 'legacy';
+		const parsed = useDispatchParse
+			? ((await parseTestOutputViaDispatch(framework, output, cwd)) ??
+				parseTestOutput(framework, output))
+			: parseTestOutput(framework, output);
+		const { totals, coveragePercent } = parsed;
 
 		// Determine success based on exit code and failures
 		const isTimeout = exitCode === -1;
@@ -1854,8 +2004,37 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 			MAX_TIMEOUT_MS,
 		);
 
-		// Detect the test framework
-		const framework = await detectTestFramework(workingDir);
+		// Detect the test framework. Phase 3b of language-agnostic refactor:
+		// DISPATCH IS THE DEFAULT. `SWARM_LANG_BACKEND=legacy` opts out for
+		// one release as a rollback path. The dispatch + legacy paths share
+		// the same buildTestCommand and parseTestOutput logic (the legacy
+		// switches in this file delegate to `defaultBuildTestCommand` /
+		// `defaultParseTestOutput` in `src/lang/default-backend.ts` — single
+		// source of truth).
+		//
+		// Dispatch+legacy composition: when dispatch returns `'none'`, fall
+		// through to the legacy switch as a backstop. This:
+		//   - Covers languages with no profile (PowerShell/Pester).
+		//   - Recovers the legacy permissive behavior for Python projects
+		//     where pytest is declared in pyproject.toml but not on PATH at
+		//     plugin-load time (venv not activated).
+		//   - Recovers Rust projects where Cargo.toml lacks
+		//     `[dev-dependencies]` content but the manifest still warrants
+		//     cargo test.
+		// The parity test
+		// (`tests/unit/tools/test-runner-dispatch-parity.test.ts`) asserts
+		// no FALSE POSITIVES — dispatch never returns a non-'none' framework
+		// the legacy detection disagrees with.
+		const useDispatch = process.env.SWARM_LANG_BACKEND !== 'legacy';
+		let framework: TestFramework;
+		if (useDispatch) {
+			framework = await detectTestFrameworkViaDispatch(workingDir);
+			if (framework === 'none') {
+				framework = await detectTestFramework(workingDir);
+			}
+		} else {
+			framework = await detectTestFramework(workingDir);
+		}
 
 		if (framework === 'none') {
 			const result: TestErrorResult = {

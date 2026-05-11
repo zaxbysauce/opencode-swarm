@@ -1,6 +1,7 @@
 import type { AgentConfig as SDKAgentConfig } from '@opencode-ai/sdk';
 import { type PluginConfig } from '../config';
 import { type AgentDefinition } from './architect';
+import { type ProjectContext } from './template';
 export type { AgentDefinition } from './architect';
 /**
  * Strip the user-defined swarm prefix from an agent name to get the base
@@ -41,7 +42,7 @@ export declare function getSwarmAgents(): Record<string, {
 /**
  * Create all agent definitions with configuration applied
  */
-export declare function createAgents(config?: PluginConfig): AgentDefinition[];
+export declare function createAgents(config?: PluginConfig, projectContext?: ProjectContext): AgentDefinition[];
 /**
  * Resolve the set of generated agent names that should be marked as primary
  * for OpenCode's session-default-agent resolution.
@@ -73,7 +74,7 @@ export declare function resolvePrimaryAgentNames(agentNames: string[], defaultAg
 /**
  * Get agent configurations formatted for the OpenCode SDK.
  */
-export declare function getAgentConfigs(config?: PluginConfig, directory?: string, sessionId?: string): Record<string, SDKAgentConfig>;
+export declare function getAgentConfigs(config?: PluginConfig, directory?: string, sessionId?: string, projectContext?: ProjectContext): Record<string, SDKAgentConfig>;
 export { createArchitectAgent } from './architect';
 export { createCoderAgent } from './coder';
 export { DOMAIN_EXPERT_COUNCIL_PROMPT, GENERALIST_COUNCIL_PROMPT, SKEPTIC_COUNCIL_PROMPT, } from './council-prompts';

@@ -49,6 +49,28 @@ export interface TestErrorResult {
     attempted_scope?: 'graph';
 }
 export type TestResult = TestSuccessResult | TestErrorResult;
+export declare function detectTestFrameworkViaDispatch(cwd: string): Promise<TestFramework>;
+/**
+ * Build a test command via the LanguageBackend dispatch path. Reverse-maps
+ * the union TestFramework string back to the profile name and asks the
+ * matching backend to produce a command. Falls back to the legacy switch
+ * (via `defaultBuildTestCommand` import) when no backend is registered or
+ * the backend has no `buildTestCommand` hook.
+ *
+ * Returns null on framework=`none` or when dispatch fails — callers (the
+ * test-runner) then surface "no test command available".
+ */
+export declare function buildTestCommandViaDispatch(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, baseDir: string): Promise<string[] | null>;
+/**
+ * Parse test output via the LanguageBackend dispatch path. Calls
+ * `backend.parseTestOutput` for the directory's resolved backend and
+ * returns the legacy-shaped `{ totals, coveragePercent? }` for the
+ * test-runner. Returns null when dispatch fails.
+ */
+export declare function parseTestOutputViaDispatch(framework: TestFramework, output: string, baseDir: string): Promise<{
+    totals: TestTotals;
+    coveragePercent?: number;
+} | null>;
 export declare function detectTestFramework(cwd: string): Promise<TestFramework>;
 /**
  * Returns true when `basename` matches a language-specific test file naming

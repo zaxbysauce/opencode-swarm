@@ -1,5 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { _internals as goInternals } from '../lang/backends/go';
+import { _internals as pythonInternals } from '../lang/backends/python';
 
 export interface TestImpactResult {
 	impactedTests: string[];
@@ -8,10 +10,18 @@ export interface TestImpactResult {
 	impactMap: Record<string, string[]>;
 }
 
-const IMPORT_REGEX_ES = /import\s+.*?\s+from\s+['"]([^'"]+)['"]/g;
+// TS/JS imports (multi-line aware — matches across newlines).
+const IMPORT_REGEX_ES = /import\s+[\s\S]*?\s+from\s+['"]([^'"]+)['"]/g;
 const IMPORT_REGEX_REQUIRE = /require\s*\(\s*['"]([^'"]+)['"]\s*\)/g;
 const IMPORT_REGEX_REEXPORT =
 	/export\s+(?:\{[^}]*\}|\*)\s+from\s+['"]([^'"]+)['"]/g;
+
+// Per-language extension sets. The impact analyzer walks tests of every
+// supported language, then routes each file through the right backend's
+// `extractImports` based on extension.
+const TS_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs']);
+const PYTHON_EXTENSIONS = new Set(['.py']);
+const GO_EXTENSIONS = new Set(['.go']);
 
 const EXTENSIONS_TO_TRY = ['.ts', '.tsx', '.js', '.jsx', '.mjs', '.cjs'];
 
@@ -65,6 +75,158 @@ function resolveRelativeImport(
 	return null;
 }
 
+/**
+ * Resolve a Python relative import (`from . import x` / `.foo` / `..bar.baz`)
+ * to an absolute file path. Non-relative imports return null — they would
+ * require sys.path / pyproject resolution that the analyzer does not perform.
+ *
+ * `module` is the captured dotted name from the `from` clause; values like
+ * `.foo`, `..bar.baz`, or `.` (current package).
+ */
+function resolvePythonImport(fromDir: string, module: string): string | null {
+	if (!module.startsWith('.')) return null;
+	// Count leading dots — each one walks one directory up.
+	const leadingDots = module.match(/^\.+/)?.[0].length ?? 0;
+	let baseDir = fromDir;
+	for (let i = 1; i < leadingDots; i++) {
+		baseDir = path.dirname(baseDir);
+	}
+	const rest = module.slice(leadingDots);
+	if (rest.length === 0) {
+		// `from . import x` — caller passes module="."; the actual file is
+		// __init__.py in baseDir.
+		const initPath = path.join(baseDir, '__init__.py');
+		if (fs.existsSync(initPath) && fs.statSync(initPath).isFile()) {
+			return normalizePath(initPath);
+		}
+		return null;
+	}
+	const subpath = rest.replace(/\./g, path.sep);
+	const candidates = [
+		`${path.join(baseDir, subpath)}.py`,
+		path.join(baseDir, subpath, '__init__.py'),
+	];
+	for (const c of candidates) {
+		if (fs.existsSync(c) && fs.statSync(c).isFile()) return normalizePath(c);
+	}
+	return null;
+}
+
+/**
+ * Find the `module <path>` line in the nearest go.mod walking up from
+ * `fromDir`. Returns `{ moduleRoot, modulePath }` or null when no go.mod
+ * is found. Bounded by a 16-level upward walk so an analyzer invocation
+ * cannot walk past the filesystem root on pathological inputs.
+ *
+ * Result is memoized per moduleRoot for the lifetime of an analyzer pass
+ * (callers within `buildImpactMapInternal` re-resolve frequently).
+ */
+const goModuleCache = new Map<
+	string,
+	{ moduleRoot: string; modulePath: string } | null
+>();
+function findGoModule(
+	fromDir: string,
+): { moduleRoot: string; modulePath: string } | null {
+	const resolved = path.resolve(fromDir);
+	let cur = resolved;
+	const walked: string[] = [];
+	for (let i = 0; i < 16; i++) {
+		const cached = goModuleCache.get(cur);
+		if (cached !== undefined) {
+			// Backfill walked dirs with this result for O(1) repeat lookups.
+			for (const d of walked) goModuleCache.set(d, cached);
+			return cached;
+		}
+		walked.push(cur);
+		try {
+			const goMod = path.join(cur, 'go.mod');
+			const content = fs.readFileSync(goMod, 'utf-8');
+			// Strip optional surrounding quotes and trailing `// comment`.
+			// Both forms are valid: `module example.com/x` and
+			// `module "example.com/x" // some note`. Without the strip the
+			// modulePath captured ends up as `"example.com/x"` and never
+			// matches imports.
+			const moduleMatch = content.match(
+				/^\s*module\s+"?([^"\s/]+(?:\/[^"\s]+)*)"?/m,
+			);
+			if (moduleMatch) {
+				const result = { moduleRoot: cur, modulePath: moduleMatch[1] };
+				for (const d of walked) goModuleCache.set(d, result);
+				return result;
+			}
+		} catch {
+			// no go.mod here — walk up
+		}
+		// Stop at .git boundary (project root). Prevents leaking past the
+		// project into /tmp/go.mod or /home/user/go.mod from other tests.
+		// Adversarial review D1.
+		try {
+			fs.accessSync(path.join(cur, '.git'));
+			break;
+		} catch {
+			// no .git here, continue walking
+		}
+		const parent = path.dirname(cur);
+		if (parent === cur) break;
+		cur = parent;
+	}
+	for (const d of walked) goModuleCache.set(d, null);
+	return null;
+}
+
+/**
+ * Resolve a Go import to local source files. Handles three cases:
+ *
+ *   1. Relative: `./pkg/foo` or `../pkg/foo` — resolved against fromDir.
+ *   2. Module path: `github.com/myorg/myrepo/pkg/foo` — when the import
+ *      starts with the local module path declared in go.mod, the remainder
+ *      maps to a directory under the module root. PR #825 review P1 #4
+ *      flagged that this resolution was missing; module imports are the
+ *      DOMINANT form in real Go projects.
+ *   3. Stdlib / external (no slash, or unrecognized prefix): returns [].
+ *
+ * In all matching cases, walks the target directory and returns ALL .go
+ * files (excluding *_test.go), treating the package as a unit.
+ */
+function resolveGoImport(fromDir: string, importPath: string): string[] {
+	let dir: string | null = null;
+
+	if (importPath.startsWith('.')) {
+		dir = path.resolve(fromDir, importPath);
+	} else {
+		const mod = findGoModule(fromDir);
+		if (
+			mod &&
+			(importPath === mod.modulePath ||
+				importPath.startsWith(`${mod.modulePath}/`))
+		) {
+			const subpath = importPath.slice(mod.modulePath.length);
+			dir = path.join(mod.moduleRoot, subpath);
+		}
+	}
+
+	if (dir === null) return [];
+	if (!fs.existsSync(dir) || !fs.statSync(dir).isDirectory()) return [];
+	try {
+		return fs
+			.readdirSync(dir)
+			.filter((f) => f.endsWith('.go') && !f.endsWith('_test.go'))
+			.map((f) => normalizePath(path.join(dir, f)));
+	} catch {
+		return [];
+	}
+}
+
+/**
+ * Test-only: clear the go-module memoization cache. Production code
+ * should never need this — the cache is per-call-graph scoped, but tests
+ * that reuse the same tempDir benefit from a fresh start.
+ */
+function _clearGoModuleCache(): void {
+	goModuleCache.clear();
+}
+
 function findTestFilesSync(cwd: string): string[] {
 	const testFiles: string[] = [];
 	const skipDirs = new Set([
@@ -105,10 +267,19 @@ function findTestFilesSync(cwd: string): string[] {
 				}
 			} else if (entry.isFile()) {
 				const name = entry.name;
-				if (
+				const isTsTest =
 					/\.(test|spec)\.(ts|tsx|js|jsx)$/.test(name) ||
-					(dir.includes('__tests__') && /\.(ts|tsx|js|jsx)$/.test(name))
-				) {
+					(dir.includes('__tests__') && /\.(ts|tsx|js|jsx)$/.test(name));
+				// Python: `test_*.py` (pytest convention) and `*_test.py` (PEP 8
+				// alternative). Also files in a top-level `tests/` directory that
+				// have a .py extension.
+				const isPyTest =
+					/^test_.+\.py$/.test(name) ||
+					/.+_test\.py$/.test(name) ||
+					(dir.includes(`${path.sep}tests${path.sep}`) && name.endsWith('.py'));
+				// Go: convention is `*_test.go` (enforced by `go test`).
+				const isGoTest = /.+_test\.go$/.test(name);
+				if (isTsTest || isPyTest || isGoTest) {
 					testFiles.push(normalizePath(path.join(dir, entry.name)));
 				}
 			}
@@ -138,6 +309,67 @@ function extractImports(content: string): string[] {
 	];
 }
 
+/**
+ * Per-file impact contribution. Inspects the test file's extension, picks
+ * the right import-extraction regex (TS via legacy regex, Python via
+ * `lang/backends/python._internals.extractImports`, Go via
+ * `lang/backends/go._internals.extractImports`), resolves each import to a
+ * source-file path via the matching language-specific resolver, and
+ * appends the test file to that source's impact list.
+ *
+ * Why route through the backend `_internals` rather than `pickBackend`?
+ * The impact analyzer runs on individual files inside a workspace; the
+ * dispatch resolver picks ONE backend per directory tree. For
+ * cross-language repos (e.g. a Go service with a TS web client) we need
+ * file-level routing, which the file extension already gives us.
+ */
+function addImpactEdgesForTestFile(
+	testFile: string,
+	content: string,
+	impactMap: Record<string, string[]>,
+): void {
+	const ext = path.extname(testFile).toLowerCase();
+	const testDir = path.dirname(testFile);
+
+	function addEdge(source: string): void {
+		if (!impactMap[source]) impactMap[source] = [];
+		if (!impactMap[source].includes(testFile)) {
+			impactMap[source].push(testFile);
+		}
+	}
+
+	if (TS_EXTENSIONS.has(ext)) {
+		const imports = extractImports(content);
+		for (const importPath of imports) {
+			const resolved = resolveRelativeImport(testDir, importPath);
+			if (resolved !== null) addEdge(resolved);
+		}
+		return;
+	}
+
+	if (PYTHON_EXTENSIONS.has(ext)) {
+		const modules = pythonInternals.extractImports(testFile, content);
+		for (const mod of modules) {
+			const resolved = resolvePythonImport(testDir, mod);
+			if (resolved !== null) addEdge(resolved);
+		}
+		return;
+	}
+
+	if (GO_EXTENSIONS.has(ext)) {
+		const imports = goInternals.extractImports(testFile, content);
+		for (const importPath of imports) {
+			const sourceFiles = resolveGoImport(testDir, importPath);
+			for (const source of sourceFiles) addEdge(source);
+		}
+		return;
+	}
+
+	// Unknown extension — no-op. The walker shouldn't surface these, but
+	// staying defensive keeps the analyzer stable when new test file types
+	// land in the walker before this dispatch is updated.
+}
+
 async function buildImpactMapInternal(
 	cwd: string,
 ): Promise<Record<string, string[]>> {
@@ -158,24 +390,7 @@ async function buildImpactMapInternal(
 			continue;
 		}
 
-		const imports = extractImports(content);
-		const testDir = path.dirname(testFile);
-
-		for (const importPath of imports) {
-			const resolvedSource = resolveRelativeImport(testDir, importPath);
-			if (resolvedSource === null) {
-				// Skip non-relative imports (e.g., node_modules)
-				continue;
-			}
-
-			if (!impactMap[resolvedSource]) {
-				impactMap[resolvedSource] = [];
-			}
-
-			if (!impactMap[resolvedSource].includes(testFile)) {
-				impactMap[resolvedSource].push(testFile);
-			}
-		}
+		addImpactEdgesForTestFile(testFile, content, impactMap);
 	}
 
 	return impactMap;
@@ -192,6 +407,7 @@ export const _internals: {
 	loadImpactMap: typeof loadImpactMap;
 	saveImpactMap: typeof saveImpactMap;
 	analyzeImpact: typeof analyzeImpact;
+	_clearGoModuleCache: typeof _clearGoModuleCache;
 } = {
 	normalizePath,
 	isCacheStale,
@@ -203,6 +419,7 @@ export const _internals: {
 	loadImpactMap,
 	saveImpactMap,
 	analyzeImpact,
+	_clearGoModuleCache,
 } as const;
 
 export async function buildImpactMap(

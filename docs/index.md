@@ -53,6 +53,7 @@ OpenCode Swarm (v6.81.0) is an architect-centric agentic swarm plugin for OpenCo
 | Document | Covers |
 |----------|--------|
 | [Architecture Deep Dive](architecture.md) | Control model, 11 agent roles, full execution pipeline, tools, evidence schema, modes, guardrails |
+| [Adding a Language](adding-a-language.md) | Extending the language registry with a new profile and (optionally) a custom backend; backend invariants and tests |
 | [Design Rationale](design-rationale.md) | Core design decisions: serial execution, phased planning, persistent memory, gated QA |
 | [Plan Durability](plan-durability.md) | How `.swarm/plan-ledger.jsonl` provides crash-safe plan persistence |
 
