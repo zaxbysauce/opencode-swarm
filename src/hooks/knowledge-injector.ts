@@ -33,6 +33,14 @@ import { readSwarmFileAsync, safeHook } from './utils.js';
 // ============================================================================
 
 /**
+ * Sentinel marker for idempotency detection.
+ * Uses zero-width non-joiner (U+200C) + ASCII sentinel — extremely unlikely to
+ * appear in natural text or knowledge lessons. Replaces the prior BOOK emoji
+ * (📖, U+1F4DA) which was fragile across system encodings.
+ */
+const INJECTION_SENTINEL = '\u200c[[KNOWLEDGE-INJECTED]]';
+
+/**
  * Builds a compact knowledge block from ranked entries, respecting a character budget.
  * Returns the formatted block string, or null if entries is empty.
  *
@@ -193,12 +201,7 @@ function injectKnowledgeMessage(
 
 	// Idempotency guard: skip if already injected in this transform
 	const alreadyInjected = output.messages.some((m) =>
-		m.parts?.some(
-			(p) =>
-				p.text?.includes('\ud83d\udcda Lessons:') ||
-				p.text?.includes('<drift_report>') ||
-				p.text?.includes('<curator_briefing>'),
-		),
+		m.parts?.some((p) => p.text?.includes(INJECTION_SENTINEL)),
 	);
 	if (alreadyInjected) return;
 
@@ -214,11 +217,27 @@ function injectKnowledgeMessage(
 
 	const knowledgeMessage: MessageWithParts = {
 		info: { role: 'system' },
-		parts: [{ type: 'text', text }],
+		parts: [{ type: 'text', text: `${INJECTION_SENTINEL}${text}` }],
 	};
 
 	output.messages.splice(insertIdx, 0, knowledgeMessage);
 }
+
+// ============================================================================
+// Module-Level Cache (with DI seam for test isolation)
+// ============================================================================
+let lastSeenCacheKey: string | null = null;
+let cachedInjectionText: string | null = null;
+let cachedShownIds: string[] = [];
+
+/** DI seam for test isolation — resets module-level cache between test files. */
+export const _internals = {
+	resetCache() {
+		lastSeenCacheKey = null;
+		cachedInjectionText = null;
+		cachedShownIds = [];
+	},
+};
 
 // ============================================================================
 // Exported Factory Function
@@ -240,10 +259,6 @@ export function createKnowledgeInjectorHook(
 	input: Record<string, never>,
 	output: { messages?: MessageWithParts[] },
 ) => Promise<void> {
-	let lastSeenCacheKey: string | null = null;
-	let cachedInjectionText: string | null = null;
-	let cachedShownIds: string[] = [];
-
 	function buildContextCacheKey(
 		phase: number,
 		ctx: KnowledgeRetrievalContext,

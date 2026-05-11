@@ -11,7 +11,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createKnowledgeInjectorHook } from '../../../src/hooks/knowledge-injector.js';
+import {
+	createKnowledgeInjectorHook,
+	_internals as injectorInternals,
+} from '../../../src/hooks/knowledge-injector.js';
 import type { RankedEntry } from '../../../src/hooks/knowledge-reader.js';
 import type {
 	KnowledgeConfig,
@@ -139,6 +142,7 @@ function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
 
 describe('Drift injection: reports exist and cachedInjectionText populated', () => {
 	beforeEach(() => {
+		injectorInternals.resetCache();
 		vi.clearAllMocks();
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
 			current_phase: 1,

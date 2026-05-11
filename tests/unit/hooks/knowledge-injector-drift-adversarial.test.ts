@@ -12,7 +12,10 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { createKnowledgeInjectorHook } from '../../../src/hooks/knowledge-injector.js';
+import {
+	createKnowledgeInjectorHook,
+	_internals as injectorInternals,
+} from '../../../src/hooks/knowledge-injector.js';
 import type { RankedEntry } from '../../../src/hooks/knowledge-reader.js';
 import type {
 	KnowledgeConfig,
@@ -140,6 +143,7 @@ function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
 
 describe('Adversarial: Malformed drift report structure', () => {
 	beforeEach(() => {
+		injectorInternals.resetCache();
 		vi.clearAllMocks();
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
 			current_phase: 1,
@@ -252,7 +256,8 @@ describe('Adversarial: Oversized drift text', () => {
 			entries,
 		);
 
-		// Change phase to 2
+		// Change phase to 2 — use fresh output to avoid idempotency guard
+		const output2 = makeOutput('architect');
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
 			current_phase: 2,
 			title: 'Test Project',
@@ -265,14 +270,14 @@ describe('Adversarial: Oversized drift text', () => {
 		// This should NOT throw - overflow is caller's responsibility
 		let errorThrown = false;
 		try {
-			await hook({}, output);
+			await hook({}, output2);
 		} catch {
 			errorThrown = true;
 		}
 		expect(errorThrown).toBe(false);
 
 		// Knowledge should still be injected with the massive drift text included
-		const knowledgeMsg = output.messages.find((m) =>
+		const knowledgeMsg = output2.messages.find((m) =>
 			m.parts?.some((p) => p.text?.includes('📚 Lessons:')),
 		);
 		expect(knowledgeMsg).toBeDefined();

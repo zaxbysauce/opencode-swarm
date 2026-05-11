@@ -6,6 +6,10 @@
  * to prevent re-learning loops.
  */
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
+/** DI seam for test isolation — resets module-level cache between test files. */
+export declare const _internals: {
+    resetCache(): void;
+};
 /**
  * Creates a knowledge injection hook that injects relevant knowledge into the
  * architect's message context at phase start. Supports caching for re-injection
