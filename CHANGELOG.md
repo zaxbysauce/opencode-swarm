@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.15.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.14.0...v7.15.0) (2026-05-11)
+
+
+### Features
+
+* **turbo:** add Lean Turbo parallel lane execution strategy ([#820](https://github.com/zaxbysauce/opencode-swarm/issues/820)) ([#820](https://github.com/zaxbysauce/opencode-swarm/issues/820)) ([ecdafc0](https://github.com/zaxbysauce/opencode-swarm/commit/ecdafc0a8e64cc56b898d0d7a80131ed7fda28b5))
+
 ## [7.14.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.13.2...v7.14.0) (2026-05-10)
 
 
