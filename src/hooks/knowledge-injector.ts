@@ -224,29 +224,14 @@ function injectKnowledgeMessage(
 }
 
 // ============================================================================
-// Module-Level Cache (with DI seam for test isolation)
-// ============================================================================
-let lastSeenCacheKey: string | null = null;
-let cachedInjectionText: string | null = null;
-let cachedShownIds: string[] = [];
-
-/** DI seam for test isolation — resets module-level cache between test files. */
-export const _internals = {
-	resetCache() {
-		lastSeenCacheKey = null;
-		cachedInjectionText = null;
-		cachedShownIds = [];
-	},
-};
-
-// ============================================================================
 // Exported Factory Function
 // ============================================================================
 
 /**
  * Creates a knowledge injection hook that injects relevant knowledge into the
  * architect's message context at phase start. Supports caching for re-injection
- * after compaction.
+ * after compaction. Cache is per-instance (bound to the returned hook closure),
+ * ensuring no cross-test pollution in Bun's shared test-runner process.
  *
  * @param directory - The project directory containing .swarm/
  * @param config - Knowledge system configuration
@@ -273,6 +258,10 @@ export function createKnowledgeInjectorHook(
 		].join('|');
 		return createHash('sha1').update(parts).digest('hex').slice(0, 16);
 	}
+
+	let lastSeenCacheKey: string | null = null;
+	let cachedInjectionText: string | null = null;
+	let cachedShownIds: string[] = [];
 
 	return safeHook(
 		async (

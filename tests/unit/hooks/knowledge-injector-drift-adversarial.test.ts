@@ -12,10 +12,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	createKnowledgeInjectorHook,
-	_internals as injectorInternals,
-} from '../../../src/hooks/knowledge-injector.js';
+import { createKnowledgeInjectorHook } from '../../../src/hooks/knowledge-injector.js';
 import type { RankedEntry } from '../../../src/hooks/knowledge-reader.js';
 import type {
 	KnowledgeConfig,
@@ -143,7 +140,6 @@ function makeConfig(overrides?: Partial<KnowledgeConfig>): KnowledgeConfig {
 
 describe('Adversarial: Malformed drift report structure', () => {
 	beforeEach(() => {
-		injectorInternals.resetCache();
 		vi.clearAllMocks();
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
 			current_phase: 1,
@@ -167,12 +163,6 @@ describe('Adversarial: Malformed drift report structure', () => {
 			{}, // empty object - no required fields
 		] as any);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init with phase 1
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -188,6 +178,9 @@ describe('Adversarial: Malformed drift report structure', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// This should NOT throw - error is caught by try/catch in drift injection block
 		let errorThrown = false;
@@ -324,12 +317,6 @@ describe('Adversarial: Array with null entry', () => {
 			},
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init with phase 1
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -345,6 +332,9 @@ describe('Adversarial: Array with null entry', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// This should NOT throw - error is caught by try/catch
 		let errorThrown = false;
@@ -402,12 +392,6 @@ describe('Adversarial: buildDriftInjectionText throws synchronously', () => {
 			},
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init with phase 1
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -423,6 +407,9 @@ describe('Adversarial: buildDriftInjectionText throws synchronously', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// This should NOT throw - error is caught by try/catch
 		let errorThrown = false;
@@ -470,12 +457,6 @@ describe('Adversarial: Wrong type returned (empty string instead of array)', () 
 			'' as any,
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init with phase 1
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -491,6 +472,9 @@ describe('Adversarial: Wrong type returned (empty string instead of array)', () 
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// This should NOT throw - behavior is benign
 		let errorThrown = false;
@@ -533,43 +517,26 @@ describe('Adversarial: cachedInjectionText is empty string', () => {
 	});
 
 	it('Test 6: cachedInjectionText is set to empty string "" → drift IS prepended (cachedInjectionText !== null is true)', async () => {
-		// First call must return empty drift reports so it doesn't inject drift-only text
-		// (which would trigger the idempotency guard and block the second call's knowledge injection).
-		(readPriorDriftReports as ReturnType<typeof vi.fn>)
-			.mockResolvedValueOnce([]) // first call: no reports → hook returns early without injecting
-			.mockResolvedValue([
-				{
-					phase: 1,
-					alignment: 'ALIGNED',
-					drift_score: 0.05,
-					injection_summary: 'test',
-				},
-			]);
+		// Set up drift reports
+		(readPriorDriftReports as ReturnType<typeof vi.fn>).mockResolvedValue([
+			{
+				phase: 1,
+				alignment: 'ALIGNED',
+				drift_score: 0.05,
+				injection_summary: 'test',
+			},
+		]);
 		(buildDriftInjectionText as ReturnType<typeof vi.fn>).mockReturnValue(
 			'<drift_report>Phase 1: ALIGNED</drift_report>',
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init with phase 1 (no drift reports, no injection)
-		await hook({}, output);
-
-		// Now make readMergedKnowledge return empty array AFTER init
-		// This simulates a scenario where cachedInjectionText would be set to empty string ("" is falsy but not null)
-		// Actually, the code won't set cachedInjectionText to empty string from readMergedKnowledge because it returns early if entries.length === 0
-		// So we need to manually simulate: what if cachedInjectionText was somehow set to ""?
-
-		// To test the condition `cachedInjectionText !== null`, we need to ensure cachedInjectionText is not null
-		// The way to get there is: have knowledge entries (so cachedInjectionText gets set), then on next phase change...
-
-		// Set up knowledge entries for phase 1
+		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
 			entries,
 		);
 
-		// Change phase to 2 - this triggers drift injection with cachedInjectionText already set
+		// Change phase to 2 - this triggers drift injection
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
 			current_phase: 2,
 			title: 'Test Project',
@@ -579,7 +546,10 @@ describe('Adversarial: cachedInjectionText is empty string', () => {
 			'Phase 2: Implementation',
 		);
 
-		// Call again - should have cachedInjectionText from phase 1, and drift should be prepended
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
+
+		// Call with all setup in place - drift should be prepended
 		await hook({}, output);
 
 		// Verify readPriorDriftReports was called (drift injection path taken)
@@ -687,26 +657,12 @@ describe('Adversarial: Context budget stressed', () => {
 	it('Test 7b: At 181k chars (old skip threshold) → still injects with new headroom check', async () => {
 		// 181k chars was the old skip threshold. Now it should inject (moderate regime).
 		const boundarySystemPrompt = 'x'.repeat(181_000);
-		const output = {
-			messages: [
-				{
-					info: { role: 'system', agent: 'architect' },
-					parts: [{ type: 'text', text: boundarySystemPrompt }],
-				},
-				{ info: { role: 'user' }, parts: [{ type: 'text', text: '' }] },
-			],
-		};
 
-		// Set up for successful injection
+		// Set up for successful injection BEFORE the hook call
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
 			entries,
 		);
-
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-
-		// First call - init with phase 1
-		await hook({}, output);
 
 		// Change phase to 2
 		(loadPlan as ReturnType<typeof vi.fn>).mockResolvedValue({
@@ -717,6 +673,17 @@ describe('Adversarial: Context budget stressed', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = {
+			messages: [
+				{
+					info: { role: 'system', agent: 'architect' },
+					parts: [{ type: 'text', text: boundarySystemPrompt }],
+				},
+				{ info: { role: 'user' }, parts: [{ type: 'text', text: '' }] },
+			],
+		};
 
 		// This should NOT throw
 		let errorThrown = false;
@@ -761,12 +728,6 @@ describe('Adversarial: Additional edge cases', () => {
 			undefined as any,
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -782,6 +743,9 @@ describe('Adversarial: Additional edge cases', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// Should not throw
 		let errorThrown = false;
@@ -813,12 +777,6 @@ describe('Adversarial: Additional edge cases', () => {
 			undefined as any,
 		);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -834,6 +792,9 @@ describe('Adversarial: Additional edge cases', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// Should not throw
 		let errorThrown = false;
@@ -860,12 +821,6 @@ describe('Adversarial: Additional edge cases', () => {
 			undefined,
 		] as any);
 
-		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
-		const output = makeOutput('architect');
-
-		// First call - init
-		await hook({}, output);
-
 		// Set up knowledge entries
 		const entries = [makeSwarmEntry('Test lesson', 0.85)];
 		(readMergedKnowledge as ReturnType<typeof vi.fn>).mockResolvedValue(
@@ -881,6 +836,9 @@ describe('Adversarial: Additional edge cases', () => {
 		(extractCurrentPhaseFromPlan as ReturnType<typeof vi.fn>).mockReturnValue(
 			'Phase 2: Implementation',
 		);
+
+		const hook = createKnowledgeInjectorHook('/proj', makeConfig());
+		const output = makeOutput('architect');
 
 		// Should not throw - accessing array elements that are undefined/null should not crash
 		let errorThrown = false;

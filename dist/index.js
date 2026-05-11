@@ -81502,9 +81502,6 @@ function injectKnowledgeMessage(output, text) {
   };
   output.messages.splice(insertIdx, 0, knowledgeMessage);
 }
-var lastSeenCacheKey = null;
-var cachedInjectionText = null;
-var cachedShownIds = [];
 function createKnowledgeInjectorHook(directory, config3) {
   function buildContextCacheKey(phase, ctx) {
     const parts2 = [
@@ -81517,6 +81514,9 @@ function createKnowledgeInjectorHook(directory, config3) {
     ].join("|");
     return createHash7("sha1").update(parts2).digest("hex").slice(0, 16);
   }
+  let lastSeenCacheKey = null;
+  let cachedInjectionText = null;
+  let cachedShownIds = [];
   return safeHook(async (_input, output) => {
     if (!output.messages || output.messages.length === 0)
       return;

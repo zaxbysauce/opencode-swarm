@@ -6,14 +6,11 @@
  * to prevent re-learning loops.
  */
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
-/** DI seam for test isolation — resets module-level cache between test files. */
-export declare const _internals: {
-    resetCache(): void;
-};
 /**
  * Creates a knowledge injection hook that injects relevant knowledge into the
  * architect's message context at phase start. Supports caching for re-injection
- * after compaction.
+ * after compaction. Cache is per-instance (bound to the returned hook closure),
+ * ensuring no cross-test pollution in Bun's shared test-runner process.
  *
  * @param directory - The project directory containing .swarm/
  * @param config - Knowledge system configuration
