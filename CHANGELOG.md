@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.17.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.17.3...v7.17.4) (2026-05-12)
+
+
+### Bug Fixes
+
+* **qa-gate:** harden final council evidence writes ([#834](https://github.com/zaxbysauce/opencode-swarm/issues/834)) ([5ce1a6b](https://github.com/zaxbysauce/opencode-swarm/commit/5ce1a6b7b6d882b5428ff37ae7eb7647711969ac))
+
 ## [7.17.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.17.2...v7.17.3) (2026-05-12)
 
 
