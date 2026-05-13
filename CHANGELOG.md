@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.18.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.18.0...v7.18.1) (2026-05-13)
+
+
+### Bug Fixes
+
+* **gate-tracking:** close cross-phase evidence-routing and state leaks ([#839](https://github.com/zaxbysauce/opencode-swarm/issues/839)) ([76ce20f](https://github.com/zaxbysauce/opencode-swarm/commit/76ce20fd65ff91beb0772ea0cc6d62616f54c166))
+
 ## [7.18.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.17.4...v7.18.0) (2026-05-12)
 
 
