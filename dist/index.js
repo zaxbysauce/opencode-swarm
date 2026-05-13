@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.17.4",
+    version: "7.18.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -26373,9 +26373,9 @@ async function getEvidenceTaskId(session, directory) {
   const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
   if (primary)
     return primary;
-  if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
-    return session.taskWorkflowStates.keys().next().value ?? null;
-  }
+  const onlyTaskId = getOnlyWorkflowTaskId(session);
+  if (onlyTaskId)
+    return onlyTaskId;
   try {
     if (typeof directory !== "string" || directory.length === 0) {
       return null;
@@ -26725,18 +26725,25 @@ function createDelegationGateHook(config2, directory) {
           const explicitEvidenceTaskId = extractTaskIdFromTaskArgs(mergedTaskArgs);
           const stageBEvidenceTaskId = gateForEvidence === "reviewer" || gateForEvidence === "test_engineer" || gateForEvidence === "adversarial_test_engineer" ? resolveScopedStageBTaskId(session, mergedTaskArgs) : null;
           const evidenceTaskId = stageBEvidenceTaskId ?? explicitEvidenceTaskId ?? await getEvidenceTaskId(session, directory);
+          const gateAgents = [
+            "reviewer",
+            "test_engineer",
+            "docs",
+            "designer",
+            "critic",
+            "explorer",
+            "sme"
+          ];
+          if (evidenceTaskId === null && gateAgents.includes(targetAgentForEvidence)) {
+            session.pendingAdvisoryMessages ??= [];
+            if (!session.pendingAdvisoryMessages.some((m) => m.includes("evidence-task-id-unresolved"))) {
+              session.pendingAdvisoryMessages.push(`[evidence-task-id-unresolved] Gate evidence has NOT been written for one or more recent gate-agent dispatches because the current task id is unresolved. Call update_task_status(<task_id>, 'in_progress') BEFORE dispatching gate agents (e.g. reviewer/test_engineer). Most recent affected agent: ${targetAgentForEvidence}.`);
+            }
+            console.warn(`[delegation-gate] evidence-task-id-unresolved sessionID=${input.sessionID} subagentType=${targetAgentForEvidence} reason=evidence-task-id-unresolved`);
+          }
           if (evidenceTaskId && typeof directory === "string") {
             const turbo = hasActiveTurboMode(input.sessionID);
             const parallelRuntime = resolveStandardParallelizationConfig(config2, directory);
-            const gateAgents = [
-              "reviewer",
-              "test_engineer",
-              "docs",
-              "designer",
-              "critic",
-              "explorer",
-              "sme"
-            ];
             if (gateAgents.includes(targetAgentForEvidence)) {
               const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
               await recordGateEvidence2(directory, evidenceTaskId, gateForEvidence, input.sessionID, turbo, parallelRuntime.evidenceLockTimeoutMs);
@@ -26746,7 +26753,7 @@ function createDelegationGateHook(config2, directory) {
             }
           }
         } catch (err2) {
-          console.warn(`[delegation-gate] evidence recording failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          console.warn(`[delegation-gate] evidence recording failed reason=evidence-write-failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
         }
       }
       if (storedArgs !== undefined) {
@@ -89521,12 +89528,22 @@ function verifyLeanTurboPhaseReady(directory, phase, sessionIDOrConfig, config3)
 }
 
 // src/tools/phase-complete.ts
+init_task_id();
 init_create_tool();
 init_resolve_working_directory();
 function safeWarn(message, error93) {
   try {
     console.warn(message, error93 instanceof Error ? error93.message : String(error93));
   } catch {}
+}
+function taskIdToPhase(taskId) {
+  if (typeof taskId !== "string")
+    return null;
+  if (!isStrictTaskId(taskId))
+    return null;
+  const head = taskId.split(".")[0];
+  const n = Number.parseInt(head, 10);
+  return Number.isFinite(n) && n > 0 ? n : null;
 }
 function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSessionId) {
   const agents = new Set;
@@ -90640,6 +90657,52 @@ Advisory notes: ${advisoryNotes.join("; ")}` : "";
         const oldPhase = contributorSession.lastPhaseCompletePhase;
         contributorSession.lastPhaseCompletePhase = phase;
         telemetry.phaseChanged(contributorSessionId, oldPhase ?? 0, phase);
+        const currentTid = contributorSession.currentTaskId;
+        if (currentTid) {
+          const tp = taskIdToPhase(currentTid);
+          if (tp !== null && tp <= phase) {
+            contributorSession.currentTaskId = null;
+          }
+        }
+        const lastCoderTid = contributorSession.lastCoderDelegationTaskId;
+        if (lastCoderTid) {
+          const tp = taskIdToPhase(lastCoderTid);
+          if (tp !== null && tp <= phase) {
+            contributorSession.lastCoderDelegationTaskId = null;
+          }
+        }
+        const openStates = new Set([
+          "coder_delegated",
+          "pre_check_passed",
+          "reviewer_run"
+        ]);
+        if (contributorSession.taskWorkflowStates instanceof Map) {
+          for (const [taskId, state] of Array.from(contributorSession.taskWorkflowStates.entries())) {
+            const tp = taskIdToPhase(taskId);
+            if (tp === null || tp > phase)
+              continue;
+            if (openStates.has(state)) {
+              console.warn(`[phase-complete] dropping open task state at phase boundary: taskId=${taskId} state=${state} phaseCompleted=${phase}`);
+            }
+            contributorSession.taskWorkflowStates.delete(taskId);
+          }
+        }
+        if (contributorSession.stageBCompletion instanceof Map) {
+          for (const taskId of Array.from(contributorSession.stageBCompletion.keys())) {
+            const tp = taskIdToPhase(taskId);
+            if (tp !== null && tp <= phase) {
+              contributorSession.stageBCompletion.delete(taskId);
+            }
+          }
+        }
+        if (contributorSession.requiredStageBGates instanceof Map) {
+          for (const taskId of Array.from(contributorSession.requiredStageBGates.keys())) {
+            const tp = taskIdToPhase(taskId);
+            if (tp !== null && tp <= phase) {
+              contributorSession.requiredStageBGates.delete(taskId);
+            }
+          }
+        }
       }
     }
     try {

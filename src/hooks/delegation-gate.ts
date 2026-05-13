@@ -433,11 +433,11 @@ async function getEvidenceTaskId(
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
 
-	// Fallback: derive from taskWorkflowStates if it has entries
-	if (session.taskWorkflowStates && session.taskWorkflowStates.size > 0) {
-		// Return any key from the map (deterministic: first entry)
-		return session.taskWorkflowStates.keys().next().value ?? null;
-	}
+	// Fallback: only when exactly one strict task id is in the map.
+	// Previously this returned `keys().next().value`, which leaked a stale
+	// prior-phase id across phase boundaries (cross-phase contamination).
+	const onlyTaskId = getOnlyWorkflowTaskId(session);
+	if (onlyTaskId) return onlyTaskId;
 
 	// Fallback: read from .swarm/plan.json to find first in_progress task
 	// Security hardening: validate and resolve paths safely
@@ -1152,21 +1152,47 @@ export function createDelegationGateHook(
 						stageBEvidenceTaskId ??
 						explicitEvidenceTaskId ??
 						(await getEvidenceTaskId(session, directory));
+					const gateAgents = [
+						'reviewer',
+						'test_engineer',
+						'docs',
+						'designer',
+						'critic',
+						'explorer',
+						'sme',
+					];
+					if (
+						evidenceTaskId === null &&
+						gateAgents.includes(targetAgentForEvidence)
+					) {
+						// Fail-loud: gate-agent dispatch with no resolvable task id means
+						// no evidence file will be written. Surface this to the architect
+						// via the pendingAdvisoryMessages drain in guardrails so the next
+						// system message includes a corrective nudge. Dedup with the
+						// `evidence-task-id-unresolved` key embedded in the message body.
+						session.pendingAdvisoryMessages ??= [];
+						if (
+							!session.pendingAdvisoryMessages.some((m: string) =>
+								m.includes('evidence-task-id-unresolved'),
+							)
+						) {
+							session.pendingAdvisoryMessages.push(
+								`[evidence-task-id-unresolved] Gate evidence has NOT been written for one or more recent gate-agent dispatches because the current task id is unresolved. Call update_task_status(<task_id>, 'in_progress') BEFORE dispatching gate agents (e.g. reviewer/test_engineer). Most recent affected agent: ${targetAgentForEvidence}.`,
+							);
+						}
+						// Use console.warn (not logger.warn) so resolution failures stay
+						// visible in production. logger.warn is debug-gated, which would
+						// hide a strictly worse failure mode than the catch-path below.
+						console.warn(
+							`[delegation-gate] evidence-task-id-unresolved sessionID=${input.sessionID} subagentType=${targetAgentForEvidence} reason=evidence-task-id-unresolved`,
+						);
+					}
 					if (evidenceTaskId && typeof directory === 'string') {
 						const turbo = hasActiveTurboMode(input.sessionID);
 						const parallelRuntime = resolveStandardParallelizationConfig(
 							config,
 							directory,
 						);
-						const gateAgents = [
-							'reviewer',
-							'test_engineer',
-							'docs',
-							'designer',
-							'critic',
-							'explorer',
-							'sme',
-						];
 						if (gateAgents.includes(targetAgentForEvidence)) {
 							const { recordGateEvidence } = await import('../gate-evidence');
 							await recordGateEvidence(
@@ -1189,9 +1215,11 @@ export function createDelegationGateHook(
 						}
 					}
 				} catch (err) {
-					/* non-fatal — evidence is additive, never blocks delegation */
+					/* non-fatal — evidence is additive, never blocks delegation.
+					 * Use console.warn (not logger.warn) so the failure surface stays
+					 * visible in production; logger.warn is gated on OPENCODE_SWARM_DEBUG. */
 					console.warn(
-						`[delegation-gate] evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+						`[delegation-gate] evidence recording failed reason=evidence-write-failed: ${err instanceof Error ? err.message : String(err)}`,
 					);
 				}
 			}
