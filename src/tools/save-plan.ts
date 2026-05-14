@@ -362,14 +362,20 @@ export async function executeSavePlan(
 		}
 	}
 
-	// Step 2.5: Read current plan for status preservation (merge mode) and
+	// Step 2.5: Read current plan for non-destructive merge, status preservation, and
 	// locked execution_profile enforcement.
+	// Phase merge: phases NOT present in args.phases are preserved from the existing plan
+	// so that callers who only provide a subset of phases (e.g. to add new tasks to one
+	// phase) do not accidentally wipe other phases.
 	// Status merge: ensures all task statuses are preserved across plan revisions.
-	// When args.reset_statuses is true the map is intentionally left empty.
+	// When args.reset_statuses is true both maps are intentionally left empty.
 	// Profile enforcement: if the existing plan has a locked execution_profile,
 	// reject any attempt to change it (fail-closed).
 	const dir = targetWorkspace as string;
 	const existingStatusMap: Map<string, TaskStatus> = new Map();
+	const existingPhasesMap: Map<number, Phase> = new Map();
+	const existingTaskDataMap: Map<string, Task> = new Map();
+	let existingCurrentPhase: number | undefined;
 	let preservedExecutionProfile: Plan['execution_profile'];
 	{
 		let existing: Awaited<ReturnType<typeof loadPlanJsonOnly>> = null;
@@ -380,11 +386,15 @@ export async function executeSavePlan(
 		}
 
 		if (existing) {
-			// Status map (skip when resetting)
+			existingCurrentPhase = existing.current_phase;
+
+			// Status map, phase map, and task data map (skip when resetting)
 			if (!args.reset_statuses) {
 				for (const phase of existing.phases) {
+					existingPhasesMap.set(phase.id, phase);
 					for (const task of phase.tasks) {
 						existingStatusMap.set(task.id, task.status);
+						existingTaskDataMap.set(task.id, task);
 					}
 				}
 			}
@@ -444,37 +454,63 @@ export async function executeSavePlan(
 		resolvedProfile = parsed.data;
 	}
 
-	// Step 4: Build the Plan object from args
+	// Step 4: Build the Plan object from args, merging with existing phases.
+	// Non-destructive merge: phases NOT present in args.phases are carried forward
+	// from the existing plan so callers that only supply a subset of phases (e.g.
+	// to add two tasks to Phase 3) do not accidentally wipe other phases.
+	// For phases that ARE present in args.phases, the new task list wins — but
+	// status, files_touched, evidence_path, and blocked_reason are preserved from
+	// existing task records when the same task ID appears in both.
+	// Use reset_statuses: true to start completely fresh (clears the merge).
+
+	// Seed the merged map with all existing phases (if any).
+	const mergedPhasesMap = new Map<number, Phase>(existingPhasesMap);
+
+	// Upsert each phase supplied by the caller.
+	for (const argPhase of args.phases) {
+		const existingPhase = existingPhasesMap.get(argPhase.id);
+		mergedPhasesMap.set(argPhase.id, {
+			id: argPhase.id,
+			name: argPhase.name,
+			// Preserve phase status when overwriting an existing phase.
+			status: existingPhase?.status ?? 'pending',
+			tasks: argPhase.tasks.map((task): Task => {
+				const existingTask = existingTaskDataMap.get(task.id);
+				return {
+					id: task.id,
+					phase: argPhase.id,
+					status: existingStatusMap.get(task.id) ?? 'pending',
+					size: task.size ?? 'small',
+					description: task.description,
+					depends: task.depends ?? [],
+					acceptance: task.acceptance,
+					// Preserve runtime-tracked fields from the existing task record.
+					files_touched: existingTask?.files_touched ?? [],
+					evidence_path: existingTask?.evidence_path,
+					blocked_reason: existingTask?.blocked_reason,
+				};
+			}),
+		});
+	}
+
+	const mergedPhases = [...mergedPhasesMap.values()].sort(
+		(a, b) => a.id - b.id,
+	);
+
 	const plan: Plan = {
 		schema_version: '1.0.0',
 		title: args.title,
 		swarm: args.swarm_id,
 		migration_status: 'native',
-		current_phase: args.phases[0]?.id,
+		// Preserve current_phase from the existing plan; for a brand-new plan
+		// (no prior state) fall back to the first phase in the merged list.
+		current_phase: existingCurrentPhase ?? mergedPhases[0]?.id,
 		specMtime,
 		specHash,
 		...(resolvedProfile !== undefined
 			? { execution_profile: resolvedProfile }
 			: {}),
-		phases: args.phases.map((phase): Phase => {
-			return {
-				id: phase.id,
-				name: phase.name,
-				status: 'pending',
-				tasks: phase.tasks.map((task): Task => {
-					return {
-						id: task.id,
-						phase: phase.id,
-						status: existingStatusMap.get(task.id) ?? 'pending',
-						size: task.size ?? 'small',
-						description: task.description,
-						depends: task.depends ?? [],
-						acceptance: task.acceptance,
-						files_touched: [],
-					};
-				}),
-			};
-		}),
+		phases: mergedPhases,
 	};
 
 	// Count total tasks
@@ -622,7 +658,12 @@ export async function executeSavePlan(
 export const save_plan: ToolDefinition = createSwarmTool({
 	description:
 		'Save or revise a structured implementation plan to .swarm/plan.json and .swarm/plan.md. ' +
-		'Use this tool for all structural plan changes on an existing plan (adding/removing tasks, updating descriptions, dependencies, or phase names) — existing task statuses are preserved by default (set reset_statuses: true to start fresh). ' +
+		'Non-destructive by default: phases NOT included in this call are preserved from the existing plan, ' +
+		'so you can safely add tasks to one phase without repeating every other phase. ' +
+		'For phases you DO include, the supplied task list replaces that phase\'s tasks — but task ' +
+		'statuses, files_touched, evidence_path, and blocked_reason are carried forward for any task ' +
+		'ID that already exists. Use reset_statuses: true only when you want to wipe all progress and ' +
+		'start completely fresh. ' +
 		'Task descriptions and phase names MUST contain real content from the spec — ' +
 		'bracket placeholders like [task] or [Project] will be rejected.',
 	args: {
