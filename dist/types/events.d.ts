@@ -92,9 +92,11 @@ export interface SpecDriftAcknowledgedEvent {
 }
 /**
  * Emitted whenever savePlan removes one or more tasks from the prior plan
- * (issue #853). Audit-only — replayFromLedger does not mutate plan state on
- * this event. The `reason` describes why the task was removed; `source`
- * identifies the caller (e.g. 'save_plan_tool', 'phase_complete_rebuild_from_ledger').
+ * (issue #853). Functional during replayFromLedger (post-merge fix) — the
+ * ledger commit precedes the plan.json rename, so rebuild must drop the
+ * task to maintain crash consistency. The `source` identifies the caller
+ * (e.g. 'save_plan_tool', 'phase_complete_rebuild_from_ledger'); the
+ * removal reason rides on the `payload` envelope to match LedgerEvent.
  */
 export interface TaskRemovedEvent {
     type: 'task_removed';
@@ -103,7 +105,10 @@ export interface TaskRemovedEvent {
     phase_id: number;
     from_status: string;
     source: string;
-    reason: string;
+    payload?: {
+        reason?: string;
+        source?: string;
+    };
 }
 export interface PrmPatternDetectedEvent {
     type: 'prm_pattern_detected';
@@ -137,4 +142,4 @@ export interface PrmHardStopEvent {
     level: number;
     occurrenceCount: number;
 }
-export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent | PrmPatternDetectedEvent | PrmCourseCorrectionInjectedEvent | PrmEscalationTriggeredEvent | PrmHardStopEvent;
+export type V619Event = SoundingBoardConsultedEvent | ArchitectLoopDetectedEvent | PrecedentManipulationDetectedEvent | CoderSelfAuditEvent | CoderRetryCircuitBreakerEvent | AgentConflictDetectedEvent | AuthorityHandoffResolvedEvent | SpecStaleDetectedEvent | SpecDriftAcknowledgedEvent | TaskRemovedEvent | PrmPatternDetectedEvent | PrmCourseCorrectionInjectedEvent | PrmEscalationTriggeredEvent | PrmHardStopEvent;

@@ -14912,6 +14912,15 @@ function applyEventToPlan(plan, event) {
     case "task_added":
       return plan;
     case "task_removed":
+      if (event.task_id) {
+        for (const phase of plan.phases) {
+          const idx = phase.tasks.findIndex((t) => t.id === event.task_id);
+          if (idx !== -1) {
+            phase.tasks.splice(idx, 1);
+            break;
+          }
+        }
+      }
       return plan;
     case "task_updated":
       return plan;
@@ -15565,6 +15574,12 @@ async function savePlan(directory, plan, options) {
     if (missingTasks.length > 0) {
       if (!ack) {
         throw new PlanTaskRemovalNotAcknowledgedError(missingTasks);
+      }
+      if (typeof ack.reason !== "string" || ack.reason.trim().length === 0) {
+        throw new Error("PLAN_ACKNOWLEDGED_REMOVAL_INVALID: acknowledged_removals.reason must be a non-empty string.");
+      }
+      if (typeof ack.source !== "string" || ack.source.trim().length === 0) {
+        throw new Error("PLAN_ACKNOWLEDGED_REMOVAL_INVALID: acknowledged_removals.source must be a non-empty string.");
       }
       const ackSet = new Set(ack.ids);
       const missingIdsSet = new Set(missingTasks.map((t) => t.id));
@@ -51499,6 +51514,18 @@ function formatStatusMarkdown(status) {
 async function handleStatusCommand(directory, agents) {
   const statusData = await getStatusData(directory, agents);
   if (!statusData.hasPlan) {
+    if (statusData.specStale) {
+      const reason = statusData.specStaleReason ?? "spec.md changed since plan saved";
+      const stored = statusData.specStaleStoredHash ?? "unknown";
+      const current = statusData.specStaleCurrentHash ?? "(spec.md missing)";
+      return [
+        "No active swarm plan found.",
+        "",
+        `**Spec drift detected**: ${reason} (stored: ${stored}, current: ${current})`,
+        "Run `/swarm clarify` to update the spec or `/swarm acknowledge-spec-drift` to dismiss."
+      ].join(`
+`);
+    }
     return "No active swarm plan found.";
   }
   return formatStatusMarkdown(statusData);
