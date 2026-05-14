@@ -59,11 +59,16 @@ non-empty `reason`. Unacknowledged removals throw
 
 ### Replay semantics
 
-`task_added` and `task_removed` are audit-only on replay. Plan state during
-`replayFromLedger` derives from `plan_created` and `snapshot` payloads —
-the two task-lifecycle events do not mutate state. This keeps
-`computePlanHash` deterministic relative to snapshot payloads and prevents
-asymmetric replay if the snapshot is regenerated.
+`task_added` is audit-only on replay (the corresponding task already lives
+in the `plan_created`/`snapshot` payload). `task_removed` is **functional**
+on replay: `applyEventToPlan` splices the task out of the active phase.
+This is required for crash-window durability — the ledger event is
+committed before the atomic `plan.json` rename, so a process death between
+the two leaves `plan.json` stale. Rebuild-from-ledger therefore has to
+honour the removal; otherwise the resurrected task silently violates the
+exact durability invariant this audit chain exists to enforce. The event's
+`plan_hash_after` matches the post-removal plan, so determinism is
+preserved.
 
 ### Schema version
 

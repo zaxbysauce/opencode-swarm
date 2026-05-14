@@ -385,6 +385,20 @@ export async function handleStatusCommand(
 	const statusData = await getStatusData(directory, agents);
 
 	if (!statusData.hasPlan) {
+		// Issue #853 Layer C: surface spec drift even with no active plan, so
+		// /swarm status never hides the staleness signal that gates writes.
+		if (statusData.specStale) {
+			const reason =
+				statusData.specStaleReason ?? 'spec.md changed since plan saved';
+			const stored = statusData.specStaleStoredHash ?? 'unknown';
+			const current = statusData.specStaleCurrentHash ?? '(spec.md missing)';
+			return [
+				'No active swarm plan found.',
+				'',
+				`**Spec drift detected**: ${reason} (stored: ${stored}, current: ${current})`,
+				'Run `/swarm clarify` to update the spec or `/swarm acknowledge-spec-drift` to dismiss.',
+			].join('\n');
+		}
 		return 'No active swarm plan found.';
 	}
 
