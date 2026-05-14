@@ -509,6 +509,23 @@ describe('checkReviewerGate — evidence-first gate (Phase 3.1 fix)', () => {
 		expect(result.reason).toContain('diff');
 		expect(result.reason).toContain('missing required gates');
 	});
+
+	test('12. legacy/manual gate entries are normalized instead of treated as corrupt', () => {
+		fs.writeFileSync(
+			path.join(tempDir, '.swarm', 'evidence', '1.1.json'),
+			JSON.stringify({
+				taskId: '1.1',
+				required_gates: ['reviewer', 'test_engineer'],
+				gates: {
+					reviewer: 'APPROVED',
+					test_engineer: { verdict: 'PASS' },
+				},
+			}),
+		);
+
+		const result = checkReviewerGate('1.1', tempDir);
+		expect(result.blocked).toBe(false);
+	});
 });
 
 // ============================================================================
