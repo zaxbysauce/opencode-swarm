@@ -762,10 +762,20 @@ function applyEventToPlan(plan: Plan, event: LedgerEvent): Plan | null {
 			return plan;
 
 		case 'task_removed':
-			// Audit-only (symmetric to task_added). Plan state during replay
-			// derives from plan_created/snapshot payloads — task_removed is
-			// observability-only. Keeps computePlanHash deterministic relative
-			// to snapshot payloads.
+			// Functional on replay (issue #853 post-merge): the ledger commit
+			// precedes the plan.json rename, so a crash between the two leaves
+			// plan.json stale. Rebuild-from-ledger must drop the task or the
+			// removal silently resurrects. Symmetric with task_status_changed;
+			// the post-removal planHashAfter matches replayed state.
+			if (event.task_id) {
+				for (const phase of plan.phases) {
+					const idx = phase.tasks.findIndex((t) => t.id === event.task_id);
+					if (idx !== -1) {
+						phase.tasks.splice(idx, 1);
+						break;
+					}
+				}
+			}
 			return plan;
 
 		case 'task_updated':
