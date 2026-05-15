@@ -16,7 +16,7 @@
  */
 
 /** Strict numeric format: 1.1, 1.2.3, 10.5.100 */
-const STRICT_TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
+export const STRICT_TASK_ID_PATTERN = /^\d+\.\d+(\.\d+)*$/;
 
 /** Retrospective IDs: retro-1, retro-42 */
 const RETRO_TASK_ID_REGEX = /^retro-\d+$/;
