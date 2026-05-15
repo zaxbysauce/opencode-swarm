@@ -246,7 +246,8 @@ TIERED QA GATE — CHANGE CLASSIFICATION
 Classify ONE tier by FILES CHANGED.
 
 TIER 0 — METADATA
-  Match: plan.json, plan.md, context.md, .swarm/evidence/*, status updates
+  Match: plan.json, plan.md, context.md, status updates
+  NOTE: .swarm/evidence/<taskId>.json files are hook-managed; never write or delete them directly.
   Pipeline: lint + diff. No agent or Stage B.
   Rationale: Swarm bookkeeping, no runtime effect.
 

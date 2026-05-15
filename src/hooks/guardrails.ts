@@ -41,6 +41,7 @@ import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
 import { bunHash } from '../utils/bun-compat';
 import * as logger from '../utils/logger';
+import { STRICT_TASK_ID_PATTERN } from '../validation/task-id.js';
 import { resolveAgentConflict } from './conflict-resolution';
 import { pendingCoderScopeByTaskId } from './delegation-gate.js';
 import { extractCurrentPhaseFromPlan } from './extractors';
@@ -189,6 +190,40 @@ function isWriteTool(toolName: string): boolean {
 	// Strip namespace prefix (e.g., "opencode:write" -> "write")
 	const normalized = normalizeToolName(toolName);
 	return (WRITE_TOOL_NAMES as readonly string[]).includes(normalized);
+}
+
+/**
+ * Per-task QA-gate evidence files (`.swarm/evidence/<taskId>.json`) are
+ * appended to exclusively by the swarm runtime hook (recordGateEvidence).
+ * Direct writes by any agent — Write/Edit, apply_patch, or Bash mutations —
+ * corrupt the gate ledger and have caused issue #862. The strict task-id
+ * shape (one or more dot-separated numeric components) is sourced from
+ * STRICT_TASK_ID_PATTERN to stay in lockstep with production task IDs.
+ *
+ * Excludes phase-scoped subdirectories such as
+ * `.swarm/evidence/retro-3/evidence.json`, well-known files such as
+ * `.swarm/evidence/final-council.json`, and any file with a non-numeric stem
+ * (`.swarm/evidence/test.json`, `.swarm/evidence/notes.txt`) — those remain
+ * agent-writable under their existing per-agent authority rules.
+ */
+const PER_TASK_GATE_FILE_RE = new RegExp(
+	`^\\.swarm/evidence/${STRICT_TASK_ID_PATTERN.source.slice(1, -1)}\\.json$`,
+);
+
+const PER_TASK_GATE_FILE_BASH_RE = new RegExp(
+	`(?:^|[\\s/])\\.swarm/evidence/${STRICT_TASK_ID_PATTERN.source.slice(1, -1)}\\.json\\b`,
+);
+
+function isPerTaskGateEvidencePath(filePath: string, cwd: string): boolean {
+	if (typeof filePath !== 'string' || filePath.length === 0) return false;
+	const abs = path.isAbsolute(filePath)
+		? filePath
+		: path.resolve(cwd, filePath);
+	const rel = path
+		.relative(path.resolve(cwd), abs)
+		.replace(/\\/g, '/')
+		.replace(/^\.\//, '');
+	return PER_TASK_GATE_FILE_RE.test(rel);
 }
 
 /**
@@ -1449,6 +1484,104 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * Issue #862: Block Bash commands that delete, move, or overwrite a
+	 * per-task QA-gate evidence file (`.swarm/evidence/<taskId>.json`).
+	 * The Write/Edit/apply_patch path is covered by isPerTaskGateEvidencePath
+	 * checks in toolBefore; this closes the Bash bypass.
+	 *
+	 * Heuristic — only triggers when the command literally names a per-task
+	 * gate file (or, for `find -delete`/`xargs`-style commands, the
+	 * `.swarm/evidence` directory) AND a recognised mutation primitive is
+	 * present in the same segment. Read-only commands (cat, ls, head, jq)
+	 * remain unaffected.
+	 */
+	function checkBashEvidenceProtection(tool: string, args: unknown): void {
+		if (tool !== 'bash' && tool !== 'shell') return;
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const rawCommand =
+			typeof toolArgs?.command === 'string' ? toolArgs.command : '';
+		if (!rawCommand) return;
+		// Quick filter — must mention either an explicit per-task gate file
+		// OR the .swarm/evidence directory (for `find -delete`-style commands
+		// where the target file name is supplied via -name).
+		const mentionsEvidenceDir =
+			PER_TASK_GATE_FILE_BASH_RE.test(rawCommand) ||
+			/(?:^|\s|\/)\.swarm\/evidence(?:\/|$|\s)/.test(rawCommand);
+		if (!mentionsEvidenceDir) return;
+
+		// Mirror checkDestructiveCommand: normalize + unwrap shell wrappers
+		// (bash -c / sh -c / eval / xargs sh -c) before per-segment analysis.
+		const command = dcNormalizeCommand(rawCommand);
+		const unwrapped = dcUnwrapWrappers(command);
+		const outerSegments = dcSplitSegments(command);
+		const innerSegments = dcSplitSegments(unwrapped);
+		const perSegmentUnwrapped = outerSegments.map((s) => dcUnwrapWrappers(s));
+		const allSegments = [
+			...new Set([...outerSegments, ...innerSegments, ...perSegmentUnwrapped]),
+		];
+
+		const blockedMessage = (verb: string): string =>
+			`BASH BLOCKED: Per-task gate evidence files (.swarm/evidence/<taskId>.json) ` +
+			`are written exclusively by the swarm runtime hook. ` +
+			`${verb} is not permitted — delegate to the gate agent ` +
+			`(reviewer, test_engineer, etc.) and call update_task_status.`;
+
+		for (const segment of allSegments) {
+			const seg = segment.trim();
+			if (!seg) continue;
+
+			const first = seg.split(/\s+/)[0] ?? '';
+			const head = first.replace(/^.*[\\/]/, '');
+
+			const segMentionsEvidenceFile = PER_TASK_GATE_FILE_BASH_RE.test(seg);
+			const segMentionsEvidenceDir =
+				segMentionsEvidenceFile ||
+				/(?:^|\s|\/)\.swarm\/evidence(?:\/|$|\s)/.test(seg);
+
+			// `find <dir> ... -delete` — applies to the whole .swarm/evidence
+			// directory, even when the per-task filename is hidden behind -name.
+			if (
+				/^find\b/.test(seg) &&
+				segMentionsEvidenceDir &&
+				/\s-delete\b/.test(seg)
+			) {
+				throw new Error(blockedMessage('Deletion via find -delete'));
+			}
+			// `xargs rm` / `xargs unlink` / etc. — pipeline source already
+			// surfaced the per-task file in the compound command, so the
+			// outer-command-level mention check has already gated us here.
+			if (
+				/^xargs\b/.test(seg) &&
+				/\b(?:rm|unlink|mv|cp|truncate|chmod)\b/.test(seg)
+			) {
+				throw new Error(blockedMessage('Mutation via xargs'));
+			}
+
+			// Remaining checks need the segment itself to name a per-task file.
+			if (!segMentionsEvidenceFile) continue;
+
+			// Mutation primitives that take the path as a positional argument.
+			if (
+				/^(?:rm|unlink|mv|cp|install|truncate|tee|dd|chmod|chown|shred)(?:\.exe)?$/i.test(
+					head,
+				)
+			) {
+				throw new Error(blockedMessage('Direct file mutation'));
+			}
+			// `sed -i` (in-place edit), `sed --in-place=...`
+			if (/^sed\b[^>]*\s(?:-i\b|--in-place\b)/.test(seg)) {
+				throw new Error(blockedMessage('In-place edit (sed -i)'));
+			}
+			// Redirect into a per-task gate file: `... > .swarm/evidence/3.1.json`
+			// or `... >> .swarm/evidence/3.1.json`
+			const redirectMatch = seg.match(/(>{1,2})\s*([^\s|&;<>]+)/);
+			if (redirectMatch && PER_TASK_GATE_FILE_BASH_RE.test(redirectMatch[2])) {
+				throw new Error(blockedMessage('Output redirection'));
+			}
+		}
+	}
+
+	/**
 	 * Checks gate limits (hard limits, idle timeout, soft warnings) for the current invocation.
 	 * Extracted from toolBefore for maintainability.
 	 */
@@ -2122,6 +2255,9 @@ export function createGuardrailsHooks(
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
 
+			// Issue #862: refuse Bash mutations of per-task QA-gate evidence files
+			checkBashEvidenceProtection(input.tool, output.args);
+
 			// Issue #853 Layer B: structural spec-drift block.
 			// Refuses plan-mutating tools while .swarm/spec-staleness.json exists.
 			enforceSpecDriftGate(effectiveDirectory, input.tool);
@@ -2147,6 +2283,16 @@ export function createGuardrailsHooks(
 					);
 					if (lstatBlock) {
 						throw new Error(lstatBlock);
+					}
+
+					// Issue #862: refuse direct writes to per-task QA-gate evidence files
+					if (isPerTaskGateEvidencePath(targetPath, effectiveDirectory)) {
+						throw new Error(
+							'WRITE BLOCKED: Per-task gate evidence files ' +
+								'(.swarm/evidence/<taskId>.json) are written exclusively by the swarm runtime hook. ' +
+								'Delegate to the gate agent (reviewer, test_engineer, etc.) and call ' +
+								'update_task_status. Do not write or delete these files directly.',
+						);
 					}
 
 					// Fail closed if no active agent is registered for this session.
@@ -2214,6 +2360,16 @@ export function createGuardrailsHooks(
 					const lstatBlock = checkWriteTargetForSymlink(p, effectiveDirectory);
 					if (lstatBlock) {
 						throw new Error(lstatBlock);
+					}
+
+					// Issue #862: refuse patches that touch per-task QA-gate evidence files
+					if (isPerTaskGateEvidencePath(p, effectiveDirectory)) {
+						throw new Error(
+							'WRITE BLOCKED: Per-task gate evidence files ' +
+								'(.swarm/evidence/<taskId>.json) are written exclusively by the swarm runtime hook. ' +
+								'Delegate to the gate agent (reviewer, test_engineer, etc.) and call ' +
+								'update_task_status. Do not write or delete these files directly (via patch).',
+						);
 					}
 
 					// Universal deny prefixes for patches (case-insensitive)
