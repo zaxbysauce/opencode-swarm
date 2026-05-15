@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.19.1",
+    version: "7.19.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -46803,18 +46803,36 @@ async function buildImpactMap(cwd) {
   await _internals22.saveImpactMap(cwd, impactMap);
   return impactMap;
 }
-async function loadImpactMap(cwd) {
+async function loadImpactMap(cwd, options) {
   const cachePath = path34.join(cwd, ".swarm", "cache", "impact-map.json");
   if (fs17.existsSync(cachePath)) {
     try {
       const content = fs17.readFileSync(cachePath, "utf-8");
       const data = JSON.parse(content);
-      const map3 = data.map;
-      const generatedAt = new Date(data.generatedAt).getTime();
-      if (!_internals22.isCacheStale(map3, generatedAt)) {
-        return map3;
+      if (data.map !== null && typeof data.map === "object" && !Array.isArray(data.map)) {
+        const map3 = data.map;
+        const hasValidValues = Object.values(map3).every((v) => Array.isArray(v) && v.every((item) => typeof item === "string"));
+        if (hasValidValues) {
+          const generatedAt = new Date(data.generatedAt).getTime();
+          if (!_internals22.isCacheStale(map3, generatedAt)) {
+            return map3;
+          }
+          if (options?.skipRebuild) {
+            return map3;
+          }
+        }
       }
-    } catch {}
+      if (options?.skipRebuild) {
+        return {};
+      }
+    } catch {
+      if (options?.skipRebuild) {
+        return {};
+      }
+    }
+  }
+  if (options?.skipRebuild) {
+    return {};
   }
   return _internals22.buildImpactMap(cwd);
 }
@@ -46831,7 +46849,7 @@ async function saveImpactMap(cwd, impactMap) {
   };
   fs17.writeFileSync(cachePath, JSON.stringify(data, null, 2), "utf-8");
 }
-async function analyzeImpact(changedFiles, cwd) {
+async function analyzeImpact(changedFiles, cwd, budget) {
   if (!Array.isArray(changedFiles)) {
     const emptyMap = {};
     return {
@@ -46845,24 +46863,49 @@ async function analyzeImpact(changedFiles, cwd) {
   const impactMap = await _internals22.loadImpactMap(cwd);
   const impactedTestsSet = new Set;
   const untestedFiles = [];
+  let visitedCount = 0;
+  let budgetExceeded = false;
   for (const changedFile of validFiles) {
+    if (budget !== undefined && visitedCount >= budget) {
+      budgetExceeded = true;
+      break;
+    }
     const normalizedChanged = normalizePath(path34.resolve(changedFile));
     const tests = impactMap[normalizedChanged];
     if (tests && tests.length > 0) {
       for (const test of tests) {
+        if (budget !== undefined && visitedCount >= budget) {
+          budgetExceeded = true;
+          break;
+        }
         impactedTestsSet.add(test);
+        visitedCount++;
       }
+      if (budgetExceeded)
+        break;
     } else {
       let found = false;
       for (const [sourcePath, tests2] of Object.entries(impactMap)) {
-        if (sourcePath.endsWith(changedFile) || changedFile.endsWith(sourcePath)) {
-          for (const test of tests2) {
-            impactedTestsSet.add(test);
-          }
-          found = true;
+        if (budget !== undefined && visitedCount >= budget) {
+          budgetExceeded = true;
           break;
         }
+        if (sourcePath.endsWith(changedFile) || changedFile.endsWith(sourcePath)) {
+          for (const test of tests2) {
+            if (budget !== undefined && visitedCount >= budget) {
+              budgetExceeded = true;
+              break;
+            }
+            impactedTestsSet.add(test);
+            visitedCount++;
+          }
+          if (budgetExceeded)
+            break;
+          found = true;
+        }
       }
+      if (budgetExceeded)
+        break;
       if (!found) {
         untestedFiles.push(changedFile);
       }
@@ -46880,7 +46923,8 @@ async function analyzeImpact(changedFiles, cwd) {
     impactedTests,
     unrelatedTests,
     untestedFiles,
-    impactMap
+    impactMap,
+    budgetExceeded
   };
 }
 var IMPORT_REGEX_ES, IMPORT_REGEX_REQUIRE, IMPORT_REGEX_REEXPORT, TS_EXTENSIONS, PYTHON_EXTENSIONS, GO_EXTENSIONS, EXTENSIONS_TO_TRY, goModuleCache, _internals22;
@@ -47742,6 +47786,25 @@ var init_dispatch = __esm(() => {
 // src/tools/test-runner.ts
 import * as fs22 from "fs";
 import * as path39 from "path";
+async function estimateFanOut(sourceFiles, cwd) {
+  try {
+    const impactMap = await loadImpactMap(cwd, { skipRebuild: true });
+    const uniqueTestFiles = new Set;
+    for (const sourceFile of sourceFiles) {
+      const resolvedPath = path39.resolve(cwd, sourceFile);
+      const normalizedPath = resolvedPath.replace(/\\/g, "/");
+      const testFiles = impactMap[normalizedPath];
+      if (testFiles) {
+        for (const testFile of testFiles) {
+          uniqueTestFiles.add(testFile);
+        }
+      }
+    }
+    return { estimatedCount: uniqueTestFiles.size };
+  } catch {
+    return { estimatedCount: 0 };
+  }
+}
 function isAbsolutePath(str) {
   if (str.startsWith("/"))
     return true;
@@ -49086,6 +49149,18 @@ var init_test_runner = __esm(() => {
           };
           return JSON.stringify(errorResult, null, 2);
         }
+        const estimate = await estimateFanOut(sourceFiles, workingDir);
+        if (estimate.estimatedCount > MAX_SAFE_TEST_FILES) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Estimated test file count exceeds safe maximum",
+            message: `Scope "graph" resolution would produce approximately ${estimate.estimatedCount} test files, which exceeds the safe limit of ${MAX_SAFE_TEST_FILES}. Break the source files into smaller batches and retry.`,
+            outcome: "scope_exceeded"
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
         const graphTestFiles = await getTestFilesFromGraph(sourceFiles, workingDir);
         if (graphTestFiles.length > 0) {
           testFiles = graphTestFiles;
@@ -49124,8 +49199,31 @@ var init_test_runner = __esm(() => {
           };
           return JSON.stringify(errorResult, null, 2);
         }
+        const estimate = await estimateFanOut(sourceFiles, workingDir);
+        if (estimate.estimatedCount > MAX_SAFE_TEST_FILES) {
+          const errorResult = {
+            success: false,
+            framework,
+            scope,
+            error: "Estimated test file count exceeds safe maximum",
+            message: `Scope "impact" resolution would produce approximately ${estimate.estimatedCount} test files, which exceeds the safe limit of ${MAX_SAFE_TEST_FILES}. Break the source files into smaller batches and retry.`,
+            outcome: "scope_exceeded"
+          };
+          return JSON.stringify(errorResult, null, 2);
+        }
         try {
-          const impactResult = await analyzeImpact(sourceFiles, workingDir);
+          const impactResult = await analyzeImpact(sourceFiles, workingDir, MAX_SAFE_TEST_FILES);
+          if (impactResult.budgetExceeded) {
+            const errorResult = {
+              success: false,
+              framework,
+              scope,
+              error: "Budget exceeded during impact analysis",
+              message: `Impact analysis exceeded safe budget of ${MAX_SAFE_TEST_FILES} test files.`,
+              outcome: "scope_exceeded"
+            };
+            return JSON.stringify(errorResult, null, 2);
+          }
           if (impactResult.impactedTests.length > 0) {
             testFiles = impactResult.impactedTests.map((absPath) => {
               const relativePath = path39.relative(workingDir, absPath);
