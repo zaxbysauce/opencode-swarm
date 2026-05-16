@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { isCommandAvailable } from '../build/discovery';
-import { analyzeImpact } from '../test-impact/analyzer.js';
+import { analyzeImpact, loadImpactMap } from '../test-impact/analyzer.js';
 import { classifyAndCluster } from '../test-impact/failure-classifier.js';
 import {
 	detectFlakyTests,
@@ -25,6 +25,42 @@ export const DEFAULT_TIMEOUT_MS = 60_000; // 60 seconds default
 export const MAX_TIMEOUT_MS = 300_000; // 5 minutes max
 export const MAX_SAFE_TEST_FILES = 50; // Maximum resolved test files allowed in interactive session
 export const MAX_SAFE_SOURCE_FILES = 1; // Maximum source files allowed for graph/impact scopes (>1 fans out to too many test files)
+
+/**
+ * Estimate the fan-out (number of unique test files) for given source files
+ * by reading the cached impact map without spawning a subprocess.
+ * This is a pre-resolution check to prevent session blocking.
+ *
+ * Completes in <100ms by design — reads only the cached JSON and performs
+ * in-memory Set collection.
+ */
+export async function estimateFanOut(
+	sourceFiles: string[],
+	cwd: string,
+): Promise<{ estimatedCount: number }> {
+	try {
+		const impactMap = await loadImpactMap(cwd, { skipRebuild: true });
+		const uniqueTestFiles = new Set<string>();
+
+		for (const sourceFile of sourceFiles) {
+			// Resolve to absolute path matching how the impact map keys are stored
+			const resolvedPath = path.resolve(cwd, sourceFile);
+			// Impact map keys use forward-slash normalization
+			const normalizedPath = resolvedPath.replace(/\\/g, '/');
+			const testFiles = impactMap[normalizedPath];
+			if (testFiles) {
+				for (const testFile of testFiles) {
+					uniqueTestFiles.add(testFile);
+				}
+			}
+		}
+
+		return { estimatedCount: uniqueTestFiles.size };
+	} catch {
+		// Impact map unavailable or corrupted — fail gracefully
+		return { estimatedCount: 0 };
+	}
+}
 
 // Supported test frameworks
 export const SUPPORTED_FRAMEWORKS = [
@@ -2155,7 +2191,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			// Guard: Reject before any I/O when too many source files are provided.
+			// Layer 1: Reject before any I/O when too many source files are provided.
 			// graph discovery fans out: each source file can match many test files, easily
 			// exceeding MAX_SAFE_TEST_FILES and triggering a scope_exceeded cascade that
 			// causes LLMs to retry with scope "all", freezing the OpenCode SSE session.
@@ -2166,6 +2202,21 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 					scope,
 					error: `scope "graph" accepts at most ${MAX_SAFE_SOURCE_FILES} source file (got ${sourceFiles.length}). Treat this as SKIP without retry.`,
 					message: `Too many source files for scope "graph" (${sourceFiles.length} provided, limit is ${MAX_SAFE_SOURCE_FILES}). Call test_runner once per source file, or use scope "convention" with direct test file paths.`,
+					outcome: 'scope_exceeded',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+
+			// Layer 2: Even with a single source file, estimate fan-out before import-graph traversal.
+			// estimateFanOut reads the cached impact map in ~100ms without spawning a subprocess.
+			const estimate = await estimateFanOut(sourceFiles, workingDir);
+			if (estimate.estimatedCount > MAX_SAFE_TEST_FILES) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework,
+					scope,
+					error: 'Estimated test file count exceeds safe maximum',
+					message: `Scope "graph" resolution would produce approximately ${estimate.estimatedCount} test files, which exceeds the safe limit of ${MAX_SAFE_TEST_FILES}. Break the source files into smaller batches and retry.`,
 					outcome: 'scope_exceeded',
 				};
 				return JSON.stringify(errorResult, null, 2);
@@ -2210,7 +2261,7 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
-			// Guard: Reject before any I/O when too many source files are provided.
+			// Layer 1: Reject before any I/O when too many source files are provided.
 			// impact analysis fans out through the import graph, then may fall back to graph
 			// discovery; either path can exceed MAX_SAFE_TEST_FILES and cause LLMs to cascade
 			// to scope "all", freezing the OpenCode SSE session.
@@ -2226,8 +2277,38 @@ export const test_runner: ReturnType<typeof tool> = createSwarmTool({
 				return JSON.stringify(errorResult, null, 2);
 			}
 
+			// Layer 2: Even with a single source file, estimate fan-out before impact analysis.
+			// estimateFanOut reads the cached impact map in ~100ms without spawning a subprocess.
+			const estimate = await estimateFanOut(sourceFiles, workingDir);
+			if (estimate.estimatedCount > MAX_SAFE_TEST_FILES) {
+				const errorResult: TestErrorResult = {
+					success: false,
+					framework,
+					scope,
+					error: 'Estimated test file count exceeds safe maximum',
+					message: `Scope "impact" resolution would produce approximately ${estimate.estimatedCount} test files, which exceeds the safe limit of ${MAX_SAFE_TEST_FILES}. Break the source files into smaller batches and retry.`,
+					outcome: 'scope_exceeded',
+				};
+				return JSON.stringify(errorResult, null, 2);
+			}
+
 			try {
-				const impactResult = await analyzeImpact(sourceFiles, workingDir);
+				const impactResult = await analyzeImpact(
+					sourceFiles,
+					workingDir,
+					MAX_SAFE_TEST_FILES,
+				);
+				if (impactResult.budgetExceeded) {
+					const errorResult: TestErrorResult = {
+						success: false,
+						framework,
+						scope,
+						error: 'Budget exceeded during impact analysis',
+						message: `Impact analysis exceeded safe budget of ${MAX_SAFE_TEST_FILES} test files.`,
+						outcome: 'scope_exceeded',
+					};
+					return JSON.stringify(errorResult, null, 2);
+				}
 				if (impactResult.impactedTests.length > 0) {
 					// Convert absolute paths from impact map to relative paths for test framework
 					testFiles = impactResult.impactedTests.map((absPath) => {
