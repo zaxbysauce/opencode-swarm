@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.20.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.20.1...v7.20.2) (2026-05-16)
+
+
+### Bug Fixes
+
+* **phase-complete:** keep internal phase diagnostics out of chat-visible output ([#876](https://github.com/zaxbysauce/opencode-swarm/issues/876)) ([9ab7664](https://github.com/zaxbysauce/opencode-swarm/commit/9ab7664047d2810d2a5020798c08b6aa7e550d73))
+
 ## [7.20.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.20.0...v7.20.1) (2026-05-16)
 
 
