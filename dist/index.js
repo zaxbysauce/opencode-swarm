@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.20.0",
+    version: "7.20.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -90056,11 +90056,12 @@ function verifyLeanTurboPhaseReady(directory, phase, sessionIDOrConfig, config3)
 }
 
 // src/tools/phase-complete.ts
+init_logger();
 init_create_tool();
 init_resolve_working_directory();
 function safeWarn(message, error93) {
   try {
-    console.warn(message, error93 instanceof Error ? error93.message : String(error93));
+    warn(message, error93 instanceof Error ? error93.message : String(error93));
   } catch {}
 }
 function collectCrossSessionDispatchedAgents(phaseReferenceTimestamp, callerSessionId) {
@@ -90251,7 +90252,7 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
     }, null, 2);
   }
   if (hasActiveTurboMode(sessionID)) {
-    console.warn(`[phase_complete] Turbo mode active — skipping completion-verify, drift-verifier, hallucination-guard, mutation-gate, phase-council, and final-council gates for phase ${phase}`);
+    warnings.push(`Turbo mode active — skipped completion-verify, drift-verifier, hallucination-guard, mutation-gate, phase-council, and final-council gates for phase ${phase}.`);
   } else {
     try {
       const completionResultRaw = await executeCompletionVerify({ phase }, dir);
@@ -90293,7 +90294,6 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
       safeWarn(`[phase_complete] QA gate profile load error, drift_check defaults to enabled:`, gateLoadError);
     }
     if (!driftCheckEnabled) {
-      console.info(`[phase_complete] drift_check disabled — skipping drift verification gate for phase ${phase}`);
       warnings.push(`drift_check gate is disabled. Drift verification was skipped for phase ${phase}.`);
     } else {
       let phaseType;
@@ -90307,7 +90307,6 @@ async function executePhaseComplete(args2, workingDirectory, directory) {
         }
       } catch {}
       if (phaseType === "non-code") {
-        console.info(`[phase_complete] Phase ${phase} annotated as 'non-code' — drift verification skipped.`);
         warnings.push(`Phase ${phase} is annotated as 'non-code'. Drift verification was skipped per phase type annotation.`);
       } else {
         try {
@@ -91156,7 +91155,7 @@ Advisory notes: ${advisoryNotes.join("; ")}` : "";
       try {
         await lockResult.lock._release();
       } catch (releaseError) {
-        console.error("[phase-complete] Lock release failed:", releaseError);
+        warn("[phase_complete] Lock release failed (non-blocking):", releaseError instanceof Error ? releaseError.message : String(releaseError));
       }
     }
   }
