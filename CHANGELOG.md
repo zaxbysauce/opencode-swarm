@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.20.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.19.3...v7.20.0) (2026-05-16)
+
+
+### Features
+
+* **test-runner:** three-layer defense against session-blocking fan-out ([#870](https://github.com/zaxbysauce/opencode-swarm/issues/870)) ([ee9af91](https://github.com/zaxbysauce/opencode-swarm/commit/ee9af91fa801c62bb4bc0ba35ad63e968ed4de78))
+
 ## [7.19.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.19.2...v7.19.3) (2026-05-16)
 
 
