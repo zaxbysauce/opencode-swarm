@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.20.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.20.0...v7.20.1) (2026-05-16)
+
+
+### Bug Fixes
+
+* **guardrails:** recover from provider outages ([#875](https://github.com/zaxbysauce/opencode-swarm/issues/875)) ([a15e3a2](https://github.com/zaxbysauce/opencode-swarm/commit/a15e3a271fad14f92b3ca0c7261697a275583d50))
+
 ## [7.20.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.19.3...v7.20.0) (2026-05-16)
 
 
