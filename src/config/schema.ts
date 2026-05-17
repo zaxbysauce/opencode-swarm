@@ -1143,7 +1143,7 @@ export const AuthorityConfigSchema = z.object({
 		.array(z.string())
 		.optional()
 		.describe(
-			'Additional glob patterns for verifier config files that should be protected from agent modification. These patterns are merged with the built-in verifier config globs (guardrails.ts).',
+			'Additional glob patterns for verifier config files that are merged into the architect agent\'s blockedGlobs at plugin init. Writes to matching files are blocked by the authority layer.',
 		),
 });
 

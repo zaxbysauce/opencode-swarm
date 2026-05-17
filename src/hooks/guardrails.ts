@@ -50,6 +50,7 @@ const KNOWN_VERIFIER_CONFIG_GLOBS = [
 	'**/.eslintrc*',
 	'**/eslint.config.*',
 	'**/.prettierrc*',
+	'**/prettier.config.*',
 	'**/biome.jsonc',
 	'**/.secretscanignore',
 	'**/.golangci*',
@@ -1243,6 +1244,19 @@ export function createGuardrailsHooks(
 
 	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
 	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+
+	// Merge user-supplied verifier config globs into architect's blockedGlobs for enforcement
+	const verifierPaths = authorityConfig?.verifier_config_paths;
+	if (verifierPaths && verifierPaths.length > 0) {
+		const architect = precomputedAuthorityRules['architect'];
+		if (architect) {
+			architect.blockedGlobs = [
+				...(architect.blockedGlobs ?? []),
+				...verifierPaths,
+			];
+		}
+	}
+
 	// Global deny prefixes — apply to all agents regardless of per-agent rules
 	const universalDenyPrefixes: string[] =
 		authorityConfig?.universal_deny_prefixes ?? [];
@@ -4302,6 +4316,7 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 			'**/.eslintrc*',
 			'**/eslint.config.*',
 			'**/.prettierrc*',
+			'**/prettier.config.*',
 			'**/biome.jsonc',
 			'**/.secretscanignore',
 			'**/.golangci*',
