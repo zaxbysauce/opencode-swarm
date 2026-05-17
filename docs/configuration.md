@@ -108,6 +108,36 @@ Empty or whitespace-only values are treated as omitted.
 
 > Why this matters: in v7.3.x the schema applied an implicit `.default("architect")`. In a multi-swarm config there is no agent literally named `architect` — they are all prefixed — so every architect was demoted to subagent and OpenCode showed only the native `build`/`plan` agents. The omitted-vs-explicit distinction is now load-bearing; do not re-introduce a schema default.
 
+## `auto_select_architect` — auto-select swarm architect on launch
+
+`auto_select_architect` (top-level, optional `boolean | string`) controls whether OpenCode's built-in `build` and `plan` agents are disabled so the swarm architect is automatically selected as the active agent on launch.
+
+| Value | Effect |
+|-------|--------|
+| `false` (default) | No auto-select — `build`/`plan` remain enabled; user manually picks the architect |
+| `true` | Disable `build` and `plan` so the swarm architect is the only selectable primary agent; emit a warning if multiple architect agents are primary |
+| `"<architect_name>"` | Same as `true`, but target a specific architect by its generated name (e.g. `"mega_architect"`) — all other architects are demoted to subagent |
+
+**Behavior details:**
+- Only `build` and `plan` are disabled. `general` and `explore` are always preserved.
+- If the user has already set `disable: true` on `build` or `plan` in their own config, the plugin respects that override.
+- If no architect agent exists in the generated set, a warning is emitted and the option has no effect.
+- If the string value does not match a known architect name, a warning is emitted and no demotion is applied.
+
+**Example — enable for any architect:**
+```json
+{
+  "auto_select_architect": true
+}
+```
+
+**Example — target a specific architect in a multi-swarm config:**
+```json
+{
+  "auto_select_architect": "mega_architect"
+}
+```
+
 ## How to verify the resolved config
 
 Run:

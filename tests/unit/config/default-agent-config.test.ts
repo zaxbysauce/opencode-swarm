@@ -107,6 +107,64 @@ describe('PluginConfigSchema — default_agent field (post-v7.3.5 semantics)', (
 	});
 });
 
+describe('PluginConfigSchema — auto_select_architect field', () => {
+	test('omitted ⇒ parsed result is undefined', () => {
+		const result = PluginConfigSchema.safeParse({});
+		expect(result.success).toBe(true);
+		if (result.success) {
+			expect(result.data.auto_select_architect).toBeUndefined();
+		}
+	});
+
+	test('auto_select_architect: true ⇒ parsed result is true', () => {
+		const result = PluginConfigSchema.safeParse({
+			auto_select_architect: true,
+		});
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.auto_select_architect).toBe(true);
+	});
+
+	test('auto_select_architect: false ⇒ parsed result is false', () => {
+		const result = PluginConfigSchema.safeParse({
+			auto_select_architect: false,
+		});
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.auto_select_architect).toBe(false);
+	});
+
+	test('auto_select_architect: "mega_architect" ⇒ parsed result is "mega_architect"', () => {
+		const result = PluginConfigSchema.safeParse({
+			auto_select_architect: 'mega_architect',
+		});
+		expect(result.success).toBe(true);
+		if (result.success)
+			expect(result.data.auto_select_architect).toBe('mega_architect');
+	});
+
+	test('auto_select_architect: "" ⇒ parsed result is false', () => {
+		const result = PluginConfigSchema.safeParse({ auto_select_architect: '' });
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.auto_select_architect).toBe(false);
+	});
+
+	test('auto_select_architect: "   " ⇒ parsed result is false', () => {
+		const result = PluginConfigSchema.safeParse({
+			auto_select_architect: '   ',
+		});
+		expect(result.success).toBe(true);
+		if (result.success) expect(result.data.auto_select_architect).toBe(false);
+	});
+
+	test('auto_select_architect: "  local_architect  " ⇒ parsed result is "local_architect" (trimmed)', () => {
+		const result = PluginConfigSchema.safeParse({
+			auto_select_architect: '  local_architect  ',
+		});
+		expect(result.success).toBe(true);
+		if (result.success)
+			expect(result.data.auto_select_architect).toBe('local_architect');
+	});
+});
+
 // ─── Resolver: resolvePrimaryAgentNames ────────────────────────────────────
 
 describe('resolvePrimaryAgentNames', () => {
