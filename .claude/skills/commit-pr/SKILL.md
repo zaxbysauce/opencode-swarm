@@ -406,8 +406,9 @@ Verify the PR is now tracking your commit: `gh pr view <number> --json headRefOi
 #### bash (Linux / macOS)
 
 ```bash
+# Include the Closes line only when the PR resolves an issue
 gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
-Closes #<issue-number>   # ← include when PR resolves an issue
+Closes #<issue-number>
 
 ## Summary
 - <bullet 1>
@@ -423,7 +424,7 @@ Closes #<issue-number>   # ← include when PR resolves an issue
 EOF
 )" --base main
 
-# After creating the PR, comment on the issue
+# After creating the PR, comment on the issue with a summary of changes
 gh issue comment <issue-number> --body "Fixed in PR #<pr-number>. <bullet summary of changes>"
 ```
 
@@ -432,8 +433,9 @@ gh issue comment <issue-number> --body "Fixed in PR #<pr-number>. <bullet summar
 `<<'EOF'` heredoc syntax is **invalid in PowerShell** and will produce a parse error. Use a here-string written to a temp file instead:
 
 ```powershell
+# Include the Closes line only when the PR resolves an issue
 $body = @"
-Closes #<issue-number>   # ← include when PR resolves an issue
+Closes #<issue-number>
 
 ## Summary
 - <bullet 1>
@@ -450,7 +452,7 @@ Closes #<issue-number>   # ← include when PR resolves an issue
 $body | Out-File "$env:TEMP\pr_body.txt" -Encoding UTF8
 gh pr create --title "<type>(<scope>): <description>" --body-file "$env:TEMP\pr_body.txt" --base main
 
-# After creating the PR, comment on the issue
+# After creating the PR, comment on the issue with a summary of changes
 gh issue comment <issue-number> --body "Fixed in PR #<pr-number>. <bullet summary of changes>"
 ```
 
