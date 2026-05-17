@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.21.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.21.3...v7.21.4) (2026-05-17)
+
+
+### Bug Fixes
+
+* **guardrails:** block agent self-acknowledgment of spec drift ([#890](https://github.com/zaxbysauce/opencode-swarm/issues/890)) ([#896](https://github.com/zaxbysauce/opencode-swarm/issues/896)) ([670829b](https://github.com/zaxbysauce/opencode-swarm/commit/670829b6e1a96c408fc7b8f795eeaa710d4fcd97))
+
 ## [7.21.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.21.2...v7.21.3) (2026-05-17)
 
 
