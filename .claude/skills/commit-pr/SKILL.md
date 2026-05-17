@@ -399,10 +399,16 @@ Verify the PR is now tracking your commit: `gh pr view <number> --json headRefOi
 
 `## Summary` must have 1–3 bullets explaining what and why. `## Test plan` must be a markdown checklist. Do not replace the body of an existing release-please PR — prepend only.
 
+**PR body MUST include `Closes #<issue-number>` as the first line** when the PR resolves a specific issue. This auto-closes the issue on merge. For PRs that don't close an issue, skip this line.
+
+**After opening the PR, comment on the issue** with a summary of what changed, so issue subscribers get notified. Use `gh issue comment <number> --body "..."`.
+
 #### bash (Linux / macOS)
 
 ```bash
 gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
+Closes #<issue-number>   # ← include when PR resolves an issue
+
 ## Summary
 - <bullet 1>
 - <bullet 2 if needed>
@@ -412,8 +418,13 @@ gh pr create --title "<type>(<scope>): <description>" --body "$(cat <<'EOF'
 - [ ] <what you tested>
 - [ ] <additional test step>
 
+## Pre-existing failures
+- <test name> — <reason> (if any pre-existing failures exist)
 EOF
 )" --base main
+
+# After creating the PR, comment on the issue
+gh issue comment <issue-number> --body "Fixed in PR #<pr-number>. <bullet summary of changes>"
 ```
 
 #### PowerShell (Windows)
@@ -422,6 +433,8 @@ EOF
 
 ```powershell
 $body = @"
+Closes #<issue-number>   # ← include when PR resolves an issue
+
 ## Summary
 - <bullet 1>
 - <bullet 2 if needed>
@@ -430,9 +443,15 @@ $body = @"
 ## Test plan
 - [ ] <what you tested>
 - [ ] <additional test step>
+
+## Pre-existing failures
+- <test name> — <reason> (if any pre-existing failures exist)
 "@
 $body | Out-File "$env:TEMP\pr_body.txt" -Encoding UTF8
 gh pr create --title "<type>(<scope>): <description>" --body-file "$env:TEMP\pr_body.txt" --base main
+
+# After creating the PR, comment on the issue
+gh issue comment <issue-number> --body "Fixed in PR #<pr-number>. <bullet summary of changes>"
 ```
 
 Note: Inside a PowerShell here-string (`@"..."@`), backticks are literal — no escaping needed. Double-quotes inside the here-string do not need escaping either.
@@ -452,4 +471,5 @@ Verify every item before asking for a merge:
 - [ ] If the repo tracks `dist/` files: `bun run build` was run and dist/ artifacts are included in the squash commit
 - [ ] All workflow `uses:` references are SHA-pinned (if workflows changed)
 - [ ] PR body has `## Summary`, `## Invariant audit`, and `## Test plan`
+- [ ] If the PR resolves an issue: PR body starts with `Closes #<number>` (first line) and an `gh issue comment` was posted summarizing the change
 - [ ] All CI checks are green before merging
