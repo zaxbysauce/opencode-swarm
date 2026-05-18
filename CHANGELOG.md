@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.23.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.23.0...v7.23.1) (2026-05-18)
+
+
+### Bug Fixes
+
+* **gate:** harden delegation chain persistence and gate recovery for crash resilience ([#912](https://github.com/zaxbysauce/opencode-swarm/issues/912)) ([958edf2](https://github.com/zaxbysauce/opencode-swarm/commit/958edf23b98ad627b450c13dd6f503156f4f3c77))
+
 ## [7.23.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.22.1...v7.23.0) (2026-05-18)
 
 
