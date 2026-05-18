@@ -398,6 +398,7 @@ export async function skillPropagationGateBefore(
 	// unbounded file reads stalling every delegated Task call.
 	// Uses ONLY pre-loaded session entries — no additional file reads.
 	let scoringSkipped = false;
+	let scored: Array<{ skillPath: string; score: number; usageCount: number }> = [];
 	if (
 		skillsValue &&
 		skillsValue.toLowerCase() !== 'none' &&
@@ -418,7 +419,7 @@ export async function skillPropagationGateBefore(
 						? String((input.args as Record<string, unknown>).prompt)
 						: '';
 				// Score each available skill using pre-loaded session entries (no additional file reads)
-				const scored = availableSkills
+				scored = availableSkills
 					.map((skillPath) => {
 						const skillEntries = sessionEntries.filter(
 							(e) => e.skillPath === skillPath,
@@ -468,6 +469,8 @@ export async function skillPropagationGateBefore(
 					const nameB = path.basename(path.dirname(b));
 					return nameA.localeCompare(nameB);
 				});
+			} else if (typeof scored !== 'undefined' && scored.length > 0) {
+				skillsForIndex = scored.map((r) => r.skillPath);
 			}
 			const formattedIndex = _internals.formatSkillIndexWithContext(
 				skillsForIndex,
@@ -495,7 +498,7 @@ export async function skillPropagationGateBefore(
 						updatedContent =
 							existingContent.slice(0, sectionStart) +
 							newSection +
-							existingContent.slice(sectionEnd);
+							existingContent.slice(sectionEnd + 1);
 					} else {
 						// Section at end of file, no following heading
 						updatedContent =
@@ -563,7 +566,7 @@ export async function skillPropagationGateBefore(
 
 	// Build the visible warning message
 	const warningMsg =
-		`⚠️ Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` +
+		`Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` +
 		`Available skills: ${skillNames.join(', ')}`;
 
 	// Log warning event to events.jsonl (best-effort, never throw)
@@ -629,13 +632,16 @@ export async function skillPropagationTransformScan(
 	// Prevents duplicate entries when the same message is scanned on
 	// repeated messagesTransform calls.
 	let dedupKeys = new Set<string>();
-	let existingEntries: ReturnType<typeof _internals.readSkillUsageEntries> = [];
+	let existingEntries: ReturnType<typeof _internals.readSkillUsageEntriesTail> = [];
 	try {
-		existingEntries = _internals.readSkillUsageEntries(directory, {
+		existingEntries = _internals.readSkillUsageEntriesTail(directory, {
 			sessionID,
 		});
 		dedupKeys = new Set<string>(
-			existingEntries.map((e) => `${e.skillPath}|${e.agentName}|${e.taskID}`),
+			existingEntries.map((e, i) => {
+				const taskKey = e.taskID === 'unknown' ? `unknown-${i}` : e.taskID;
+				return `${e.skillPath}|${e.agentName}|${taskKey}`;
+			}),
 		);
 	} catch (err) {
 		warn(

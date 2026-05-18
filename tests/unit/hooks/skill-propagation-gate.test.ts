@@ -566,7 +566,7 @@ describe('skillPropagationGateBefore', () => {
 			}),
 		).resolves.toEqual({
 			blocked: false,
-			reason: expect.stringContaining('⚠️'),
+			reason: expect.stringContaining('Skill propagation warning:'),
 		});
 
 		expect(warnEventWritten).toHaveLength(1);
@@ -811,6 +811,10 @@ describe('skillPropagationGateBefore — SKILLS_USED_BY_CODER forwarding check',
 	});
 
 	test('SKILLS_USED_BY_CODER check does NOT block even when enforce=true', async () => {
+		// Note: enforce=true is passed but the function returns early from the
+		// SKILLS_USED_BY_CODER check before reaching the enforce block.
+		// This test verifies that the SKILLS_USED_BY_CODER warning path is
+		// non-blocking regardless of enforce mode — the correct behavior.
 		applyOverrides(_internals, {
 			parseDelegationArgs: () => ({
 				targetAgent: 'reviewer',
@@ -1015,7 +1019,7 @@ describe('skillPropagationGateBefore enforce mode', () => {
 		);
 
 		expect(result.blocked).toBe(false);
-		expect(result.reason).toContain('⚠️');
+		expect(result.reason).toContain('Skill propagation warning:');
 		expect(warnEventWritten).toHaveLength(1);
 	});
 
@@ -1031,6 +1035,36 @@ describe('skillPropagationGateBefore enforce mode', () => {
 			{ enabled: false, enforce: true },
 		);
 		expect(result).toEqual({ blocked: false, reason: null });
+	});
+
+	// Finding 9 — index.ts wiring relies on this return value contract
+	test('enforce=true with missing SKILLS returns { blocked: true, reason: string } — index.ts wiring contract', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-index-wiring',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Return value contract that src/index.ts wiring depends on:
+		// if (skillResult.blocked) throw ...skillResult.reason...
+		expect(result.blocked).toBe(true);
+		expect(typeof result.reason).toBe('string');
+		expect(result.reason.length).toBeGreaterThan(0);
+		expect(result.reason).toContain('Blocked by skill propagation gate');
 	});
 });
 
@@ -1910,11 +1944,61 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 			),
 		).resolves.toEqual({
 			blocked: false,
-			reason: expect.stringContaining('⚠️'),
+			reason: expect.stringContaining('Skill propagation warning:'),
 		});
 
 		// Delegation recording should still have succeeded
 		expect(recorded).toHaveLength(0);
+	});
+
+	test('delegation recording succeeds even when scoring throws (skillsField is non-none)', async () => {
+		// This is the scenario that was lost when the diff changed skillsField from
+		// 'writing-tests' to 'none' — this test restores coverage for the case where
+		// scoring throws but delegation recording still succeeds (skillsField is non-none).
+		const recorded: RecordedEntry[] = [];
+		const scoringError = new Error('computeSkillRelevanceScore failed');
+
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			appendSkillUsageEntry: makeMockAppendSkillUsageEntry(recorded),
+			extractTaskIdFromPrompt: () => 'task-score-throw',
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			readSkillUsageEntriesTail: () => [],
+			computeSkillRelevanceScore: () => {
+				throw scoringError;
+			},
+		});
+
+		// Should NOT throw — scoring error is caught
+		await expect(
+			skillPropagationGateBefore(
+				tmp,
+				{
+					tool: 'task',
+					agent: 'architect',
+					sessionID: 'sess-score-throw',
+					args: {
+						subagent_type: 'mega_coder',
+						prompt: 'SKILLS: writing-tests\nimplement the feature',
+					},
+				},
+				{ enabled: true },
+			),
+		).resolves.toEqual({ blocked: false, reason: null });
+
+		// Delegation recording should still have succeeded
+		expect(recorded).toHaveLength(1);
+		expect(recorded[0]).toMatchObject({
+			skillPath: 'writing-tests',
+			agentName: 'coder',
+			taskID: 'task-score-throw',
+			sessionID: 'sess-score-throw',
+		});
 	});
 
 	test('does NOT call computeSkillRelevanceScore when skillsValue is "none"', async () => {

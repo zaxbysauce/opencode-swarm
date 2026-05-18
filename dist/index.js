@@ -83567,6 +83567,7 @@ async function skillPropagationGateBefore(directory, input, config3) {
     }
   }
   let scoringSkipped = false;
+  let scored = [];
   if (skillsValue && skillsValue.toLowerCase() !== "none" && availableSkills.length > 0) {
     try {
       const sessionEntries = _internals42.readSkillUsageEntriesTail(directory, {
@@ -83577,7 +83578,7 @@ async function skillPropagationGateBefore(directory, input, config3) {
         warn(`[skill-propagation-gate] skipping scoring — session has ${sessionEntries.length} entries (limit: ${_internals42.MAX_SCORING_SESSION_ENTRIES})`);
       } else {
         const prompt = typeof input.args?.prompt === "string" ? String(input.args.prompt) : "";
-        const scored = availableSkills.map((skillPath) => {
+        scored = availableSkills.map((skillPath) => {
           const skillEntries = sessionEntries.filter((e) => e.skillPath === skillPath);
           const score = _internals42.computeSkillRelevanceScore(skillPath, prompt, skillEntries);
           return { skillPath, score, usageCount: skillEntries.length };
@@ -83601,6 +83602,8 @@ async function skillPropagationGateBefore(directory, input, config3) {
           const nameB = path89.basename(path89.dirname(b));
           return nameA.localeCompare(nameB);
         });
+      } else if (typeof scored !== "undefined" && scored.length > 0) {
+        skillsForIndex = scored.map((r) => r.skillPath);
       }
       const formattedIndex = _internals42.formatSkillIndexWithContext(skillsForIndex, directory);
       if (formattedIndex.length > 0) {
@@ -83619,7 +83622,7 @@ ${formattedIndex}
           const sectionEnd = existingContent.indexOf(`
 ## `, sectionStart + sectionHeader.length);
           if (sectionEnd !== -1) {
-            updatedContent = existingContent.slice(0, sectionStart) + newSection + existingContent.slice(sectionEnd);
+            updatedContent = existingContent.slice(0, sectionStart) + newSection + existingContent.slice(sectionEnd + 1);
           } else {
             updatedContent = existingContent.slice(0, sectionStart) + newSection;
           }
@@ -83660,7 +83663,7 @@ ${formattedIndex}
     const parts2 = p.split("/");
     return parts2[parts2.length - 2] ?? p;
   });
-  const warningMsg = `⚠️ Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` + `Available skills: ${skillNames.join(", ")}`;
+  const warningMsg = `Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` + `Available skills: ${skillNames.join(", ")}`;
   try {
     _internals42.writeWarnEvent(directory, {
       type: "skill_propagation_warn",
@@ -83691,10 +83694,13 @@ async function skillPropagationTransformScan(directory, output, sessionID) {
   let dedupKeys = new Set;
   let existingEntries = [];
   try {
-    existingEntries = _internals42.readSkillUsageEntries(directory, {
+    existingEntries = _internals42.readSkillUsageEntriesTail(directory, {
       sessionID
     });
-    dedupKeys = new Set(existingEntries.map((e) => `${e.skillPath}|${e.agentName}|${e.taskID}`));
+    dedupKeys = new Set(existingEntries.map((e, i2) => {
+      const taskKey = e.taskID === "unknown" ? `unknown-${i2}` : e.taskID;
+      return `${e.skillPath}|${e.agentName}|${taskKey}`;
+    }));
   } catch (err2) {
     warn(`[skill-propagation-gate] dedup preload failed, continuing without dedup: ${err2 instanceof Error ? err2.message : String(err2)}`);
   }
