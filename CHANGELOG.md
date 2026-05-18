@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.22.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.21.5...v7.22.0) (2026-05-18)
+
+
+### Features
+
+* **config:** add auto_select_architect option to auto-select swarm architect on launch ([#903](https://github.com/zaxbysauce/opencode-swarm/issues/903)) ([6e27009](https://github.com/zaxbysauce/opencode-swarm/commit/6e27009d4b941198ab36ed63cc57af5cee2c1614)), closes [#889](https://github.com/zaxbysauce/opencode-swarm/issues/889)
+
 ## [Unreleased]
 
 ### Features
