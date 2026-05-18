@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.21.3",
+    version: "7.21.5",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -17397,7 +17397,7 @@ var init_schema = __esm(() => {
     enabled: exports_external.boolean().default(true),
     rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
     universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([]),
-    verifier_config_paths: exports_external.array(exports_external.string()).optional().describe("Additional glob patterns for verifier config files that should be protected from agent modification. These patterns are merged with the built-in verifier config globs (guardrails.ts).")
+    verifier_config_paths: exports_external.array(exports_external.string()).optional().describe("Additional glob patterns for verifier config files that are merged into the architect agent's blockedGlobs at plugin init. Writes to matching files are blocked by the authority layer.")
   });
   GeneralCouncilMemberConfigSchema = exports_external.object({
     memberId: exports_external.string().min(1),
@@ -17472,6 +17472,14 @@ var init_schema = __esm(() => {
         return;
       const trimmed = v.trim();
       return trimmed === "" ? undefined : trimmed;
+    }),
+    auto_select_architect: exports_external.union([exports_external.boolean(), exports_external.string()]).optional().transform((v) => {
+      if (v === undefined)
+        return;
+      if (typeof v === "boolean")
+        return v;
+      const trimmed = v.trim();
+      return trimmed === "" ? false : trimmed;
     }),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
     max_iterations: exports_external.number().min(1).max(10).default(5),

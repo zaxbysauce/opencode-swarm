@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.21.3",
+    version: "7.21.5",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -15610,7 +15610,7 @@ var init_schema = __esm(() => {
     enabled: exports_external.boolean().default(true),
     rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
     universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([]),
-    verifier_config_paths: exports_external.array(exports_external.string()).optional().describe("Additional glob patterns for verifier config files that should be protected from agent modification. These patterns are merged with the built-in verifier config globs (guardrails.ts).")
+    verifier_config_paths: exports_external.array(exports_external.string()).optional().describe("Additional glob patterns for verifier config files that are merged into the architect agent's blockedGlobs at plugin init. Writes to matching files are blocked by the authority layer.")
   });
   GeneralCouncilMemberConfigSchema = exports_external.object({
     memberId: exports_external.string().min(1),
@@ -15685,6 +15685,14 @@ var init_schema = __esm(() => {
         return;
       const trimmed = v.trim();
       return trimmed === "" ? undefined : trimmed;
+    }),
+    auto_select_architect: exports_external.union([exports_external.boolean(), exports_external.string()]).optional().transform((v) => {
+      if (v === undefined)
+        return;
+      if (typeof v === "boolean")
+        return v;
+      const trimmed = v.trim();
+      return trimmed === "" ? false : trimmed;
     }),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
     max_iterations: exports_external.number().min(1).max(10).default(5),
@@ -24747,6 +24755,17 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
     };
   }
   const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+  const verifierPaths = authorityConfig?.verifier_config_paths;
+  if (verifierPaths && verifierPaths.length > 0) {
+    const existingArchitect = precomputedAuthorityRules.architect ?? {};
+    precomputedAuthorityRules.architect = {
+      ...existingArchitect,
+      blockedGlobs: [
+        ...existingArchitect.blockedGlobs ?? [],
+        ...verifierPaths
+      ]
+    };
+  }
   const universalDenyPrefixes = authorityConfig?.universal_deny_prefixes ?? [];
   const cfg = guardrailsConfig;
   const requiredQaGates = cfg.qa_gates?.required_tools ?? [
@@ -26256,11 +26275,11 @@ function checkWriteTargetForSymlink(targetPath, cwd) {
 }
 function buildEffectiveRules(authorityConfig) {
   if (authorityConfig?.enabled === false || !authorityConfig?.rules) {
-    return DEFAULT_AGENT_AUTHORITY_RULES;
+    return { ...DEFAULT_AGENT_AUTHORITY_RULES };
   }
   const entries = Object.entries(authorityConfig.rules);
   if (entries.length === 0) {
-    return DEFAULT_AGENT_AUTHORITY_RULES;
+    return { ...DEFAULT_AGENT_AUTHORITY_RULES };
   }
   const merged = {
     ...DEFAULT_AGENT_AUTHORITY_RULES
@@ -26424,6 +26443,7 @@ var init_guardrails = __esm(() => {
     "**/.eslintrc*",
     "**/eslint.config.*",
     "**/.prettierrc*",
+    "**/prettier.config.*",
     "**/biome.jsonc",
     "**/.secretscanignore",
     "**/.golangci*"
@@ -26529,6 +26549,7 @@ var init_guardrails = __esm(() => {
         "**/.eslintrc*",
         "**/eslint.config.*",
         "**/.prettierrc*",
+        "**/prettier.config.*",
         "**/biome.jsonc",
         "**/.secretscanignore",
         "**/.golangci*"
@@ -65890,7 +65911,7 @@ DO (explicitly):
 When the declared scope includes a verifier/linter config file (biome.json, biome.jsonc, oxlintrc, oxlintrc.json, .eslintrc, .eslintrc.json, eslint.config.*, .prettierrc, .prettierrc.json, prettier.config.*, biome.jsonc, .secretscanignore, golangci-lint configs, tsconfig.json, tsconfig.*.json, or any other linter/formatter/security-tool configuration):
 
 - Verify the change does NOT reduce strictness of any existing rule
-- Reject changes that downgrade "error" to "warn", remove rules, weaken validation thresholds, or narrow file/sirectory scopes
+- Reject changes that downgrade "error" to "warn", remove rules, weaken validation thresholds, or narrow file/directory scopes
 - Allow changes that ADD new stricter rules, enable additional rule categories, fix syntax errors, or correct misconfigured paths
 - Document the specific config change and its impact on validation strictness in your review output
 - If a rule is changed from "error" to "warn" or a rule is removed: REJECT with STRICTNESS_REDUCTION: [rule name] — [original setting] → [new setting]
@@ -80757,8 +80778,8 @@ var ESCALATE_SHELL_PATTERNS = [
   /\bgit\s+rebase\b/i,
   /\bgit\s+merge\b/i,
   /\bgit\s+commit\b/i,
-  /\b(sed\s+-i|echo\s+|printf\s+)[^\n]*\b(biome\.jsonc?|eslintrc|eslint\.config|oxlintrc|prettierrc|secretscanignore|golangci|tsconfig\.json)\b/i,
-  /\b(?:cat|tee)\b[^\n]*>\s*[^\n]*\b(biome\.jsonc?|eslintrc|eslint\.config|oxlintrc|prettierrc|secretscanignore|golangci|tsconfig\.json)\b/i
+  /\b(sed\s+-i|echo\s+|printf\s+)[^\n]*\b(biome\.jsonc?|eslintrc|eslint\.config|oxlintrc|prettierrc|secretscanignore|golangci|tsconfig\.json|tsconfig\.[^.]+\.json)\b/i,
+  /\b(?:cat|tee)\b[^\n]*>\s*[^\n]*\b(biome\.jsonc?|eslintrc|eslint\.config|oxlintrc|prettierrc|secretscanignore|golangci|tsconfig\.json|tsconfig\.[^.]+\.json)\b/i
 ];
 function isReadOnlyTool(toolName) {
   if (!toolName)
@@ -105328,10 +105349,64 @@ async function initializeOpenCodeSwarm(ctx) {
       swarm_command: createSwarmCommandTool(agentDefinitionMap)
     },
     config: async (opencodeConfig) => {
+      if (!opencodeConfig.agent || typeof opencodeConfig.agent !== "object") {
+        opencodeConfig.agent = {};
+      }
       if (!opencodeConfig.agent) {
         opencodeConfig.agent = { ...agents };
       } else {
         Object.assign(opencodeConfig.agent, agents);
+      }
+      const autoSelect = config3?.auto_select_architect;
+      if (autoSelect) {
+        const hasArchitect = Object.keys(agents).some((name2) => stripKnownSwarmPrefix(name2) === "architect");
+        if (hasArchitect) {
+          for (const builtin of ["build", "plan"]) {
+            const existing = opencodeConfig.agent?.[builtin];
+            if (existing && typeof existing === "object" && existing.disable === true) {
+              continue;
+            }
+            opencodeConfig.agent[builtin] = {
+              ...existing && typeof existing === "object" ? existing : {},
+              disable: true
+            };
+          }
+          if (autoSelect === true) {
+            const primaryArchitects = Object.entries(agents).filter(([name2, cfg]) => stripKnownSwarmPrefix(name2) === "architect" && cfg.mode === "primary");
+            if (primaryArchitects.length > 1) {
+              const names = primaryArchitects.map(([n]) => n).join(", ");
+              addDeferredWarning(`[swarm] auto_select_architect is true but ${primaryArchitects.length} architect agents are primary (${names}). Consider setting auto_select_architect to a specific agent name.`);
+            }
+          }
+          if (typeof autoSelect === "string" && autoSelect !== "") {
+            const targetName = autoSelect;
+            const targetIsArchitect = Object.hasOwn(agents, targetName) && stripKnownSwarmPrefix(targetName) === "architect";
+            if (targetIsArchitect) {
+              for (const [name2, cfg] of Object.entries(agents)) {
+                if (stripKnownSwarmPrefix(name2) === "architect" && name2 !== targetName) {
+                  if (opencodeConfig.agent && typeof opencodeConfig.agent === "object") {
+                    opencodeConfig.agent[name2] = {
+                      ...cfg && typeof cfg === "object" ? cfg : {},
+                      mode: "subagent"
+                    };
+                  }
+                }
+              }
+              if (opencodeConfig.agent && typeof opencodeConfig.agent === "object") {
+                const targetExisting = opencodeConfig.agent[targetName];
+                opencodeConfig.agent[targetName] = {
+                  ...targetExisting && typeof targetExisting === "object" ? targetExisting : {},
+                  ...agents[targetName] && typeof agents[targetName] === "object" ? agents[targetName] : {},
+                  mode: "primary"
+                };
+              }
+            } else {
+              addDeferredWarning(`[swarm] auto_select_architect is set to "${targetName}" but that is not a known architect agent. No architect demotion applied.`);
+            }
+          }
+        } else {
+          addDeferredWarning("[swarm] auto_select_architect is enabled but no architect agents were found in the generated set. The option has no effect.");
+        }
       }
       opencodeConfig.command = {
         ...opencodeConfig.command || {},

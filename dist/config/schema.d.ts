@@ -828,6 +828,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
     default_agent: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    auto_select_architect: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodString]>>, z.ZodTransform<string | boolean | undefined, string | boolean | undefined>>;
     swarms: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
