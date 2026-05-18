@@ -71,9 +71,14 @@ export declare function checkReviewerGateWithScope(taskId: string, workingDirect
  * missing), this function advances the task state so that checkReviewerGate can
  * make an accurate decision without attributing unrelated delegation activity.
  *
+ * Falls back to reading durable evidence files when delegation chains are empty
+ * (e.g., after a crash or session restart without snapshot). This ensures
+ * recovery works even when no in-memory delegation history exists.
+ *
  * @param taskId - The task ID to recover state for
+ * @param directory - Optional project directory for evidence file fallback
  */
-export declare function recoverTaskStateFromDelegations(taskId: string): void;
+export declare function recoverTaskStateFromDelegations(taskId: string, directory?: string): void;
 /**
  * Result of the council-gate check used when transitioning to 'completed'.
  *

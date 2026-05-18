@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.22.1",
+    version: "7.23.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -52404,7 +52404,7 @@ var init_handoff_service = __esm(() => {
 });
 
 // src/session/snapshot-writer.ts
-import { mkdirSync as mkdirSync13, renameSync as renameSync9 } from "node:fs";
+import { closeSync as closeSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync13, openSync as openSync3, renameSync as renameSync9 } from "node:fs";
 import * as path33 from "node:path";
 function serializeAgentSession(s) {
   const gateLog = {};
@@ -52421,6 +52421,12 @@ function serializeAgentSession(s) {
   const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
   const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
   const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
+  const stageBCompletion = {};
+  if (s.stageBCompletion) {
+    for (const [taskId, agents] of s.stageBCompletion) {
+      stageBCompletion[taskId] = Array.from(agents);
+    }
+  }
   const windows = {};
   const rawWindows = s.windows ?? {};
   for (const [key, win] of Object.entries(rawWindows)) {
@@ -52477,7 +52483,8 @@ function serializeAgentSession(s) {
     fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
     fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
     fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+    ...Object.keys(stageBCompletion).length > 0 && { stageBCompletion }
   };
 }
 async function writeSnapshot(directory, state) {
@@ -52499,6 +52506,14 @@ async function writeSnapshot(directory, state) {
     mkdirSync13(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await bunWrite(tempPath, content);
+    try {
+      const fd = openSync3(tempPath, "r+");
+      try {
+        fsyncSync2(fd);
+      } finally {
+        closeSync3(fd);
+      }
+    } catch {}
     renameSync9(tempPath, resolvedPath);
   } catch (error93) {
     log("[snapshot-writer] write failed", {
@@ -85214,6 +85229,12 @@ function deserializeAgentSession(s) {
   const catastrophicPhaseWarnings = new Set(s.catastrophicPhaseWarnings ?? []);
   const phaseAgentsDispatched = new Set(s.phaseAgentsDispatched ?? []);
   const lastCompletedPhaseAgentsDispatched = new Set(s.lastCompletedPhaseAgentsDispatched ?? []);
+  const stageBCompletion = new Map;
+  if (s.stageBCompletion) {
+    for (const [taskId, agents] of Object.entries(s.stageBCompletion)) {
+      stageBCompletion.set(taskId, new Set(agents));
+    }
+  }
   const windows = {};
   for (const [key, win] of Object.entries(s.windows ?? {})) {
     windows[key] = {
@@ -85268,7 +85289,8 @@ function deserializeAgentSession(s) {
     prmLastPatternDetected: null,
     prmTrajectoryStep: 0,
     prmHardStopPending: false,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+    stageBCompletion
   };
 }
 async function readSnapshot(directory) {
@@ -103964,7 +103986,27 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
       }
     }
     const currentStateStr = stateEntries.length > 0 ? stateEntries.join(", ") : "no active sessions";
-    const finalReason = evidenceIncompleteReason ?? `Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`;
+    const chainEntries = [];
+    for (const [sessionId, chain] of swarmState.delegationChains) {
+      const session = swarmState.agentSessions.get(sessionId);
+      if (session && (session.currentTaskId === taskId || session.lastCoderDelegationTaskId === taskId)) {
+        const targets = chain.map((d) => stripKnownSwarmPrefix(d.to));
+        chainEntries.push(`${sessionId}: [${targets.join(", ")}]`);
+      }
+    }
+    const chainSummary = chainEntries.length > 0 ? chainEntries.join("; ") : "no chains for this task";
+    const rehydratedSessionCount = [
+      ...swarmState.agentSessions.values()
+    ].filter((s) => s.sessionRehydratedAt > 0).length;
+    const finalReason = [
+      `Task ${taskId} has not passed QA gates.`,
+      `  Session states: [${currentStateStr}].`,
+      `  Delegation chains: [${chainSummary}].`,
+      `  Evidence: [${evidenceIncompleteReason ?? "no evidence file found"}].`,
+      `  Rehydrated sessions: ${rehydratedSessionCount}.`,
+      `  Missing required state: tests_run or complete.`
+    ].join(`
+`);
     telemetry.gateFailed("", "qa_gate", taskId, evidenceIncompleteReason ? `Missing gates: evidence incomplete` : `Missing state: tests_run or complete`);
     return {
       blocked: true,
@@ -103986,7 +104028,7 @@ async function checkReviewerGateWithScope(taskId, workingDirectory, sessionID) {
 ${scopeWarning}` : scopeWarning
   };
 }
-function recoverTaskStateFromDelegations(taskId) {
+function recoverTaskStateFromDelegations(taskId, directory) {
   let hasReviewer = false;
   let hasTestEngineer = false;
   for (const [sessionId, chain] of swarmState.delegationChains) {
@@ -104001,8 +104043,24 @@ function recoverTaskStateFromDelegations(taskId) {
       }
     }
   }
+  if ((!hasReviewer || !hasTestEngineer) && directory) {
+    try {
+      const evidence = readTaskEvidenceRaw(directory, taskId);
+      if (evidence && evidence.gates && Array.isArray(evidence.required_gates)) {
+        if (evidence.gates["reviewer"] != null)
+          hasReviewer = true;
+        if (evidence.gates["test_engineer"] != null)
+          hasTestEngineer = true;
+      }
+    } catch {}
+  }
   if (!hasReviewer && !hasTestEngineer)
     return;
+  if (swarmState.agentSessions.size === 0) {
+    try {
+      startAgentSession("recovery-session", "architect");
+    } catch {}
+  }
   for (const [, session] of swarmState.agentSessions) {
     if (!(session.taskWorkflowStates instanceof Map))
       continue;
@@ -104146,7 +104204,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir, ctx) {
     } catch {}
   }
   if (args2.status === "completed") {
-    recoverTaskStateFromDelegations(args2.task_id);
+    recoverTaskStateFromDelegations(args2.task_id, directory);
     let phaseRequiresReviewer = true;
     try {
       const planPath = path137.join(directory, ".swarm", "plan.json");

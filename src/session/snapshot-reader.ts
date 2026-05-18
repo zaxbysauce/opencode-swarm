@@ -109,6 +109,17 @@ export function deserializeAgentSession(
 		s.lastCompletedPhaseAgentsDispatched ?? [],
 	);
 
+	// Convert stageBCompletion: Record<string, string[]> -> Map<string, Set<'reviewer' | 'test_engineer'>>
+	const stageBCompletion = new Map<string, Set<'reviewer' | 'test_engineer'>>();
+	if (s.stageBCompletion) {
+		for (const [taskId, agents] of Object.entries(s.stageBCompletion)) {
+			stageBCompletion.set(
+				taskId,
+				new Set(agents as Array<'reviewer' | 'test_engineer'>),
+			);
+		}
+	}
+
 	// Migration: ensure transientRetryCount exists on all windows (v6.86.14)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	for (const [key, win] of Object.entries(s.windows ?? {})) {
@@ -170,6 +181,7 @@ export function deserializeAgentSession(
 		prmTrajectoryStep: 0,
 		prmHardStopPending: false,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+		stageBCompletion,
 	};
 }
 

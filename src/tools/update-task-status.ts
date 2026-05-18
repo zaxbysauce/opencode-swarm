@@ -22,6 +22,7 @@ import {
 	hasActiveLeanTurbo,
 	hasActiveTurboMode,
 	hasBothStageBCompletions,
+	startAgentSession,
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
@@ -397,11 +398,39 @@ export function checkReviewerGate(
 
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
-		// Prefer evidence-specific reason (lists which gates are missing) when available;
-		// fall back to generic session-state reason.
-		const finalReason =
-			evidenceIncompleteReason ??
-			`Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`;
+
+		// Build delegation chain summary for this task
+		const chainEntries: string[] = [];
+		for (const [sessionId, chain] of swarmState.delegationChains) {
+			const session = swarmState.agentSessions.get(sessionId);
+			if (
+				session &&
+				(session.currentTaskId === taskId ||
+					session.lastCoderDelegationTaskId === taskId)
+			) {
+				const targets = chain.map((d) => stripKnownSwarmPrefix(d.to));
+				chainEntries.push(`${sessionId}: [${targets.join(', ')}]`);
+			}
+		}
+		const chainSummary =
+			chainEntries.length > 0
+				? chainEntries.join('; ')
+				: 'no chains for this task';
+
+		// Count sessions that were rehydrated from snapshot
+		const rehydratedSessionCount = [
+			...swarmState.agentSessions.values(),
+		].filter((s) => s.sessionRehydratedAt > 0).length;
+
+		// Always include structured diagnostics with evidence detail embedded.
+		const finalReason = [
+			`Task ${taskId} has not passed QA gates.`,
+			`  Session states: [${currentStateStr}].`,
+			`  Delegation chains: [${chainSummary}].`,
+			`  Evidence: [${evidenceIncompleteReason ?? 'no evidence file found'}].`,
+			`  Rehydrated sessions: ${rehydratedSessionCount}.`,
+			`  Missing required state: tests_run or complete.`,
+		].join('\n');
 		telemetry.gateFailed(
 			'',
 			'qa_gate',
@@ -459,9 +488,17 @@ export async function checkReviewerGateWithScope(
  * missing), this function advances the task state so that checkReviewerGate can
  * make an accurate decision without attributing unrelated delegation activity.
  *
+ * Falls back to reading durable evidence files when delegation chains are empty
+ * (e.g., after a crash or session restart without snapshot). This ensures
+ * recovery works even when no in-memory delegation history exists.
+ *
  * @param taskId - The task ID to recover state for
+ * @param directory - Optional project directory for evidence file fallback
  */
-export function recoverTaskStateFromDelegations(taskId: string): void {
+export function recoverTaskStateFromDelegations(
+	taskId: string,
+	directory?: string,
+): void {
 	let hasReviewer = false;
 	let hasTestEngineer = false;
 
@@ -482,7 +519,39 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 		}
 	}
 
+	// Fallback 2: Check durable evidence files when delegation chains yield nothing.
+	// This covers crash recovery where in-memory delegation history is lost but
+	// evidence files on disk prove the QA cycle completed.
+	if ((!hasReviewer || !hasTestEngineer) && directory) {
+		try {
+			const evidence = readTaskEvidenceRaw(directory, taskId);
+			if (
+				evidence &&
+				evidence.gates &&
+				Array.isArray(evidence.required_gates)
+			) {
+				if (evidence.gates['reviewer'] != null) hasReviewer = true;
+				if (evidence.gates['test_engineer'] != null) hasTestEngineer = true;
+			}
+		} catch {
+			// Evidence file corrupt or unreadable — non-fatal, delegation chain
+			// result (or lack thereof) stands
+		}
+	}
+
 	if (!hasReviewer && !hasTestEngineer) return;
+
+	// Session seeding: ensure at least one session exists before advancing state.
+	// After a crash or fresh start, agentSessions may be empty, making the
+	// advancement loop below a no-op. Create a minimal recovery session so that
+	// evidence-backed recovery actually takes effect.
+	if (swarmState.agentSessions.size === 0) {
+		try {
+			startAgentSession('recovery-session', 'architect');
+		} catch {
+			// Non-fatal: session seeding failed, state advancement will be a no-op
+		}
+	}
 
 	// Advance the specific task state in all sessions
 	for (const [, session] of swarmState.agentSessions) {
@@ -839,7 +908,7 @@ export async function executeUpdateTaskStatus(
 		// This handles cases where the delegation-gate toolAfter hook did not
 		// advance the state (missing subagent_type, cross-session gaps, pure
 		// verification tasks without coder delegation, etc.).
-		recoverTaskStateFromDelegations(args.task_id);
+		recoverTaskStateFromDelegations(args.task_id, directory);
 
 		// Check if the phase requires reviewer — non-code phases (acceptance, docs) may not
 		let phaseRequiresReviewer = true;

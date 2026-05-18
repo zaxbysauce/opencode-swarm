@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.22.1",
+    version: "7.23.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -43465,7 +43465,7 @@ var init_handoff_service = __esm(() => {
 });
 
 // src/session/snapshot-writer.ts
-import { mkdirSync as mkdirSync10, renameSync as renameSync6 } from "fs";
+import { closeSync as closeSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync10, openSync as openSync3, renameSync as renameSync6 } from "fs";
 import * as path27 from "path";
 function serializeAgentSession(s) {
   const gateLog = {};
@@ -43482,6 +43482,12 @@ function serializeAgentSession(s) {
   const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
   const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
   const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
+  const stageBCompletion = {};
+  if (s.stageBCompletion) {
+    for (const [taskId, agents] of s.stageBCompletion) {
+      stageBCompletion[taskId] = Array.from(agents);
+    }
+  }
   const windows = {};
   const rawWindows = s.windows ?? {};
   for (const [key, win] of Object.entries(rawWindows)) {
@@ -43538,7 +43544,8 @@ function serializeAgentSession(s) {
     fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
     fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
     fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+    ...Object.keys(stageBCompletion).length > 0 && { stageBCompletion }
   };
 }
 async function writeSnapshot(directory, state) {
@@ -43560,6 +43567,14 @@ async function writeSnapshot(directory, state) {
     mkdirSync10(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await bunWrite(tempPath, content);
+    try {
+      const fd = openSync3(tempPath, "r+");
+      try {
+        fsyncSync2(fd);
+      } finally {
+        closeSync3(fd);
+      }
+    } catch {}
     renameSync6(tempPath, resolvedPath);
   } catch (error93) {
     log("[snapshot-writer] write failed", {
