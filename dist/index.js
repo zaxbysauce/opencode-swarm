@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.21.5",
+    version: "7.22.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -83326,6 +83326,8 @@ var _internals42 = {
   statSync: fs62.statSync.bind(fs62),
   mkdirSync: fs62.mkdirSync.bind(fs62),
   appendFileSync: fs62.appendFileSync.bind(fs62),
+  readFileSync: fs62.readFileSync.bind(fs62),
+  writeFileSync: fs62.writeFileSync.bind(fs62),
   skillPropagationGateBefore: null,
   skillPropagationTransformScan: null,
   SKILL_CAPABLE_AGENTS,
@@ -83338,7 +83340,8 @@ var _internals42 = {
   readSkillUsageEntriesTail,
   parseSkillPaths: null,
   extractTaskIdFromPrompt: null,
-  computeSkillRelevanceScore
+  computeSkillRelevanceScore,
+  formatSkillIndexWithContext
 };
 function discoverAvailableSkills(directory) {
   const results = [];
@@ -83438,22 +83441,22 @@ function extractTaskIdFromPrompt(prompt) {
 }
 async function skillPropagationGateBefore(directory, input, config3) {
   if (!config3.enabled)
-    return;
+    return { blocked: false, reason: null };
   const toolName = typeof input.tool === "string" ? input.tool : "";
   if (toolName !== "task" && toolName !== "Task")
-    return;
+    return { blocked: false, reason: null };
   const agentRaw = typeof input.agent === "string" ? input.agent : "";
   if (!agentRaw)
-    return;
+    return { blocked: false, reason: null };
   const baseAgent = stripKnownSwarmPrefix(agentRaw);
   if (baseAgent !== "architect")
-    return;
+    return { blocked: false, reason: null };
   const parsed = _internals42.parseDelegationArgs(input.args);
   if (!parsed)
-    return;
+    return { blocked: false, reason: null };
   const targetBase = stripKnownSwarmPrefix(parsed.targetAgent);
   if (!_internals42.SKILL_CAPABLE_AGENTS.has(targetBase))
-    return;
+    return { blocked: false, reason: null };
   const sessionID = typeof input.sessionID === "string" ? input.sessionID : "unknown";
   const availableSkills = _internals42.discoverAvailableSkills(directory);
   const skillsValue = parsed.skillsField.trim();
@@ -83489,12 +83492,14 @@ async function skillPropagationGateBefore(directory, input, config3) {
       }
     }
   }
+  let scoringSkipped = false;
   if (skillsValue && skillsValue.toLowerCase() !== "none" && availableSkills.length > 0) {
     try {
       const sessionEntries = _internals42.readSkillUsageEntriesTail(directory, {
         sessionID
       });
       if (sessionEntries.length > _internals42.MAX_SCORING_SESSION_ENTRIES) {
+        scoringSkipped = true;
         warn(`[skill-propagation-gate] skipping scoring — session has ${sessionEntries.length} entries (limit: ${_internals42.MAX_SCORING_SESSION_ENTRIES})`);
       } else {
         const prompt = typeof input.args?.prompt === "string" ? String(input.args.prompt) : "";
@@ -83513,11 +83518,75 @@ async function skillPropagationGateBefore(directory, input, config3) {
       warn(`[skill-propagation-gate] skill scoring failed (non-blocking): ${err2 instanceof Error ? err2.message : String(err2)}`);
     }
   }
+  if (availableSkills.length > 0) {
+    try {
+      let skillsForIndex = availableSkills;
+      if (scoringSkipped) {
+        skillsForIndex = [...availableSkills].sort((a, b) => {
+          const nameA = path89.basename(path89.dirname(a));
+          const nameB = path89.basename(path89.dirname(b));
+          return nameA.localeCompare(nameB);
+        });
+      }
+      const formattedIndex = _internals42.formatSkillIndexWithContext(skillsForIndex, directory);
+      if (formattedIndex.length > 0) {
+        const contextPath = path89.join(directory, ".swarm", "context.md");
+        let existingContent = "";
+        if (_internals42.existsSync(contextPath)) {
+          existingContent = _internals42.readFileSync(contextPath, "utf-8");
+        }
+        const sectionHeader = "## Available Skills";
+        const newSection = `${sectionHeader}
+${formattedIndex}
+`;
+        let updatedContent;
+        if (existingContent.includes(sectionHeader)) {
+          const sectionStart = existingContent.indexOf(sectionHeader);
+          const sectionEnd = existingContent.indexOf(`
+## `, sectionStart + sectionHeader.length);
+          if (sectionEnd !== -1) {
+            updatedContent = existingContent.slice(0, sectionStart) + newSection + existingContent.slice(sectionEnd);
+          } else {
+            updatedContent = existingContent.slice(0, sectionStart) + newSection;
+          }
+        } else {
+          if (existingContent.length > 0 && !existingContent.endsWith(`
+`)) {
+            updatedContent = existingContent + `
+` + newSection;
+          } else {
+            updatedContent = existingContent + newSection;
+          }
+        }
+        const swarmDir = path89.dirname(contextPath);
+        if (!_internals42.existsSync(swarmDir)) {
+          _internals42.mkdirSync(swarmDir, { recursive: true });
+        }
+        _internals42.writeFileSync(contextPath, updatedContent, "utf-8");
+      }
+    } catch (err2) {
+      warn(`[skill-propagation-gate] failed to write skill index to context.md: ${err2 instanceof Error ? err2.message : String(err2)}`);
+    }
+  }
+  if (targetBase === "reviewer") {
+    const prompt = typeof input.args?.prompt === "string" ? String(input.args.prompt) : "";
+    const hasSkillsUsedByCoder = /SKILLS_USED_BY_CODER\s*:/i.test(prompt);
+    const coderHadSkills = skillsValue.length > 0 && skillsValue.toLowerCase() !== "none";
+    if (!hasSkillsUsedByCoder && coderHadSkills) {
+      const message = `SKILLS_USED_BY_CODER warning: Delegating to reviewer without SKILLS_USED_BY_CODER field. ` + `Add SKILLS_USED_BY_CODER with the skills the coder received for this task.`;
+      return { blocked: false, reason: message };
+    }
+  }
   if (availableSkills.length === 0)
-    return;
+    return { blocked: false, reason: null };
   const skillsLower = skillsValue.toLowerCase();
   if (skillsValue && skillsLower !== "none")
-    return;
+    return { blocked: false, reason: null };
+  const skillNames = availableSkills.map((p) => {
+    const parts2 = p.split("/");
+    return parts2[parts2.length - 2] ?? p;
+  });
+  const warningMsg = `⚠️ Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` + `Available skills: ${skillNames.join(", ")}`;
   try {
     _internals42.writeWarnEvent(directory, {
       type: "skill_propagation_warn",
@@ -83530,6 +83599,11 @@ async function skillPropagationGateBefore(directory, input, config3) {
       available_skills: availableSkills
     });
   } catch {}
+  if (config3.enforce) {
+    const blockedMsg = `Blocked by skill propagation gate: Delegating to ${targetBase} without SKILLS field. ` + `Available skills: ${skillNames.join(", ")}. ` + `Add a SKILLS: field or set enforce: false in config.`;
+    return { blocked: true, reason: blockedMsg };
+  }
+  return { blocked: false, reason: warningMsg };
 }
 var COMPLIANCE_PATTERN = /SKILL_COMPLIANCE\s*:\s*(COMPLIANT|PARTIAL|VIOLATED)(?:\s*(?:—|-)\s*(.*))?\s*$/i;
 var CODER_SKILLS_PATTERN = /SKILLS_USED_BY_CODER\s*:\s*(.+)/i;
@@ -83682,6 +83756,7 @@ _internals42.discoverAvailableSkills = discoverAvailableSkills;
 _internals42.parseDelegationArgs = parseDelegationArgs;
 _internals42.parseSkillPaths = parseSkillPaths;
 _internals42.extractTaskIdFromPrompt = extractTaskIdFromPrompt;
+_internals42.formatSkillIndexWithContext = formatSkillIndexWithContext;
 
 // src/hooks/slop-detector.ts
 import * as fs63 from "node:fs";
@@ -86323,7 +86398,7 @@ function countCodeLines(content) {
   return lines.length;
 }
 function isTestFile(filePath) {
-  const basename13 = path97.basename(filePath);
+  const basename14 = path97.basename(filePath);
   const _ext = path97.extname(filePath).toLowerCase();
   const testPatterns = [
     ".test.",
@@ -86339,7 +86414,7 @@ function isTestFile(filePath) {
     ".spec.jsx"
   ];
   for (const pattern of testPatterns) {
-    if (basename13.includes(pattern)) {
+    if (basename14.includes(pattern)) {
       return true;
     }
   }
@@ -86953,8 +87028,8 @@ import {
   appendFileSync as appendFileSync11,
   existsSync as existsSync53,
   mkdirSync as mkdirSync24,
-  readFileSync as readFileSync43,
-  writeFileSync as writeFileSync16
+  readFileSync as readFileSync44,
+  writeFileSync as writeFileSync17
 } from "node:fs";
 import { join as join83 } from "node:path";
 var EVIDENCE_DIR2 = ".swarm/evidence";
@@ -86996,7 +87071,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
   const existingRoot = Object.create(null);
   if (existsSync53(filePath)) {
     try {
-      const parsed = JSON.parse(readFileSync43(filePath, "utf-8"));
+      const parsed = JSON.parse(readFileSync44(filePath, "utf-8"));
       if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
         safeAssignOwnProps(existingRoot, parsed);
       }
@@ -87024,7 +87099,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
     updated.taskId = synthesis.taskId;
   if (!Array.isArray(updated.required_gates))
     updated.required_gates = [];
-  writeFileSync16(filePath, JSON.stringify(updated, null, 2));
+  writeFileSync17(filePath, JSON.stringify(updated, null, 2));
   try {
     const councilDir = join83(workingDir, ".swarm", "council");
     mkdirSync24(councilDir, { recursive: true });
@@ -87356,7 +87431,7 @@ function buildFinalCouncilFeedback(projectSummary, verdict, vetoedBy, requiredFi
 }
 
 // src/council/criteria-store.ts
-import { existsSync as existsSync54, mkdirSync as mkdirSync25, readFileSync as readFileSync44, writeFileSync as writeFileSync17 } from "node:fs";
+import { existsSync as existsSync54, mkdirSync as mkdirSync25, readFileSync as readFileSync45, writeFileSync as writeFileSync18 } from "node:fs";
 import { join as join84 } from "node:path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
@@ -87367,14 +87442,14 @@ function writeCriteria(workingDir, taskId, criteria) {
     criteria,
     declaredAt: new Date().toISOString()
   };
-  writeFileSync17(join84(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
+  writeFileSync18(join84(dir, `${safeId(taskId)}.json`), JSON.stringify(payload, null, 2));
 }
 function readCriteria(workingDir, taskId) {
   const filePath = join84(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
   if (!existsSync54(filePath))
     return null;
   try {
-    const parsed = JSON.parse(readFileSync44(filePath, "utf-8"));
+    const parsed = JSON.parse(readFileSync45(filePath, "utf-8"));
     if (parsed && typeof parsed === "object" && typeof parsed.taskId === "string" && Array.isArray(parsed.criteria)) {
       return parsed;
     }
@@ -99710,10 +99785,10 @@ init_loader();
 import {
   existsSync as existsSync72,
   mkdirSync as mkdirSync31,
-  readFileSync as readFileSync62,
+  readFileSync as readFileSync63,
   renameSync as renameSync20,
   unlinkSync as unlinkSync15,
-  writeFileSync as writeFileSync24
+  writeFileSync as writeFileSync25
 } from "node:fs";
 import path124 from "node:path";
 init_create_tool();
@@ -99847,7 +99922,7 @@ var submit_phase_council_verdicts = createSwarmTool({
 function getPhaseMutationGapFinding(phaseNumber, workingDir) {
   const mutationGatePath = path124.join(workingDir, ".swarm", "evidence", String(phaseNumber), "mutation-gate.json");
   try {
-    const raw = readFileSync62(mutationGatePath, "utf-8");
+    const raw = readFileSync63(mutationGatePath, "utf-8");
     const parsed = JSON.parse(raw);
     const gateEntry = (parsed.entries ?? []).find((entry) => entry?.type === "mutation-gate");
     if (!gateEntry) {
@@ -99942,7 +100017,7 @@ function writePhaseCouncilEvidence(workingDir, synthesis) {
   };
   const tempFile = `${evidenceFile}.tmp-${Date.now()}`;
   try {
-    writeFileSync24(tempFile, JSON.stringify(evidenceBundle, null, 2), "utf-8");
+    writeFileSync25(tempFile, JSON.stringify(evidenceBundle, null, 2), "utf-8");
     renameSync20(tempFile, evidenceFile);
   } finally {
     if (existsSync72(tempFile)) {
@@ -102153,7 +102228,7 @@ import * as path131 from "node:path";
 
 // src/mutation/engine.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { unlinkSync as unlinkSync16, writeFileSync as writeFileSync25 } from "node:fs";
+import { unlinkSync as unlinkSync16, writeFileSync as writeFileSync26 } from "node:fs";
 import * as path130 from "node:path";
 
 // src/mutation/equivalence.ts
@@ -102296,7 +102371,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
     const safeId2 = patch.id.replace(/[^a-zA-Z0-9_-]/g, "_");
     patchFile = path130.join(workingDir, `.mutation_patch_${safeId2}.diff`);
     try {
-      writeFileSync25(patchFile, patch.patch);
+      writeFileSync26(patchFile, patch.patch);
     } catch (writeErr) {
       error93 = `Failed to write patch file: ${writeErr}`;
       outcome = "error";
@@ -105706,12 +105781,20 @@ async function initializeOpenCodeSwarm(ctx) {
         agent: input.agent,
         sessionID: input.sessionID
       }, KnowledgeApplicationConfigSchema.parse(config3.knowledge_application ?? {}));
-      await skillPropagationGateBefore(ctx.directory, {
+      const skillResult = await skillPropagationGateBefore(ctx.directory, {
         tool: input.tool,
         agent: input.agent,
         sessionID: input.sessionID,
         args: input.args
       }, { enabled: true });
+      if (skillResult.blocked) {
+        throw new Error(skillResult.reason ?? "Blocked by skill propagation gate");
+      }
+      if (skillResult.reason) {
+        const skillSession = ensureAgentSession(input.sessionID, swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME);
+        skillSession.pendingAdvisoryMessages ??= [];
+        skillSession.pendingAdvisoryMessages.push(skillResult.reason);
+      }
       if (swarmState.lastBudgetPct >= 50) {
         const pressureSession = ensureAgentSession(input.sessionID, swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME);
         if (!pressureSession.contextPressureWarningSent) {

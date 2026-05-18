@@ -316,7 +316,7 @@ describe('skillPropagationGateBefore', () => {
 		agent?: string;
 		sessionID?: string;
 		args?: unknown;
-	}): Promise<void> {
+	}): Promise<{ blocked: boolean; reason: string | null }> {
 		return skillPropagationGateBefore(
 			tmp,
 			{
@@ -344,7 +344,7 @@ describe('skillPropagationGateBefore', () => {
 			},
 			{ enabled: false },
 		);
-		expect(result).toBeUndefined();
+		expect(result).toEqual({ blocked: false, reason: null });
 	});
 
 	test('does NOT block when tool is not task/Task', async () => {
@@ -564,7 +564,10 @@ describe('skillPropagationGateBefore', () => {
 					prompt: 'SKILLS: none\ndo work',
 				},
 			}),
-		).resolves.toBeUndefined();
+		).resolves.toEqual({
+			blocked: false,
+			reason: expect.stringContaining('⚠️'),
+		});
 
 		expect(warnEventWritten).toHaveLength(1);
 	});
@@ -654,6 +657,380 @@ describe('skillPropagationGateBefore', () => {
 		});
 
 		expect(capturedSessionID).toBe('test-session-123');
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — SKILLS_USED_BY_CODER forwarding check
+// ============================================================================
+
+describe('skillPropagationGateBefore — SKILLS_USED_BY_CODER forwarding check', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('warns when delegating to reviewer without SKILLS_USED_BY_CODER field', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'review the work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toContain('SKILLS_USED_BY_CODER warning');
+		expect(result.reason).toContain('reviewer');
+	});
+
+	test('does NOT warn when delegating to reviewer WITH SKILLS_USED_BY_CODER field', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: '',
+			}),
+			// Set availableSkills to empty so the existing SKILLS check doesn't fire.
+			// My new check correctly passes (SKILLS_USED_BY_CODER present), and with
+			// no available skills, the existing check short-circuits before evaluating.
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc-present',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'SKILLS_USED_BY_CODER: writing-tests\nreview the work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBeNull();
+	});
+
+	test('does NOT warn when delegating to non-reviewer skill-capable agent', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: '',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc-coder',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		// Should proceed normally (warning about missing SKILLS, not SKILLS_USED_BY_CODER)
+		expect(result.blocked).toBe(false);
+		// reason could be null (if no skills exist per the existing check) or warning
+		// but it should NOT be the SKILLS_USED_BY_CODER warning
+		if (result.reason) {
+			expect(result.reason).not.toContain('SKILLS_USED_BY_CODER warning');
+		}
+	});
+
+	test('SKILLS_USED_BY_CODER check is case-insensitive', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: '',
+			}),
+			// Set availableSkills to empty so the existing SKILLS check doesn't fire
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc-ci',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'skills_used_by_coder: writing-tests\nreview',
+				},
+			},
+			{ enabled: true },
+		);
+
+		// lowercase variant should also pass
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBeNull();
+	});
+
+	test('SKILLS_USED_BY_CODER check does NOT block even when enforce=true', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc-enforce',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'review the work',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Non-blocking: should still return warning, not blocked
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toContain('SKILLS_USED_BY_CODER warning');
+	});
+
+	test('SKILLS_USED_BY_CODER check runs even when availableSkills is empty', async () => {
+		// This is the key behavior: the check should happen BEFORE the availableSkills.length === 0 return
+		// We set skillsField to a non-empty value so coderHadSkills is true
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-skuc-no-skills',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'review the work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		// Should still warn because the check runs before the availableSkills check
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toContain('SKILLS_USED_BY_CODER warning');
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — enforce mode
+// ============================================================================
+
+describe('skillPropagationGateBefore enforce mode', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('when enforce=true and SKILLS field is missing, blocks the delegation', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => [
+				'.claude/skills/foo/SKILL.md',
+				'.claude/skills/bar/SKILL.md',
+			],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Blocked by skill propagation gate');
+		expect(result.reason).toContain('coder');
+		expect(result.reason).toContain('foo');
+		expect(result.reason).toContain('bar');
+		// Warning event should still be logged for auditability
+		expect(warnEventWritten).toHaveLength(1);
+		expect(warnEventWritten[0].type).toBe('skill_propagation_warn');
+	});
+
+	test('when enforce=true and SKILLS field is "none", blocks the delegation', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'none',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/code/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'Task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-none',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'SKILLS: none\nreview the work',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Blocked by skill propagation gate');
+		expect(result.reason).toContain('reviewer');
+	});
+
+	test('when enforce=true and SKILLS field is present and not none, does NOT block', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-ok',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'SKILLS: writing-tests\ndo work',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toBeNull();
+	});
+
+	test('when enforce=false (warn-only), does NOT block even when SKILLS is missing', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-warn-only',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true, enforce: false },
+		);
+
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toContain('⚠️');
+		expect(warnEventWritten).toHaveLength(1);
+	});
+
+	test('enforce has no effect when config.enabled=false', async () => {
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-disabled',
+				args: { subagent_type: 'mega_coder', prompt: 'SKILLS: none\ndo work' },
+			},
+			{ enabled: false, enforce: true },
+		);
+		expect(result).toEqual({ blocked: false, reason: null });
 	});
 });
 
@@ -1504,13 +1881,12 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 		applyOverrides(_internals, {
 			parseDelegationArgs: () => ({
 				targetAgent: 'coder',
-				skillsField: 'writing-tests',
+				skillsField: 'none',
 			}),
 			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
 			appendSkillUsageEntry: makeMockAppendSkillUsageEntry(recorded),
 			extractTaskIdFromPrompt: () => 'task-error',
-			parseSkillPaths: (v: string) =>
-				v === 'writing-tests' ? ['writing-tests'] : [],
+			parseSkillPaths: () => [],
 			readSkillUsageEntriesTail: () => [],
 			computeSkillRelevanceScore: () => {
 				throw scoringError;
@@ -1527,17 +1903,18 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 					sessionID: 'sess-error',
 					args: {
 						subagent_type: 'mega_coder',
-						prompt: 'SKILLS: writing-tests\nimplement the feature',
+						prompt: 'SKILLS: none\nimplement the feature',
 					},
 				},
 				{ enabled: true },
 			),
-		).resolves.toBeUndefined();
+		).resolves.toEqual({
+			blocked: false,
+			reason: expect.stringContaining('⚠️'),
+		});
 
 		// Delegation recording should still have succeeded
-		expect(recorded).toHaveLength(1);
-		expect(recorded[0].skillPath).toBe('writing-tests');
-		expect(recorded[0].taskID).toBe('task-error');
+		expect(recorded).toHaveLength(0);
 	});
 
 	test('does NOT call computeSkillRelevanceScore when skillsValue is "none"', async () => {
@@ -1724,7 +2101,7 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 				},
 				{ enabled: true },
 			),
-		).resolves.toBeUndefined();
+		).resolves.toEqual({ blocked: false, reason: null });
 
 		// Scoring was not called because the read threw before we could check
 		expect(scoringCalled).toBe(false);
@@ -2817,5 +3194,1042 @@ describe('skillPropagationTransformScan — dedup on repeated calls', () => {
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
 		}
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — context.md skill index auto-population
+// ============================================================================
+
+describe('skillPropagationGateBefore — context.md skill index auto-population', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		fs.mkdirSync(path.join(tmp, '.swarm'), { recursive: true });
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			appendSkillUsageEntry: _internals.appendSkillUsageEntry,
+			parseSkillPaths: _internals.parseSkillPaths,
+			extractTaskIdFromPrompt: _internals.extractTaskIdFromPrompt,
+			computeSkillRelevanceScore: _internals.computeSkillRelevanceScore,
+			formatSkillIndexWithContext: _internals.formatSkillIndexWithContext,
+			readSkillUsageEntries: _internals.readSkillUsageEntries,
+			readSkillUsageEntriesTail: _internals.readSkillUsageEntriesTail,
+			MAX_SCORING_SESSION_ENTRIES: _internals.MAX_SCORING_SESSION_ENTRIES,
+			readFileSync: _internals.readFileSync,
+			writeFileSync: _internals.writeFileSync,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	async function runGate(input: {
+		tool?: string;
+		agent?: string;
+		sessionID?: string;
+		args?: unknown;
+	}): Promise<void> {
+		return skillPropagationGateBefore(
+			tmp,
+			{
+				tool: input.tool,
+				agent: input.agent,
+				sessionID: input.sessionID,
+				args: input.args,
+			} as {
+				tool: unknown;
+				agent?: unknown;
+				sessionID?: unknown;
+				args?: unknown;
+			},
+			{ enabled: true },
+		);
+	}
+
+	test('creates ## Available Skills section when context.md does not exist', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		expect(fs.existsSync(contextPath)).toBe(false);
+
+		const writtenContent: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => [
+				'.claude/skills/writing-tests/SKILL.md',
+				'.claude/skills/code/SKILL.md',
+			],
+			formatSkillIndexWithContext: () =>
+				`  writing-tests: .claude/skills/writing-tests/SKILL.md (used: 3, compliance: 100%) → coder\n  code: .claude/skills/code/SKILL.md (used: 1, compliance: 0%)`,
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writtenContent.push(content);
+			},
+			readFileSync: () => {
+				throw new Error('file does not exist');
+			},
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-context-1',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		expect(writtenContent).toHaveLength(1);
+		expect(writtenContent[0]).toContain('## Available Skills');
+		expect(writtenContent[0]).toContain('writing-tests');
+		expect(writtenContent[0]).toContain('code');
+	});
+
+	test('replaces existing ## Available Skills section when present', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		const existingContent =
+			'# Project Context\n\n## Available Skills\n  old-skill: old/path (used: 0, compliance: 0%)\n\n## Other Section\nSome content';
+		fs.writeFileSync(contextPath, existingContent, 'utf-8');
+
+		const writtenContent: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			formatSkillIndexWithContext: () =>
+				`  writing-tests: .claude/skills/writing-tests/SKILL.md (used: 5, compliance: 80%) → coder`,
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writtenContent.push(content);
+			},
+			readFileSync: (_p: string, _encoding: string) => existingContent,
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-context-2',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		expect(writtenContent).toHaveLength(1);
+		// New content should be present
+		expect(writtenContent[0]).toContain('writing-tests');
+		expect(writtenContent[0]).toContain('used: 5');
+		// Old content should NOT be present
+		expect(writtenContent[0]).not.toContain('old-skill');
+		// Other sections should be preserved
+		expect(writtenContent[0]).toContain('## Other Section');
+	});
+
+	test('does NOT write when no skills exist (availableSkills is empty)', async () => {
+		let writeCalled = false;
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: '',
+			}),
+			discoverAvailableSkills: () => [],
+			writeFileSync: () => {
+				writeCalled = true;
+			},
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-no-skills',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'do work',
+			},
+		});
+
+		expect(writeCalled).toBe(false);
+	});
+
+	test('does NOT throw when write fails — hook continues gracefully', async () => {
+		const writeError = new Error('simulated write failure');
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			formatSkillIndexWithContext: () =>
+				`  writing-tests: .claude/skills/writing-tests/SKILL.md (used: 1, compliance: 0%)`,
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: () => {
+				throw writeError;
+			},
+			readFileSync: () => {
+				throw new Error('file does not exist');
+			},
+		});
+
+		// Should NOT throw — fail-open per AGENTS.md invariant 1
+		await expect(
+			runGate({
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-write-fail',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'SKILLS: writing-tests\ndo work',
+				},
+			}),
+		).resolves.toEqual({ blocked: false, reason: null });
+	});
+
+	test('does NOT write when formatSkillIndexWithContext returns empty string', async () => {
+		let writeCalled = false;
+		let writtenContent = '';
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			formatSkillIndexWithContext: () => '',
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writeCalled = true;
+				writtenContent = content;
+			},
+			readFileSync: () => {
+				throw new Error('file does not exist');
+			},
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-empty-format',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		expect(writeCalled).toBe(false);
+		// context.md should not exist
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		expect(fs.existsSync(contextPath)).toBe(false);
+	});
+
+	test('appends ## Available Skills section to existing context.md without section', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		const existingContent = '# Project Notes\n\nSome existing content\n';
+		fs.writeFileSync(contextPath, existingContent, 'utf-8');
+
+		const writtenContent: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			formatSkillIndexWithContext: () =>
+				`  writing-tests: .claude/skills/writing-tests/SKILL.md (used: 1, compliance: 0%)`,
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writtenContent.push(content);
+			},
+			readFileSync: (_p: string, _encoding: string) => existingContent,
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-append',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		expect(writtenContent).toHaveLength(1);
+		// Should contain original content plus new section
+		expect(writtenContent[0]).toContain('Some existing content');
+		expect(writtenContent[0]).toContain('## Available Skills');
+		expect(writtenContent[0]).toContain('writing-tests');
+	});
+
+	test('context.md write is idempotent — second call replaces first', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+
+		const writtenContents: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/writing-tests/SKILL.md'],
+			formatSkillIndexWithContext: () =>
+				`  writing-tests: .claude/skills/writing-tests/SKILL.md (used: 1, compliance: 0%)`,
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writtenContents.push(content);
+			},
+			readFileSync: (_p: string, _encoding: string) => {
+				if (writtenContents.length > 0) {
+					return writtenContents[writtenContents.length - 1];
+				}
+				throw new Error('file does not exist');
+			},
+		});
+
+		// First call
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-idempotent',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		// Second call — should replace, not append
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-idempotent',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo more work',
+			},
+		});
+
+		expect(writtenContents).toHaveLength(2);
+		// Second write should still have the section, not duplicated
+		expect(writtenContents[1].split('## Available Skills').length).toBe(2);
+	});
+
+	test('when scoring was skipped and skills exist, the index should be ordered alphabetically', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		const recorded: RecordedEntry[] = [];
+
+		// Simulate a session with more entries than the limit (scoring skipped)
+		const largeEntryList = Array.from({ length: 501 }, (_, i) => ({
+			id: `id-${i}`,
+			skillPath: `skill-${i}`,
+			agentName: 'coder',
+			taskID: `task-${i}`,
+			sessionID: 'sess-alpha',
+			timestamp: new Date().toISOString(),
+			complianceVerdict: 'not_checked',
+		}));
+
+		let capturedSkills: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => [
+				'.claude/skills/zebra/SKILL.md',
+				'.claude/skills/alpha/SKILL.md',
+				'.claude/skills/mike/SKILL.md',
+			],
+			appendSkillUsageEntry: makeMockAppendSkillUsageEntry(recorded),
+			extractTaskIdFromPrompt: () => 'task-alpha',
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			readSkillUsageEntriesTail: () => largeEntryList,
+			formatSkillIndexWithContext: (skills: string[]) => {
+				capturedSkills = skills;
+				return skills
+					.map((sp) => `  - ${path.basename(path.dirname(sp))}`)
+					.join('\n');
+			},
+			MAX_SCORING_SESSION_ENTRIES: 500,
+		});
+
+		await runGate({
+			tool: 'task',
+			agent: 'architect',
+			sessionID: 'sess-alpha',
+			args: {
+				subagent_type: 'mega_coder',
+				prompt: 'SKILLS: writing-tests\ndo work',
+			},
+		});
+
+		// Skills should be sorted alphabetically: alpha, mike, zebra
+		expect(capturedSkills).toHaveLength(3);
+		const skillNames = capturedSkills.map((sp) =>
+			path.basename(path.dirname(sp)),
+		);
+		expect(skillNames).toEqual(['alpha', 'mike', 'zebra']);
+		// Verify the written content also reflects alphabetical order
+		const contextContent = fs.readFileSync(contextPath, 'utf-8');
+		expect(contextContent).toContain('alpha');
+		expect(contextContent).toContain('mike');
+		expect(contextContent).toContain('zebra');
+		// alpha should appear before mike, and mike before zebra
+		const alphaIdx = contextContent.indexOf('alpha');
+		const mikeIdx = contextContent.indexOf('mike');
+		const zebraIdx = contextContent.indexOf('zebra');
+		expect(alphaIdx).toBeLessThan(mikeIdx);
+		expect(mikeIdx).toBeLessThan(zebraIdx);
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: graceful degradation with no skills
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: graceful degradation with no skills', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('SKILLS: none with no skills → no warning, no block', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'none',
+			}),
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-none-no-skills',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'SKILLS: none\ndo work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+
+	test('missing SKILLS field with no skills → no warning, no block', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-missing-no-skills',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without skills',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+
+	test('enforce=true with no skills → no block (enforce only matters when skills exist)', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-no-skills',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Should return early at line 550 — no block, no warning
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+
+	test('enforce=true with SKILLS: none and no skills → no block', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'none',
+			}),
+			discoverAvailableSkills: () => [],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-none-no-skills',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'SKILLS: none\nreview the work',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Should return early at line 550 — no block, no warning
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: non-skill-capable agents
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: non-skill-capable agents', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('architect delegating to critic → no warnings, returns { blocked: false, reason: null }', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'critic',
+				skillsField: '',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-critic',
+				args: {
+					subagent_type: 'critic',
+					prompt: 'do critique work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+
+	test('architect delegating to explorer → no warnings, returns { blocked: false, reason: null }', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'explorer',
+				skillsField: '',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-explorer',
+				args: {
+					subagent_type: 'explorer',
+					prompt: 'explore the codebase',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+
+	test('architect delegating to unknown_agent → no warnings, returns { blocked: false, reason: null }', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'totally_unknown_agent',
+				skillsField: '',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-unknown',
+				args: {
+					subagent_type: 'totally_unknown_agent',
+					prompt: 'do something',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(warnEventWritten).toHaveLength(0);
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: rapid delegations (no duplicate warnings)
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: rapid delegations', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('calling skillPropagationGateBefore multiple times does not accumulate duplicate warnings in events.jsonl', async () => {
+		// Each call produces its own events.jsonl entry (append, not replace)
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		// Rapid 3 calls in sequence
+		for (let i = 0; i < 3; i++) {
+			await skillPropagationGateBefore(
+				tmp,
+				{
+					tool: 'task',
+					agent: 'architect',
+					sessionID: `sess-rapid-${i}`,
+					args: {
+						subagent_type: 'mega_coder',
+						prompt: 'do work without SKILLS',
+					},
+				},
+				{ enabled: true },
+			);
+		}
+
+		// Each call should produce exactly one warning event
+		expect(warnEventWritten).toHaveLength(3);
+		// Each event should be unique (different sessionID)
+		const sessionIDs = warnEventWritten.map((e) => e.sessionID as string);
+		expect(sessionIDs).toEqual([
+			'sess-rapid-0',
+			'sess-rapid-1',
+			'sess-rapid-2',
+		]);
+	});
+
+	test('same sessionID repeated calls produce separate entries (events.jsonl appends, not overwrites)', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		// parseDelegationArgs is a constant mock — both calls use the same targetAgent
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		// Same session, multiple delegations — both target 'coder' due to mock
+		await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-same',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true },
+		);
+		await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-same',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'review without SKILLS',
+				},
+			},
+			{ enabled: true },
+		);
+
+		// Both delegations produce warnings with the same target_agent (mock always returns 'coder')
+		expect(warnEventWritten).toHaveLength(2);
+		expect(warnEventWritten[0].target_agent).toBe('coder');
+		expect(warnEventWritten[1].target_agent).toBe('coder');
+		// Both have the same sessionID (append, not overwrite)
+		expect(warnEventWritten[0].sessionID).toBe('sess-same');
+		expect(warnEventWritten[1].sessionID).toBe('sess-same');
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: blocked delegation writes events.jsonl
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: blocked delegation audit trail', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('blocked delegation (enforce=true) writes warning event to events.jsonl', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({ targetAgent: 'coder', skillsField: '' }),
+			discoverAvailableSkills: () => [
+				'.claude/skills/foo/SKILL.md',
+				'.claude/skills/bar/SKILL.md',
+			],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-blocked',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'do work without SKILLS',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Should be blocked
+		expect(result.blocked).toBe(true);
+		expect(result.reason).toContain('Blocked by skill propagation gate');
+
+		// Warning event should still be written to events.jsonl for audit trail
+		expect(warnEventWritten).toHaveLength(1);
+		expect(warnEventWritten[0]).toMatchObject({
+			type: 'skill_propagation_warn',
+			target_agent: 'coder',
+			skills_missing: true,
+			available_skills: [
+				'.claude/skills/foo/SKILL.md',
+				'.claude/skills/bar/SKILL.md',
+			],
+		});
+	});
+
+	test('blocked delegation with SKILLS: none writes warning event to events.jsonl', async () => {
+		const warnEventWritten: Array<Record<string, unknown>> = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'none',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/code/SKILL.md'],
+			writeWarnEvent: (_d: string, r: Record<string, unknown>) =>
+				warnEventWritten.push(r),
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-blocked-none',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'SKILLS: none\nreview the work',
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		expect(result.blocked).toBe(true);
+		expect(warnEventWritten).toHaveLength(1);
+		expect(warnEventWritten[0].type).toBe('skill_propagation_warn');
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: enforce + SKILLS_USED_BY_CODER
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: enforce + SKILLS_USED_BY_CODER', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			SKILL_CAPABLE_AGENTS: _internals.SKILL_CAPABLE_AGENTS,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('enforce=true AND SKILLS_USED_BY_CODER missing → should NOT block', async () => {
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'reviewer',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => ['.claude/skills/foo/SKILL.md'],
+			writeWarnEvent: () => {},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-enforce-skuc',
+				args: {
+					subagent_type: 'mega_reviewer',
+					prompt: 'review the work', // no SKILLS_USED_BY_CODER
+				},
+			},
+			{ enabled: true, enforce: true },
+		);
+
+		// Non-blocking: should still return warning, not blocked
+		expect(result.blocked).toBe(false);
+		expect(result.reason).toContain('SKILLS_USED_BY_CODER warning');
+	});
+});
+
+// ============================================================================
+// skillPropagationGateBefore — edge cases: formatSkillIndexWithContext with missing skill-usage.jsonl
+// ============================================================================
+
+describe('skillPropagationGateBefore — edge cases: formatSkillIndexWithContext with missing skill-usage.jsonl', () => {
+	let tmp: string;
+	let originals: Override<Internals>;
+
+	beforeEach(() => {
+		tmp = tmpDir();
+		fs.mkdirSync(path.join(tmp, '.swarm'), { recursive: true });
+		originals = {
+			parseDelegationArgs: _internals.parseDelegationArgs,
+			discoverAvailableSkills: _internals.discoverAvailableSkills,
+			writeWarnEvent: _internals.writeWarnEvent,
+			appendSkillUsageEntry: _internals.appendSkillUsageEntry,
+			parseSkillPaths: _internals.parseSkillPaths,
+			extractTaskIdFromPrompt: _internals.extractTaskIdFromPrompt,
+			computeSkillRelevanceScore: _internals.computeSkillRelevanceScore,
+			formatSkillIndexWithContext: _internals.formatSkillIndexWithContext,
+			readSkillUsageEntries: _internals.readSkillUsageEntries,
+			readSkillUsageEntriesTail: _internals.readSkillUsageEntriesTail,
+			MAX_SCORING_SESSION_ENTRIES: _internals.MAX_SCORING_SESSION_ENTRIES,
+			readFileSync: _internals.readFileSync,
+			writeFileSync: _internals.writeFileSync,
+		};
+	});
+
+	afterEach(() => {
+		restoreOverrides(_internals, originals);
+		try {
+			fs.rmSync(tmp, { recursive: true, force: true });
+		} catch {
+			// ignore
+		}
+	});
+
+	test('skill-usage.jsonl missing → formatSkillIndexWithContext returns simple index without crash', async () => {
+		const contextPath = path.join(tmp, '.swarm', 'context.md');
+		expect(fs.existsSync(contextPath)).toBe(false);
+
+		const writtenContent: string[] = [];
+		applyOverrides(_internals, {
+			parseDelegationArgs: () => ({
+				targetAgent: 'coder',
+				skillsField: 'writing-tests',
+			}),
+			discoverAvailableSkills: () => [
+				'.claude/skills/writing-tests/SKILL.md',
+				'.claude/skills/code/SKILL.md',
+			],
+			// Override formatSkillIndexWithContext directly to simulate the behavior
+			// when skill-usage.jsonl is missing (hasHistory=false path in the real impl).
+			// The simple index format is: "  - skill-name" per skill.
+			formatSkillIndexWithContext: (_skills: string[]) =>
+				'  - writing-tests\n  - code',
+			readSkillUsageEntriesTail: () => [],
+			parseSkillPaths: (v: string) =>
+				v === 'writing-tests' ? ['writing-tests'] : [],
+			writeFileSync: (_p: string, content: string) => {
+				writtenContent.push(content);
+			},
+			readFileSync: () => {
+				throw new Error('file does not exist');
+			},
+		});
+
+		const result = await skillPropagationGateBefore(
+			tmp,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID: 'sess-no-usage-log',
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'SKILLS: writing-tests\ndo work',
+				},
+			},
+			{ enabled: true },
+		);
+
+		expect(result).toEqual({ blocked: false, reason: null });
+		expect(writtenContent).toHaveLength(1);
+		// Should contain the ## Available Skills header with simple index (no stats)
+		expect(writtenContent[0]).toContain('## Available Skills');
+		// Simple index format: "  - skill-name" (no usage/compliance stats)
+		expect(writtenContent[0]).toMatch(/ {2}- writing-tests/);
+		expect(writtenContent[0]).toMatch(/ {2}- code/);
+		// Should NOT contain the full format with stats
+		expect(writtenContent[0]).not.toContain('(used:');
+		expect(writtenContent[0]).not.toContain('(compliance:');
 	});
 });

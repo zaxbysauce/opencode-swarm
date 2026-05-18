@@ -18,7 +18,7 @@
  */
 import * as fs from 'node:fs';
 import type { MessageWithParts } from './knowledge-types.js';
-import { computeSkillRelevanceScore } from './skill-scoring.js';
+import { computeSkillRelevanceScore, formatSkillIndexWithContext } from './skill-scoring.js';
 import { appendSkillUsageEntry, readSkillUsageEntries, readSkillUsageEntriesTail } from './skill-usage-log.js';
 /** Agents that should receive skill context in delegations. */
 export declare const SKILL_CAPABLE_AGENTS: Set<string>;
@@ -37,6 +37,8 @@ export interface SkillGateInput {
 }
 export interface SkillPropagationConfig {
     enabled: boolean;
+    /** When true, blocks delegations missing SKILLS field instead of warning. */
+    enforce?: boolean;
 }
 export declare const _internals: {
     readdirSync: typeof fs.readdirSync;
@@ -44,6 +46,8 @@ export declare const _internals: {
     statSync: typeof fs.statSync;
     mkdirSync: typeof fs.mkdirSync;
     appendFileSync: typeof fs.appendFileSync;
+    readFileSync: typeof fs.readFileSync;
+    writeFileSync: typeof fs.writeFileSync;
     skillPropagationGateBefore: typeof skillPropagationGateBefore;
     skillPropagationTransformScan: typeof skillPropagationTransformScan;
     SKILL_CAPABLE_AGENTS: Set<string>;
@@ -57,6 +61,7 @@ export declare const _internals: {
     parseSkillPaths: typeof parseSkillPaths;
     extractTaskIdFromPrompt: typeof extractTaskIdFromPrompt;
     computeSkillRelevanceScore: typeof computeSkillRelevanceScore;
+    formatSkillIndexWithContext: typeof formatSkillIndexWithContext;
 };
 /**
  * Scans project for available skill SKILL.md files.
@@ -94,13 +99,22 @@ export declare function extractTaskIdFromPrompt(prompt: string): string;
 /**
  * Pre-tool gate. When the architect delegates via Task tool to a skill-capable
  * agent and the SKILLS field is missing or 'none' while skills exist in the
- * project, logs a warning event to events.jsonl. NEVER blocks execution.
+ * project, logs a warning event to events.jsonl and returns a warning string
+ * for visible injection into the architect prompt. When config.enforce is true,
+ * blocks the delegation entirely instead of merely warning.
  *
  * Also records skill delegation entries to `.swarm/skill-usage.jsonl` when
  * the architect delegates to a skill-capable agent with a non-empty, non-"none"
  * SKILLS field.
+ *
+ * @returns { blocked: false, reason: null } when no action needed.
+ *          { blocked: false, reason: "warning message" } when warning only (enforce=false).
+ *          { blocked: true, reason: "blocked: ..." } when blocking (enforce=true).
  */
-export declare function skillPropagationGateBefore(directory: string, input: SkillGateInput, config: SkillPropagationConfig): Promise<void>;
+export declare function skillPropagationGateBefore(directory: string, input: SkillGateInput, config: SkillPropagationConfig): Promise<{
+    blocked: boolean;
+    reason: string | null;
+}>;
 /**
  * Chat messages transform hook. Scans reviewer output for SKILL_COMPLIANCE
  * verdicts and records compliance outcomes to `.swarm/skill-usage.jsonl`.

@@ -1555,8 +1555,10 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 			);
 			// 7. Skill propagation gate (soft warning when SKILLS field missing).
 			//    Logs to events.jsonl when architect delegates to skill-capable
-			//    agents without a SKILLS field. Never blocks execution.
-			await skillPropagationGateBefore(
+			//    agents without a SKILLS field. Also pushes a visible warning
+			//    to pendingAdvisoryMessages for injection into the architect's
+			//    next prompt. When enforce=true, blocks the delegation entirely.
+			const skillResult = await skillPropagationGateBefore(
 				ctx.directory,
 				{
 					tool: input.tool,
@@ -1566,6 +1568,19 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				},
 				{ enabled: true },
 			);
+			if (skillResult.blocked) {
+				throw new Error(
+					skillResult.reason ?? 'Blocked by skill propagation gate',
+				);
+			}
+			if (skillResult.reason) {
+				const skillSession = ensureAgentSession(
+					input.sessionID,
+					swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME,
+				);
+				skillSession.pendingAdvisoryMessages ??= [];
+				skillSession.pendingAdvisoryMessages.push(skillResult.reason);
+			}
 			// ---------------------------------------------------------------
 
 			// v6.29: One-time 50% context pressure warning

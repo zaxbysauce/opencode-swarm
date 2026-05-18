@@ -22,7 +22,10 @@ import * as path from 'node:path';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { warn } from '../utils/logger.js';
 import type { MessageWithParts } from './knowledge-types.js';
-import { computeSkillRelevanceScore } from './skill-scoring.js';
+import {
+	computeSkillRelevanceScore,
+	formatSkillIndexWithContext,
+} from './skill-scoring.js';
 import {
 	appendSkillUsageEntry,
 	readSkillUsageEntries,
@@ -71,6 +74,8 @@ export interface SkillGateInput {
 
 export interface SkillPropagationConfig {
 	enabled: boolean;
+	/** When true, blocks delegations missing SKILLS field instead of warning. */
+	enforce?: boolean;
 }
 
 // ============================================================================
@@ -84,6 +89,8 @@ export const _internals: {
 	statSync: typeof fs.statSync;
 	mkdirSync: typeof fs.mkdirSync;
 	appendFileSync: typeof fs.appendFileSync;
+	readFileSync: typeof fs.readFileSync;
+	writeFileSync: typeof fs.writeFileSync;
 	skillPropagationGateBefore: typeof skillPropagationGateBefore;
 	skillPropagationTransformScan: typeof skillPropagationTransformScan;
 	SKILL_CAPABLE_AGENTS: Set<string>;
@@ -97,12 +104,15 @@ export const _internals: {
 	parseSkillPaths: typeof parseSkillPaths;
 	extractTaskIdFromPrompt: typeof extractTaskIdFromPrompt;
 	computeSkillRelevanceScore: typeof computeSkillRelevanceScore;
+	formatSkillIndexWithContext: typeof formatSkillIndexWithContext;
 } = {
 	readdirSync: fs.readdirSync.bind(fs),
 	existsSync: fs.existsSync.bind(fs),
 	statSync: fs.statSync.bind(fs),
 	mkdirSync: fs.mkdirSync.bind(fs),
 	appendFileSync: fs.appendFileSync.bind(fs),
+	readFileSync: fs.readFileSync.bind(fs),
+	writeFileSync: fs.writeFileSync.bind(fs),
 	// Function references assigned after declaration (see end of file)
 	skillPropagationGateBefore:
 		null as unknown as typeof skillPropagationGateBefore,
@@ -119,6 +129,7 @@ export const _internals: {
 	parseSkillPaths: null as unknown as typeof parseSkillPaths,
 	extractTaskIdFromPrompt: null as unknown as typeof extractTaskIdFromPrompt,
 	computeSkillRelevanceScore,
+	formatSkillIndexWithContext,
 };
 
 // ============================================================================
@@ -292,34 +303,42 @@ export function extractTaskIdFromPrompt(prompt: string): string {
 /**
  * Pre-tool gate. When the architect delegates via Task tool to a skill-capable
  * agent and the SKILLS field is missing or 'none' while skills exist in the
- * project, logs a warning event to events.jsonl. NEVER blocks execution.
+ * project, logs a warning event to events.jsonl and returns a warning string
+ * for visible injection into the architect prompt. When config.enforce is true,
+ * blocks the delegation entirely instead of merely warning.
  *
  * Also records skill delegation entries to `.swarm/skill-usage.jsonl` when
  * the architect delegates to a skill-capable agent with a non-empty, non-"none"
  * SKILLS field.
+ *
+ * @returns { blocked: false, reason: null } when no action needed.
+ *          { blocked: false, reason: "warning message" } when warning only (enforce=false).
+ *          { blocked: true, reason: "blocked: ..." } when blocking (enforce=true).
  */
 export async function skillPropagationGateBefore(
 	directory: string,
 	input: SkillGateInput,
 	config: SkillPropagationConfig,
-): Promise<void> {
-	if (!config.enabled) return;
+): Promise<{ blocked: boolean; reason: string | null }> {
+	if (!config.enabled) return { blocked: false, reason: null };
 
 	const toolName = typeof input.tool === 'string' ? input.tool : '';
-	if (toolName !== 'task' && toolName !== 'Task') return;
+	if (toolName !== 'task' && toolName !== 'Task')
+		return { blocked: false, reason: null };
 
 	const agentRaw = typeof input.agent === 'string' ? input.agent : '';
-	if (!agentRaw) return;
+	if (!agentRaw) return { blocked: false, reason: null };
 	const baseAgent = stripKnownSwarmPrefix(agentRaw);
-	if (baseAgent !== 'architect') return;
+	if (baseAgent !== 'architect') return { blocked: false, reason: null };
 
 	// Parse delegation to find target agent and SKILLS field
 	const parsed = _internals.parseDelegationArgs(input.args);
-	if (!parsed) return;
+	if (!parsed) return { blocked: false, reason: null };
 
 	// Only process skill-capable target agents
 	const targetBase = stripKnownSwarmPrefix(parsed.targetAgent);
-	if (!_internals.SKILL_CAPABLE_AGENTS.has(targetBase)) return;
+	if (!_internals.SKILL_CAPABLE_AGENTS.has(targetBase))
+		return { blocked: false, reason: null };
 
 	const sessionID =
 		typeof input.sessionID === 'string' ? input.sessionID : 'unknown';
@@ -378,6 +397,7 @@ export async function skillPropagationGateBefore(
 	// Bounded: skip scoring when session has too many entries to avoid
 	// unbounded file reads stalling every delegated Task call.
 	// Uses ONLY pre-loaded session entries — no additional file reads.
+	let scoringSkipped = false;
 	if (
 		skillsValue &&
 		skillsValue.toLowerCase() !== 'none' &&
@@ -388,6 +408,7 @@ export async function skillPropagationGateBefore(
 				sessionID,
 			});
 			if (sessionEntries.length > _internals.MAX_SCORING_SESSION_ENTRIES) {
+				scoringSkipped = true;
 				warn(
 					`[skill-propagation-gate] skipping scoring — session has ${sessionEntries.length} entries (limit: ${_internals.MAX_SCORING_SESSION_ENTRIES})`,
 				);
@@ -430,13 +451,120 @@ export async function skillPropagationGateBefore(
 		}
 	}
 
-	// --- Existing warning logic (intact) ---
+	// --- Skill index auto-population for context.md ---
+	// Writes/updates ## Available Skills section in .swarm/context.md so the
+	// architect can read available skills without needing to discover them.
+	// Runs once per delegation (but is idempotent — replaces existing section).
+	// Fail-open: never throws; any error (including formatSkillIndexWithContext
+	// throwing) is logged and swallowed.
+	if (availableSkills.length > 0) {
+		try {
+			// When scoring was skipped (budget exceeded), sort skills alphabetically
+			// as a stable fallback ordering instead of filesystem discovery order.
+			let skillsForIndex = availableSkills;
+			if (scoringSkipped) {
+				skillsForIndex = [...availableSkills].sort((a, b) => {
+					const nameA = path.basename(path.dirname(a));
+					const nameB = path.basename(path.dirname(b));
+					return nameA.localeCompare(nameB);
+				});
+			}
+			const formattedIndex = _internals.formatSkillIndexWithContext(
+				skillsForIndex,
+				directory,
+			);
+			if (formattedIndex.length > 0) {
+				const contextPath = path.join(directory, '.swarm', 'context.md');
+				let existingContent = '';
+				if (_internals.existsSync(contextPath)) {
+					existingContent = _internals.readFileSync(contextPath, 'utf-8');
+				}
+
+				const sectionHeader = '## Available Skills';
+				const newSection = `${sectionHeader}\n${formattedIndex}\n`;
+
+				let updatedContent: string;
+				if (existingContent.includes(sectionHeader)) {
+					// Replace existing ## Available Skills section
+					const sectionStart = existingContent.indexOf(sectionHeader);
+					const sectionEnd = existingContent.indexOf(
+						'\n## ',
+						sectionStart + sectionHeader.length,
+					);
+					if (sectionEnd !== -1) {
+						updatedContent =
+							existingContent.slice(0, sectionStart) +
+							newSection +
+							existingContent.slice(sectionEnd);
+					} else {
+						// Section at end of file, no following heading
+						updatedContent =
+							existingContent.slice(0, sectionStart) + newSection;
+					}
+				} else {
+					// Append new section
+					if (existingContent.length > 0 && !existingContent.endsWith('\n')) {
+						updatedContent = existingContent + '\n' + newSection;
+					} else {
+						updatedContent = existingContent + newSection;
+					}
+				}
+
+				// Ensure .swarm/ directory exists
+				const swarmDir = path.dirname(contextPath);
+				if (!_internals.existsSync(swarmDir)) {
+					_internals.mkdirSync(swarmDir, { recursive: true });
+				}
+				_internals.writeFileSync(contextPath, updatedContent, 'utf-8');
+			}
+		} catch (err) {
+			warn(
+				`[skill-propagation-gate] failed to write skill index to context.md: ${err instanceof Error ? err.message : String(err)}`,
+			);
+		}
+	}
+
+	// --- SKILLS_USED_BY_CODER forwarding check ---
+	// When delegating to reviewer after coder, warn if SKILLS_USED_BY_CODER is missing
+	// AND the coder had skills (skillsValue is non-empty and not "none").
+	// Non-blocking: always returns warning, never blocks.
+	// targetBase is already declared above (line 339)
+	if (targetBase === 'reviewer') {
+		const prompt =
+			typeof (input.args as Record<string, unknown>)?.prompt === 'string'
+				? String((input.args as Record<string, unknown>).prompt)
+				: '';
+		const hasSkillsUsedByCoder = /SKILLS_USED_BY_CODER\s*:/i.test(prompt);
+		const coderHadSkills =
+			skillsValue.length > 0 && skillsValue.toLowerCase() !== 'none';
+		if (!hasSkillsUsedByCoder && coderHadSkills) {
+			const message =
+				`SKILLS_USED_BY_CODER warning: Delegating to reviewer without SKILLS_USED_BY_CODER field. ` +
+				`Add SKILLS_USED_BY_CODER with the skills the coder received for this task.`;
+			return { blocked: false, reason: message };
+		}
+	}
+
+	// --- Skill propagation warning ---
 	// Check if skills exist in the project
-	if (availableSkills.length === 0) return;
+	if (availableSkills.length === 0) return { blocked: false, reason: null };
 
 	// Check if SKILLS field is present and not 'none'
 	const skillsLower = skillsValue.toLowerCase();
-	if (skillsValue && skillsLower !== 'none') return;
+	if (skillsValue && skillsLower !== 'none')
+		return { blocked: false, reason: null };
+
+	// Derive human-readable skill names from paths
+	const skillNames = availableSkills.map((p) => {
+		// e.g. '.claude/skills/writing-tests/SKILL.md' -> 'writing-tests'
+		const parts = p.split('/');
+		return parts[parts.length - 2] ?? p;
+	});
+
+	// Build the visible warning message
+	const warningMsg =
+		`⚠️ Skill propagation warning: Delegating to ${targetBase} without SKILLS field. ` +
+		`Available skills: ${skillNames.join(', ')}`;
 
 	// Log warning event to events.jsonl (best-effort, never throw)
 	// writeWarnEvent is sync and internally catches its own errors
@@ -455,6 +583,17 @@ export async function skillPropagationGateBefore(
 		/* never block tool path — redundant safety since writeWarnEvent
 		   already catches internally, but keeps the async contract clean */
 	}
+
+	// When enforce mode is active, block the delegation instead of warning
+	if (config.enforce) {
+		const blockedMsg =
+			`Blocked by skill propagation gate: Delegating to ${targetBase} without SKILLS field. ` +
+			`Available skills: ${skillNames.join(', ')}. ` +
+			`Add a SKILLS: field or set enforce: false in config.`;
+		return { blocked: true, reason: blockedMsg };
+	}
+
+	return { blocked: false, reason: warningMsg };
 }
 
 // ============================================================================
@@ -705,3 +844,4 @@ _internals.discoverAvailableSkills = discoverAvailableSkills;
 _internals.parseDelegationArgs = parseDelegationArgs;
 _internals.parseSkillPaths = parseSkillPaths;
 _internals.extractTaskIdFromPrompt = extractTaskIdFromPrompt;
+_internals.formatSkillIndexWithContext = formatSkillIndexWithContext;

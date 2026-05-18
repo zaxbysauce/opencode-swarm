@@ -849,21 +849,20 @@ describe('gateBefore with real tail-read and real scoring', () => {
 		gateInternals.writeWarnEvent = () => {};
 
 		// Should NOT throw
-		await expect(
-			skillPropagationGateBefore(
-				tempDir,
-				{
-					tool: 'task',
-					agent: 'architect',
-					sessionID,
-					args: {
-						subagent_type: 'mega_coder',
-						prompt: 'SKILLS: writing-tests\ndo the work',
-					},
+		const result = await skillPropagationGateBefore(
+			tempDir,
+			{
+				tool: 'task',
+				agent: 'architect',
+				sessionID,
+				args: {
+					subagent_type: 'mega_coder',
+					prompt: 'SKILLS: writing-tests\ndo the work',
 				},
-				{ enabled: true },
-			),
-		).resolves.toBeUndefined();
+			},
+			{ enabled: true },
+		);
+		expect(result.blocked).toBe(false);
 
 		// Scoring attempted
 		expect(scoringCalled).toBe(true);
