@@ -215,7 +215,9 @@ function formatHiveEntry(entry: HiveKnowledgeEntry): string {
 	lines.push(`  Category: ${entry.category}`);
 	lines.push(`  Status: ${entry.status}`);
 	lines.push(`  Confidence: ${entry.confidence.toFixed(2)}`);
-	lines.push(`  Encounter Score: ${entry.encounter_score.toFixed(2)}`);
+	lines.push(
+		`  Encounter Score: ${entry.encounter_score?.toFixed(2) ?? 'N/A'}`,
+	);
 	lines.push(`  Source Project: ${entry.source_project}`);
 	lines.push(`  Confirmed by: ${entry.confirmed_by.length} project(s)`);
 	return lines.join('\n');
@@ -368,3 +370,8 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 		return outputLines.join('\n');
 	},
 });
+
+// Test seam — exported for direct unit testing only
+export const _test_exports = {
+	formatHiveEntry,
+};

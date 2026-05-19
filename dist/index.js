@@ -42712,6 +42712,20 @@ function normalizeEntry(raw) {
       ro.failed_after_shown_count = typeof ro.failed_after_count === "number" ? ro.failed_after_count : 0;
     }
   }
+  try {
+    if (typeof obj.encounter_score !== "number" || Number.isNaN(obj.encounter_score)) {
+      obj.encounter_score = 0;
+    }
+  } catch {
+    try {
+      Object.defineProperty(obj, "encounter_score", {
+        value: 0,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+    } catch {}
+  }
   const arrayFields = [
     "triggers",
     "required_actions",
@@ -44636,12 +44650,26 @@ import path19 from "node:path";
 function isAlreadyInHive(entry, hiveEntries, threshold) {
   return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
 }
-function countDistinctPhases(confirmedBy) {
+function isHiveEligible(entry, autoPromoteDays) {
   const phaseNumbers = new Set;
-  for (const record3 of confirmedBy) {
-    phaseNumbers.add(record3.phase_number);
+  for (const record3 of entry.confirmed_by ?? []) {
+    if (record3 && typeof record3.phase_number === "number") {
+      phaseNumbers.add(record3.phase_number);
+    }
   }
-  return phaseNumbers.size;
+  if (entry.hive_eligible === true && phaseNumbers.size >= 3) {
+    return true;
+  }
+  if ((entry.tags ?? []).includes("hive-fast-track")) {
+    return true;
+  }
+  const createdMs = Date.parse(entry.created_at);
+  const ageMs = Number.isFinite(createdMs) ? Date.now() - createdMs : 0;
+  const ageThresholdMs = autoPromoteDays * 86400000;
+  if (ageMs >= ageThresholdMs) {
+    return true;
+  }
+  return false;
 }
 function countDistinctProjects(confirmedBy) {
   const projectNames = new Set;
@@ -44658,12 +44686,6 @@ function calculateEncounterScore(currentScore, isSameProject, config3) {
   const increment = config3.encounter_increment * weight;
   const newScore = currentScore + increment;
   return Math.min(Math.max(newScore, config3.min_encounter_score), config3.max_encounter_score);
-}
-function getEntryAgeMs(createdAt) {
-  const createdTime = new Date(createdAt).getTime();
-  if (Number.isNaN(createdTime))
-    return 0;
-  return Date.now() - createdTime;
 }
 async function checkHivePromotions(swarmEntries, config3) {
   let newPromotions = 0;
@@ -44683,19 +44705,7 @@ async function checkHivePromotions(swarmEntries, config3) {
     if (isAlreadyInHive(swarmEntry, hiveEntries, config3.dedup_threshold)) {
       continue;
     }
-    let shouldPromote = false;
-    if (swarmEntry.hive_eligible === true && countDistinctPhases(swarmEntry.confirmed_by) >= 3) {
-      shouldPromote = true;
-    }
-    if (swarmEntry.tags.includes("hive-fast-track")) {
-      shouldPromote = true;
-    }
-    const ageMs = getEntryAgeMs(swarmEntry.created_at);
-    const ageThresholdMs = config3.auto_promote_days * 86400000;
-    if (ageMs >= ageThresholdMs) {
-      shouldPromote = true;
-    }
-    if (!shouldPromote) {
+    if (!isHiveEligible(swarmEntry, config3.auto_promote_days)) {
       continue;
     }
     const validationResult = validateLesson(swarmEntry.lesson, hiveEntries.map((e) => e.lesson), {
@@ -46572,12 +46582,14 @@ async function handleCloseCommand(directory, args2, options = {}) {
   if (planExists) {
     planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
   }
-  const config3 = KnowledgeConfigSchema.parse({});
+  const { config: loadedConfig } = loadPluginConfigWithMeta(directory);
+  const config3 = KnowledgeConfigSchema.parse(loadedConfig.knowledge ?? {});
   const projectName = planData.title ?? "Unknown Project";
   const closedPhases = [];
   const closedTasks = [];
   const warnings = [];
   let hivePromoted = 0;
+  let hiveSkipped = 0;
   if (!planAlreadyDone) {
     for (const phase of inProgressPhases) {
       closedPhases.push(phase.id);
@@ -46700,23 +46712,35 @@ async function handleCloseCommand(directory, args2, options = {}) {
     await fs13.unlink(lessonsFilePath).catch(() => {});
   }
   if (curationSucceeded) {
-    try {
-      const knowledgePath = resolveSwarmKnowledgePath(directory);
-      const entries = await readKnowledge(knowledgePath);
-      if (entries.length > 0) {
-        for (const entry of entries) {
-          try {
-            await promoteToHive(directory, entry.lesson, entry.category);
-            hivePromoted++;
-          } catch (promotionErr) {
-            const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
-            warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+    if (config3.hive_enabled === false) {} else {
+      try {
+        const knowledgePath = resolveSwarmKnowledgePath(directory);
+        const entries = await readKnowledge(knowledgePath);
+        const autoPromoteDays = config3.auto_promote_days;
+        if (entries.length > 0) {
+          for (const entry of entries) {
+            if (!isHiveEligible(entry, autoPromoteDays)) {
+              hiveSkipped++;
+              continue;
+            }
+            try {
+              const result = await promoteToHive(directory, entry.lesson, entry.category);
+              if (!result.includes("already exists")) {
+                hivePromoted++;
+              }
+            } catch (promotionErr) {
+              const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
+              warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+            }
+          }
+          if (hiveSkipped > 0) {
+            warnings.push(`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? "y" : "ies"} not eligible for hive promotion`);
           }
         }
+      } catch (hiveErr) {
+        const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
+        warnings.push(`Hive promotion failed: ${msg}`);
       }
-    } catch (hiveErr) {
-      const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
-      warnings.push(`Hive promotion failed: ${msg}`);
     }
   }
   const fallbackKnowledgeCreated = curationResult?.stored ?? 0;
@@ -46733,8 +46757,8 @@ async function handleCloseCommand(directory, args2, options = {}) {
   let skillReviewSummary = "";
   if (runSkillReview) {
     try {
-      const { config: loadedConfig } = loadPluginConfigWithMeta(directory);
-      const skillImproverConfig = SkillImproverConfigSchema.parse(loadedConfig.skill_improver ?? {});
+      const { config: loadedConfig2 } = loadPluginConfigWithMeta(directory);
+      const skillImproverConfig = SkillImproverConfigSchema.parse(loadedConfig2.skill_improver ?? {});
       const skillReviewResult = await runAbortableSkillReview({
         directory,
         config: skillImproverConfig,
@@ -47099,7 +47123,6 @@ var init_close = __esm(() => {
     "handoff-prompt.md",
     "handoff-consumed.md",
     "escalation-report.md",
-    "knowledge.jsonl",
     "knowledge-rejected.jsonl",
     "repo-graph.json",
     "doc-manifest.json",
@@ -90447,7 +90470,7 @@ function formatHiveEntry(entry) {
   lines.push(`  Category: ${entry.category}`);
   lines.push(`  Status: ${entry.status}`);
   lines.push(`  Confidence: ${entry.confidence.toFixed(2)}`);
-  lines.push(`  Encounter Score: ${entry.encounter_score.toFixed(2)}`);
+  lines.push(`  Encounter Score: ${entry.encounter_score?.toFixed(2) ?? "N/A"}`);
   lines.push(`  Source Project: ${entry.source_project}`);
   lines.push(`  Confirmed by: ${entry.confirmed_by.length} project(s)`);
   return lines.join(`
