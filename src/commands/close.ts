@@ -11,12 +11,13 @@ import {
 	resetToMainAfterMerge,
 	resetToRemoteBranch,
 } from '../git/branch';
-import { promoteToHive } from '../hooks/hive-promoter';
+import { isHiveEligible, promoteToHive } from '../hooks/hive-promoter';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
 } from '../hooks/knowledge-store';
+import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types';
 import { validateSwarmPath } from '../hooks/utils';
 
 import { clearAllScopes } from '../scope/scope-persistence';
@@ -151,11 +152,16 @@ const ARCHIVE_ARTIFACTS = [
  * The archive-first guard below ensures we only delete files we successfully
  * copied to the archive bundle, so the audit trail is preserved in the bundle.
  *
- * knowledge.jsonl, knowledge-rejected.jsonl, repo-graph.json, doc-manifest.json,
+ * knowledge-rejected.jsonl, repo-graph.json, doc-manifest.json,
  * dark-matter.md, telemetry.jsonl, swarm.db, swarm.db-shm, and swarm.db-wal are
  * session-generated artifacts that do not persist meaningfully across sessions —
  * they are recreated on next session init and must be removed to avoid stale-state
- * interference. close-summary.md and spec.md are NOT cleaned because close-summary.md
+ * interference.
+ *
+ * Note: knowledge.jsonl is intentionally NOT cleaned because it contains cumulative
+ * project knowledge (lessons learned) that should persist across sessions and finalize
+ * cycles. The archive step still creates a backup for safety.
+ * close-summary.md and spec.md are NOT cleaned because close-summary.md
  * is written as the final close output after cleanup and spec.md may not exist.
  */
 const ACTIVE_STATE_TO_CLEAN = [
@@ -167,7 +173,6 @@ const ACTIVE_STATE_TO_CLEAN = [
 	'handoff-prompt.md',
 	'handoff-consumed.md',
 	'escalation-report.md',
-	'knowledge.jsonl',
 	'knowledge-rejected.jsonl',
 	'repo-graph.json',
 	'doc-manifest.json',
@@ -290,12 +295,14 @@ export async function handleCloseCommand(
 			);
 	}
 
-	const config = KnowledgeConfigSchema.parse({});
+	const { config: loadedConfig } = loadPluginConfigWithMeta(directory);
+	const config = KnowledgeConfigSchema.parse(loadedConfig.knowledge ?? {});
 	const projectName = planData.title ?? 'Unknown Project';
 	const closedPhases: number[] = [];
 	const closedTasks: string[] = [];
 	const warnings: string[] = [];
 	let hivePromoted = 0;
+	let hiveSkipped = 0;
 
 	// ─── STAGE 1: FINALIZE ───────────────────────────────────────────
 	if (!planAlreadyDone) {
@@ -488,13 +495,16 @@ export async function handleCloseCommand(
 	if (curationSucceeded) {
 		try {
 			const knowledgePath = resolveSwarmKnowledgePath(directory);
-			const entries = await readKnowledge<{
-				id: string;
-				lesson: string;
-				category: string;
-			}>(knowledgePath);
+			const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+			const autoPromoteDays = config.auto_promote_days;
 			if (entries.length > 0) {
 				for (const entry of entries) {
+					// ─── Eligibility gate (shared with checkHivePromotions) ──
+					if (!isHiveEligible(entry, autoPromoteDays)) {
+						hiveSkipped++;
+						continue;
+					}
+
 					try {
 						await promoteToHive(directory, entry.lesson, entry.category);
 						hivePromoted++;
@@ -505,6 +515,11 @@ export async function handleCloseCommand(
 								: String(promotionErr);
 						warnings.push(`Hive promotion skipped for lesson: ${msg}`);
 					}
+				}
+				if (hiveSkipped > 0) {
+					warnings.push(
+						`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? 'y' : 'ies'} not eligible for hive promotion`,
+					);
 				}
 			}
 		} catch (hiveErr) {

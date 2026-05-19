@@ -165,7 +165,7 @@ describe('handleCloseCommand — expanded artifact cleanup', () => {
 	// ── Test 1: Flat-file archiving ────────────────────────────────────
 
 	describe('Flat-file archiving (knowledge.jsonl, repo-graph.json, telemetry.jsonl, etc.)', () => {
-		it('archives and removes knowledge.jsonl', async () => {
+		it('archives knowledge.jsonl (survives cleanup)', async () => {
 			writePlan();
 			writeFileSync(
 				path.join(swarmDir(), 'knowledge.jsonl'),
@@ -176,7 +176,7 @@ describe('handleCloseCommand — expanded artifact cleanup', () => {
 
 			const archivePath = getLatestArchivePath();
 			expect(existsSync(path.join(archivePath, 'knowledge.jsonl'))).toBe(true);
-			expect(existsSync(path.join(swarmDir(), 'knowledge.jsonl'))).toBe(false);
+			expect(existsSync(path.join(swarmDir(), 'knowledge.jsonl'))).toBe(true);
 		});
 
 		it('archives and removes knowledge-rejected.jsonl', async () => {
@@ -887,8 +887,8 @@ describe('handleCloseCommand — expanded artifact cleanup', () => {
 
 			await handleCloseCommand(testDir, []);
 
-			// Flat files removed
-			expect(existsSync(path.join(swarmDir(), 'knowledge.jsonl'))).toBe(false);
+			// Flat files removed (but knowledge.jsonl survives)
+			expect(existsSync(path.join(swarmDir(), 'knowledge.jsonl'))).toBe(true);
 			expect(existsSync(path.join(swarmDir(), 'telemetry.jsonl'))).toBe(false);
 			expect(existsSync(path.join(swarmDir(), 'repo-graph.json'))).toBe(false);
 			expect(existsSync(path.join(swarmDir(), 'swarm.db'))).toBe(false);

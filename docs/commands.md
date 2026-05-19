@@ -368,12 +368,30 @@ Restore `.swarm/` to a phase checkpoint (`checkpoints/phase-<N>`). Writes a roll
 Idempotent 4-stage project finalization:
 1. **Finalize** — write retrospectives for in-progress phases.
 2. **Archive** — timestamped bundle of swarm artifacts and evidence.
-3. **Clean** — remove active-state files.
+3. **Clean** — remove active-state files (see below).
 4. **Align** — safe git `ff-only` to `main`.
 
 Reads `.swarm/close-lessons.md` for explicit lessons and runs curation.
 When close creates knowledge entries, the summary nudges the user to run `skill_improve` or `skill_generate` to compile mature entries into skills.
 Use `--skill-review` to run the quota-bounded `skill_improver` in proposal mode for skills and knowledge; failures are advisory and do not block finalization.
+
+**Cleanup scope:** `knowledge.jsonl` is intentionally preserved across finalize
+cycles — cumulative project knowledge survives and is not deleted. Deleted files
+include `plan.json`, `plan.md`, `plan-ledger.jsonl`, `events.jsonl`, `handoff.*`,
+`escalation-report.md`, `knowledge-rejected.jsonl`, `repo-graph.json`,
+`doc-manifest.json`, `dark-matter.md`, `telemetry.jsonl`, `swarm.db` (and
+shm/wal variants), and the `evidence/`, `session/`, `scopes/`, `locks/`,
+`spec-archive/` directories.
+
+**Hive promotion:** During finalize, lessons in `knowledge.jsonl` are evaluated
+against a three-route eligibility gate before promotion to hive:
+- **Explicit** — `hive_eligible=true` AND ≥3 distinct phases confirmed
+- **Fast-track** — entry tagged `hive-fast-track` (bypasses phase count)
+- **Age-based** — entry age ≥ `auto_promote_days` (default 90, configurable via
+  `knowledge.auto_promote_days` in your project config)
+
+Entries failing all routes are skipped. The `auto_promote_days` threshold is read
+from your project's `knowledge.*` config.
 
 `/swarm close [--prune-branches] [--skill-review]` remains available as a deprecated alias.
 

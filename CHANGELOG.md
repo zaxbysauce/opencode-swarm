@@ -37,6 +37,10 @@
 
 ## [Unreleased]
 
+### Bug Fixes
+
+* **knowledge:** fix `knowledge_query` crash on hive tier when entries lack `encounter_score` field ([#914](https://github.com/zaxbysauce/opencode-swarm/issues/914))
+
 ### Features
 
 * **config:** add `auto_select_architect` option to automatically select swarm architect and disable competing built-in agents ([#887](https://github.com/zaxbysauce/opencode-swarm/issues/887))
