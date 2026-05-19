@@ -238,6 +238,51 @@ describe('classifyFailure', () => {
 		expect(result.classification).toBe('unknown');
 	});
 
+	test('classifies infrastructure failures from common stderr patterns', () => {
+		const patterns = [
+			'java.lang.OutOfMemoryError: Java heap space',
+			'Killed',
+			'connect ETIMEDOUT 10.0.0.1:443',
+			'Error: connect ECONNREFUSED 127.0.0.1:5432',
+			'getaddrinfo ENOTFOUND registry.npmjs.org',
+			'Command failed: exited with code 137',
+		];
+
+		for (const errorMessage of patterns) {
+			const current = makeRecord({
+				testFile: 'src/foo.test.ts',
+				testName: `infra ${errorMessage}`,
+				result: 'fail',
+				errorMessage,
+				changedFiles: ['src/foo.test.ts'],
+			});
+
+			const history: TestRunRecord[] = [
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `infra ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(1),
+				}),
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `infra ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(2),
+				}),
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `infra ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(3),
+				}),
+			];
+
+			const result = classifyFailure(current, history);
+			expect(result.classification).toBe('infrastructure_failure');
+		}
+	});
+
 	// Behavior 6: confidence scores
 	test('confidence is 1.0 when history length >= 5', () => {
 		const current = makeRecord({

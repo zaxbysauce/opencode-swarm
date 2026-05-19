@@ -4,6 +4,7 @@ export type FailureClassification =
 	| 'new_regression'
 	| 'pre_existing'
 	| 'flaky'
+	| 'infrastructure_failure'
 	| 'unknown';
 
 export interface ClassifiedFailure {
@@ -67,6 +68,22 @@ function stringHash(str: string): string {
 	return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 
+const INFRASTRUCTURE_FAILURE_PATTERNS = [
+	/\boutofmemoryerror\b/i,
+	/\bkilled\b/i,
+	/\betimedout\b/i,
+	/\beconnrefused\b/i,
+	/\benotfound\b/i,
+	/\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i,
+];
+
+function isInfrastructureFailure(currentResult: TestRunRecord): boolean {
+	const combinedText = `${currentResult.errorMessage || ''}\n${currentResult.stackPrefix || ''}`;
+	return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) =>
+		pattern.test(combinedText),
+	);
+}
+
 export function classifyFailure(
 	currentResult: TestRunRecord,
 	history: TestRunRecord[],
@@ -83,6 +100,18 @@ export function classifyFailure(
 			(a, b) =>
 				new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
 		);
+
+	if (isInfrastructureFailure(currentResult)) {
+		return {
+			testFile: currentResult.testFile,
+			testName: currentResult.testName,
+			classification: 'infrastructure_failure',
+			errorMessage: currentResult.errorMessage,
+			stackPrefix: currentResult.stackPrefix,
+			durationMs: currentResult.durationMs,
+			confidence: computeConfidence(testHistory.length),
+		};
+	}
 
 	const lastThree = testHistory.slice(0, 3);
 	const lastTen = testHistory.slice(0, 10);
