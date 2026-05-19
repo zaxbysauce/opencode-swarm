@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.24.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.24.0...v7.24.1) (2026-05-19)
+
+
+### Bug Fixes
+
+* **knowledge:** null-safety, hive eligibility gate, knowledge preservation ([#914](https://github.com/zaxbysauce/opencode-swarm/issues/914) [#916](https://github.com/zaxbysauce/opencode-swarm/issues/916)) ([#919](https://github.com/zaxbysauce/opencode-swarm/issues/919)) ([6616a77](https://github.com/zaxbysauce/opencode-swarm/commit/6616a77019f26859b4d073a4083f00b3bf29bb74))
+
 ## [7.24.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.23.1...v7.24.0) (2026-05-18)
 
 
