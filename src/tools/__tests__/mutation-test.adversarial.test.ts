@@ -1,7 +1,6 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { randomUUID } from 'node:crypto';
 import * as fsSync from 'node:fs';
-import { mkdtempSync, realpathSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
@@ -42,7 +41,7 @@ function initGitRepo(dir: string): void {
 }
 
 // ---------------------------------------------------------------------------
-// child_process mock — intercepts spawnSync so tests don't exec real commands.
+// spawnSync DI seam — intercepts spawnSync so tests don't exec real commands.
 // ---------------------------------------------------------------------------
 
 // Tracks what spawnSync was called with so tests can assert on it.
@@ -52,9 +51,20 @@ export const spawnCallLog: Array<{
 	opts: Record<string, unknown>;
 }> = [];
 
+// Module-level reference to the original spawnSync (saved/restored in beforeEach/afterEach)
+let originalSpawnSync:
+	| typeof import('node:child_process').spawnSync
+	| undefined;
+
+// Module-level mock that logs calls and delegates to the original spawnSync.
+// Tests call mockSpawnSync.mockImplementation(...) to customize behavior.
 const mockSpawnSync = mock(
 	(cmd: string, args: string[], opts: Record<string, unknown>) => {
 		spawnCallLog.push({ cmd, args, opts: { ...opts } });
+		// Delegate to original spawnSync if available (e.g., initGitRepo calls)
+		if (originalSpawnSync) {
+			return originalSpawnSync(cmd, args, opts);
+		}
 		return {
 			pid: 12345,
 			output: Buffer.alloc(0),
@@ -63,22 +73,9 @@ const mockSpawnSync = mock(
 			status: 0,
 			signal: null,
 			error: undefined,
-		};
+		} as ReturnType<typeof import('node:child_process').spawnSync>;
 	},
 );
-
-// Use CJS require in factory to bypass ESM module cache.
-// This ensures node:child_process is loaded through the factory, not via
-// a top-level ESM import that would cache before mock.module runs.
-mock.module('node:child_process', () => {
-	// eslint-disable-next-line @typescript-eslint/no-require-imports
-	const real =
-		require('node:child_process') as typeof import('node:child_process');
-	return {
-		...real,
-		spawnSync: mockSpawnSync,
-	};
-});
 
 // ---------------------------------------------------------------------------
 // Imports after mock setup — engine and gate internals
@@ -95,13 +92,22 @@ describe('mutation_test adversarial — real executeMutationSuite / evaluateMuta
 	let tempDir: string;
 
 	beforeEach(() => {
-		mockSpawnSync.mockClear();
+		// Save original spawnSync and replace with mock for this test
+		originalSpawnSync = engineInternals.spawnSync;
+		engineInternals.spawnSync = mockSpawnSync;
 		spawnCallLog.length = 0;
 		tempDir = makeTempDir();
 	});
 
 	afterEach(() => {
-		mockSpawnSync.mockClear();
+		// Restore original spawnSync
+		engineInternals.spawnSync = originalSpawnSync;
+		// Reset mock implementation to default (prevent leak into next test)
+		mockSpawnSync.mockReset();
+		// Clean up temp directory
+		if (tempDir) {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
 		spawnCallLog.length = 0;
 	});
 

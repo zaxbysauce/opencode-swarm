@@ -72120,7 +72120,7 @@ var init_curator_drift = __esm(() => {
 var exports_project_context = {};
 __export(exports_project_context, {
   buildProjectContext: () => buildProjectContext,
-  _internals: () => _internals55,
+  _internals: () => _internals56,
   LANG_BACKEND_DETECTION_TIMEOUT_MS: () => LANG_BACKEND_DETECTION_TIMEOUT_MS
 });
 import * as fs112 from "node:fs";
@@ -72204,7 +72204,7 @@ function selectLintCommand(backend, directory) {
   return null;
 }
 async function buildProjectContext(directory) {
-  const backend = await _internals55.pickBackend(directory);
+  const backend = await _internals56.pickBackend(directory);
   if (!backend)
     return null;
   const ctx = emptyProjectContext();
@@ -72235,16 +72235,16 @@ async function buildProjectContext(directory) {
   if (backend.prompts.reviewerChecklist.length > 0) {
     ctx.REVIEWER_CHECKLIST = bulletList(backend.prompts.reviewerChecklist);
   }
-  const profiles = _internals55.pickedProfiles(directory);
+  const profiles = _internals56.pickedProfiles(directory);
   if (profiles.length > 1) {
     ctx.PROJECT_CONTEXT_SECONDARY_LANGUAGES = profiles.slice(1).map((p) => p.id).join(", ");
   }
   return ctx;
 }
-var LANG_BACKEND_DETECTION_TIMEOUT_MS = 300, _internals55;
+var LANG_BACKEND_DETECTION_TIMEOUT_MS = 300, _internals56;
 var init_project_context = __esm(() => {
   init_dispatch();
-  _internals55 = {
+  _internals56 = {
     pickBackend,
     pickedProfiles
   };
@@ -102524,6 +102524,12 @@ async function batchCheckEquivalence(patches, llmJudge) {
 var MUTATION_TIMEOUT_MS = 30000;
 var TOTAL_BUDGET_MS = 300000;
 var GIT_APPLY_TIMEOUT_MS = 5000;
+var _internals51 = {
+  executeMutation,
+  computeReport,
+  executeMutationSuite,
+  spawnSync: spawnSync3
+};
 async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   const startTime = Date.now();
   let outcome = "survived";
@@ -102550,7 +102556,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
       };
     }
     try {
-      const applyResult = spawnSync3("git", ["apply", "--", patchFile], {
+      const applyResult = _internals51.spawnSync("git", ["apply", "--", patchFile], {
         cwd: workingDir,
         timeout: GIT_APPLY_TIMEOUT_MS,
         stdio: "pipe"
@@ -102579,7 +102585,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
     }
     let testPassed = false;
     try {
-      const spawnResult = spawnSync3(testCommand[0], testCommand.slice(1), {
+      const spawnResult = _internals51.spawnSync(testCommand[0], testCommand.slice(1), {
         cwd: workingDir,
         timeout: MUTATION_TIMEOUT_MS,
         stdio: "pipe"
@@ -102612,7 +102618,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
   } finally {
     if (patchFile) {
       try {
-        const revertResult = spawnSync3("git", ["apply", "-R", "--", patchFile], {
+        const revertResult = _internals51.spawnSync("git", ["apply", "-R", "--", patchFile], {
           cwd: workingDir,
           timeout: GIT_APPLY_TIMEOUT_MS,
           stdio: "pipe"
@@ -102805,7 +102811,7 @@ async function executeMutationSuite(patches, testCommand, testFiles, workingDir,
 }
 
 // src/mutation/gate.ts
-var _internals51 = {
+var _internals52 = {
   evaluateMutationGate,
   buildTestImprovementPrompt,
   buildMessage
@@ -102826,8 +102832,8 @@ function evaluateMutationGate(report, passThreshold = PASS_THRESHOLD, warnThresh
   } else {
     verdict = "fail";
   }
-  const testImprovementPrompt = _internals51.buildTestImprovementPrompt(report, passThreshold, verdict);
-  const message = _internals51.buildMessage(verdict, adjustedKillRate, report.killed, report.totalMutants, report.equivalent, warnThreshold);
+  const testImprovementPrompt = _internals52.buildTestImprovementPrompt(report, passThreshold, verdict);
+  const message = _internals52.buildMessage(verdict, adjustedKillRate, report.killed, report.totalMutants, report.equivalent, warnThreshold);
   return {
     verdict,
     killRate: report.killRate,
@@ -103444,7 +103450,7 @@ import * as path135 from "node:path";
 init_bun_compat();
 import * as fs104 from "node:fs";
 import * as path134 from "node:path";
-var _internals52 = { bunSpawn };
+var _internals53 = { bunSpawn };
 var _swarmGitExcludedChecked = false;
 function fileCoversSwarm(content) {
   for (const rawLine of content.split(`
@@ -103477,7 +103483,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
       checkIgnoreExitCode
     ] = await Promise.all([
       (async () => {
-        const proc = _internals52.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
+        const proc = _internals53.bunSpawn(["git", "-C", directory, "rev-parse", "--show-toplevel"], GIT_SPAWN_OPTIONS);
         try {
           return await Promise.all([proc.exited, proc.stdout.text()]);
         } finally {
@@ -103487,7 +103493,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       })(),
       (async () => {
-        const proc = _internals52.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
+        const proc = _internals53.bunSpawn(["git", "-C", directory, "rev-parse", "--git-path", "info/exclude"], GIT_SPAWN_OPTIONS);
         try {
           return await Promise.all([proc.exited, proc.stdout.text()]);
         } finally {
@@ -103497,7 +103503,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       })(),
       (async () => {
-        const proc = _internals52.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
+        const proc = _internals53.bunSpawn(["git", "-C", directory, "check-ignore", "-q", ".swarm/.gitkeep"], GIT_SPAWN_OPTIONS);
         try {
           return await proc.exited;
         } finally {
@@ -103536,7 +103542,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
         }
       } catch {}
     }
-    const trackedProc = _internals52.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
+    const trackedProc = _internals53.bunSpawn(["git", "-C", directory, "ls-files", "--", ".swarm"], GIT_SPAWN_OPTIONS);
     let trackedExitCode;
     let trackedOutput;
     try {
@@ -103561,7 +103567,7 @@ async function ensureSwarmGitExcluded(directory, options = {}) {
 }
 
 // src/hooks/diff-scope.ts
-var _internals53 = { bunSpawn };
+var _internals54 = { bunSpawn };
 function getDeclaredScope(taskId, directory) {
   try {
     const planPath = path135.join(directory, ".swarm", "plan.json");
@@ -103596,7 +103602,7 @@ var GIT_DIFF_SPAWN_OPTIONS = {
 };
 async function getChangedFiles(directory) {
   try {
-    const proc = _internals53.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
+    const proc = _internals54.bunSpawn(["git", "diff", "--name-only", "HEAD~1"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
@@ -103613,7 +103619,7 @@ async function getChangedFiles(directory) {
       return stdout.trim().split(`
 `).map((f) => f.trim()).filter((f) => f.length > 0);
     }
-    const proc2 = _internals53.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
+    const proc2 = _internals54.bunSpawn(["git", "diff", "--name-only", "HEAD"], {
       cwd: directory,
       ...GIT_DIFF_SPAWN_OPTIONS
     });
@@ -103671,7 +103677,7 @@ init_telemetry();
 init_file_locks();
 import * as fs106 from "node:fs";
 import * as path136 from "node:path";
-var _internals54 = {
+var _internals55 = {
   listActiveLocks,
   verifyLeanTurboTaskCompletion
 };
@@ -103813,7 +103819,7 @@ function verifyLeanTurboTaskCompletion(directory, taskId, sessionID) {
       }
     };
   }
-  const activeLocks = _internals54.listActiveLocks(directory);
+  const activeLocks = _internals55.listActiveLocks(directory);
   const laneLocks = activeLocks.filter((lock) => lock.laneId === lane.laneId);
   if (laneLocks.length > 0) {
     return {

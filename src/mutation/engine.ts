@@ -1,4 +1,7 @@
 import { spawnSync } from 'node:child_process';
+
+type SpawnSyncFn = typeof spawnSync;
+
 import { unlinkSync, writeFileSync } from 'node:fs';
 import * as path from 'node:path';
 
@@ -72,10 +75,12 @@ export const _internals: {
 	executeMutation: typeof executeMutation;
 	computeReport: typeof computeReport;
 	executeMutationSuite: typeof executeMutationSuite;
+	spawnSync: SpawnSyncFn;
 } = {
 	executeMutation,
 	computeReport,
 	executeMutationSuite,
+	spawnSync,
 } as const;
 
 export async function executeMutation(
@@ -111,11 +116,15 @@ export async function executeMutation(
 		}
 
 		try {
-			const applyResult = spawnSync('git', ['apply', '--', patchFile], {
-				cwd: workingDir,
-				timeout: GIT_APPLY_TIMEOUT_MS,
-				stdio: 'pipe',
-			});
+			const applyResult = _internals.spawnSync(
+				'git',
+				['apply', '--', patchFile],
+				{
+					cwd: workingDir,
+					timeout: GIT_APPLY_TIMEOUT_MS,
+					stdio: 'pipe',
+				},
+			);
 			if (applyResult.error) {
 				const code = (applyResult.error as NodeJS.ErrnoException).code;
 				if (code === 'ENOENT') {
@@ -143,11 +152,15 @@ export async function executeMutation(
 
 		let testPassed = false;
 		try {
-			const spawnResult = spawnSync(testCommand[0], testCommand.slice(1), {
-				cwd: workingDir,
-				timeout: MUTATION_TIMEOUT_MS,
-				stdio: 'pipe',
-			});
+			const spawnResult = _internals.spawnSync(
+				testCommand[0],
+				testCommand.slice(1),
+				{
+					cwd: workingDir,
+					timeout: MUTATION_TIMEOUT_MS,
+					stdio: 'pipe',
+				},
+			);
 			if (spawnResult.error) {
 				if ((spawnResult.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
 					outcome = 'timeout';
@@ -177,7 +190,7 @@ export async function executeMutation(
 	} finally {
 		if (patchFile) {
 			try {
-				const revertResult = spawnSync(
+				const revertResult = _internals.spawnSync(
 					'git',
 					['apply', '-R', '--', patchFile],
 					{
