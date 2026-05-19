@@ -244,6 +244,30 @@ tokio = { version = "1.0", features = ["full"] }
 			// Verify the cwd was passed correctly
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
+			expect(spawnCalls[0].cmd).toEqual(['bun', 'test']);
+		});
+
+		test('legacy Bun command avoids unsupported JSON reporter', async () => {
+			const fakeCwd = '/fake/cwd/for/runtests';
+			const priorBackend = process.env.SWARM_LANG_BACKEND;
+			mockStdout = JSON.stringify({
+				numTotalTests: 1,
+				numPassedTests: 1,
+				numFailedTests: 0,
+			});
+			Bun.spawn = mockSpawn as any;
+
+			try {
+				process.env.SWARM_LANG_BACKEND = 'legacy';
+				await runTests('bun', 'all', [], false, 60000, fakeCwd);
+			} finally {
+				if (priorBackend === undefined) delete process.env.SWARM_LANG_BACKEND;
+				else process.env.SWARM_LANG_BACKEND = priorBackend;
+			}
+
+			// Bun 1.3.x rejects --reporter=json before it runs any tests.
+			expect(spawnCalls.length).toBeGreaterThan(0);
+			expect(spawnCalls[0].cmd).toEqual(['bun', 'test']);
 		});
 
 		test('passes cwd to Bun.spawn for vitest framework', async () => {
@@ -331,7 +355,9 @@ tokio = { version = "1.0", features = ["full"] }
 								fullName: 'foo suite fails',
 								status: 'failed',
 								duration: 8,
-								failureMessages: ['Error: expected true to be false\n    at foo'],
+								failureMessages: [
+									'Error: expected true to be false\n    at foo',
+								],
 							},
 						],
 					},

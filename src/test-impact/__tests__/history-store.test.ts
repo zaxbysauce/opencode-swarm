@@ -434,12 +434,12 @@ describe('history-store', () => {
 
 			const records = getTestHistory(testFile, tempDir);
 			expect(records.length).toBe(40);
-			expect(records.filter((record) => record.testName === 'alpha').length).toBe(
-				20,
-			);
-			expect(records.filter((record) => record.testName === 'beta').length).toBe(
-				20,
-			);
+			expect(
+				records.filter((record) => record.testName === 'alpha').length,
+			).toBe(20);
+			expect(
+				records.filter((record) => record.testName === 'beta').length,
+			).toBe(20);
 		});
 
 		test('sorts pruned records by timestamp ascending (oldest first)', () => {
@@ -664,9 +664,8 @@ describe('history-store', () => {
 			);
 
 			const records = getAllHistory(tempDir);
-			// Should have 2 valid records (lines with required fields testFile/testName/result)
-			// The second line "not valid json" is skipped
-			expect(records.length).toBe(2);
+			// Only the fully valid persisted record is retained.
+			expect(records.length).toBe(1);
 		});
 
 		test('skips lines that are not objects with required fields', () => {
@@ -714,6 +713,46 @@ describe('history-store', () => {
 			expect(records.length).toBe(2);
 			expect(records[0].testName).toBe('valid 1');
 			expect(records[1].testName).toBe('valid 2');
+		});
+
+		test('skips malformed stored testName records before pruning', () => {
+			const historyPath = path.join(
+				tempDir,
+				'.swarm',
+				'cache',
+				'test-history.jsonl',
+			);
+			const histDir = path.dirname(historyPath);
+			fs.mkdirSync(histDir, { recursive: true });
+			const malformed = {
+				timestamp: new Date('2024-01-01T00:00:00Z').toISOString(),
+				taskId: '4.1',
+				testFile: 'src/poisoned.test.ts',
+				testName: 123,
+				result: 'pass',
+				durationMs: 10,
+				changedFiles: [],
+			};
+			fs.writeFileSync(historyPath, `${JSON.stringify(malformed)}\n`, 'utf-8');
+
+			// Previous code accepted the malformed row from disk, then crashed while
+			// pruning because it called testName.toLowerCase() on a number.
+			appendTestRun(
+				{
+					timestamp: new Date('2024-01-02T00:00:00Z').toISOString(),
+					taskId: '4.2',
+					testFile: 'src/poisoned.test.ts',
+					testName: 'real test',
+					result: 'pass',
+					durationMs: 20,
+					changedFiles: [],
+				},
+				tempDir,
+			);
+
+			const records = getAllHistory(tempDir);
+			expect(records.length).toBe(1);
+			expect(records[0].testName).toBe('real test');
 		});
 	});
 

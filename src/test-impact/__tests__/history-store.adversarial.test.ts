@@ -987,11 +987,11 @@ describe('history-store adversarial security tests', () => {
 
 			// Write malformed content
 			const corruptedContent =
-				'{"testFile": "a.ts", "testName": "test", "result": "pass"}\n' + // valid
+				'{"timestamp":"2024-01-01T00:00:00.000Z","taskId":"13.1","testFile":"a.ts","testName":"test","result":"pass","durationMs":1,"changedFiles":[]}\n' + // valid
 				'not valid json at all\n' + // invalid
-				'{"testFile": "b.ts", "testName": "test2", "result": "fail"}\n' + // valid
+				'{"timestamp":"2024-01-02T00:00:00.000Z","taskId":"13.2","testFile":"b.ts","testName":"test2","result":"fail","durationMs":2,"changedFiles":[]}\n' + // valid
 				'{"truncated": true\n' + // incomplete
-				'{"testFile": "c.ts", "testName": "test3", "result": "skip"}\n'; // valid
+				'{"timestamp":"2024-01-03T00:00:00.000Z","taskId":"13.3","testFile":"c.ts","testName":"test3","result":"skip","durationMs":3,"changedFiles":[]}\n'; // valid
 
 			fs.writeFileSync(historyPath, corruptedContent, 'utf-8');
 

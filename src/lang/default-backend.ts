@@ -150,7 +150,7 @@ export function defaultBuildTestCommand(
 
 	switch (framework) {
 		case 'bun': {
-			const args: string[] = ['bun', 'test', '--reporter=json'];
+			const args: string[] = ['bun', 'test'];
 			if (coverage) args.push('--coverage');
 			if (scope !== 'all' && files.length > 0) args.push(...files);
 			return args;

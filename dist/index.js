@@ -55008,7 +55008,14 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       return args2;
     }
     case "vitest": {
-      const args2 = ["npx", "vitest", "run"];
+      const args2 = [
+        "npx",
+        "vitest",
+        "run",
+        "--reporter=json",
+        "--outputFile",
+        ".swarm/cache/test-runner-vitest.json"
+      ];
       if (coverage)
         args2.push("--coverage");
       if (scope !== "all" && files.length > 0)
@@ -55016,7 +55023,7 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       return args2;
     }
     case "jest": {
-      const args2 = ["npx", "jest"];
+      const args2 = ["npx", "jest", "--json"];
       if (coverage)
         args2.push("--coverage");
       if (scope !== "all" && files.length > 0)
@@ -56251,6 +56258,42 @@ function sanitizeChangedFiles(changedFiles) {
   const validFiles = changedFiles.filter((f) => typeof f === "string" && f.length > 0 && !DANGEROUS_PROPERTY_NAMES.has(f));
   return validFiles.slice(0, MAX_CHANGED_FILES);
 }
+function isTestRunResult(value) {
+  return value === "pass" || value === "fail" || value === "skip";
+}
+function parseStoredRecord(value) {
+  if (typeof value !== "object" || value === null)
+    return null;
+  const record3 = value;
+  if (typeof record3.testFile !== "string" || record3.testFile.length === 0) {
+    return null;
+  }
+  if (typeof record3.testName !== "string" || record3.testName.length === 0) {
+    return null;
+  }
+  if (typeof record3.taskId !== "string" || record3.taskId.length === 0) {
+    return null;
+  }
+  if (!isTestRunResult(record3.result))
+    return null;
+  if (typeof record3.durationMs !== "number" || !Number.isFinite(record3.durationMs)) {
+    return null;
+  }
+  if (typeof record3.timestamp !== "string" || Number.isNaN(Date.parse(record3.timestamp))) {
+    return null;
+  }
+  return {
+    timestamp: record3.timestamp,
+    taskId: record3.taskId,
+    testFile: record3.testFile,
+    testName: record3.testName,
+    result: record3.result,
+    durationMs: Math.max(0, record3.durationMs),
+    errorMessage: typeof record3.errorMessage === "string" ? sanitizeErrorMessage(record3.errorMessage) : undefined,
+    stackPrefix: typeof record3.stackPrefix === "string" ? sanitizeStackPrefix(record3.stackPrefix) : undefined,
+    changedFiles: sanitizeChangedFiles(Array.isArray(record3.changedFiles) ? record3.changedFiles : [])
+  };
+}
 function appendTestRun(record3, workingDir) {
   if (typeof record3.testFile !== "string" || record3.testFile.length === 0) {
     throw new TypeError("testFile must be a non-empty string");
@@ -56288,16 +56331,16 @@ function appendTestRun(record3, workingDir) {
   }
   const existingRecords = readAllRecords(historyPath);
   existingRecords.push(sanitizedRecord);
-  const recordsByFile = new Map;
+  const recordsByTest = new Map;
   for (const rec of existingRecords) {
-    const normalizedFile = rec.testFile.toLowerCase();
-    if (!recordsByFile.has(normalizedFile)) {
-      recordsByFile.set(normalizedFile, []);
+    const normalizedKey = `${rec.testFile.toLowerCase()}|${rec.testName.toLowerCase()}`;
+    if (!recordsByTest.has(normalizedKey)) {
+      recordsByTest.set(normalizedKey, []);
     }
-    recordsByFile.get(normalizedFile).push(rec);
+    recordsByTest.get(normalizedKey).push(rec);
   }
   const prunedRecords = [];
-  for (const [, records] of recordsByFile) {
+  for (const [, records] of recordsByTest) {
     records.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const toKeep = records.slice(-MAX_HISTORY_PER_TEST);
     prunedRecords.push(...toKeep);
@@ -56337,8 +56380,9 @@ function readAllRecords(historyPath) {
       }
       try {
         const parsed = JSON.parse(trimmed);
-        if (typeof parsed === "object" && parsed !== null && "testFile" in parsed && "testName" in parsed && "result" in parsed) {
-          records.push(parsed);
+        const record3 = parseStoredRecord(parsed);
+        if (record3) {
+          records.push(record3);
         }
       } catch {}
     }
@@ -57377,7 +57421,14 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       return args2;
     }
     case "vitest": {
-      const args2 = ["npx", "vitest", "run"];
+      const args2 = [
+        "npx",
+        "vitest",
+        "run",
+        "--reporter=json",
+        "--outputFile",
+        VITEST_JSON_OUTPUT_RELATIVE_PATH
+      ];
       if (coverage)
         args2.push("--coverage");
       if (scope !== "all" && files.length > 0) {
@@ -57386,7 +57437,7 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       return args2;
     }
     case "jest": {
-      const args2 = ["npx", "jest"];
+      const args2 = ["npx", "jest", "--json"];
       if (coverage)
         args2.push("--coverage");
       if (scope !== "all" && files.length > 0) {
@@ -57481,6 +57532,122 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
     default:
       return null;
   }
+}
+function mapFrameworkStatusToResult(status) {
+  if (typeof status !== "string")
+    return null;
+  const normalized = status.toLowerCase();
+  if (normalized === "pass" || normalized === "passed")
+    return "pass";
+  if (normalized === "fail" || normalized === "failed")
+    return "fail";
+  if (normalized === "skip" || normalized === "skipped" || normalized === "pending" || normalized === "todo") {
+    return "skip";
+  }
+  return null;
+}
+function firstLine(value) {
+  if (typeof value !== "string")
+    return;
+  const line = value.split(`
+`).find((part) => part.trim().length > 0)?.trim();
+  return line && line.length > 0 ? line : undefined;
+}
+function parseJestLikeJsonTestResults(payload) {
+  if (typeof payload !== "object" || payload === null)
+    return [];
+  const rawSuites = payload.testResults;
+  if (!Array.isArray(rawSuites))
+    return [];
+  const parsed = [];
+  for (const suite of rawSuites) {
+    if (typeof suite !== "object" || suite === null)
+      continue;
+    const suiteObj = suite;
+    const rawFile = typeof suiteObj.name === "string" ? suiteObj.name : typeof suiteObj.testFilePath === "string" ? suiteObj.testFilePath : undefined;
+    if (!rawFile)
+      continue;
+    const testFile = rawFile.replace(/\\/g, "/");
+    const assertionResults = suiteObj.assertionResults;
+    if (!Array.isArray(assertionResults))
+      continue;
+    for (const assertion of assertionResults) {
+      if (typeof assertion !== "object" || assertion === null)
+        continue;
+      const assertionObj = assertion;
+      const result = mapFrameworkStatusToResult(assertionObj.status);
+      const testName = typeof assertionObj.fullName === "string" ? assertionObj.fullName : typeof assertionObj.title === "string" ? assertionObj.title : undefined;
+      if (!result || !testName || testName.length === 0)
+        continue;
+      const failureMessages = Array.isArray(assertionObj.failureMessages) ? assertionObj.failureMessages : [];
+      const firstFailure = failureMessages.find((entry) => typeof entry === "string" && entry.length > 0);
+      const durationMs = typeof assertionObj.duration === "number" && Number.isFinite(assertionObj.duration) ? Math.max(assertionObj.duration, 0) : 0;
+      parsed.push({
+        testFile,
+        testName,
+        result,
+        durationMs,
+        errorMessage: firstLine(firstFailure),
+        stackPrefix: firstLine(firstFailure)
+      });
+    }
+  }
+  return parsed;
+}
+function parseBunJsonLines(output) {
+  const parsed = [];
+  for (const line of output.split(`
+`)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}"))
+      continue;
+    try {
+      const obj = JSON.parse(trimmed);
+      const rawFile = typeof obj.file === "string" ? obj.file : typeof obj.testFile === "string" ? obj.testFile : typeof obj.path === "string" ? obj.path : undefined;
+      const rawName = typeof obj.testName === "string" ? obj.testName : typeof obj.fullName === "string" ? obj.fullName : typeof obj.name === "string" ? obj.name : undefined;
+      const result = mapFrameworkStatusToResult(typeof obj.status === "string" ? obj.status : obj.result);
+      if (!rawFile || !rawName || !result)
+        continue;
+      const errorObj = typeof obj.error === "object" && obj.error !== null ? obj.error : undefined;
+      const durationMs = typeof obj.durationMs === "number" && Number.isFinite(obj.durationMs) ? Math.max(obj.durationMs, 0) : typeof obj.duration === "number" && Number.isFinite(obj.duration) ? Math.max(obj.duration, 0) : 0;
+      parsed.push({
+        testFile: rawFile.replace(/\\/g, "/"),
+        testName: rawName,
+        result,
+        durationMs,
+        errorMessage: firstLine(errorObj?.message ?? obj.errorMessage),
+        stackPrefix: firstLine(errorObj?.stack)
+      });
+    } catch {}
+  }
+  return parsed;
+}
+function parseFrameworkJsonTestResults(framework, output) {
+  const jsonMatch = output.match(/\{[\s\S]*"testResults"[\s\S]*\}/);
+  if (jsonMatch) {
+    try {
+      const parsed = JSON.parse(jsonMatch[0]);
+      const testResults = parseJestLikeJsonTestResults(parsed);
+      if (testResults.length > 0)
+        return testResults;
+    } catch {}
+  }
+  for (const line of output.split(`
+`)) {
+    const trimmed = line.trim();
+    if (!trimmed.startsWith("{") || !trimmed.endsWith("}"))
+      continue;
+    try {
+      const parsed = JSON.parse(trimmed);
+      const testResults = parseJestLikeJsonTestResults(parsed);
+      if (testResults.length > 0)
+        return testResults;
+    } catch {}
+  }
+  if (framework === "bun") {
+    return parseBunJsonLines(output);
+  }
+  return [];
 }
 function parseTestOutput2(framework, output) {
   const totals = {
@@ -57769,7 +57936,16 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
   const startTime = Date.now();
+  const vitestJsonOutputPath = framework === "vitest" ? path46.join(cwd, ".swarm", "cache", "test-runner-vitest.json") : undefined;
   try {
+    if (vitestJsonOutputPath) {
+      try {
+        fs29.mkdirSync(path46.dirname(vitestJsonOutputPath), { recursive: true });
+        if (fs29.existsSync(vitestJsonOutputPath)) {
+          fs29.unlinkSync(vitestJsonOutputPath);
+        }
+      } catch {}
+    }
     const proc = bunSpawn(command, {
       stdout: "pipe",
       stderr: "pipe",
@@ -57790,13 +57966,37 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       output += (output ? `
 ` : "") + stderrResult.text;
     }
+    if (vitestJsonOutputPath) {
+      try {
+        if (fs29.existsSync(vitestJsonOutputPath)) {
+          const vitestJsonOutput = fs29.readFileSync(vitestJsonOutputPath, "utf-8");
+          if (vitestJsonOutput.trim().length > 0) {
+            output += (output ? `
+` : "") + vitestJsonOutput;
+          }
+        }
+      } catch {}
+    }
     if (stdoutResult.truncated || stderrResult.truncated) {
       output += `
 ... (output truncated at stream read limit)`;
     }
     const useDispatchParse = process.env.SWARM_LANG_BACKEND !== "legacy";
     const parsed = useDispatchParse ? await parseTestOutputViaDispatch(framework, output, cwd) ?? parseTestOutput2(framework, output) : parseTestOutput2(framework, output);
-    const { totals, coveragePercent } = parsed;
+    const parsedTestCases = parseFrameworkJsonTestResults(framework, output);
+    const totals = { ...parsed.totals };
+    const { coveragePercent } = parsed;
+    if (totals.total === 0 && parsedTestCases.length > 0) {
+      for (const entry of parsedTestCases) {
+        if (entry.result === "pass")
+          totals.passed++;
+        else if (entry.result === "fail")
+          totals.failed++;
+        else
+          totals.skipped++;
+      }
+      totals.total = parsedTestCases.length;
+    }
     const isTimeout = exitCode === -1;
     const testPassed = exitCode === 0 && totals.failed === 0;
     if (testPassed) {
@@ -57809,7 +58009,8 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
         duration_ms,
         totals,
         rawOutput: output,
-        outcome: "pass"
+        outcome: "pass",
+        testCases: parsedTestCases
       };
       if (coveragePercent !== undefined) {
         result.coveragePercent = coveragePercent;
@@ -57831,7 +58032,8 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
         rawOutput: output,
         error: isTimeout ? `Tests timed out after ${timeout_ms}ms` : `Tests failed with ${totals.failed} failures`,
         message: isTimeout ? `${framework} tests timed out after ${timeout_ms}ms` : `${framework} tests failed (${totals.failed}/${totals.total} failed)`,
-        outcome: isTimeout ? "error" : "regression"
+        outcome: isTimeout ? "error" : "regression",
+        testCases: parsedTestCases
       };
       if (coveragePercent !== undefined) {
         result.coveragePercent = coveragePercent;
@@ -57852,24 +58054,77 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
 }
-function recordAndAnalyzeResults(result, testFiles, workingDir, sourceFiles) {
+function normalizeHistoryTestFile(testFile, workingDir) {
+  const normalized = testFile.replace(/\\/g, "/");
+  if (!path46.isAbsolute(testFile))
+    return normalized;
+  const relative9 = path46.relative(workingDir, testFile);
+  if (relative9.startsWith("..") || path46.isAbsolute(relative9)) {
+    return normalized;
+  }
+  return relative9.replace(/\\/g, "/");
+}
+function combineAggregateResult(current, next) {
+  if (current === "fail" || next === "fail")
+    return "fail";
+  if (current === "pass" || next === "pass")
+    return "pass";
+  return "skip";
+}
+function recordAndAnalyzeResults(result, testFiles, workingDir, sourceFiles, parsedTestCases) {
   if (!result.totals || result.totals.total === 0)
     return;
   const now = new Date().toISOString();
   const changedFiles = (sourceFiles && sourceFiles.length > 0 ? sourceFiles : testFiles).map((f) => f.replace(/\\/g, "/"));
-  for (const testFile of testFiles) {
+  const aggregateResultsByFile = new Map;
+  const validParsedCases = parsedTestCases?.filter((parsedCase) => parsedCase.testFile.length > 0 && parsedCase.testName.length > 0) ?? [];
+  for (const parsedCase of validParsedCases) {
+    const normalizedTestFile = normalizeHistoryTestFile(parsedCase.testFile, workingDir);
     try {
       appendTestRun({
         timestamp: now,
         taskId: "auto",
-        testFile: testFile.replace(/\\/g, "/"),
-        testName: "(aggregate)",
-        result: result.success ? "pass" : "fail",
+        testFile: normalizedTestFile,
+        testName: parsedCase.testName,
+        result: parsedCase.result,
+        durationMs: parsedCase.durationMs,
+        errorMessage: parsedCase.errorMessage,
+        stackPrefix: parsedCase.stackPrefix,
+        changedFiles
+      }, workingDir);
+    } catch {}
+    aggregateResultsByFile.set(normalizedTestFile, combineAggregateResult(aggregateResultsByFile.get(normalizedTestFile), parsedCase.result));
+  }
+  if (aggregateResultsByFile.size === 0) {
+    const aggregateResult = result.success ? "pass" : "fail";
+    for (const testFile of testFiles) {
+      aggregateResultsByFile.set(testFile.replace(/\\/g, "/"), aggregateResult);
+    }
+  }
+  for (const [testFile, aggregateResult] of aggregateResultsByFile) {
+    try {
+      appendTestRun({
+        timestamp: now,
+        taskId: "auto",
+        testFile,
+        testName: AGGREGATE_TEST_NAME,
+        result: aggregateResult,
         durationMs: result.duration_ms || 0,
         changedFiles
       }, workingDir);
     } catch {}
   }
+}
+function selectHistoryForAnalysis(history) {
+  const filesWithIndividualRecords = new Set;
+  for (const record3 of history) {
+    if (record3.testName !== AGGREGATE_TEST_NAME) {
+      filesWithIndividualRecords.add(record3.testFile.toLowerCase());
+    }
+  }
+  if (filesWithIndividualRecords.size === 0)
+    return history;
+  return history.filter((record3) => record3.testName !== AGGREGATE_TEST_NAME || !filesWithIndividualRecords.has(record3.testFile.toLowerCase()));
 }
 function analyzeFailures(workingDir) {
   const report = {
@@ -57878,7 +58133,7 @@ function analyzeFailures(workingDir) {
     quarantinedFailures: []
   };
   try {
-    const history = getAllHistory(workingDir);
+    const history = selectHistoryForAnalysis(getAllHistory(workingDir));
     if (history.length === 0)
       return report;
     report.flakyTests = detectFlakyTests(history);
@@ -57899,7 +58154,7 @@ function analyzeFailures(workingDir) {
   } catch {}
   return report;
 }
-var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, MAX_SAFE_SOURCE_FILES = 1, POWERSHELL_METACHARACTERS, DISPATCH_FRAMEWORK_MAP, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
+var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, MAX_SAFE_SOURCE_FILES = 1, AGGREGATE_TEST_NAME = "(aggregate)", VITEST_JSON_OUTPUT_RELATIVE_PATH = ".swarm/cache/test-runner-vitest.json", POWERSHELL_METACHARACTERS, DISPATCH_FRAMEWORK_MAP, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
 var init_test_runner = __esm(() => {
   init_zod();
   init_discovery();
@@ -58345,7 +58600,7 @@ var init_test_runner = __esm(() => {
         return JSON.stringify(errorResult, null, 2);
       }
       const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
-      recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined);
+      recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined, result.testCases);
       let historyReport;
       if (!result.success && result.totals && result.totals.failed > 0) {
         historyReport = analyzeFailures(workingDir);
@@ -60022,7 +60277,7 @@ var init_reset_session = __esm(() => {
 });
 
 // src/summaries/manager.ts
-import { mkdirSync as mkdirSync14, readdirSync as readdirSync13, renameSync as renameSync11, rmSync as rmSync4, statSync as statSync12 } from "node:fs";
+import { mkdirSync as mkdirSync15, readdirSync as readdirSync13, renameSync as renameSync11, rmSync as rmSync4, statSync as statSync12 } from "node:fs";
 import * as path50 from "node:path";
 function sanitizeSummaryId(id) {
   if (!id || id.length === 0) {
@@ -60068,7 +60323,7 @@ async function storeSummary(directory, id, fullOutput, summaryText, maxStoredByt
     originalBytes: Buffer.byteLength(fullOutput, "utf8")
   };
   const entryJson = JSON.stringify(entry);
-  mkdirSync14(summaryDir, { recursive: true });
+  mkdirSync15(summaryDir, { recursive: true });
   const tempPath = path50.join(summaryDir, `${sanitizedId}.json.tmp.${Date.now()}.${process.pid}`);
   try {
     await bunWrite(tempPath, entryJson);
@@ -67185,12 +67440,12 @@ __export(exports_evidence_summary_integration, {
   createEvidenceSummaryIntegration: () => createEvidenceSummaryIntegration,
   EvidenceSummaryIntegration: () => EvidenceSummaryIntegration
 });
-import { existsSync as existsSync32, mkdirSync as mkdirSync16, writeFileSync as writeFileSync8 } from "node:fs";
+import { existsSync as existsSync32, mkdirSync as mkdirSync17, writeFileSync as writeFileSync8 } from "node:fs";
 import * as path57 from "node:path";
 function persistSummary(projectDir, artifact, filename) {
   const swarmPath = path57.join(projectDir, ".swarm");
   if (!existsSync32(swarmPath)) {
-    mkdirSync16(swarmPath, { recursive: true });
+    mkdirSync17(swarmPath, { recursive: true });
   }
   const artifactPath = path57.join(swarmPath, filename);
   const content = JSON.stringify(artifact, null, 2);
@@ -73137,7 +73392,7 @@ init_state();
 init_utils();
 init_bun_compat();
 init_utils2();
-import { renameSync as renameSync13, unlinkSync as unlinkSync10 } from "node:fs";
+import { renameSync as renameSync13, unlinkSync as unlinkSync11 } from "node:fs";
 import * as nodePath2 from "node:path";
 function createAgentActivityHooks(config3, directory) {
   if (config3.hooks?.agent_activity === false) {
@@ -73215,7 +73470,7 @@ async function doFlush(directory) {
       renameSync13(tempPath, path62);
     } catch (writeError) {
       try {
-        unlinkSync10(tempPath);
+        unlinkSync11(tempPath);
       } catch {}
       throw writeError;
     }
@@ -87191,7 +87446,7 @@ ${body2}`);
 import {
   appendFileSync as appendFileSync12,
   existsSync as existsSync53,
-  mkdirSync as mkdirSync24,
+  mkdirSync as mkdirSync25,
   readFileSync as readFileSync44,
   writeFileSync as writeFileSync17
 } from "node:fs";
@@ -87230,7 +87485,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
     throw new Error(`writeCouncilEvidence: invalid taskId "${synthesis.taskId}" — must match N.M or N.M.P format`);
   }
   const dir = join83(workingDir, EVIDENCE_DIR2);
-  mkdirSync24(dir, { recursive: true });
+  mkdirSync25(dir, { recursive: true });
   const filePath = join83(dir, `${synthesis.taskId}.json`);
   const existingRoot = Object.create(null);
   if (existsSync53(filePath)) {
@@ -87266,7 +87521,7 @@ function writeCouncilEvidence(workingDir, synthesis) {
   writeFileSync17(filePath, JSON.stringify(updated, null, 2));
   try {
     const councilDir = join83(workingDir, ".swarm", "council");
-    mkdirSync24(councilDir, { recursive: true });
+    mkdirSync25(councilDir, { recursive: true });
     const auditLine = JSON.stringify({
       round: synthesis.roundNumber,
       verdict: synthesis.overallVerdict,
@@ -87595,12 +87850,12 @@ function buildFinalCouncilFeedback(projectSummary, verdict, vetoedBy, requiredFi
 }
 
 // src/council/criteria-store.ts
-import { existsSync as existsSync54, mkdirSync as mkdirSync25, readFileSync as readFileSync45, writeFileSync as writeFileSync18 } from "node:fs";
+import { existsSync as existsSync54, mkdirSync as mkdirSync26, readFileSync as readFileSync45, writeFileSync as writeFileSync18 } from "node:fs";
 import { join as join84 } from "node:path";
 var COUNCIL_DIR = ".swarm/council";
 function writeCriteria(workingDir, taskId, criteria) {
   const dir = join84(workingDir, COUNCIL_DIR);
-  mkdirSync25(dir, { recursive: true });
+  mkdirSync26(dir, { recursive: true });
   const payload = {
     taskId,
     criteria,
@@ -89454,12 +89709,12 @@ function extractFilename(code, language, index) {
 `);
   const ext = EXT_MAP[language.toLowerCase()] ?? ".txt";
   if (lines.length > 0) {
-    const firstLine = lines[0].trim();
-    const filenameMatch = firstLine.match(/^[#/]+\s*filename[:\s]+(\S+\.\w+)/i);
+    const firstLine2 = lines[0].trim();
+    const filenameMatch = firstLine2.match(/^[#/]+\s*filename[:\s]+(\S+\.\w+)/i);
     if (filenameMatch) {
       return filenameMatch[1];
     }
-    const bareMatch = firstLine.match(/^[#/]+\s*(\w+\.\w+)\s*$/);
+    const bareMatch = firstLine2.match(/^[#/]+\s*(\w+\.\w+)\s*$/);
     if (bareMatch) {
       return bareMatch[1];
     }
@@ -99948,10 +100203,10 @@ init_zod();
 init_loader();
 import {
   existsSync as existsSync72,
-  mkdirSync as mkdirSync31,
+  mkdirSync as mkdirSync32,
   readFileSync as readFileSync63,
   renameSync as renameSync20,
-  unlinkSync as unlinkSync15,
+  unlinkSync as unlinkSync16,
   writeFileSync as writeFileSync25
 } from "node:fs";
 import path124 from "node:path";
@@ -100147,7 +100402,7 @@ function getPhaseMutationGapFinding(phaseNumber, workingDir) {
 }
 function writePhaseCouncilEvidence(workingDir, synthesis) {
   const evidenceDir = path124.join(workingDir, ".swarm", "evidence", String(synthesis.phaseNumber));
-  mkdirSync31(evidenceDir, { recursive: true });
+  mkdirSync32(evidenceDir, { recursive: true });
   const evidenceFile = path124.join(evidenceDir, "phase-council.json");
   const evidenceBundle = {
     entries: [
@@ -100185,7 +100440,7 @@ function writePhaseCouncilEvidence(workingDir, synthesis) {
     renameSync20(tempFile, evidenceFile);
   } finally {
     if (existsSync72(tempFile)) {
-      unlinkSync15(tempFile);
+      unlinkSync16(tempFile);
     }
   }
 }
@@ -102392,7 +102647,7 @@ import * as path131 from "node:path";
 
 // src/mutation/engine.ts
 import { spawnSync as spawnSync3 } from "node:child_process";
-import { unlinkSync as unlinkSync16, writeFileSync as writeFileSync26 } from "node:fs";
+import { unlinkSync as unlinkSync17, writeFileSync as writeFileSync26 } from "node:fs";
 import * as path130 from "node:path";
 
 // src/mutation/equivalence.ts
@@ -102637,7 +102892,7 @@ async function executeMutation(patch, testCommand, _testFiles, workingDir) {
         revertError = new Error(`Failed to revert mutation ${patch.id}: ${revertErr}. Working tree may be dirty.`);
       }
       try {
-        unlinkSync16(patchFile);
+        unlinkSync17(patchFile);
       } catch (_unlinkErr) {}
     }
   }

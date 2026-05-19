@@ -1079,7 +1079,7 @@ function buildTestCommand(
 ): string[] | null {
 	switch (framework) {
 		case 'bun': {
-			const args: string[] = ['bun', 'test', '--reporter=json'];
+			const args: string[] = ['bun', 'test'];
 			if (coverage) args.push('--coverage');
 			if (scope !== 'all' && files.length > 0) {
 				args.push(...files);
@@ -1250,11 +1250,16 @@ function mapFrameworkStatusToResult(
 
 function firstLine(value: unknown): string | undefined {
 	if (typeof value !== 'string') return undefined;
-	const line = value.split('\n').find((part) => part.trim().length > 0)?.trim();
+	const line = value
+		.split('\n')
+		.find((part) => part.trim().length > 0)
+		?.trim();
 	return line && line.length > 0 ? line : undefined;
 }
 
-function parseJestLikeJsonTestResults(payload: unknown): ParsedTestCaseResult[] {
+function parseJestLikeJsonTestResults(
+	payload: unknown,
+): ParsedTestCaseResult[] {
 	if (typeof payload !== 'object' || payload === null) return [];
 	const rawSuites = (payload as Record<string, unknown>).testResults;
 	if (!Array.isArray(rawSuites)) return [];
@@ -1819,7 +1824,10 @@ export async function runTests(
 		if (vitestJsonOutputPath) {
 			try {
 				if (fs.existsSync(vitestJsonOutputPath)) {
-					const vitestJsonOutput = fs.readFileSync(vitestJsonOutputPath, 'utf-8');
+					const vitestJsonOutput = fs.readFileSync(
+						vitestJsonOutputPath,
+						'utf-8',
+					);
 					if (vitestJsonOutput.trim().length > 0) {
 						output += (output ? '\n' : '') + vitestJsonOutput;
 					}
@@ -2031,7 +2039,10 @@ interface TestHistoryReport {
 	quarantinedFailures: string[];
 }
 
-function normalizeHistoryTestFile(testFile: string, workingDir: string): string {
+function normalizeHistoryTestFile(
+	testFile: string,
+	workingDir: string,
+): string {
 	const normalized = testFile.replace(/\\/g, '/');
 	if (!path.isAbsolute(testFile)) return normalized;
 	const relative = path.relative(workingDir, testFile);

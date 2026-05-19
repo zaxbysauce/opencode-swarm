@@ -55,12 +55,63 @@ const DANGEROUS_PROPERTY_NAMES = new Set([
 	'prototype',
 ]);
 
-function sanitizeChangedFiles(changedFiles: string[]): string[] {
+function sanitizeChangedFiles(changedFiles: unknown[]): string[] {
 	const validFiles = changedFiles.filter(
 		(f): f is string =>
 			typeof f === 'string' && f.length > 0 && !DANGEROUS_PROPERTY_NAMES.has(f),
 	);
 	return validFiles.slice(0, MAX_CHANGED_FILES);
+}
+
+function isTestRunResult(value: unknown): value is TestRunResult {
+	return value === 'pass' || value === 'fail' || value === 'skip';
+}
+
+function parseStoredRecord(value: unknown): TestRunRecord | null {
+	if (typeof value !== 'object' || value === null) return null;
+	const record = value as Record<string, unknown>;
+	if (typeof record.testFile !== 'string' || record.testFile.length === 0) {
+		return null;
+	}
+	if (typeof record.testName !== 'string' || record.testName.length === 0) {
+		return null;
+	}
+	if (typeof record.taskId !== 'string' || record.taskId.length === 0) {
+		return null;
+	}
+	if (!isTestRunResult(record.result)) return null;
+	if (
+		typeof record.durationMs !== 'number' ||
+		!Number.isFinite(record.durationMs)
+	) {
+		return null;
+	}
+	if (
+		typeof record.timestamp !== 'string' ||
+		Number.isNaN(Date.parse(record.timestamp))
+	) {
+		return null;
+	}
+
+	return {
+		timestamp: record.timestamp,
+		taskId: record.taskId,
+		testFile: record.testFile,
+		testName: record.testName,
+		result: record.result,
+		durationMs: Math.max(0, record.durationMs),
+		errorMessage:
+			typeof record.errorMessage === 'string'
+				? sanitizeErrorMessage(record.errorMessage)
+				: undefined,
+		stackPrefix:
+			typeof record.stackPrefix === 'string'
+				? sanitizeStackPrefix(record.stackPrefix)
+				: undefined,
+		changedFiles: sanitizeChangedFiles(
+			Array.isArray(record.changedFiles) ? record.changedFiles : [],
+		),
+	};
 }
 
 export function appendTestRun(
@@ -203,15 +254,9 @@ function readAllRecords(historyPath: string): TestRunRecord[] {
 			}
 			try {
 				const parsed = JSON.parse(trimmed);
-				// Basic validation: ensure it's an object with required fields
-				if (
-					typeof parsed === 'object' &&
-					parsed !== null &&
-					'testFile' in parsed &&
-					'testName' in parsed &&
-					'result' in parsed
-				) {
-					records.push(parsed as TestRunRecord);
+				const record = parseStoredRecord(parsed);
+				if (record) {
+					records.push(record);
 				}
 			} catch {
 				// Skip corrupted JSON lines silently
