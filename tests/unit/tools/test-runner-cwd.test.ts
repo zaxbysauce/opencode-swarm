@@ -313,6 +313,60 @@ tokio = { version = "1.0", features = ["full"] }
 			expect(spawnCalls.length).toBeGreaterThan(0);
 			expect((spawnCalls[0].opts as any)?.cwd).toBe(fakeCwd);
 		});
+
+		test('extracts per-test cases from jest JSON output', async () => {
+			const fakeCwd = '/fake/jest/project';
+			mockStdout = JSON.stringify({
+				testResults: [
+					{
+						name: '/fake/jest/project/src/foo.test.ts',
+						assertionResults: [
+							{
+								fullName: 'foo suite passes',
+								status: 'passed',
+								duration: 12,
+								failureMessages: [],
+							},
+							{
+								fullName: 'foo suite fails',
+								status: 'failed',
+								duration: 8,
+								failureMessages: ['Error: expected true to be false\n    at foo'],
+							},
+						],
+					},
+				],
+				numTotalTests: 2,
+				numPassedTests: 1,
+				numFailedTests: 1,
+				numPendingTests: 0,
+			});
+
+			Bun.spawn = mockSpawn as any;
+
+			const result = await runTests('jest', 'all', [], false, 60000, fakeCwd);
+			expect(result.success).toBe(false);
+			expect(result.testCases).toBeDefined();
+			expect(result.testCases?.length).toBe(2);
+			expect(result.testCases?.[0].testName).toBe('foo suite passes');
+			expect(result.testCases?.[1].result).toBe('fail');
+		});
+
+		test('extracts per-test cases from bun JSON-lines output', async () => {
+			const fakeCwd = '/fake/bun/project';
+			mockStdout = [
+				'{"file":"src/a.test.ts","name":"a passes","status":"passed","durationMs":5}',
+				'{"file":"src/a.test.ts","name":"a fails","status":"failed","durationMs":7,"error":{"message":"Error: boom","stack":"Error: boom\\n    at a"}}',
+			].join('\n');
+
+			Bun.spawn = mockSpawn as any;
+
+			const result = await runTests('bun', 'all', [], false, 60000, fakeCwd);
+			expect(result.testCases).toBeDefined();
+			expect(result.testCases?.length).toBe(2);
+			expect(result.testCases?.[0].result).toBe('pass');
+			expect(result.testCases?.[1].errorMessage).toContain('Error: boom');
+		});
 	});
 
 	describe('execute() ToolContext extraction', () => {

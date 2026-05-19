@@ -338,10 +338,10 @@ describe('history-store', () => {
 	});
 
 	// -------------------------------------------------------------------------
-	// appendTestRun() pruning: keeps last 20 records per testFile
+	// appendTestRun() pruning: keeps last 20 records per (testFile, testName)
 	// -------------------------------------------------------------------------
 	describe('appendTestRun() pruning', () => {
-		test('keeps only the last 20 records per testFile', () => {
+		test('keeps only the last 20 records per testFile + testName key', () => {
 			const testFile = 'src/foo.test.ts';
 			for (let i = 0; i < 25; i++) {
 				appendTestRun(
@@ -349,7 +349,7 @@ describe('history-store', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: '4.1',
 						testFile,
-						testName: `run ${i}`,
+						testName: 'stable test name',
 						result: i % 2 === 0 ? 'pass' : 'fail',
 						durationMs: 10 + i,
 						changedFiles: [],
@@ -359,12 +359,12 @@ describe('history-store', () => {
 			}
 			const records = getTestHistory(testFile, tempDir);
 			expect(records.length).toBe(20);
-			// First record should be run 5 (index 5), last should be run 24
-			expect(records[0].testName).toBe('run 5');
-			expect(records[19].testName).toBe('run 24');
+			// First record should be the 6th inserted record, last should be the 25th
+			expect(records[0].durationMs).toBe(15);
+			expect(records[19].durationMs).toBe(34);
 		});
 
-		test('prunes independently per testFile', () => {
+		test('prunes independently per testFile + testName key', () => {
 			const fileA = 'src/a.test.ts';
 			const fileB = 'src/b.test.ts';
 			// Write 25 for file A
@@ -374,7 +374,7 @@ describe('history-store', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: '4.1',
 						testFile: fileA,
-						testName: `a run ${i}`,
+						testName: 'shared name',
 						result: 'pass',
 						durationMs: 10,
 						changedFiles: [],
@@ -389,7 +389,7 @@ describe('history-store', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: '4.1',
 						testFile: fileB,
-						testName: `b run ${i}`,
+						testName: 'shared name',
 						result: 'pass',
 						durationMs: 10,
 						changedFiles: [],
@@ -401,6 +401,45 @@ describe('history-store', () => {
 			const recordsB = getTestHistory(fileB, tempDir);
 			expect(recordsA.length).toBe(20);
 			expect(recordsB.length).toBe(5);
+		});
+
+		test('prunes independently for different test names in same file', () => {
+			const testFile = 'src/per-test-key.test.ts';
+			for (let i = 0; i < 25; i++) {
+				appendTestRun(
+					{
+						timestamp: new Date(Date.now() + i * 1000).toISOString(),
+						taskId: `a-${i}`,
+						testFile,
+						testName: 'alpha',
+						result: 'pass',
+						durationMs: i,
+						changedFiles: [],
+					},
+					tempDir,
+				);
+				appendTestRun(
+					{
+						timestamp: new Date(Date.now() + i * 1000 + 500).toISOString(),
+						taskId: `b-${i}`,
+						testFile,
+						testName: 'beta',
+						result: 'pass',
+						durationMs: i,
+						changedFiles: [],
+					},
+					tempDir,
+				);
+			}
+
+			const records = getTestHistory(testFile, tempDir);
+			expect(records.length).toBe(40);
+			expect(records.filter((record) => record.testName === 'alpha').length).toBe(
+				20,
+			);
+			expect(records.filter((record) => record.testName === 'beta').length).toBe(
+				20,
+			);
 		});
 
 		test('sorts pruned records by timestamp ascending (oldest first)', () => {

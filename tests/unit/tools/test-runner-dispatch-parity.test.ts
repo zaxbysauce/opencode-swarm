@@ -227,6 +227,9 @@ describe('Phase 3b: buildTestCommandViaDispatch parity', () => {
 			'npx',
 			'vitest',
 			'run',
+			'--reporter=json',
+			'--outputFile',
+			'.swarm/cache/test-runner-vitest.json',
 			'--coverage',
 			'src/foo.test.ts',
 		]);
@@ -244,7 +247,7 @@ describe('Phase 3b: buildTestCommandViaDispatch parity', () => {
 			false,
 			tempDir,
 		);
-		expect(cmd).toEqual(['bun', 'test']);
+		expect(cmd).toEqual(['bun', 'test', '--reporter=json']);
 	});
 
 	test('pytest produces python3/python -m pytest with --cov when coverage=true', async () => {

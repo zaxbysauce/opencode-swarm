@@ -135,20 +135,20 @@ export function appendTestRun(
 	// Append new record
 	existingRecords.push(sanitizedRecord);
 
-	// Prune: keep only last 20 records per testFile
-	const recordsByFile = new Map<string, TestRunRecord[]>();
+	// Prune: keep only last 20 records per (testFile, testName)
+	const recordsByTest = new Map<string, TestRunRecord[]>();
 	for (const rec of existingRecords) {
-		const normalizedFile = rec.testFile.toLowerCase();
-		if (!recordsByFile.has(normalizedFile)) {
-			recordsByFile.set(normalizedFile, []);
+		const normalizedKey = `${rec.testFile.toLowerCase()}|${rec.testName.toLowerCase()}`;
+		if (!recordsByTest.has(normalizedKey)) {
+			recordsByTest.set(normalizedKey, []);
 		}
-		recordsByFile.get(normalizedFile)!.push(rec);
+		recordsByTest.get(normalizedKey)!.push(rec);
 	}
 
 	// Rebuild with pruning
 	const prunedRecords: TestRunRecord[] = [];
-	for (const [, records] of recordsByFile) {
-		// Sort by timestamp ascending within each file
+	for (const [, records] of recordsByTest) {
+		// Sort by timestamp ascending within each test key
 		records.sort(
 			(a, b) =>
 				new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime(),
