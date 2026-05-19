@@ -1846,15 +1846,11 @@ export async function runTests(
 		const totals = { ...parsed.totals };
 		const { coveragePercent } = parsed;
 		if (totals.total === 0 && parsedTestCases.length > 0) {
-			totals.passed = parsedTestCases.filter(
-				(entry) => entry.result === 'pass',
-			).length;
-			totals.failed = parsedTestCases.filter(
-				(entry) => entry.result === 'fail',
-			).length;
-			totals.skipped = parsedTestCases.filter(
-				(entry) => entry.result === 'skip',
-			).length;
+			for (const entry of parsedTestCases) {
+				if (entry.result === 'pass') totals.passed++;
+				else if (entry.result === 'fail') totals.failed++;
+				else totals.skipped++;
+			}
 			totals.total = parsedTestCases.length;
 		}
 
