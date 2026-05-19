@@ -370,3 +370,8 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 		return outputLines.join('\n');
 	},
 });
+
+// Test seam — exported for direct unit testing only
+export const _test_exports = {
+	formatHiveEntry,
+};

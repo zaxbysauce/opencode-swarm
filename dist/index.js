@@ -46712,31 +46712,35 @@ async function handleCloseCommand(directory, args2, options = {}) {
     await fs13.unlink(lessonsFilePath).catch(() => {});
   }
   if (curationSucceeded) {
-    try {
-      const knowledgePath = resolveSwarmKnowledgePath(directory);
-      const entries = await readKnowledge(knowledgePath);
-      const autoPromoteDays = config3.auto_promote_days;
-      if (entries.length > 0) {
-        for (const entry of entries) {
-          if (!isHiveEligible(entry, autoPromoteDays)) {
-            hiveSkipped++;
-            continue;
+    if (config3.hive_enabled === false) {} else {
+      try {
+        const knowledgePath = resolveSwarmKnowledgePath(directory);
+        const entries = await readKnowledge(knowledgePath);
+        const autoPromoteDays = config3.auto_promote_days;
+        if (entries.length > 0) {
+          for (const entry of entries) {
+            if (!isHiveEligible(entry, autoPromoteDays)) {
+              hiveSkipped++;
+              continue;
+            }
+            try {
+              const result = await promoteToHive(directory, entry.lesson, entry.category);
+              if (!result.includes("already exists")) {
+                hivePromoted++;
+              }
+            } catch (promotionErr) {
+              const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
+              warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+            }
           }
-          try {
-            await promoteToHive(directory, entry.lesson, entry.category);
-            hivePromoted++;
-          } catch (promotionErr) {
-            const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
-            warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+          if (hiveSkipped > 0) {
+            warnings.push(`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? "y" : "ies"} not eligible for hive promotion`);
           }
         }
-        if (hiveSkipped > 0) {
-          warnings.push(`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? "y" : "ies"} not eligible for hive promotion`);
-        }
+      } catch (hiveErr) {
+        const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
+        warnings.push(`Hive promotion failed: ${msg}`);
       }
-    } catch (hiveErr) {
-      const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
-      warnings.push(`Hive promotion failed: ${msg}`);
     }
   }
   const fallbackKnowledgeCreated = curationResult?.stored ?? 0;

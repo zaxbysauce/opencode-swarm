@@ -493,38 +493,50 @@ export async function handleCloseCommand(
 	// Promote swarm lessons to cross-project hive knowledge.
 	// Non-blocking: failures are logged as warnings, close still succeeds.
 	if (curationSucceeded) {
-		try {
-			const knowledgePath = resolveSwarmKnowledgePath(directory);
-			const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
-			const autoPromoteDays = config.auto_promote_days;
-			if (entries.length > 0) {
-				for (const entry of entries) {
-					// ─── Eligibility gate (shared with checkHivePromotions) ──
-					if (!isHiveEligible(entry, autoPromoteDays)) {
-						hiveSkipped++;
-						continue;
-					}
+		if (config.hive_enabled === false) {
+			// Hive disabled by configuration — skip promotion entirely
+		} else {
+			try {
+				const knowledgePath = resolveSwarmKnowledgePath(directory);
+				const entries = await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+				const autoPromoteDays = config.auto_promote_days;
+				if (entries.length > 0) {
+					for (const entry of entries) {
+						// ─── Eligibility gate (shared with checkHivePromotions) ──
+						if (!isHiveEligible(entry, autoPromoteDays)) {
+							hiveSkipped++;
+							continue;
+						}
 
-					try {
-						await promoteToHive(directory, entry.lesson, entry.category);
-						hivePromoted++;
-					} catch (promotionErr) {
-						const msg =
-							promotionErr instanceof Error
-								? promotionErr.message
-								: String(promotionErr);
-						warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+						try {
+							const result = await promoteToHive(
+								directory,
+								entry.lesson,
+								entry.category,
+							);
+							// Only count actual promotions, not near-duplicate no-ops
+							if (!result.includes('already exists')) {
+								hivePromoted++;
+							}
+						} catch (promotionErr) {
+							const msg =
+								promotionErr instanceof Error
+									? promotionErr.message
+									: String(promotionErr);
+							warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+						}
+					}
+					if (hiveSkipped > 0) {
+						warnings.push(
+							`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? 'y' : 'ies'} not eligible for hive promotion`,
+						);
 					}
 				}
-				if (hiveSkipped > 0) {
-					warnings.push(
-						`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? 'y' : 'ies'} not eligible for hive promotion`,
-					);
-				}
+			} catch (hiveErr) {
+				const msg =
+					hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
+				warnings.push(`Hive promotion failed: ${msg}`);
 			}
-		} catch (hiveErr) {
-			const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
-			warnings.push(`Hive promotion failed: ${msg}`);
 		}
 	}
 
