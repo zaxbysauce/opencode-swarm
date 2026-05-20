@@ -492,11 +492,10 @@ describe('checkReviewerGate', () => {
 		// which caused docs tasks to be permanently blocked because test_engineer never runs.
 		// Fix: in_progress now seeds with required_gates: []; recordGateEvidence sets the
 		// actual required gates based on the agents that ran.
-		const { recordAgentDispatch } = await import('../gate-evidence');
-		await recordAgentDispatch(tmpDir, '6.2', 'docs'); // docs agent — NOT a gate agent but records dispatch
-		await recordGateEvidence(tmpDir, '6.2', 'docs', 'sess-docs');
-		await recordGateEvidence(tmpDir, '6.2', 'reviewer', 'sess-r');
-		// test_engineer deliberately not recorded
+		// In production, docs IS a gate agent, so toolAfter calls recordGateEvidence('docs').
+		await recordGateEvidence(tmpDir, '6.2', 'docs', 'sess-docs'); // creates required_gates: ['docs']
+		await recordGateEvidence(tmpDir, '6.2', 'reviewer', 'sess-r'); // expands to: ['docs', 'reviewer']
+		// test_engineer deliberately not recorded — not needed for docs tasks
 
 		startAgentSession('session-1', 'architect');
 
