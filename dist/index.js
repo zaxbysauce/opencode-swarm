@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.24.1",
+    version: "7.25.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -11578,7 +11578,7 @@ function finalize(ctx, schema) {
     result.$schema = "http://json-schema.org/draft-07/schema#";
   } else if (ctx.target === "draft-04") {
     result.$schema = "http://json-schema.org/draft-04/schema#";
-  } else if (ctx.target === "openapi-3.0") {} else {}
+  } else if (ctx.target === "openapi-3.0") {}
   if (ctx.external?.uri) {
     const id = ctx.external.registry.get(schema)?.id;
     if (!id)
@@ -11843,7 +11843,7 @@ var formatMap, stringProcessor = (schema, ctx, _json, _params) => {
     if (val === undefined) {
       if (ctx.unrepresentable === "throw") {
         throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-      } else {}
+      }
     } else if (typeof val === "bigint") {
       if (ctx.unrepresentable === "throw") {
         throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -39139,7 +39139,7 @@ class JSONSchemaGenerator2 {
               if (val === undefined) {
                 if (this.unrepresentable === "throw") {
                   throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-                } else {}
+                }
               } else if (typeof val === "bigint") {
                 if (this.unrepresentable === "throw") {
                   throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -56065,6 +56065,10 @@ function stringHash(str) {
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 function isInfrastructureFailure(currentResult) {
+  const errorMessage = currentResult.errorMessage || "";
+  if (/\bassertionerror\b/i.test(errorMessage)) {
+    return false;
+  }
   const combinedText = `${currentResult.errorMessage || ""}
 ${currentResult.stackPrefix || ""}`;
   return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) => pattern.test(combinedText));
@@ -56188,9 +56192,12 @@ var init_failure_classifier = __esm(() => {
   INFRASTRUCTURE_FAILURE_PATTERNS = [
     /\boutofmemoryerror\b/i,
     /(?:^|\n|\bcommand failed:\s*)\s*killed(?:\s*(?:[-:]\s*)?(?:out of memory|oom|by signal|signal|sigkill).*)?\s*(?:\n|$)/i,
-    /\betimedout\b/i,
-    /\beconnrefused\b/i,
-    /\benotfound\b/i,
+    /(?:^|\n)\s*etimedout\b/i,
+    /\b(?:connect|connection|request|socket|network)\b[^\n]{0,80}\betimedout\b/i,
+    /(?:^|\n)\s*econnrefused\b/i,
+    /\b(?:connect|connection|socket)\b[^\n]{0,80}\beconnrefused\b/i,
+    /(?:^|\n)\s*enotfound\b/i,
+    /\b(?:getaddrinfo|dns|lookup)\b[^\n]{0,80}\benotfound\b/i,
     /\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i
   ];
 });
@@ -69839,7 +69846,7 @@ ${JSON.stringify(symbolNames, null, 2)}`);
             throw new Error(response.status + " : " + response.url);
           }, "readAsync");
         }
-      } else {}
+      }
       var out = Module["print"] || console.log.bind(console);
       var err = Module["printErr"] || console.error.bind(console);
       Object.assign(Module, moduleOverrides);

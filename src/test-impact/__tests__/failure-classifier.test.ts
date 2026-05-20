@@ -320,6 +320,52 @@ describe('classifyFailure', () => {
 		expect(result.classification).toBe('new_regression');
 	});
 
+	test('regression F3: assertion text containing network error tokens preserves regression classification', () => {
+		const assertions = [
+			'AssertionError: expected token ETIMEDOUT in rendered output',
+			'AssertionError: expected token ECONNREFUSED in rendered output',
+			'AssertionError: expected token ENOTFOUND in rendered output',
+			'AssertionError: expected connection ECONNREFUSED to be shown in logs',
+			'AssertionError: expected lookup ENOTFOUND to be shown in logs',
+			'AssertionError: expected request ETIMEDOUT to be shown in logs',
+		];
+
+		for (const errorMessage of assertions) {
+			const current = makeRecord({
+				testFile: 'src/foo.test.ts',
+				testName: `domain assertion ${errorMessage}`,
+				result: 'fail',
+				errorMessage,
+				stackPrefix: 'at expect (src/foo.ts:1)',
+				changedFiles: ['src/foo.test.ts'],
+			});
+
+			const history: TestRunRecord[] = [
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `domain assertion ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(1),
+				}),
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `domain assertion ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(2),
+				}),
+				makeRecord({
+					testFile: 'src/foo.test.ts',
+					testName: `domain assertion ${errorMessage}`,
+					result: 'pass',
+					timestamp: ts(3),
+				}),
+			];
+
+			const result = classifyFailure(current, history);
+			expect(result.classification).toBe('new_regression');
+		}
+	});
+
 	// Behavior 6: confidence scores
 	test('confidence is 1.0 when history length >= 5', () => {
 		const current = makeRecord({

@@ -71,13 +71,20 @@ function stringHash(str: string): string {
 const INFRASTRUCTURE_FAILURE_PATTERNS = [
 	/\boutofmemoryerror\b/i,
 	/(?:^|\n|\bcommand failed:\s*)\s*killed(?:\s*(?:[-:]\s*)?(?:out of memory|oom|by signal|signal|sigkill).*)?\s*(?:\n|$)/i,
-	/\betimedout\b/i,
-	/\beconnrefused\b/i,
-	/\benotfound\b/i,
+	/(?:^|\n)\s*etimedout\b/i,
+	/\b(?:connect|connection|request|socket|network)\b[^\n]{0,80}\betimedout\b/i,
+	/(?:^|\n)\s*econnrefused\b/i,
+	/\b(?:connect|connection|socket)\b[^\n]{0,80}\beconnrefused\b/i,
+	/(?:^|\n)\s*enotfound\b/i,
+	/\b(?:getaddrinfo|dns|lookup)\b[^\n]{0,80}\benotfound\b/i,
 	/\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i,
 ];
 
 function isInfrastructureFailure(currentResult: TestRunRecord): boolean {
+	const errorMessage = currentResult.errorMessage || '';
+	if (/\bassertionerror\b/i.test(errorMessage)) {
+		return false;
+	}
 	const combinedText = `${currentResult.errorMessage || ''}\n${currentResult.stackPrefix || ''}`;
 	return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) =>
 		pattern.test(combinedText),
