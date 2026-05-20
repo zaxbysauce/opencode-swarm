@@ -228,10 +228,10 @@ describe('history-store adversarial security tests', () => {
 	});
 
 	// ============================================
-	// ATTACK SURFACE 3: Boundary - exactly 20 records per testFile
+	// ATTACK SURFACE 3: Boundary - exactly 20 records per test key
 	// ============================================
-	describe('boundary: 20 records per testFile triggers pruning', () => {
-		test('21st record for same testFile triggers pruning', () => {
+	describe('boundary: 20 records per test key triggers pruning', () => {
+		test('21st record for same testFile + testName triggers pruning', () => {
 			const testFile = 'prune-test.spec.ts';
 
 			// Add 20 records
@@ -241,7 +241,7 @@ describe('history-store adversarial security tests', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: `3.1.${i}`,
 						testFile,
-						testName: `test ${i}`,
+						testName: 'stable test name',
 						result: 'pass',
 						durationMs: 10 + i,
 						changedFiles: [],
@@ -253,13 +253,13 @@ describe('history-store adversarial security tests', () => {
 			let history = getTestHistory(testFile, tempDir);
 			expect(history.length).toBe(20);
 
-			// Add 21st record
+			// Add 21st record for the same test key
 			appendTestRun(
 				{
 					timestamp: new Date(Date.now() + 1000 * 20).toISOString(),
 					taskId: '3.1.20',
 					testFile,
-					testName: 'test 20',
+					testName: 'stable test name',
 					result: 'pass',
 					durationMs: 30,
 					changedFiles: [],
@@ -283,7 +283,7 @@ describe('history-store adversarial security tests', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: `3.2.a${i}`,
 						testFile: 'file-a.spec.ts',
-						testName: `test ${i}`,
+						testName: 'stable test name',
 						result: 'pass',
 						durationMs: 10,
 						changedFiles: [],
@@ -670,7 +670,7 @@ describe('history-store adversarial security tests', () => {
 						timestamp: new Date(Date.now() + i * 1000).toISOString(),
 						taskId: `9.1.${i}`,
 						testFile,
-						testName: `test ${i}`,
+						testName: 'stable test name',
 						result: 'pass',
 						durationMs: i,
 						changedFiles: [],
@@ -697,7 +697,7 @@ describe('history-store adversarial security tests', () => {
 							timestamp: new Date(Date.now() + i * 1000).toISOString(),
 							taskId: `9.2.${f}.${i}`,
 							testFile: `file${f}.spec.ts`,
-							testName: `test ${i}`,
+							testName: 'stable test name',
 							result: 'pass',
 							durationMs: i,
 							changedFiles: [],
@@ -987,11 +987,11 @@ describe('history-store adversarial security tests', () => {
 
 			// Write malformed content
 			const corruptedContent =
-				'{"testFile": "a.ts", "testName": "test", "result": "pass"}\n' + // valid
+				'{"timestamp":"2024-01-01T00:00:00.000Z","taskId":"13.1","testFile":"a.ts","testName":"test","result":"pass","durationMs":1,"changedFiles":[]}\n' + // valid
 				'not valid json at all\n' + // invalid
-				'{"testFile": "b.ts", "testName": "test2", "result": "fail"}\n' + // valid
+				'{"timestamp":"2024-01-02T00:00:00.000Z","taskId":"13.2","testFile":"b.ts","testName":"test2","result":"fail","durationMs":2,"changedFiles":[]}\n' + // valid
 				'{"truncated": true\n' + // incomplete
-				'{"testFile": "c.ts", "testName": "test3", "result": "skip"}\n'; // valid
+				'{"timestamp":"2024-01-03T00:00:00.000Z","taskId":"13.3","testFile":"c.ts","testName":"test3","result":"skip","durationMs":3,"changedFiles":[]}\n'; // valid
 
 			fs.writeFileSync(historyPath, corruptedContent, 'utf-8');
 
