@@ -366,7 +366,7 @@ export function checkReviewerGate(
 			// plan.json missing or unreadable — fall through to blocked:true
 		}
 
-		// Final fallback: scan task-scoped delegation chains directly for reviewer+test_engineer.
+		// Final fallback: scan delegation chains directly for reviewer+test_engineer.
 		// This covers cases where:
 		// - Session was restarted (in-memory state lost)
 		// - toolAfter hook didn't fire (subagent_type not captured)
@@ -374,7 +374,7 @@ export function checkReviewerGate(
 			let hasReviewer = false;
 			let hasTestEngineer = false;
 
-			// Pass 1: task-scoped scan
+			// Pass 1: task-scoped scan — authoritative for code tasks.
 			for (const [sessionId, chain] of swarmState.delegationChains) {
 				const session = swarmState.agentSessions.get(sessionId);
 				if (
@@ -393,6 +393,29 @@ export function checkReviewerGate(
 			// If both reviewer and test_engineer are confirmed in delegation chains, allow through
 			if (hasReviewer && hasTestEngineer) {
 				return { blocked: false, reason: '' };
+			}
+
+			// Pass 2: unscoped scan — covers pure-verification / docs tasks where the
+			// architect dispatched reviewer+test_engineer without a prior coder delegation
+			// so currentTaskId / lastCoderDelegationTaskId was never set for this task.
+			// Only counts entries from chains that contain NO coder delegation to avoid
+			// false positives where coder→reviewer→test_engineer from a previous task
+			// cycle would incorrectly satisfy the gate for an unrelated new task.
+			if (!hasReviewer || !hasTestEngineer) {
+				for (const [, chain] of swarmState.delegationChains) {
+					const hasCoder = chain.some(
+						(d) => stripKnownSwarmPrefix(d.to) === 'coder',
+					);
+					if (hasCoder) continue; // task-scoped pass only for chains with coders
+					for (const delegation of chain) {
+						const target = stripKnownSwarmPrefix(delegation.to);
+						if (target === 'reviewer') hasReviewer = true;
+						if (target === 'test_engineer') hasTestEngineer = true;
+					}
+				}
+				if (hasReviewer && hasTestEngineer) {
+					return { blocked: false, reason: '' };
+				}
 			}
 		}
 
@@ -511,6 +534,25 @@ export function recoverTaskStateFromDelegations(
 			(session.currentTaskId === taskId ||
 				session.lastCoderDelegationTaskId === taskId)
 		) {
+			for (const delegation of chain) {
+				const target = stripKnownSwarmPrefix(delegation.to);
+				if (target === 'reviewer') hasReviewer = true;
+				if (target === 'test_engineer') hasTestEngineer = true;
+			}
+		}
+	}
+
+	// Pass 2 (unscoped): covers pure-verification / docs tasks where the architect
+	// dispatched reviewer+test_engineer without a prior coder delegation so
+	// currentTaskId / lastCoderDelegationTaskId was never associated with this task.
+	// Only applies to chains with NO coder delegation to prevent false positives
+	// (a prior coder→reviewer→test_engineer cycle satisfying the gate for a new task).
+	if (!hasReviewer || !hasTestEngineer) {
+		for (const [, chain] of swarmState.delegationChains) {
+			const hasCoder = chain.some(
+				(d) => stripKnownSwarmPrefix(d.to) === 'coder',
+			);
+			if (hasCoder) continue;
 			for (const delegation of chain) {
 				const target = stripKnownSwarmPrefix(delegation.to);
 				if (target === 'reviewer') hasReviewer = true;
@@ -859,6 +901,10 @@ export async function executeUpdateTaskStatus(
 
 	// Write minimal gate-tracking evidence to persist across session restarts.
 	// Placed AFTER directory validation so we only write under the validated workspace.
+	// required_gates starts empty so that actual agent dispatches (recordAgentDispatch /
+	// recordGateEvidence called from toolAfter) determine which gates are required.
+	// Using [] prevents docs/review-only tasks from being permanently blocked by a
+	// hardcoded ['reviewer', 'test_engineer'] requirement when no test_engineer runs.
 	if (args.status === 'in_progress') {
 		try {
 			const evidencePath = path.join(
@@ -877,7 +923,7 @@ export async function executeUpdateTaskStatus(
 					JSON.stringify(
 						{
 							taskId: args.task_id,
-							required_gates: ['reviewer', 'test_engineer'],
+							required_gates: [],
 							gates: {},
 						},
 						null,
@@ -945,7 +991,8 @@ export async function executeUpdateTaskStatus(
 				return {
 					success: false,
 					message:
-						'Gate check failed: reviewer delegation required before marking task as completed',
+						'Gate check failed: required QA gates not yet satisfied for task ' +
+						args.task_id,
 					errors: [reviewerCheck.reason],
 				};
 			}
