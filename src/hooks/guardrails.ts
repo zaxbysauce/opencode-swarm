@@ -3162,11 +3162,15 @@ export function createGuardrailsHooks(
 				}
 			}
 
+			// Resolve session — returns null if architect or native-agent exempt
+			const resolved = resolveSessionAndWindow(input.sessionID);
+			if (!resolved) return;
+
 			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
-			// Only fires for swarm-delegated sessions (delegationActive) to prevent
-			// PRM counters from polluting non-swarm agents sharing the same process.
-			// The PRM detection side (src/prm/index.ts) already gates on delegationActive;
-			// this aligns the enforcement side with the same guard. Fixes #942.
+			// Placed AFTER resolveSessionAndWindow so that architect sessions and native OpenCode
+			// agents (build, plan, general, explore, etc.) are exempted before this check fires.
+			// The delegationActive guard provides defense-in-depth: only swarm-delegated subagent
+			// sessions (where delegationActive=true) will hit this hard stop. Fixes #942.
 
 			{
 				const prmSession = swarmState.agentSessions.get(input.sessionID);
@@ -3176,10 +3180,6 @@ export function createGuardrailsHooks(
 					);
 				}
 			}
-
-			// Resolve session — returns null if architect-exempt
-			const resolved = resolveSessionAndWindow(input.sessionID);
-			if (!resolved) return;
 
 			const { agentConfig, window } = resolved;
 			const { repetitionCount, elapsedMinutes } = trackToolCall(

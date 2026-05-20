@@ -2,7 +2,7 @@
  * Regression test for #942: PRM hard stop must only fire for swarm-delegated sessions.
  *
  * When prmHardStopPending is true but delegationActive is false (non-swarm agent
- * or architect session), toolBefore must NOT throw the PRM HARD STOP error.
+ * or architect session, or native OpenCode agent), toolBefore must NOT throw the PRM HARD STOP error.
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as os from 'node:os';
@@ -65,9 +65,34 @@ describe('PRM hard stop delegation guard (#942)', () => {
 			callID: 'call-1',
 			agent: 'build',
 		};
-		const output = { args: { filePath: '/tmp/test.txt' } };
+		const output = { args: { filePath: path.join(os.tmpdir(), 'test.txt') } };
 
 		// Should NOT throw — delegationActive is false
+		await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
+	});
+
+	test('does NOT throw PRM hard stop for native agent with delegationActive=true (regression #943)', async () => {
+		const sessionId = 'native-agent-session';
+		const hooks = createGuardrailsHooks(TEST_DIR, defaultConfig);
+
+		// Simulate a native OpenCode agent (build) that got delegationActive=true
+		// because delegation-tracker.ts:79 sets delegationActive = !isArchitect for ALL
+		// non-architect agents, including native ones. This is the P1 bug scenario.
+		const session = ensureAgentSession(sessionId, 'build');
+		swarmState.activeAgent.set(sessionId, 'build');
+		session.prmHardStopPending = true;
+		session.delegationActive = true; // THIS is the bug scenario — native agent gets delegationActive=true
+
+		const input = {
+			sessionID: sessionId,
+			tool: 'read',
+			callID: 'call-native-1',
+			agent: 'build',
+		};
+		const output = { args: { filePath: path.join(os.tmpdir(), 'test.txt') } };
+
+		// Should NOT throw — resolveSessionAndWindow returns null for native agents,
+		// so PRM check is never reached regardless of delegationActive.
 		await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
 	});
 
@@ -87,7 +112,7 @@ describe('PRM hard stop delegation guard (#942)', () => {
 			callID: 'call-2',
 			agent: 'coder',
 		};
-		const output = { args: { filePath: '/tmp/test.txt' } };
+		const output = { args: { filePath: path.join(os.tmpdir(), 'test.txt') } };
 
 		await expect(hooks.toolBefore(input, output)).rejects.toThrow(
 			'PRM HARD STOP',
@@ -109,7 +134,7 @@ describe('PRM hard stop delegation guard (#942)', () => {
 			callID: 'call-3',
 			agent: 'architect',
 		};
-		const output = { args: { filePath: '/tmp/test.txt' } };
+		const output = { args: { filePath: path.join(os.tmpdir(), 'test.txt') } };
 
 		// Should NOT throw — architect is not a delegated session
 		await expect(hooks.toolBefore(input, output)).resolves.toBeUndefined();
