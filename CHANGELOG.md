@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.26.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.26.0...v7.26.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* **guardrails:** gate PRM hard stop on delegationActive to prevent cross-session pollution ([#943](https://github.com/zaxbysauce/opencode-swarm/issues/943)) ([82c8eae](https://github.com/zaxbysauce/opencode-swarm/commit/82c8eae50609b7b6be05030805474ecbcd7bc188))
+
 ## [7.26.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.25.2...v7.26.0) (2026-05-20)
 
 
