@@ -1,5 +1,6 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import { validateProjectRoot } from '../evidence/manager.js';
 
 export type TestRunResult = 'pass' | 'fail' | 'skip';
 
@@ -21,12 +22,17 @@ const MAX_STACK_LENGTH = 200;
 const MAX_CHANGED_FILES = 50;
 
 function getHistoryPath(workingDir?: string): string {
-	return path.join(
-		workingDir || process.cwd(),
-		'.swarm',
-		'cache',
-		'test-history.jsonl',
-	);
+	if (!workingDir) {
+		throw new Error(
+			'getHistoryPath requires a working directory — project root must be provided by the caller',
+		);
+	}
+	if (!path.isAbsolute(workingDir)) {
+		throw new Error(
+			`getHistoryPath requires an absolute project root path, got: "${workingDir}"`,
+		);
+	}
+	return path.join(workingDir, '.swarm', 'cache', 'test-history.jsonl');
 }
 
 function sanitizeErrorMessage(errorMessage?: string): string | undefined {
@@ -175,6 +181,9 @@ export function appendTestRun(
 	const historyPath = getHistoryPath(workingDir);
 	const historyDir = path.dirname(historyPath);
 
+	// Guard: reject writes to subdirectories of projects that already have .swarm/
+	_internals.validateProjectRoot(workingDir!);
+
 	// Create directory if it doesn't exist
 	if (!fs.existsSync(historyDir)) {
 		fs.mkdirSync(historyDir, { recursive: true });
@@ -304,3 +313,12 @@ export function getAllHistory(workingDir?: string): TestRunRecord[] {
 
 	return records;
 }
+
+/**
+ * DI seam for testability. Contains functions that tests may override.
+ */
+export const _internals: {
+	validateProjectRoot: typeof validateProjectRoot;
+} = {
+	validateProjectRoot,
+} as const;
