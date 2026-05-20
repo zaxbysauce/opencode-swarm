@@ -2172,10 +2172,14 @@ export function createGuardrailsHooks(
 			}
 
 			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
-			// Check before resolveSessionAndWindow so it fires even for architect sessions.
+			// Only fires for swarm-delegated sessions (delegationActive) to prevent
+			// PRM counters from polluting non-swarm agents sharing the same process.
+			// The PRM detection side (src/prm/index.ts) already gates on delegationActive;
+			// this aligns the enforcement side with the same guard. Fixes #942.
+
 			{
 				const prmSession = swarmState.agentSessions.get(input.sessionID);
-				if (prmSession?.prmHardStopPending) {
+				if (prmSession?.prmHardStopPending && prmSession.delegationActive) {
 					throw new Error(
 						'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
 					);
