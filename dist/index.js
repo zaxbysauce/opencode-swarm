@@ -26988,15 +26988,15 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
           }
         }
       }
-      {
-        const prmSession = swarmState.agentSessions.get(input.sessionID);
-        if (prmSession?.prmHardStopPending) {
-          throw new Error("\uD83D\uDED1 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.");
-        }
-      }
       const resolved = resolveSessionAndWindow(input.sessionID);
       if (!resolved)
         return;
+      {
+        const prmSession = swarmState.agentSessions.get(input.sessionID);
+        if (prmSession?.prmHardStopPending && prmSession.delegationActive) {
+          throw new Error("\uD83D\uDED1 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.");
+        }
+      }
       const { agentConfig, window: window2 } = resolved;
       const { repetitionCount, elapsedMinutes } = trackToolCall(window2, input.tool, output.args);
       await checkGateLimits({
