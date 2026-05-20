@@ -871,7 +871,7 @@ export function classifySastFindings(
 /**
  * Run all 4 pre-check tools in parallel with concurrency limit
  * @param input - The pre-check batch input
- * @param workspaceDir - Optional workspace directory for traversal validation (defaults to directory param or process.cwd())
+ * @param workspaceDir - Optional workspace directory for traversal validation (injected project root from createSwarmTool, or input.directory)
  */
 export async function runPreCheckBatch(
 	input: PreCheckBatchInput,
@@ -1170,7 +1170,9 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 			),
 		directory: z
 			.string()
-			.describe('Directory to run checks in (e.g., "." or "./src")'),
+			.describe(
+				'Project root directory — must be the workspace root, subdirectories are rejected',
+			),
 		sast_threshold: z
 			.enum(['low', 'medium', 'high', 'critical'])
 			.optional()
@@ -1264,13 +1266,25 @@ export const pre_check_batch: ReturnType<typeof tool> = createSwarmTool({
 
 		// Resolve directory to absolute path first to ensure consistent behavior
 		// This handles cases where path.isAbsolute may not detect Windows paths correctly
-		const resolvedDirectory = path.resolve(typedArgs.directory);
+		let resolvedDirectory = path.resolve(typedArgs.directory);
 
-		// Determine workspace anchor: use resolved directory as workspace,
-		// regardless of whether the original input was detected as absolute
-		const workspaceAnchor = resolvedDirectory;
+		// Determine workspace anchor: use the injected project root (directory parameter)
+		// rather than the user-supplied arg value, to prevent self-validation bypass
+		const workspaceAnchor = path.resolve(directory);
 
-		// Validate directory using the resolved path
+		// Reject subdirectory: if arg resolves inside project root, normalize to project root
+		if (
+			resolvedDirectory !== workspaceAnchor &&
+			resolvedDirectory.startsWith(workspaceAnchor + path.sep)
+		) {
+			warn(
+				`[pre_check_batch] directory "${typedArgs.directory}" is a subdirectory of project root — normalizing to "${workspaceAnchor}"`,
+			);
+			// Normalize to project root — all downstream checks use the workspace root
+			resolvedDirectory = workspaceAnchor;
+		}
+
+		// Validate directory using the resolved path against the true workspace anchor
 		const dirError = validateDirectory(resolvedDirectory, workspaceAnchor);
 		if (dirError) {
 			const errorResult: PreCheckBatchResult = {

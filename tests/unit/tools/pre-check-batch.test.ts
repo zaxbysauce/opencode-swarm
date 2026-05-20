@@ -1584,3 +1584,139 @@ describe('SAST baseline diff mode', () => {
 		expect(expectedHint).toContain('Parallel pre-check enabled');
 	});
 });
+
+// ============ TASK 1.1: WORKSPACE ANCHOR VALIDATION TESTS ============
+// These tests verify that the workspace anchor (project root from createSwarmTool)
+// is used as the validation boundary instead of the user-supplied directory argument.
+// This prevents the self-validation bypass described in issue #922.
+
+describe('workspaceAnchor validation (Task 1.1)', () => {
+	let tempDir: string;
+	let originalCwd: string;
+
+	beforeEach(() => {
+		originalCwd = process.cwd();
+		tempDir = createTempDir();
+		process.chdir(tempDir);
+
+		try {
+			fs.symlinkSync(
+				path.join(originalCwd, 'node_modules'),
+				path.join(tempDir, 'node_modules'),
+				'junction',
+			);
+		} catch {
+			// Symlink may already exist or fail on some platforms
+		}
+
+		mockDetectAvailableLinter.mockClear();
+		mockRunLint.mockClear();
+		mockRunSecretscan.mockClear();
+		mockSastScan.mockClear();
+		mockQualityBudget.mockClear();
+	});
+
+	afterEach(() => {
+		process.chdir(originalCwd);
+		fs.rmSync(tempDir, { recursive: true, force: true });
+	});
+
+	test('subdirectory as input.directory with project root as workspaceDir validates correctly', async () => {
+		// Simulate: user passes "./src" but injected project root is tempDir.
+		// The execute method normalizes the arg to project root and uses project root as anchor.
+		// At the runPreCheckBatch level, workspaceDir=tempDir (project root).
+		const srcDir = path.join(tempDir, 'src');
+		fs.mkdirSync(srcDir);
+		fs.writeFileSync(path.join(srcDir, 'test.ts'), 'export const x = 1;\n');
+
+		// When workspaceDir is the true project root and input.directory is a subdirectory,
+		// validateDirectory(input.directory, workspaceDir) should succeed because the
+		// subdirectory is within the workspace
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: srcDir,
+		};
+
+		const result = await runPreCheckBatch(input, tempDir);
+
+		// Should succeed — subdirectory is within workspace
+		expect(result.lint.ran).toBe(true);
+	});
+
+	test('directory matching project root behaves unchanged', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		// When input.directory == workspaceDir == project root, behavior is unchanged
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: tempDir,
+		};
+
+		const result = await runPreCheckBatch(input, tempDir);
+
+		expect(result.lint.ran).toBe(true);
+		expect(result.secretscan.ran).toBe(true);
+		expect(result.sast_scan.ran).toBe(true);
+		expect(result.quality_budget.ran).toBe(true);
+	});
+
+	test('relative "." directory with absolute workspaceDir resolves correctly', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		// Simulate: user passes "." but workspaceDir is the absolute project root
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: '.',
+		};
+
+		const result = await runPreCheckBatch(input, tempDir);
+
+		// "." resolves to cwd which is tempDir, workspaceDir is tempDir — match
+		expect(result.lint.ran).toBe(true);
+	});
+
+	test('subdirectory outside workspace is rejected when workspaceDir is set', async () => {
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		// Create a directory OUTSIDE the workspace
+		const outsideDir = path.join(path.dirname(tempDir), 'outside-workspace');
+		fs.mkdirSync(outsideDir, { recursive: true });
+		fs.writeFileSync(path.join(outsideDir, 'test.ts'), 'export const y = 2;\n');
+
+		// When workspaceDir is tempDir and input.directory is outside,
+		// validation should reject the traversal
+		const input: PreCheckBatchInput = {
+			files: ['test.ts'],
+			directory: outsideDir,
+		};
+
+		const result = await runPreCheckBatch(input, tempDir);
+
+		// Should fail — directory is outside the workspace
+		expect(result.gates_passed).toBe(false);
+	});
+
+	test('workspaceDir as second param is used as anchor (not input.directory)', async () => {
+		// This is the core test for the workspaceAnchor fix.
+		// Before the fix: execute set workspaceAnchor=resolvedDirectory (user arg).
+		// After the fix: execute sets workspaceAnchor=path.resolve(directory) (injected root).
+		// At runPreCheckBatch level, we pass workspaceDir explicitly.
+		fs.writeFileSync(path.join(tempDir, 'test.ts'), 'export const x = 1;\n');
+
+		const subDir = path.join(tempDir, 'subdir');
+		fs.mkdirSync(subDir);
+
+		// workspaceDir = tempDir (project root), input.directory = subDir
+		// The subdirectory should be accepted because it's WITHIN the workspace
+		const input: PreCheckBatchInput = {
+			files: ['../test.ts'], // relative from subDir to tempDir
+			directory: subDir,
+		};
+
+		const result = await runPreCheckBatch(input, tempDir);
+
+		// Validation should use tempDir as anchor, not subDir
+		// The file path "../test.ts" from subDir resolves to tempDir/test.ts — within workspace
+		expect(result.lint.ran).toBe(true);
+	});
+});

@@ -29,6 +29,7 @@ import { telemetry } from '../telemetry.js';
 import { verifyLeanTurboTaskCompletion } from '../turbo/lean/task-completion';
 import { validateTaskIdFormat as _validateTaskIdFormat } from '../validation/task-id';
 import { createSwarmTool } from './create-tool';
+import { resolveWorkingDirectory } from './resolve-working-directory';
 
 /**
  * Arguments for the update_task_status tool
@@ -163,6 +164,7 @@ export function checkReviewerGate(
 	workingDirectory?: string,
 	stageBParallelEnabled = false,
 	sessionID?: string,
+	fallbackDir?: string,
 ): ReviewerGateResult {
 	try {
 		// === Lean Turbo bypass check ===
@@ -231,7 +233,23 @@ export function checkReviewerGate(
 		}
 
 		// === evidence-first check (durable, survives restarts) ===
-		const resolvedDir = workingDirectory ?? process.cwd();
+		let resolvedDir: string | undefined;
+		if (fallbackDir) {
+			const resolveResult = resolveWorkingDirectory(
+				workingDirectory,
+				fallbackDir,
+			);
+			if (resolveResult.success) {
+				resolvedDir = resolveResult.directory;
+			} else {
+				// resolveWorkingDirectory failed — use only the trusted fallbackDir
+				resolvedDir = fallbackDir;
+			}
+		} else if (workingDirectory) {
+			// No injected fallbackDir — use workingDirectory directly for backward compat
+			// (test callers that pass tmpDir as workingDirectory)
+			resolvedDir = workingDirectory;
+		}
 		// When the evidence file exists but gates are incomplete, save the reason and fall
 		// through to session state instead of blocking immediately. Evidence recording can
 		// fail silently (lock timeout, permission error, etc.) while the in-memory session
@@ -241,37 +259,41 @@ export function checkReviewerGate(
 		// we return blocked — using the evidence reason for its more-specific message.
 		let evidenceIncompleteReason: string | null = null;
 		try {
-			const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
+			if (!resolvedDir) {
+				// No safe directory for evidence lookup — skip to session state
+			} else {
+				const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
 
-			if (evidence === null) {
-				// No evidence file (ENOENT) — fall through to session state
-			} else if (
-				evidence.required_gates &&
-				Array.isArray(evidence.required_gates) &&
-				evidence.gates
-			) {
-				if (
-					evidence.required_gates.length > 0 &&
-					evidence.required_gates.every(
-						(gate: string) => evidence.gates![gate] != null,
-					)
+				if (evidence === null) {
+					// No evidence file (ENOENT) — fall through to session state
+				} else if (
+					evidence.required_gates &&
+					Array.isArray(evidence.required_gates) &&
+					evidence.gates
 				) {
-					return { blocked: false, reason: '' };
+					if (
+						evidence.required_gates.length > 0 &&
+						evidence.required_gates.every(
+							(gate: string) => evidence.gates![gate] != null,
+						)
+					) {
+						return { blocked: false, reason: '' };
+					}
+					// Evidence file shows incomplete gates — save the reason and fall through to
+					// session state. The session state check below may still allow completion if
+					// the delegation hook advanced state correctly (even if evidence recording
+					// failed silently). Only block after all fallbacks are exhausted.
+					const missingGates = evidence.required_gates.filter(
+						(gate: string) => evidence.gates![gate] == null,
+					);
+					evidenceIncompleteReason =
+						evidence.required_gates.length === 0
+							? `Task ${taskId} has an evidence file with no required gates. Delegate reviewer and test_engineer before marking task as completed.`
+							: `Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
+								`Required: [${evidence.required_gates.join(', ')}]. ` +
+								`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
+								`Delegate the missing gate agents before marking task as completed.`;
 				}
-				// Evidence file shows incomplete gates — save the reason and fall through to
-				// session state. The session state check below may still allow completion if
-				// the delegation hook advanced state correctly (even if evidence recording
-				// failed silently). Only block after all fallbacks are exhausted.
-				const missingGates = evidence.required_gates.filter(
-					(gate: string) => evidence.gates![gate] == null,
-				);
-				evidenceIncompleteReason =
-					evidence.required_gates.length === 0
-						? `Task ${taskId} has an evidence file with no required gates. Delegate reviewer and test_engineer before marking task as completed.`
-						: `Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
-							`Required: [${evidence.required_gates.join(', ')}]. ` +
-							`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
-							`Delegate the missing gate agents before marking task as completed.`;
 			}
 		} catch (error) {
 			// Malformed JSON, permission error, or other non-ENOENT issue — BLOCK
@@ -344,27 +366,30 @@ export function checkReviewerGate(
 		// Bug 3 fix: no session has this task in tests_run or complete state.
 		// Trust plan.json restart recovery only when durable gate evidence proves
 		// the required reviewer/test_engineer gates passed before completion.
-		try {
-			const resolvedDir = workingDirectory!;
-			const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
-			const planRaw = fs.readFileSync(planPath, 'utf-8');
-			const plan = JSON.parse(planRaw) as {
-				phases: Array<{ tasks: Array<{ id: string; status: string }> }>;
-			};
-			for (const planPhase of plan.phases ?? []) {
-				for (const task of planPhase.tasks ?? []) {
-					if (
-						task.id === taskId &&
-						task.status === 'completed' &&
-						hasPassedDurableGateEvidence(resolvedDir, taskId)
-					) {
-						return { blocked: false, reason: '' };
+		// Use the safe resolved directory from resolveWorkingDirectory above
+		// — never raw workingDirectory which may be a subdirectory
+		if (resolvedDir) {
+			try {
+				const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
+				const planRaw = fs.readFileSync(planPath, 'utf-8');
+				const plan = JSON.parse(planRaw) as {
+					phases: Array<{ tasks: Array<{ id: string; status: string }> }>;
+				};
+				for (const planPhase of plan.phases ?? []) {
+					for (const task of planPhase.tasks ?? []) {
+						if (
+							task.id === taskId &&
+							task.status === 'completed' &&
+							hasPassedDurableGateEvidence(resolvedDir, taskId)
+						) {
+							return { blocked: false, reason: '' };
+						}
 					}
 				}
+			} catch {
+				// plan.json missing or unreadable — fall through to blocked:true
 			}
-		} catch {
-			// plan.json missing or unreadable — fall through to blocked:true
-		}
+		} // end if (resolvedDir)
 
 		// Final fallback: scan task-scoped delegation chains directly for reviewer+test_engineer.
 		// This covers cases where:
@@ -456,12 +481,14 @@ export function checkReviewerGate(
  * @param taskId - The task ID to check gate state for
  * @param workingDirectory - Optional working directory for plan.json fallback
  * @param sessionID - Optional session ID to scope Lean Turbo bypass to the current tool-execution context
+ * @param fallbackDir - Optional fallback directory for resolveWorkingDirectory when workingDirectory is absent
  * @returns ReviewerGateResult with optional scope warning appended to reason
  */
 export async function checkReviewerGateWithScope(
 	taskId: string,
 	workingDirectory?: string,
 	sessionID?: string,
+	fallbackDir?: string,
 ): Promise<ReviewerGateResult> {
 	// Stage B is always parallel — hardcoded, not config-driven.
 	const stageBParallelEnabled = true;
@@ -470,6 +497,7 @@ export async function checkReviewerGateWithScope(
 		workingDirectory,
 		stageBParallelEnabled,
 		sessionID,
+		fallbackDir,
 	);
 	const scopeWarning = await validateDiffScope(taskId, workingDirectory!).catch(
 		() => null,
@@ -525,11 +553,7 @@ export function recoverTaskStateFromDelegations(
 	if ((!hasReviewer || !hasTestEngineer) && directory) {
 		try {
 			const evidence = readTaskEvidenceRaw(directory, taskId);
-			if (
-				evidence &&
-				evidence.gates &&
-				Array.isArray(evidence.required_gates)
-			) {
+			if (evidence?.gates && Array.isArray(evidence.required_gates)) {
 				if (evidence.gates.reviewer != null) hasReviewer = true;
 				if (evidence.gates.test_engineer != null) hasTestEngineer = true;
 			}
@@ -857,6 +881,27 @@ export async function executeUpdateTaskStatus(
 		directory = fallbackDir;
 	}
 
+	// Defense-in-depth: reject if resolved directory is a subdirectory of the
+	// injected project root. This prevents .swarm artifacts from being created
+	// or read from subdirectories. (FR-005)
+	// Canonicalize both paths via realpathSync to handle symlinks and case differences.
+	if (fallbackDir && directory !== fallbackDir) {
+		const canonicalDir = fs.realpathSync(path.resolve(directory));
+		const canonicalRoot = fs.realpathSync(path.resolve(fallbackDir));
+		if (canonicalDir.startsWith(canonicalRoot + path.sep)) {
+			return {
+				success: false,
+				message:
+					`Invalid working_directory: "${directory}" is a subdirectory of ` +
+					`the project root "${fallbackDir}". Pass the project root path or ` +
+					`omit working_directory entirely.`,
+				errors: [
+					`Subdirectory rejected: use project root "${fallbackDir}" instead`,
+				],
+			};
+		}
+	}
+
 	// Write minimal gate-tracking evidence to persist across session restarts.
 	// Placed AFTER directory validation so we only write under the validated workspace.
 	if (args.status === 'in_progress') {
@@ -940,6 +985,7 @@ export async function executeUpdateTaskStatus(
 				args.task_id,
 				directory,
 				ctx?.sessionID,
+				fallbackDir,
 			);
 			if (reviewerCheck.blocked) {
 				return {

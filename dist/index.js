@@ -20630,7 +20630,13 @@ var init_task_id = __esm(() => {
 });
 
 // src/evidence/manager.ts
-import { mkdirSync as mkdirSync4, readdirSync as readdirSync3, rmSync, statSync as statSync5 } from "node:fs";
+import {
+  mkdirSync as mkdirSync4,
+  readdirSync as readdirSync3,
+  realpathSync,
+  rmSync,
+  statSync as statSync5
+} from "node:fs";
 import * as fs6 from "node:fs/promises";
 import * as path8 from "node:path";
 function isValidEvidenceType(type) {
@@ -20639,7 +20645,35 @@ function isValidEvidenceType(type) {
 function isSecretscanEvidence(evidence) {
   return evidence.type === "secretscan";
 }
+function validateProjectRoot(directory) {
+  let resolved;
+  try {
+    resolved = realpathSync(directory);
+  } catch {
+    warn(`[evidence] Cannot canonicalize directory "${directory}" — failing closed`);
+    throw new Error(`Cannot verify project root for "${directory}" — directory may not exist or is inaccessible`);
+  }
+  let current = resolved;
+  while (true) {
+    const parent = path8.dirname(current);
+    if (parent === current)
+      break;
+    const parentSwarm = path8.join(parent, ".swarm");
+    try {
+      if (statSync5(parentSwarm).isDirectory()) {
+        warn(`[evidence] Rejecting write to subdirectory "${resolved}" — parent "${parent}" already contains .swarm/`);
+        throw new Error(`Cannot write evidence in "${resolved}" — parent directory "${parent}" already contains a .swarm/ folder. Evidence must be written to the project root.`);
+      }
+    } catch (error49) {
+      if (error49 instanceof Error && error49.message.startsWith("Cannot write evidence")) {
+        throw error49;
+      }
+    }
+    current = parent;
+  }
+}
 async function saveEvidence(directory, taskId, evidence) {
+  _internals8.validateProjectRoot(directory);
   const sanitizedTaskId = sanitizeTaskId2(taskId);
   const relativePath = path8.join("evidence", sanitizedTaskId, "evidence.json");
   validateSwarmPath(directory, relativePath);
@@ -20904,7 +20938,8 @@ var init_manager2 = __esm(() => {
   _internals8 = {
     wrapFlatRetrospective,
     loadEvidence,
-    listEvidenceTaskIds
+    listEvidenceTaskIds,
+    validateProjectRoot
   };
 });
 
@@ -48753,7 +48788,9 @@ __export(exports_config_doctor, {
   runConfigDoctorWithFixes: () => runConfigDoctorWithFixes,
   runConfigDoctor: () => runConfigDoctor,
   restoreFromBackup: () => restoreFromBackup,
+  removeStraySwarmDir: () => removeStraySwarmDir,
   getConfigPaths: () => getConfigPaths,
+  detectStraySwarmDirs: () => detectStraySwarmDirs,
   createConfigBackup: () => createConfigBackup,
   applySafeAutoFixes: () => applySafeAutoFixes
 });
@@ -49368,6 +49405,114 @@ async function runConfigDoctorWithFixes(directory, config3, autoFix = false) {
     updatedConfigPath,
     artifactPath
   };
+}
+function detectStraySwarmDirs(projectRoot) {
+  const findings = [];
+  const SKIP_DIRS = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    ".cache",
+    ".next",
+    "coverage",
+    ".turbo",
+    ".vercel",
+    ".terraform",
+    "__pycache__",
+    ".tox"
+  ]);
+  const MAX_DEPTH = 10;
+  const MAX_CONTENTS_ENTRIES = 20;
+  function walk(dir, depth) {
+    if (depth > MAX_DEPTH)
+      return;
+    let entries;
+    try {
+      entries = fs14.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory())
+        continue;
+      const name2 = entry.name;
+      const fullPath = path29.join(dir, name2);
+      if (SKIP_DIRS.has(name2))
+        continue;
+      const gitPath = path29.join(fullPath, ".git");
+      try {
+        const gitStat = fs14.statSync(gitPath);
+        if (gitStat.isFile())
+          continue;
+      } catch {}
+      if (name2 === ".swarm") {
+        const parentDir = path29.dirname(fullPath);
+        if (parentDir === projectRoot)
+          continue;
+        let contents = [];
+        try {
+          contents = fs14.readdirSync(fullPath);
+        } catch {
+          contents = ["<unreadable>"];
+        }
+        findings.push({
+          path: path29.relative(projectRoot, fullPath).replace(/\\/g, "/"),
+          absolutePath: fullPath,
+          contents: contents.slice(0, MAX_CONTENTS_ENTRIES),
+          totalEntries: contents.length
+        });
+        continue;
+      }
+      walk(fullPath, depth + 1);
+    }
+  }
+  walk(projectRoot, 0);
+  return findings;
+}
+function removeStraySwarmDir(projectRoot, strayPath) {
+  let canonicalRoot;
+  let canonicalStray;
+  try {
+    canonicalRoot = fs14.realpathSync(projectRoot);
+    canonicalStray = fs14.realpathSync(path29.isAbsolute(strayPath) ? strayPath : path29.resolve(projectRoot, strayPath));
+  } catch (err2) {
+    return {
+      success: false,
+      message: `Failed to resolve paths: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
+  const rootSwarm = path29.join(canonicalRoot, ".swarm");
+  if (canonicalStray === rootSwarm || canonicalStray === canonicalRoot) {
+    return {
+      success: false,
+      message: "Refusing to remove root .swarm/ directory"
+    };
+  }
+  if (!canonicalStray.startsWith(canonicalRoot + path29.sep)) {
+    return {
+      success: false,
+      message: "Path is outside project root — refusing to remove"
+    };
+  }
+  const normalizedStray = canonicalStray.replace(/\\/g, "/");
+  if (!normalizedStray.endsWith("/.swarm")) {
+    return {
+      success: false,
+      message: "Path is not a .swarm directory — refusing to remove"
+    };
+  }
+  try {
+    fs14.rmSync(canonicalStray, { recursive: true, force: true });
+    return {
+      success: true,
+      message: `Removed stray .swarm directory: ${canonicalStray}`
+    };
+  } catch (err2) {
+    return {
+      success: false,
+      message: `Failed to remove: ${err2 instanceof Error ? err2.message : String(err2)}`
+    };
+  }
 }
 var VALID_CONFIG_PATTERNS, DANGEROUS_PATH_SEGMENTS;
 var init_config_doctor = __esm(() => {
@@ -51079,12 +51224,62 @@ async function handleDoctorCommand(directory, args2) {
   const enableAutoFix = args2.includes("--fix") || args2.includes("-f");
   const config3 = loadPluginConfig(directory);
   const result = runConfigDoctor(config3, directory);
+  let output;
   if (enableAutoFix && result.hasAutoFixableIssues) {
     const { runConfigDoctorWithFixes: runConfigDoctorWithFixes2 } = await Promise.resolve().then(() => (init_config_doctor(), exports_config_doctor));
     const fixResult = await runConfigDoctorWithFixes2(directory, config3, true);
-    return formatDoctorMarkdown(fixResult.result);
+    output = formatDoctorMarkdown(fixResult.result);
+  } else {
+    output = formatDoctorMarkdown(result);
   }
-  return formatDoctorMarkdown(result);
+  const strayDirs = detectStraySwarmDirs(directory);
+  if (strayDirs.length > 0) {
+    if (enableAutoFix) {
+      let fixOutput = `
+---
+
+## Stray .swarm Directories
+
+`;
+      let removed = 0;
+      let failed = 0;
+      for (const finding of strayDirs) {
+        const cleanupResult = removeStraySwarmDir(directory, finding.path);
+        if (cleanupResult.success) {
+          removed++;
+        } else {
+          failed++;
+          fixOutput += `- \`${finding.path}\`: ${cleanupResult.message}
+`;
+        }
+      }
+      fixOutput += `
+Cleaned up ${removed} stray director${removed === 1 ? "y" : "ies"}.`;
+      if (failed > 0) {
+        fixOutput += ` ${failed} could not be removed.`;
+      }
+      output += fixOutput;
+    } else {
+      output += `
+---
+
+## Stray .swarm Directories
+
+`;
+      output += `Found ${strayDirs.length} stray .swarm director${strayDirs.length === 1 ? "y" : "ies"} in subdirectories:
+
+`;
+      for (const finding of strayDirs) {
+        const contentsPreview = finding.contents.length > 5 ? `${finding.contents.slice(0, 5).join(", ")}, ...` : finding.contents.join(", ");
+        output += `- \`${finding.path}\` (${finding.totalEntries} entries: ${contentsPreview})
+`;
+      }
+      output += `
+These are likely from a prior bug (Issue #922). `;
+      output += "Re-run with `--fix` to auto-clean.\n";
+    }
+  }
+  return output;
 }
 async function handleDoctorToolsCommand(directory, _args) {
   const result = runToolDoctor(directory);
@@ -55901,6 +56096,9 @@ async function loadImpactMap(cwd, options) {
   return _internals29.buildImpactMap(cwd);
 }
 async function saveImpactMap(cwd, impactMap) {
+  if (!path41.isAbsolute(cwd)) {
+    throw new Error(`saveImpactMap requires an absolute project root path, got: "${cwd}"`);
+  }
   const cacheDir2 = path41.join(cwd, ".swarm", "cache");
   const cachePath = path41.join(cacheDir2, "impact-map.json");
   if (!fs24.existsSync(cacheDir2)) {
@@ -56227,7 +56425,13 @@ var FLAKY_THRESHOLD = 0.3, MIN_RUNS_FOR_QUARANTINE = 5, MAX_HISTORY_RUNS = 20;
 import fs25 from "node:fs";
 import path42 from "node:path";
 function getHistoryPath(workingDir) {
-  return path42.join(workingDir || process.cwd(), ".swarm", "cache", "test-history.jsonl");
+  if (!workingDir) {
+    throw new Error("getHistoryPath requires a working directory — project root must be provided by the caller");
+  }
+  if (!path42.isAbsolute(workingDir)) {
+    throw new Error(`getHistoryPath requires an absolute project root path, got: "${workingDir}"`);
+  }
+  return path42.join(workingDir, ".swarm", "cache", "test-history.jsonl");
 }
 function sanitizeErrorMessage(errorMessage) {
   if (errorMessage === undefined) {
@@ -60022,7 +60226,7 @@ var init_reset_session = __esm(() => {
 });
 
 // src/summaries/manager.ts
-import { mkdirSync as mkdirSync14, readdirSync as readdirSync13, renameSync as renameSync11, rmSync as rmSync4, statSync as statSync12 } from "node:fs";
+import { mkdirSync as mkdirSync14, readdirSync as readdirSync14, renameSync as renameSync11, rmSync as rmSync5, statSync as statSync13 } from "node:fs";
 import * as path50 from "node:path";
 function sanitizeSummaryId(id) {
   if (!id || id.length === 0) {
@@ -60075,7 +60279,7 @@ async function storeSummary(directory, id, fullOutput, summaryText, maxStoredByt
     renameSync11(tempPath, summaryPath);
   } catch (error93) {
     try {
-      rmSync4(tempPath, { force: true });
+      rmSync5(tempPath, { force: true });
     } catch {}
     throw error93;
   }
@@ -67329,9 +67533,9 @@ function validateFilename(filename) {
     throw new Error("Invalid filename: contains null byte");
   }
   const pathSeparators = ["/", "\\", ".."];
-  for (const sep7 of pathSeparators) {
-    if (filename.includes(sep7)) {
-      throw new Error(`Invalid filename: contains path separator '${sep7}'`);
+  for (const sep8 of pathSeparators) {
+    if (filename.includes(sep8)) {
+      throw new Error(`Invalid filename: contains path separator '${sep8}'`);
     }
   }
   if (filename.startsWith("/") || filename.startsWith("\\") || /^[a-zA-Z]:/.test(filename)) {
@@ -71323,8 +71527,8 @@ async function isGrammarAvailable(languageId) {
   try {
     const wasmFileName = getWasmFileName(normalizedId);
     const wasmPath = path77.join(getGrammarsDirAbsolute(), wasmFileName);
-    const { statSync: statSync20 } = await import("node:fs");
-    statSync20(wasmPath);
+    const { statSync: statSync21 } = await import("node:fs");
+    statSync21(wasmPath);
     return true;
   } catch {
     return false;
@@ -75028,14 +75232,14 @@ ${originalText}`;
 }
 // src/hooks/repo-graph-builder.ts
 init_constants();
-import { realpathSync as realpathSync8 } from "node:fs";
+import { realpathSync as realpathSync10 } from "node:fs";
 import * as path70 from "node:path";
 
 // src/tools/repo-graph/builder.ts
 init_logger();
 init_path_security();
 import * as fsSync4 from "node:fs";
-import { existsSync as existsSync38, realpathSync as realpathSync6 } from "node:fs";
+import { existsSync as existsSync38, realpathSync as realpathSync8 } from "node:fs";
 import * as fsPromises5 from "node:fs/promises";
 import * as os7 from "node:os";
 import * as path66 from "node:path";
@@ -75587,13 +75791,13 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
       let resolved = path66.resolve(sourceDir, specifier);
       let realResolved;
       try {
-        realResolved = realpathSync6(resolved);
+        realResolved = realpathSync8(resolved);
       } catch {
         realResolved = resolved;
       }
       let realRoot;
       try {
-        realRoot = realpathSync6(workspaceRoot);
+        realRoot = realpathSync8(workspaceRoot);
       } catch {
         realRoot = path66.normalize(workspaceRoot);
       }
@@ -75618,7 +75822,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
         }
         if (found) {
           try {
-            realResolved = realpathSync6(found);
+            realResolved = realpathSync8(found);
           } catch {
             realResolved = found;
           }
@@ -75642,7 +75846,7 @@ function resolveModuleSpecifier(workspaceRoot, sourceFile, specifier) {
 function isRefusedWorkspaceRoot(target) {
   let resolved;
   try {
-    resolved = realpathSync6(target);
+    resolved = realpathSync8(target);
   } catch {
     resolved = path66.resolve(target);
   }
@@ -75784,8 +75988,8 @@ async function findSourceFilesAsync(dir, stats, options) {
   return files;
 }
 function toModuleName(filePath, workspaceRoot) {
-  const relative11 = path66.relative(workspaceRoot, filePath);
-  return relative11.split(path66.sep).join("/");
+  const relative12 = path66.relative(workspaceRoot, filePath);
+  return relative12.split(path66.sep).join("/");
 }
 function getLanguage(filePath) {
   const ext = path66.extname(filePath).toLowerCase();
@@ -75950,7 +76154,7 @@ import * as path69 from "node:path";
 init_utils2();
 init_logger();
 init_path_security();
-import { constants as constants4, existsSync as existsSync39, realpathSync as realpathSync7 } from "node:fs";
+import { constants as constants4, existsSync as existsSync39, realpathSync as realpathSync9 } from "node:fs";
 import * as fsPromises6 from "node:fs/promises";
 import * as path68 from "node:path";
 var WINDOWS_RENAME_MAX_RETRIES2 = 3;
@@ -76060,14 +76264,14 @@ async function saveGraph(workspace, graph, options) {
   const normalizedWorkspace = path68.normalize(workspace);
   let realWorkspace;
   try {
-    realWorkspace = realpathSync7(workspace);
+    realWorkspace = realpathSync9(workspace);
   } catch {
     realWorkspace = normalizedWorkspace;
   }
   const normalizedGraphRoot = path68.normalize(graph.workspaceRoot);
   let realGraphRoot;
   try {
-    realGraphRoot = realpathSync7(graph.workspaceRoot);
+    realGraphRoot = realpathSync9(graph.workspaceRoot);
   } catch {
     realGraphRoot = normalizedGraphRoot;
   }
@@ -76287,7 +76491,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       const absoluteFilePath = path70.isAbsolute(filePath) ? filePath : path70.resolve(workspaceRoot, filePath);
       let realFilePath;
       try {
-        realFilePath = realpathSync8(absoluteFilePath);
+        realFilePath = realpathSync10(absoluteFilePath);
       } catch (error93) {
         if (!(error93 instanceof Error) || error93.code !== "ENOENT") {
           return;
@@ -76296,7 +76500,7 @@ function createRepoGraphBuilderHook(workspaceRoot, deps) {
       }
       let realWorkspace;
       try {
-        realWorkspace = realpathSync8(workspaceRoot);
+        realWorkspace = realpathSync10(workspaceRoot);
       } catch (error93) {
         if (!(error93 instanceof Error) || error93.code !== "ENOENT") {
           return;
@@ -81049,22 +81253,22 @@ function classifyPathRisk(filePath, context) {
     }
   })();
   const withinProjectRoot = isWithinDirectory(absolute, context.directory) && isWithinDirectory(resolvedAbsolute, context.directory);
-  const relative17 = path81.relative(context.directory, absolute).replace(/\\/g, "/");
+  const relative18 = path81.relative(context.directory, absolute).replace(/\\/g, "/");
   let withinDeclaredScope = null;
   if (Array.isArray(context.declaredScope)) {
     withinDeclaredScope = context.declaredScope.length === 0 ? false : context.declaredScope.some((scope) => {
       const s = normalizePath3(scope);
       if (!s)
         return false;
-      return relative17 === s || relative17.startsWith(`${s}/`);
+      return relative18 === s || relative18.startsWith(`${s}/`);
     });
   }
   const highRiskBuild = HIGH_RISK_BUILD_PATHS.some((entry) => {
     const e = normalizePath3(entry);
     if (e.endsWith("/")) {
-      return relative17.startsWith(e);
+      return relative18.startsWith(e);
     }
-    return relative17 === e || relative17.startsWith(`${e}/`);
+    return relative18 === e || relative18.startsWith(`${e}/`);
   });
   return {
     withinProjectRoot,
@@ -86156,8 +86360,8 @@ async function executeCompletionVerify(args2, directory) {
       const normalizedPath = filePath.replace(/\\/g, "/");
       const resolvedPath = path96.resolve(directory, normalizedPath);
       const projectRoot = path96.resolve(directory);
-      const relative20 = path96.relative(projectRoot, resolvedPath);
-      const withinProject = relative20 === "" || !relative20.startsWith("..") && !path96.isAbsolute(relative20);
+      const relative21 = path96.relative(projectRoot, resolvedPath);
+      const withinProject = relative21 === "" || !relative21.startsWith("..") && !path96.isAbsolute(relative21);
       if (!withinProject) {
         blockedTasks.push({
           task_id: task.id,
@@ -88545,9 +88749,30 @@ async function executeDeclareScope(args2, fallbackDir) {
         ]
       };
     }
+    if (normalizedDir && fallbackDir) {
+      try {
+        const canonicalWorkingDir = fs74.realpathSync(path100.resolve(normalizedDir));
+        const canonicalProjectRoot = fs74.realpathSync(path100.resolve(fallbackDir));
+        if (canonicalWorkingDir.startsWith(canonicalProjectRoot + path100.sep)) {
+          return {
+            success: false,
+            message: `working_directory "${normalizedDir}" is a subdirectory of the project root. Use the project root "${fallbackDir}" instead.`,
+            errors: [
+              `Subdirectory working_directory not allowed — use project root "${fallbackDir}"`
+            ]
+          };
+        }
+      } catch {}
+    }
   }
-  if (!fallbackDir) {
-    console.warn("[declare-scope] fallbackDir is undefined, falling back to process.cwd()");
+  if (!normalizedDir && !fallbackDir) {
+    return {
+      success: false,
+      message: "Cannot resolve project directory",
+      errors: [
+        "Provide working_directory or ensure the tool is invoked from a project root"
+      ]
+    };
   }
   const directory = normalizedDir || fallbackDir;
   const planPath = path100.resolve(directory, ".swarm", "plan.json");
@@ -88588,7 +88813,7 @@ async function executeDeclareScope(args2, fallbackDir) {
   const rawMergedFiles = [...args2.files, ...args2.whitelist ?? []];
   const warnings = [];
   const normalizeErrors = [];
-  const dir = normalizedDir || fallbackDir || process.cwd();
+  const dir = directory;
   const mergedFiles = rawMergedFiles.map((file3) => {
     if (path100.isAbsolute(file3)) {
       const relativePath = path100.relative(dir, file3).replace(/\\/g, "/");
@@ -88920,6 +89145,7 @@ import * as child_process8 from "node:child_process";
 import * as fs76 from "node:fs";
 import * as path102 from "node:path";
 init_create_tool();
+init_resolve_working_directory();
 var diff_summary = createSwarmTool({
   description: "Generate a filtered semantic diff summary from AST analysis. Returns SemanticDiffSummary with optional filtering by classification or riskLevel.",
   args: {
@@ -88937,7 +89163,11 @@ var diff_summary = createSwarmTool({
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const workingDir = directory || process.cwd();
+      const resolved = resolveWorkingDirectory(undefined, directory);
+      if (!resolved.success) {
+        return JSON.stringify({ success: false, error: resolved.message }, null, 2);
+      }
+      const workingDir = resolved.directory;
       const astDiffs = [];
       for (const filePath of typedArgs.files) {
         let astResult = null;
@@ -90828,7 +91058,7 @@ import * as path109 from "node:path";
 
 // src/turbo/lean/evidence.ts
 init_bun_compat();
-import { rmSync as rmSync5 } from "node:fs";
+import { rmSync as rmSync6 } from "node:fs";
 import * as fs82 from "node:fs/promises";
 import * as path108 from "node:path";
 function leanTurboEvidenceDir(directory, phase) {
@@ -90871,7 +91101,7 @@ async function atomicWriteJson(filePath, data) {
     await fs82.rename(tempPath, filePath);
   } catch (error93) {
     try {
-      rmSync5(tempPath, { force: true });
+      rmSync6(tempPath, { force: true });
     } catch {}
     throw error93;
   }
@@ -96070,13 +96300,13 @@ function validatePath(inputPath, baseDir, workspaceDir) {
     resolved = path116.resolve(baseDir, inputPath);
   }
   const workspaceResolved = path116.resolve(workspaceDir);
-  let relative24;
+  let relative25;
   if (isWinAbs) {
-    relative24 = path116.win32.relative(workspaceResolved, resolved);
+    relative25 = path116.win32.relative(workspaceResolved, resolved);
   } else {
-    relative24 = path116.relative(workspaceResolved, resolved);
+    relative25 = path116.relative(workspaceResolved, resolved);
   }
-  if (relative24.startsWith("..")) {
+  if (relative25.startsWith("..")) {
     return "path traversal detected";
   }
   return null;
@@ -96714,7 +96944,7 @@ var pre_check_batch = createSwarmTool({
   description: "Run multiple verification tools in parallel: lint, secretscan, SAST scan, and quality budget. Returns unified result with gates_passed status. Security tools (secretscan, sast_scan) are HARD GATES - failures block merging.",
   args: {
     files: exports_external.array(exports_external.string()).optional().describe("Specific files to check (optional, scans directory if not provided)"),
-    directory: exports_external.string().describe('Directory to run checks in (e.g., "." or "./src")'),
+    directory: exports_external.string().describe("Project root directory — must be the workspace root, subdirectories are rejected"),
     sast_threshold: exports_external.enum(["low", "medium", "high", "critical"]).optional().describe("Minimum severity for SAST findings to cause failure (default: medium)"),
     phase: exports_external.number().int().min(1).optional().describe("Current phase number (positive integer >= 1). When provided, enables SAST baseline diffing: only findings absent from the phase-scoped baseline fail the gate.")
   },
@@ -96785,8 +97015,12 @@ var pre_check_batch = createSwarmTool({
       };
       return JSON.stringify(errorResult, null, 2);
     }
-    const resolvedDirectory = path116.resolve(typedArgs.directory);
-    const workspaceAnchor = resolvedDirectory;
+    let resolvedDirectory = path116.resolve(typedArgs.directory);
+    const workspaceAnchor = path116.resolve(directory);
+    if (resolvedDirectory !== workspaceAnchor && resolvedDirectory.startsWith(workspaceAnchor + path116.sep)) {
+      warn(`[pre_check_batch] directory "${typedArgs.directory}" is a subdirectory of project root — normalizing to "${workspaceAnchor}"`);
+      resolvedDirectory = workspaceAnchor;
+    }
     const dirError = validateDirectory2(resolvedDirectory, workspaceAnchor);
     if (dirError) {
       const errorResult = {
@@ -102879,6 +103113,7 @@ function buildMessage(verdict, adjustedKillRate, killed, totalMutants, equivalen
 
 // src/tools/mutation-test.ts
 init_create_tool();
+init_resolve_working_directory();
 var mutation_test = createSwarmTool({
   description: "Execute mutation testing with pre-generated patches — applies each mutant patch, runs tests, and evaluates kill rate against quality gate thresholds. Returns verdict (pass/warn/fail) with per-function kill rates and survived mutant details.",
   args: {
@@ -102923,7 +103158,11 @@ var mutation_test = createSwarmTool({
           success: false
         }, null, 2);
       }
-      const cwd = typedArgs.working_directory || directory || process.cwd();
+      const resolved = resolveWorkingDirectory(typedArgs.working_directory, directory);
+      if (!resolved.success) {
+        return JSON.stringify({ success: false, error: resolved.message }, null, 2);
+      }
+      const cwd = resolved.directory;
       const passThreshold = typedArgs.pass_threshold ?? 0.8;
       const warnThreshold = typedArgs.warn_threshold ?? 0.6;
       const sourceFiles = new Map;
@@ -103137,6 +103376,7 @@ var syntax_check = createSwarmTool({
 init_zod();
 init_analyzer();
 init_create_tool();
+init_resolve_working_directory();
 var test_impact = createSwarmTool({
   description: "Analyze which test files are impacted by changes to the given source files. Returns TestImpactResult with impactedTests, untestedFiles, and the full impact map.",
   args: {
@@ -103152,7 +103392,11 @@ var test_impact = createSwarmTool({
           success: false
         }, null, 2);
       }
-      const cwd = typedArgs.working_directory || directory || process.cwd();
+      const resolved = resolveWorkingDirectory(typedArgs.working_directory, directory);
+      if (!resolved.success) {
+        return JSON.stringify({ error: resolved.message, success: false }, null, 2);
+      }
+      const cwd = resolved.directory;
       const result = await analyzeImpact(typedArgs.changedFiles, cwd);
       return JSON.stringify(result, null, 2);
     } catch (e) {
@@ -103879,6 +104123,7 @@ function verifyLeanTurboTaskCompletion(directory, taskId, sessionID) {
 // src/tools/update-task-status.ts
 init_task_id();
 init_create_tool();
+init_resolve_working_directory();
 var VALID_STATUSES2 = [
   "pending",
   "in_progress",
@@ -103928,7 +104173,7 @@ function hasPassedDurableGateEvidence(workingDirectory, taskId) {
   }
   return evidence.required_gates.every((gate) => evidence.gates?.[gate] != null);
 }
-function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = false, sessionID) {
+function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = false, sessionID, fallbackDir) {
   try {
     let skipStandardTurboBypass = false;
     if (hasActiveLeanTurbo()) {
@@ -103969,16 +104214,28 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
         }
       } catch {}
     }
-    const resolvedDir = workingDirectory ?? process.cwd();
+    let resolvedDir;
+    if (fallbackDir) {
+      const resolveResult = resolveWorkingDirectory(workingDirectory, fallbackDir);
+      if (resolveResult.success) {
+        resolvedDir = resolveResult.directory;
+      } else {
+        resolvedDir = fallbackDir;
+      }
+    } else if (workingDirectory) {
+      resolvedDir = workingDirectory;
+    }
     let evidenceIncompleteReason = null;
     try {
-      const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
-      if (evidence === null) {} else if (evidence.required_gates && Array.isArray(evidence.required_gates) && evidence.gates) {
-        if (evidence.required_gates.length > 0 && evidence.required_gates.every((gate) => evidence.gates[gate] != null)) {
-          return { blocked: false, reason: "" };
+      if (!resolvedDir) {} else {
+        const evidence = readTaskEvidenceRaw(resolvedDir, taskId);
+        if (evidence === null) {} else if (evidence.required_gates && Array.isArray(evidence.required_gates) && evidence.gates) {
+          if (evidence.required_gates.length > 0 && evidence.required_gates.every((gate) => evidence.gates[gate] != null)) {
+            return { blocked: false, reason: "" };
+          }
+          const missingGates = evidence.required_gates.filter((gate) => evidence.gates[gate] == null);
+          evidenceIncompleteReason = evidence.required_gates.length === 0 ? `Task ${taskId} has an evidence file with no required gates. Delegate reviewer and test_engineer before marking task as completed.` : `Task ${taskId} is missing required gates: [${missingGates.join(", ")}]. ` + `Required: [${evidence.required_gates.join(", ")}]. ` + `Completed: [${Object.keys(evidence.gates).join(", ")}]. ` + `Delegate the missing gate agents before marking task as completed.`;
         }
-        const missingGates = evidence.required_gates.filter((gate) => evidence.gates[gate] == null);
-        evidenceIncompleteReason = evidence.required_gates.length === 0 ? `Task ${taskId} has an evidence file with no required gates. Delegate reviewer and test_engineer before marking task as completed.` : `Task ${taskId} is missing required gates: [${missingGates.join(", ")}]. ` + `Required: [${evidence.required_gates.join(", ")}]. ` + `Completed: [${Object.keys(evidence.gates).join(", ")}]. ` + `Delegate the missing gate agents before marking task as completed.`;
       }
     } catch (error93) {
       console.warn(`[gate-evidence] Evidence file for task ${taskId} is corrupt or unreadable:`, error93 instanceof Error ? error93.message : String(error93));
@@ -104015,19 +104272,20 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
       const state = getTaskState(session, taskId);
       stateEntries.push(`${sessionId}: ${state}`);
     }
-    try {
-      const resolvedDir2 = workingDirectory;
-      const planPath = path137.join(resolvedDir2, ".swarm", "plan.json");
-      const planRaw = fs107.readFileSync(planPath, "utf-8");
-      const plan = JSON.parse(planRaw);
-      for (const planPhase of plan.phases ?? []) {
-        for (const task of planPhase.tasks ?? []) {
-          if (task.id === taskId && task.status === "completed" && hasPassedDurableGateEvidence(resolvedDir2, taskId)) {
-            return { blocked: false, reason: "" };
+    if (resolvedDir) {
+      try {
+        const planPath = path137.join(resolvedDir, ".swarm", "plan.json");
+        const planRaw = fs107.readFileSync(planPath, "utf-8");
+        const plan = JSON.parse(planRaw);
+        for (const planPhase of plan.phases ?? []) {
+          for (const task of planPhase.tasks ?? []) {
+            if (task.id === taskId && task.status === "completed" && hasPassedDurableGateEvidence(resolvedDir, taskId)) {
+              return { blocked: false, reason: "" };
+            }
           }
         }
-      }
-    } catch {}
+      } catch {}
+    }
     {
       let hasReviewer = false;
       let hasTestEngineer = false;
@@ -104078,9 +104336,9 @@ function checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled = fal
     return { blocked: false, reason: "" };
   }
 }
-async function checkReviewerGateWithScope(taskId, workingDirectory, sessionID) {
+async function checkReviewerGateWithScope(taskId, workingDirectory, sessionID, fallbackDir) {
   const stageBParallelEnabled = true;
-  const result = checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled, sessionID);
+  const result = checkReviewerGate(taskId, workingDirectory, stageBParallelEnabled, sessionID, fallbackDir);
   const scopeWarning = await validateDiffScope(taskId, workingDirectory).catch(() => null);
   if (!scopeWarning)
     return result;
@@ -104108,7 +104366,7 @@ function recoverTaskStateFromDelegations(taskId, directory) {
   if ((!hasReviewer || !hasTestEngineer) && directory) {
     try {
       const evidence = readTaskEvidenceRaw(directory, taskId);
-      if (evidence && evidence.gates && Array.isArray(evidence.required_gates)) {
+      if (evidence?.gates && Array.isArray(evidence.required_gates)) {
         if (evidence.gates.reviewer != null)
           hasReviewer = true;
         if (evidence.gates.test_engineer != null)
@@ -104242,6 +104500,19 @@ async function executeUpdateTaskStatus(args2, fallbackDir, ctx) {
     }
     directory = fallbackDir;
   }
+  if (fallbackDir && directory !== fallbackDir) {
+    const canonicalDir = fs107.realpathSync(path137.resolve(directory));
+    const canonicalRoot = fs107.realpathSync(path137.resolve(fallbackDir));
+    if (canonicalDir.startsWith(canonicalRoot + path137.sep)) {
+      return {
+        success: false,
+        message: `Invalid working_directory: "${directory}" is a subdirectory of ` + `the project root "${fallbackDir}". Pass the project root path or ` + `omit working_directory entirely.`,
+        errors: [
+          `Subdirectory rejected: use project root "${fallbackDir}" instead`
+        ]
+      };
+    }
+  }
   if (args2.status === "in_progress") {
     try {
       const evidencePath = path137.join(directory, ".swarm", "evidence", `${args2.task_id}.json`);
@@ -104278,7 +104549,7 @@ async function executeUpdateTaskStatus(args2, fallbackDir, ctx) {
       }
     } catch {}
     if (phaseRequiresReviewer) {
-      const reviewerCheck = await checkReviewerGateWithScope(args2.task_id, directory, ctx?.sessionID);
+      const reviewerCheck = await checkReviewerGateWithScope(args2.task_id, directory, ctx?.sessionID, fallbackDir);
       if (reviewerCheck.blocked) {
         return {
           success: false,

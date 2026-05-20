@@ -21,12 +21,17 @@ const MAX_STACK_LENGTH = 200;
 const MAX_CHANGED_FILES = 50;
 
 function getHistoryPath(workingDir?: string): string {
-	return path.join(
-		workingDir || process.cwd(),
-		'.swarm',
-		'cache',
-		'test-history.jsonl',
-	);
+	if (!workingDir) {
+		throw new Error(
+			'getHistoryPath requires a working directory — project root must be provided by the caller',
+		);
+	}
+	if (!path.isAbsolute(workingDir)) {
+		throw new Error(
+			`getHistoryPath requires an absolute project root path, got: "${workingDir}"`,
+		);
+	}
+	return path.join(workingDir, '.swarm', 'cache', 'test-history.jsonl');
 }
 
 function sanitizeErrorMessage(errorMessage?: string): string | undefined {

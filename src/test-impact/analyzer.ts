@@ -496,6 +496,12 @@ async function saveImpactMap(
 	cwd: string,
 	impactMap: Record<string, string[]>,
 ): Promise<void> {
+	// Guard: reject if cwd is not an absolute path
+	if (!path.isAbsolute(cwd)) {
+		throw new Error(
+			`saveImpactMap requires an absolute project root path, got: "${cwd}"`,
+		);
+	}
 	const cacheDir = path.join(cwd, '.swarm', 'cache');
 	const cachePath = path.join(cacheDir, 'impact-map.json');
 

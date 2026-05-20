@@ -19820,13 +19820,47 @@ var init_task_id = __esm(() => {
 });
 
 // src/evidence/manager.ts
-import { mkdirSync as mkdirSync3, readdirSync as readdirSync3, rmSync, statSync as statSync4 } from "fs";
+import {
+  mkdirSync as mkdirSync3,
+  readdirSync as readdirSync3,
+  realpathSync,
+  rmSync,
+  statSync as statSync4
+} from "fs";
 import * as fs4 from "fs/promises";
 import * as path7 from "path";
 function isValidEvidenceType(type) {
   return VALID_EVIDENCE_TYPES.includes(type);
 }
+function validateProjectRoot(directory) {
+  let resolved;
+  try {
+    resolved = realpathSync(directory);
+  } catch {
+    warn(`[evidence] Cannot canonicalize directory "${directory}" \u2014 failing closed`);
+    throw new Error(`Cannot verify project root for "${directory}" \u2014 directory may not exist or is inaccessible`);
+  }
+  let current = resolved;
+  while (true) {
+    const parent = path7.dirname(current);
+    if (parent === current)
+      break;
+    const parentSwarm = path7.join(parent, ".swarm");
+    try {
+      if (statSync4(parentSwarm).isDirectory()) {
+        warn(`[evidence] Rejecting write to subdirectory "${resolved}" \u2014 parent "${parent}" already contains .swarm/`);
+        throw new Error(`Cannot write evidence in "${resolved}" \u2014 parent directory "${parent}" already contains a .swarm/ folder. Evidence must be written to the project root.`);
+      }
+    } catch (error49) {
+      if (error49 instanceof Error && error49.message.startsWith("Cannot write evidence")) {
+        throw error49;
+      }
+    }
+    current = parent;
+  }
+}
 async function saveEvidence(directory, taskId, evidence) {
+  _internals5.validateProjectRoot(directory);
   const sanitizedTaskId = sanitizeTaskId2(taskId);
   const relativePath = path7.join("evidence", sanitizedTaskId, "evidence.json");
   validateSwarmPath(directory, relativePath);
@@ -20091,7 +20125,8 @@ var init_manager2 = __esm(() => {
   _internals5 = {
     wrapFlatRetrospective,
     loadEvidence,
-    listEvidenceTaskIds
+    listEvidenceTaskIds,
+    validateProjectRoot
   };
 });
 
@@ -39951,7 +39986,9 @@ __export(exports_config_doctor, {
   runConfigDoctorWithFixes: () => runConfigDoctorWithFixes,
   runConfigDoctor: () => runConfigDoctor,
   restoreFromBackup: () => restoreFromBackup,
+  removeStraySwarmDir: () => removeStraySwarmDir,
   getConfigPaths: () => getConfigPaths,
+  detectStraySwarmDirs: () => detectStraySwarmDirs,
   createConfigBackup: () => createConfigBackup,
   applySafeAutoFixes: () => applySafeAutoFixes
 });
@@ -40566,6 +40603,114 @@ async function runConfigDoctorWithFixes(directory, config3, autoFix = false) {
     updatedConfigPath,
     artifactPath
   };
+}
+function detectStraySwarmDirs(projectRoot) {
+  const findings = [];
+  const SKIP_DIRS = new Set([
+    "node_modules",
+    ".git",
+    "dist",
+    ".cache",
+    ".next",
+    "coverage",
+    ".turbo",
+    ".vercel",
+    ".terraform",
+    "__pycache__",
+    ".tox"
+  ]);
+  const MAX_DEPTH = 10;
+  const MAX_CONTENTS_ENTRIES = 20;
+  function walk(dir, depth) {
+    if (depth > MAX_DEPTH)
+      return;
+    let entries;
+    try {
+      entries = fs8.readdirSync(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      if (!entry.isDirectory())
+        continue;
+      const name = entry.name;
+      const fullPath = path23.join(dir, name);
+      if (SKIP_DIRS.has(name))
+        continue;
+      const gitPath = path23.join(fullPath, ".git");
+      try {
+        const gitStat = fs8.statSync(gitPath);
+        if (gitStat.isFile())
+          continue;
+      } catch {}
+      if (name === ".swarm") {
+        const parentDir = path23.dirname(fullPath);
+        if (parentDir === projectRoot)
+          continue;
+        let contents = [];
+        try {
+          contents = fs8.readdirSync(fullPath);
+        } catch {
+          contents = ["<unreadable>"];
+        }
+        findings.push({
+          path: path23.relative(projectRoot, fullPath).replace(/\\/g, "/"),
+          absolutePath: fullPath,
+          contents: contents.slice(0, MAX_CONTENTS_ENTRIES),
+          totalEntries: contents.length
+        });
+        continue;
+      }
+      walk(fullPath, depth + 1);
+    }
+  }
+  walk(projectRoot, 0);
+  return findings;
+}
+function removeStraySwarmDir(projectRoot, strayPath) {
+  let canonicalRoot;
+  let canonicalStray;
+  try {
+    canonicalRoot = fs8.realpathSync(projectRoot);
+    canonicalStray = fs8.realpathSync(path23.isAbsolute(strayPath) ? strayPath : path23.resolve(projectRoot, strayPath));
+  } catch (err) {
+    return {
+      success: false,
+      message: `Failed to resolve paths: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
+  const rootSwarm = path23.join(canonicalRoot, ".swarm");
+  if (canonicalStray === rootSwarm || canonicalStray === canonicalRoot) {
+    return {
+      success: false,
+      message: "Refusing to remove root .swarm/ directory"
+    };
+  }
+  if (!canonicalStray.startsWith(canonicalRoot + path23.sep)) {
+    return {
+      success: false,
+      message: "Path is outside project root \u2014 refusing to remove"
+    };
+  }
+  const normalizedStray = canonicalStray.replace(/\\/g, "/");
+  if (!normalizedStray.endsWith("/.swarm")) {
+    return {
+      success: false,
+      message: "Path is not a .swarm directory \u2014 refusing to remove"
+    };
+  }
+  try {
+    fs8.rmSync(canonicalStray, { recursive: true, force: true });
+    return {
+      success: true,
+      message: `Removed stray .swarm directory: ${canonicalStray}`
+    };
+  } catch (err) {
+    return {
+      success: false,
+      message: `Failed to remove: ${err instanceof Error ? err.message : String(err)}`
+    };
+  }
 }
 var VALID_CONFIG_PATTERNS, DANGEROUS_PATH_SEGMENTS;
 var init_config_doctor = __esm(() => {
@@ -42254,12 +42399,62 @@ async function handleDoctorCommand(directory, args) {
   const enableAutoFix = args.includes("--fix") || args.includes("-f");
   const config3 = loadPluginConfig(directory);
   const result = runConfigDoctor(config3, directory);
+  let output;
   if (enableAutoFix && result.hasAutoFixableIssues) {
     const { runConfigDoctorWithFixes: runConfigDoctorWithFixes2 } = await Promise.resolve().then(() => (init_config_doctor(), exports_config_doctor));
     const fixResult = await runConfigDoctorWithFixes2(directory, config3, true);
-    return formatDoctorMarkdown(fixResult.result);
+    output = formatDoctorMarkdown(fixResult.result);
+  } else {
+    output = formatDoctorMarkdown(result);
   }
-  return formatDoctorMarkdown(result);
+  const strayDirs = detectStraySwarmDirs(directory);
+  if (strayDirs.length > 0) {
+    if (enableAutoFix) {
+      let fixOutput = `
+---
+
+## Stray .swarm Directories
+
+`;
+      let removed = 0;
+      let failed = 0;
+      for (const finding of strayDirs) {
+        const cleanupResult = removeStraySwarmDir(directory, finding.path);
+        if (cleanupResult.success) {
+          removed++;
+        } else {
+          failed++;
+          fixOutput += `- \`${finding.path}\`: ${cleanupResult.message}
+`;
+        }
+      }
+      fixOutput += `
+Cleaned up ${removed} stray director${removed === 1 ? "y" : "ies"}.`;
+      if (failed > 0) {
+        fixOutput += ` ${failed} could not be removed.`;
+      }
+      output += fixOutput;
+    } else {
+      output += `
+---
+
+## Stray .swarm Directories
+
+`;
+      output += `Found ${strayDirs.length} stray .swarm director${strayDirs.length === 1 ? "y" : "ies"} in subdirectories:
+
+`;
+      for (const finding of strayDirs) {
+        const contentsPreview = finding.contents.length > 5 ? `${finding.contents.slice(0, 5).join(", ")}, ...` : finding.contents.join(", ");
+        output += `- \`${finding.path}\` (${finding.totalEntries} entries: ${contentsPreview})
+`;
+      }
+      output += `
+These are likely from a prior bug (Issue #922). `;
+      output += "Re-run with `--fix` to auto-clean.\n";
+    }
+  }
+  return output;
 }
 async function handleDoctorToolsCommand(directory, _args) {
   const result = runToolDoctor(directory);
@@ -46910,6 +47105,9 @@ async function loadImpactMap(cwd, options) {
   return _internals22.buildImpactMap(cwd);
 }
 async function saveImpactMap(cwd, impactMap) {
+  if (!path34.isAbsolute(cwd)) {
+    throw new Error(`saveImpactMap requires an absolute project root path, got: "${cwd}"`);
+  }
   const cacheDir2 = path34.join(cwd, ".swarm", "cache");
   const cachePath = path34.join(cacheDir2, "impact-map.json");
   if (!fs17.existsSync(cacheDir2)) {
@@ -47236,7 +47434,13 @@ var FLAKY_THRESHOLD = 0.3, MIN_RUNS_FOR_QUARANTINE = 5, MAX_HISTORY_RUNS = 20;
 import fs18 from "fs";
 import path35 from "path";
 function getHistoryPath(workingDir) {
-  return path35.join(workingDir || process.cwd(), ".swarm", "cache", "test-history.jsonl");
+  if (!workingDir) {
+    throw new Error("getHistoryPath requires a working directory \u2014 project root must be provided by the caller");
+  }
+  if (!path35.isAbsolute(workingDir)) {
+    throw new Error(`getHistoryPath requires an absolute project root path, got: "${workingDir}"`);
+  }
+  return path35.join(workingDir, ".swarm", "cache", "test-history.jsonl");
 }
 function sanitizeErrorMessage(errorMessage) {
   if (errorMessage === undefined) {
