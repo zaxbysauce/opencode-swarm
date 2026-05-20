@@ -68,24 +68,36 @@ function stringHash(str: string): string {
 	return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
 
+const MAX_INFRA_CONTEXT_CHARS = 80;
+
 const INFRASTRUCTURE_FAILURE_PATTERNS = [
 	/\boutofmemoryerror\b/i,
 	/(?:^|\n|\bcommand failed:\s*)\s*killed(?:\s*(?:[-:]\s*)?(?:out of memory|oom|by signal|signal|sigkill).*)?\s*(?:\n|$)/i,
 	/(?:^|\n)\s*etimedout\b/i,
-	/\b(?:connect|connection|request|socket|network)\b[^\n]{0,80}\betimedout\b/i,
+	new RegExp(
+		`\\b(?:connect|connection|request|socket|network)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\betimedout\\b`,
+		'i',
+	),
 	/(?:^|\n)\s*econnrefused\b/i,
-	/\b(?:connect|connection|socket)\b[^\n]{0,80}\beconnrefused\b/i,
+	new RegExp(
+		`\\b(?:connect|connection|socket)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\beconnrefused\\b`,
+		'i',
+	),
 	/(?:^|\n)\s*enotfound\b/i,
-	/\b(?:getaddrinfo|dns|lookup)\b[^\n]{0,80}\benotfound\b/i,
+	new RegExp(
+		`\\b(?:getaddrinfo|dns|lookup)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\benotfound\\b`,
+		'i',
+	),
 	/\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i,
 ];
 
 function isInfrastructureFailure(currentResult: TestRunRecord): boolean {
 	const errorMessage = currentResult.errorMessage || '';
+	const stackPrefix = currentResult.stackPrefix || '';
 	if (/\bassertionerror\b/i.test(errorMessage)) {
 		return false;
 	}
-	const combinedText = `${currentResult.errorMessage || ''}\n${currentResult.stackPrefix || ''}`;
+	const combinedText = `${errorMessage}\n${stackPrefix}`;
 	return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) =>
 		pattern.test(combinedText),
 	);

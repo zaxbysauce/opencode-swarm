@@ -47075,11 +47075,12 @@ function stringHash(str) {
 }
 function isInfrastructureFailure(currentResult) {
   const errorMessage = currentResult.errorMessage || "";
+  const stackPrefix = currentResult.stackPrefix || "";
   if (/\bassertionerror\b/i.test(errorMessage)) {
     return false;
   }
-  const combinedText = `${currentResult.errorMessage || ""}
-${currentResult.stackPrefix || ""}`;
+  const combinedText = `${errorMessage}
+${stackPrefix}`;
   return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) => pattern.test(combinedText));
 }
 function classifyFailure(currentResult, history) {
@@ -47196,17 +47197,17 @@ function classifyAndCluster(testResults, history) {
   const clusters = clusterFailures(classified);
   return { classified, clusters };
 }
-var INFRASTRUCTURE_FAILURE_PATTERNS;
+var MAX_INFRA_CONTEXT_CHARS = 80, INFRASTRUCTURE_FAILURE_PATTERNS;
 var init_failure_classifier = __esm(() => {
   INFRASTRUCTURE_FAILURE_PATTERNS = [
     /\boutofmemoryerror\b/i,
     /(?:^|\n|\bcommand failed:\s*)\s*killed(?:\s*(?:[-:]\s*)?(?:out of memory|oom|by signal|signal|sigkill).*)?\s*(?:\n|$)/i,
     /(?:^|\n)\s*etimedout\b/i,
-    /\b(?:connect|connection|request|socket|network)\b[^\n]{0,80}\betimedout\b/i,
+    new RegExp(`\\b(?:connect|connection|request|socket|network)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\betimedout\\b`, "i"),
     /(?:^|\n)\s*econnrefused\b/i,
-    /\b(?:connect|connection|socket)\b[^\n]{0,80}\beconnrefused\b/i,
+    new RegExp(`\\b(?:connect|connection|socket)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\beconnrefused\\b`, "i"),
     /(?:^|\n)\s*enotfound\b/i,
-    /\b(?:getaddrinfo|dns|lookup)\b[^\n]{0,80}\benotfound\b/i,
+    new RegExp(`\\b(?:getaddrinfo|dns|lookup)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\benotfound\\b`, "i"),
     /\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i
   ];
 });
