@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.25.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.25.0...v7.25.1) (2026-05-20)
+
+
+### Bug Fixes
+
+* **gate:** reviewer gate permanently blocks docs tasks; misleading error causes delegation loop ([#931](https://github.com/zaxbysauce/opencode-swarm/issues/931)) ([aca5351](https://github.com/zaxbysauce/opencode-swarm/commit/aca5351315a9be5e3527865f5f3c3bdb122d7e35))
+
 ## [7.25.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.24.1...v7.25.0) (2026-05-19)
 
 
