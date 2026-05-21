@@ -38,6 +38,8 @@ Most AI coding tools let one model write code and ask that same model whether th
 - 🔁 **Resumable sessions** — all state saved to `.swarm/`; pick up any project any day
 - 🌐 **20 languages** — TypeScript, Python, Go, Rust, Java, Kotlin, C/C++, C#, Ruby, Swift, Dart, PHP, JavaScript, CSS, Bash, PowerShell, INI, Regex (extending: see [docs/adding-a-language.md](docs/adding-a-language.md))
 - 🛡️ **Built-in security** — SAST, secrets scanning, dependency audit per task
+- 📝 **Shell write detection** — Static analysis of POSIX/PowerShell/cmd commands to detect file writes (redirects, builtins, in-place editors, network downloads, archive extraction, git destructive ops) before execution
+- 🔒 **Scope enforcement** — Validates write targets against declared scope with cross-process persistence and TTL expiry
 - 🆓 **Free tier** — works with OpenCode Zen's free model roster
 - ⚙️ **Fully configurable** — override any agent's model, disable agents, tune guardrails
 
@@ -45,16 +47,44 @@ Most AI coding tools let one model write code and ask that same model whether th
 
 ---
 
-## What Swarm Catches
+## Shell Write Detection
 
-Concrete classes of failure that Swarm gates exist to stop — every item ties to an agent or pipeline gate that already runs in this repo:
+Swarm includes comprehensive static analysis for shell commands to detect and intercept file write operations before execution.
 
-- **Hallucinated APIs and citations** — `critic_hallucination_verifier` verifies referenced APIs and citations against real sources before they reach the codebase.
-- **Missing tests and regressions** — `test_engineer` writes and runs tests on every task; the architect runs a regression sweep across the graph after each task (pipeline step `5l`).
-- **Unsafe secret and logging patterns** — `secretscan` and `sast_scan` (63+ rules across 9 languages, offline) run as part of the per-task `pre_check_batch`.
-- **Plan and spec drift** — `critic_drift_verifier` is a blocking phase-completion gate; `curator_phase` also flags workflow drift across phases.
-- **Placeholders and TODO stubs** — `placeholder_scan` runs in the per-task pipeline (step `5d`) and rejects code that ships incomplete stubs.
-- **Untrusted plans** — `critic` reviews the plan before any code is written; `completion-verify` is a deterministic phase-close gate that checks plan task identifiers actually exist in source files.
+### Shell Write Detection Features
+
+- **POSIX shell detection** — Parses commands with `bash-parser` AST for accurate detection of:
+  - Redirect operators (`>`, `>>`, `>|`, `<<`, `<<-`)
+  - Here-documents and here-strings
+  - Write-effect builtins (`cp`, `mv`, `install`, `ln`, `truncate`, `dd`)
+  - In-place editors (`sed -i`, `perl -i`, `awk -i`)
+  - Interpreter eval (`python -c`, `node -e`, `bun -e`, `ruby -e`, `php -r`)
+  - Network downloaders (`curl -o`, `wget -O`, `scp`)
+  - Archive extraction (`tar -x`, `unzip`, `gunzip`)
+  - Git destructive operations (`git clean -fd`, `git reset --hard`)
+
+- **Windows shell detection** — Uses regex heuristics for PowerShell and cmd.exe:
+  - PowerShell cmdlets: `Out-File`, `Set-Content`, `Add-Content`, `Copy-Item`, `Move-Item`
+  - cmd.exe builtins: `copy`, `move`, `ren`, `del`, `rd`, `md`
+  - Redirect operators (`>`, `>>`)
+
+- **Interactive session denial** — Blocks commands that create persistent or open-ended sessions:
+  - POSIX: `watch`, `screen`, `tmux new-session`
+  - PowerShell: `Start-Process`
+
+- **Cross-process scope enforcement** — Declared scope is persisted to `.swarm/scopes/scope-{taskId}.json` with:
+  - TTL expiry (default 24 hours)
+  - Symlink guards (O_NOFOLLOW + realpath containment)
+  - Schema versioning and fail-closed validation
+
+### Security Patterns
+
+The guardrails system blocks destructive shell commands targeting:
+- System paths (`/root`, `/etc`, `C:\Windows`, etc.)
+- Symlink/junction creation with external targets
+- File operations under `.swarm/` directory
+- Fork bombs and infinite loops
+- Disk wiping and ransomware-grade operations
 
 ---
 
@@ -349,6 +379,9 @@ graph TB
 | Plan reviewed before coding | ✅ | ❌ | ❌ |
 | Every task reviewed + tested | ✅ | ❌ | ❌ |
 | Different model for review vs. code | ✅ | ❌ | ❌ |
+| Shell write detection (POSIX/PowerShell/cmd) | ✅ | ❌ | ❌ |
+| Scope enforcement with cross-process persistence | ✅ | ❌ | ❌ |
+| Interactive session detection and blocking | ✅ | ❌ | ❌ |
 | Resumable sessions | ✅ | ❌ | ❌ |
 | Built-in security scanning | ✅ | ❌ | ❌ |
 | Learns from mistakes | ✅ | ❌ | ❌ |

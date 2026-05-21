@@ -39,6 +39,13 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import {
+	detectInteractiveSession,
+	detectPosixWrites,
+	detectWindowsWrites,
+	resolveWriteTargets,
+	type WriteAnalysis,
+} from './shell-write-detect';
 
 /**
  * Known verifier/linter config file glob patterns for config-zone logging.
@@ -105,6 +112,8 @@ export const _internals = {
 	getProviderFailureFingerprint,
 	isTransientProviderFailureText,
 	resolveFallbackModel,
+	dcCheckJunctionCreation,
+	extractErrorSignal,
 };
 
 /**
@@ -1967,6 +1976,159 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * Detects the shell type from command content for the 'shell' tool.
+	 * Returns 'bash', 'powershell', 'cmd', or 'unix' (default for unknown unix shells).
+	 */
+	function detectShellType(
+		command: string,
+	): 'bash' | 'powershell' | 'cmd' | 'unix' {
+		// PowerShell indicators
+		if (
+			/^(powershell|ps1|\.\s*\\|Remove-Item|Copy-Item|Move-Item|Start-Process|New-Object|Get-ChildItem|Set-Content|Add-Content|Out-File|Invoke-WebRequest|Invoke-RestMethod|IEX|iex)\b/i.test(
+				command,
+			) ||
+			command.includes('$PSVersionTable') ||
+			command.includes('$env:') ||
+			/-EncodedCommand|-ExecutionPolicy|Enable-PSRemoting/i.test(command)
+		) {
+			return 'powershell';
+		}
+
+		// cmd.exe indicators
+		if (
+			/^(cmd|c:\/|set \w+=|\.\d+|del \/|rd \/|mkdir|chdir|echo |copy |move |ren |fc |diskpart)/i.test(
+				command,
+			) ||
+			/%[^%\s]+%/.test(command) ||
+			/\b(set|echo|if|exist)\s+/i.test(command)
+		) {
+			return 'cmd';
+		}
+
+		// bash indicators
+		if (
+			/^(bash|sh|zsh|ksh|ash|dash|fish|ruby|python|perl|npm|yarn|node|cargo|go|rustc|mv|cp|rm|chmod|chown|mkdir|ln|tar|gzip|gunzip|ssh|scp|rsync|sudo|su -|export |source |\.\s+)/i.test(
+				command,
+			) ||
+			command.includes('|') ||
+			command.includes('&&') ||
+			command.includes('>>') ||
+			/\$\{?\w+\}?/.test(command)
+		) {
+			return 'bash';
+		}
+
+		return 'unix';
+	}
+
+	/**
+	 * Checks shell write operations against declared scope.
+	 * Blocks writes outside declared scope, allows read-only commands.
+	 * Fails closed on parse errors.
+	 */
+	function checkShellWriteScope(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): void {
+		// Only check bash and shell tools
+		if (tool !== 'bash' && tool !== 'shell') return;
+
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const command =
+			typeof toolArgs?.command === 'string' ? toolArgs.command.trim() : '';
+
+		if (!command) return;
+
+		// Normalize tool name
+		const normalizedTool = tool;
+
+		// Detect shell type and analyze writes
+		let analysis: WriteAnalysis;
+		let shellType: 'posix' | 'powershell' | 'cmd' | 'unix' | 'bash' = 'posix';
+
+		if (normalizedTool === 'bash') {
+			// bash tool is always POSIX
+			shellType = 'posix';
+		} else {
+			// 'shell' tool — detect actual shell type from command content
+			shellType = detectShellType(command) as
+				| 'posix'
+				| 'powershell'
+				| 'cmd'
+				| 'unix'
+				| 'bash';
+		}
+
+		// Block interactive/session tools regardless of scope — they cannot be bounded safely
+		// 'unix' and 'bash' shell types are treated as 'posix' for interactive session detection
+		const interactiveShellType =
+			shellType === 'unix' || shellType === 'bash' ? 'posix' : shellType;
+		if (detectInteractiveSession(command, interactiveShellType)) {
+			throw new Error(
+				`BLOCKED: interactive/session tool detected — rejecting for safety`,
+			);
+		}
+
+		if (normalizedTool === 'bash') {
+			// bash tool is always POSIX
+			analysis = detectPosixWrites(command);
+		} else {
+			// 'shell' tool — detect actual shell type from command content
+			analysis =
+				shellType === 'powershell' || shellType === 'cmd'
+					? detectWindowsWrites(command, shellType)
+					: detectPosixWrites(command);
+		}
+
+		// Fail closed on parse error — malformed commands must not silently pass through
+		if (analysis.parseError) {
+			throw new Error(
+				`BLOCKED: bash write detection failed to parse command — rejecting for safety`,
+			);
+		}
+
+		// No writes detected — allow the command
+		if (!analysis.hasWrites || analysis.writes.length === 0) return;
+
+		// Resolve declared scope for this session
+		const declaredScope = resolveDeclaredScope(sessionID);
+
+		// If no scope is declared, allow (existing behavior preserved)
+		if (!declaredScope || declaredScope.length === 0) return;
+
+		// Resolve write targets against effective cwd (handles subshell cd changes)
+		const resolvedWrites = resolveWriteTargets(
+			command,
+			analysis.writes,
+			effectiveDirectory,
+		);
+
+		// Check each resolved write target against declared scope
+		for (const write of resolvedWrites) {
+			// null path means we couldn't determine the target statically — fail closed
+			if (write.resolvedPath === null) {
+				throw new Error(
+					`BLOCKED: bash/shell write operation with unresolvable path target — rejecting for safety`,
+				);
+			}
+
+			// Check if the resolved write target is within declared scope
+			if (
+				!isInDeclaredScope(
+					write.resolvedPath,
+					declaredScope,
+					effectiveDirectory,
+				)
+			) {
+				throw new Error(
+					`bash write detected outside declared scope: ${write.resolvedPath} (original: ${write.original.path})`,
+				);
+			}
+		}
+	}
+
+	/**
 	 * Checks gate limits (hard limits, idle timeout, soft warnings) for the current invocation.
 	 * Extracted from toolBefore for maintainability.
 	 */
@@ -2809,6 +2971,9 @@ export function createGuardrailsHooks(
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
 
+			// Shell write scope enforcement: block bash/shell writes outside declared scope
+			checkShellWriteScope(input.sessionID, input.tool, output.args);
+
 			// Issue #853 Layer B: structural spec-drift block.
 			// Refuses plan-mutating tools while .swarm/spec-staleness.json exists.
 			enforceSpecDriftGate(effectiveDirectory, input.tool);
@@ -2997,20 +3162,24 @@ export function createGuardrailsHooks(
 				}
 			}
 
+			// Resolve session — returns null if architect or native-agent exempt
+			const resolved = resolveSessionAndWindow(input.sessionID);
+			if (!resolved) return;
+
 			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
-			// Check before resolveSessionAndWindow so it fires even for architect sessions.
+			// Placed AFTER resolveSessionAndWindow so that architect sessions and native OpenCode
+			// agents (build, plan, general, explore, etc.) are exempted before this check fires.
+			// The delegationActive guard provides defense-in-depth: only swarm-delegated subagent
+			// sessions (where delegationActive=true) will hit this hard stop. Fixes #942.
+
 			{
 				const prmSession = swarmState.agentSessions.get(input.sessionID);
-				if (prmSession?.prmHardStopPending) {
+				if (prmSession?.prmHardStopPending && prmSession.delegationActive) {
 					throw new Error(
 						'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
 					);
 				}
 			}
-
-			// Resolve session — returns null if architect-exempt
-			const resolved = resolveSessionAndWindow(input.sessionID);
-			if (!resolved) return;
 
 			const { agentConfig, window } = resolved;
 			const { repetitionCount, elapsedMinutes } = trackToolCall(

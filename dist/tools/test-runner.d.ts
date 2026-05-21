@@ -32,14 +32,6 @@ export interface TestTotals {
     skipped: number;
     total: number;
 }
-export interface ParsedTestCaseResult {
-    testFile: string;
-    testName: string;
-    result: 'pass' | 'fail' | 'skip';
-    durationMs: number;
-    errorMessage?: string;
-    stackPrefix?: string;
-}
 export interface TestSuccessResult {
     success: true;
     framework: TestFramework;
@@ -50,7 +42,6 @@ export interface TestSuccessResult {
     totals: TestTotals;
     coveragePercent?: number;
     rawOutput?: string;
-    testCases?: ParsedTestCaseResult[];
     message?: string;
     outcome?: RegressionOutcome;
 }
@@ -65,7 +56,6 @@ export interface TestErrorResult {
     coveragePercent?: number;
     error: string;
     rawOutput?: string;
-    testCases?: ParsedTestCaseResult[];
     message?: string;
     outcome?: RegressionOutcome;
     attempted_scope?: 'graph';

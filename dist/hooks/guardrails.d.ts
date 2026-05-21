@@ -16,6 +16,8 @@ export declare const _internals: {
     getProviderFailureFingerprint: typeof getProviderFailureFingerprint;
     isTransientProviderFailureText: typeof isTransientProviderFailureText;
     resolveFallbackModel: typeof resolveFallbackModel;
+    dcCheckJunctionCreation: typeof dcCheckJunctionCreation;
+    extractErrorSignal: typeof extractErrorSignal;
 };
 /**
  * Issue #853 Layer B: tools that are structurally blocked while
@@ -38,6 +40,12 @@ export declare const SPEC_DRIFT_BLOCKED_TOOLS: Set<string>;
  * immediately on the next tool call.
  */
 export declare function enforceSpecDriftGate(directory: string | undefined, toolName: string): void;
+/**
+ * Extracts bounded provider/error signal from unknown hook error payloads.
+ * Do not stringify arbitrary objects here: unrelated fields like `phase: 502`
+ * must not accidentally become transient provider errors.
+ */
+declare function extractErrorSignal(errorContent: unknown): string;
 type ChatMessageLike = {
     info?: {
         role?: string;
@@ -70,6 +78,20 @@ export declare function setStoredInputArgs(callID: string, args: unknown): void;
  * @param callID The callID to delete
  */
 export declare function deleteStoredInputArgs(callID: string): void;
+/**
+ * Detect Windows junction or symlink CREATION commands.
+ * Junction creation followed by recursive deletion of the junction is the
+ * exact mechanism of the K2.6 data-loss incident.
+ * Block junction/symlink creation where the target resolves outside cwd.
+ *
+ * Patterns covered:
+ *   mklink /J <link> <target>
+ *   mklink /D <link> <target>
+ *   New-Item -ItemType Junction -Path <link> -Target <target>
+ *   New-Item -ItemType SymbolicLink -Path <link> -Target <target>
+ *   ln -s <target> <link>  (when target is outside cwd)
+ */
+declare function dcCheckJunctionCreation(segment: string, cwd: string): string | null;
 /**
  * Redacts sensitive values from a shell command string before audit logging.
  * Covers env-var assignments, CLI flags, Bearer/Basic auth, and -H header flags.

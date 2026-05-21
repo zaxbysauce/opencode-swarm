@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.25.0",
+    version: "7.26.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -90,7 +90,7 @@ var init_package = __esm(() => {
     ],
     scripts: {
       clean: `bun -e "require('fs').rmSync('dist',{recursive:true,force:true})"`,
-      build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
+      build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm --external bash-parser && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external bash-parser && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
       typecheck: "tsc --noEmit",
       test: "bun test",
       lint: "biome lint .",
@@ -104,6 +104,7 @@ var init_package = __esm(() => {
       "@opencode-ai/plugin": "^1.1.53",
       "@opencode-ai/sdk": "^1.1.53",
       "@vscode/tree-sitter-wasm": "^0.3.0",
+      "bash-parser": "^0.5.0",
       "p-limit": "^7.3.0",
       picomatch: "^4.0.4",
       "proper-lockfile": "^4.1.2",
@@ -11305,7 +11306,7 @@ function finalize(ctx, schema) {
     result.$schema = "http://json-schema.org/draft-07/schema#";
   } else if (ctx.target === "draft-04") {
     result.$schema = "http://json-schema.org/draft-04/schema#";
-  } else if (ctx.target === "openapi-3.0") {}
+  } else if (ctx.target === "openapi-3.0") {} else {}
   if (ctx.external?.uri) {
     const id = ctx.external.registry.get(schema)?.id;
     if (!id)
@@ -11570,7 +11571,7 @@ var formatMap, stringProcessor = (schema, ctx, _json, _params) => {
     if (val === undefined) {
       if (ctx.unrepresentable === "throw") {
         throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-      }
+      } else {}
     } else if (typeof val === "bigint") {
       if (ctx.unrepresentable === "throw") {
         throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -20912,6 +20913,73 @@ var init_scope_persistence = __esm(() => {
   ]);
 });
 
+// src/hooks/shell-write-detect.ts
+import parse5 from "bash-parser";
+var REDIRECT_WRITE_TOKENS, REDIRECT_HERE_TOKENS, REDIRECT_ALL_WRITE_TOKENS, BUILTIN_WRITE_COMMANDS, INPLACE_EDIT_COMMANDS, INTERPRETER_EVAL_COMMANDS, NETWORK_DOWNLOAD_COMMANDS, ARCHIVE_EXTRACT_COMMANDS, PS_WRITE_CMDLETS, PS_WRITE_ALIASES, CMD_WRITE_BUILTINS;
+var init_shell_write_detect = __esm(() => {
+  REDIRECT_WRITE_TOKENS = new Set([
+    "GREAT",
+    "DGREAT",
+    "CLOBBER",
+    "LESSGREAT"
+  ]);
+  REDIRECT_HERE_TOKENS = new Set(["DLESS", "DLESSDASH"]);
+  REDIRECT_ALL_WRITE_TOKENS = new Set([
+    ...REDIRECT_WRITE_TOKENS,
+    ...REDIRECT_HERE_TOKENS
+  ]);
+  BUILTIN_WRITE_COMMANDS = new Set([
+    "cp",
+    "mv",
+    "install",
+    "ln",
+    "truncate"
+  ]);
+  INPLACE_EDIT_COMMANDS = new Set(["sed", "perl", "awk"]);
+  INTERPRETER_EVAL_COMMANDS = new Set([
+    "python",
+    "python3",
+    "python2",
+    "node",
+    "bun",
+    "ruby",
+    "perl",
+    "php"
+  ]);
+  NETWORK_DOWNLOAD_COMMANDS = new Set(["curl", "wget", "scp"]);
+  ARCHIVE_EXTRACT_COMMANDS = new Set([
+    "tar",
+    "unzip",
+    "gunzip",
+    "gzip",
+    "bzip2",
+    "xz",
+    "7z",
+    "rar"
+  ]);
+  PS_WRITE_CMDLETS = new Set([
+    "Out-File",
+    "Set-Content",
+    "Add-Content",
+    "Clear-Content",
+    "Copy-Item",
+    "Move-Item",
+    "Remove-Item",
+    "Invoke-WebRequest",
+    "Start-Process"
+  ]);
+  PS_WRITE_ALIASES = new Set(["echo", "write"]);
+  CMD_WRITE_BUILTINS = new Set([
+    "copy",
+    "move",
+    "type",
+    "del",
+    "rd",
+    "md",
+    "ren"
+  ]);
+});
+
 // src/hooks/conflict-resolution.ts
 var init_conflict_resolution = __esm(() => {
   init_state();
@@ -20986,6 +21054,7 @@ var init_guardrails = __esm(() => {
   init_state();
   init_telemetry();
   init_utils();
+  init_shell_write_detect();
   init_bun_compat();
   init_logger();
   init_conflict_resolution();
@@ -22388,7 +22457,7 @@ var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
     throw e;
   }
   return result.value;
-}, parse5, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
+}, parse6, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -22443,7 +22512,7 @@ var init_parse3 = __esm(() => {
   init_core3();
   init_errors4();
   init_util2();
-  parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
+  parse6 = /* @__PURE__ */ _parse2($ZodRealError2);
   parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
   safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
   safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
@@ -24933,10 +25002,10 @@ var init_schemas3 = __esm(() => {
         throw new Error("implement() must be called with a function");
       }
       return function(...args) {
-        const parsedArgs = inst._def.input ? parse5(inst._def.input, args) : args;
+        const parsedArgs = inst._def.input ? parse6(inst._def.input, args) : args;
         const result = Reflect.apply(func, this, parsedArgs);
         if (inst._def.output) {
-          return parse5(inst._def.output, result);
+          return parse6(inst._def.output, result);
         }
         return result;
       };
@@ -32019,7 +32088,7 @@ class JSONSchemaGenerator2 {
               if (val === undefined) {
                 if (this.unrepresentable === "throw") {
                   throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-                }
+                } else {}
               } else if (typeof val === "bigint") {
                 if (this.unrepresentable === "throw") {
                   throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -32512,7 +32581,7 @@ __export(exports_core4, {
   regexes: () => exports_regexes2,
   prettifyError: () => prettifyError2,
   parseAsync: () => parseAsync3,
-  parse: () => parse5,
+  parse: () => parse6,
   locales: () => exports_locales2,
   isValidJWT: () => isValidJWT2,
   isValidBase64URL: () => isValidBase64URL2,
@@ -32865,11 +32934,11 @@ var init_errors5 = __esm(() => {
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
-var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
+var parse8, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
   init_errors5();
-  parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
+  parse8 = /* @__PURE__ */ _parse2(ZodRealError2);
   parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
   safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
   safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
@@ -33341,7 +33410,7 @@ var init_schemas4 = __esm(() => {
       reg.add(inst, meta3);
       return inst;
     };
-    inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
+    inst.parse = (data, params) => parse8(inst, data, params, { callee: inst.parse });
     inst.safeParse = (data, params) => safeParse4(inst, data, params);
     inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
     inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
@@ -33981,7 +34050,7 @@ __export(exports_external2, {
   pipe: () => pipe2,
   partialRecord: () => partialRecord2,
   parseAsync: () => parseAsync4,
-  parse: () => parse7,
+  parse: () => parse8,
   overwrite: () => _overwrite2,
   optional: () => optional2,
   object: () => object2,
@@ -46017,14 +46086,7 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       return args;
     }
     case "vitest": {
-      const args = [
-        "npx",
-        "vitest",
-        "run",
-        "--reporter=json",
-        "--outputFile",
-        ".swarm/cache/test-runner-vitest.json"
-      ];
+      const args = ["npx", "vitest", "run"];
       if (coverage)
         args.push("--coverage");
       if (scope !== "all" && files.length > 0)
@@ -46032,7 +46094,7 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       return args;
     }
     case "jest": {
-      const args = ["npx", "jest", "--json"];
+      const args = ["npx", "jest"];
       if (coverage)
         args.push("--coverage");
       if (scope !== "all" && files.length > 0)
@@ -47302,42 +47364,6 @@ function sanitizeChangedFiles(changedFiles) {
   const validFiles = changedFiles.filter((f) => typeof f === "string" && f.length > 0 && !DANGEROUS_PROPERTY_NAMES.has(f));
   return validFiles.slice(0, MAX_CHANGED_FILES);
 }
-function isTestRunResult(value) {
-  return value === "pass" || value === "fail" || value === "skip";
-}
-function parseStoredRecord(value) {
-  if (typeof value !== "object" || value === null)
-    return null;
-  const record3 = value;
-  if (typeof record3.testFile !== "string" || record3.testFile.length === 0) {
-    return null;
-  }
-  if (typeof record3.testName !== "string" || record3.testName.length === 0) {
-    return null;
-  }
-  if (typeof record3.taskId !== "string" || record3.taskId.length === 0) {
-    return null;
-  }
-  if (!isTestRunResult(record3.result))
-    return null;
-  if (typeof record3.durationMs !== "number" || !Number.isFinite(record3.durationMs)) {
-    return null;
-  }
-  if (typeof record3.timestamp !== "string" || Number.isNaN(Date.parse(record3.timestamp))) {
-    return null;
-  }
-  return {
-    timestamp: record3.timestamp,
-    taskId: record3.taskId,
-    testFile: record3.testFile,
-    testName: record3.testName,
-    result: record3.result,
-    durationMs: Math.max(0, record3.durationMs),
-    errorMessage: typeof record3.errorMessage === "string" ? sanitizeErrorMessage(record3.errorMessage) : undefined,
-    stackPrefix: typeof record3.stackPrefix === "string" ? sanitizeStackPrefix(record3.stackPrefix) : undefined,
-    changedFiles: sanitizeChangedFiles(Array.isArray(record3.changedFiles) ? record3.changedFiles : [])
-  };
-}
 function appendTestRun(record3, workingDir) {
   if (typeof record3.testFile !== "string" || record3.testFile.length === 0) {
     throw new TypeError("testFile must be a non-empty string");
@@ -47375,16 +47401,16 @@ function appendTestRun(record3, workingDir) {
   }
   const existingRecords = readAllRecords(historyPath);
   existingRecords.push(sanitizedRecord);
-  const recordsByTest = new Map;
+  const recordsByFile = new Map;
   for (const rec of existingRecords) {
-    const normalizedKey = `${rec.testFile.toLowerCase()}|${rec.testName.toLowerCase()}`;
-    if (!recordsByTest.has(normalizedKey)) {
-      recordsByTest.set(normalizedKey, []);
+    const normalizedFile = rec.testFile.toLowerCase();
+    if (!recordsByFile.has(normalizedFile)) {
+      recordsByFile.set(normalizedFile, []);
     }
-    recordsByTest.get(normalizedKey).push(rec);
+    recordsByFile.get(normalizedFile).push(rec);
   }
   const prunedRecords = [];
-  for (const [, records] of recordsByTest) {
+  for (const [, records] of recordsByFile) {
     records.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
     const toKeep = records.slice(-MAX_HISTORY_PER_TEST);
     prunedRecords.push(...toKeep);
@@ -47424,9 +47450,8 @@ function readAllRecords(historyPath) {
       }
       try {
         const parsed = JSON.parse(trimmed);
-        const record3 = parseStoredRecord(parsed);
-        if (record3) {
-          records.push(record3);
+        if (typeof parsed === "object" && parsed !== null && "testFile" in parsed && "testName" in parsed && "result" in parsed) {
+          records.push(parsed);
         }
       } catch {}
     }
@@ -48465,14 +48490,7 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       return args;
     }
     case "vitest": {
-      const args = [
-        "npx",
-        "vitest",
-        "run",
-        "--reporter=json",
-        "--outputFile",
-        VITEST_JSON_OUTPUT_RELATIVE_PATH
-      ];
+      const args = ["npx", "vitest", "run"];
       if (coverage)
         args.push("--coverage");
       if (scope !== "all" && files.length > 0) {
@@ -48481,7 +48499,7 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       return args;
     }
     case "jest": {
-      const args = ["npx", "jest", "--json"];
+      const args = ["npx", "jest"];
       if (coverage)
         args.push("--coverage");
       if (scope !== "all" && files.length > 0) {
@@ -48576,122 +48594,6 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
     default:
       return null;
   }
-}
-function mapFrameworkStatusToResult(status) {
-  if (typeof status !== "string")
-    return null;
-  const normalized = status.toLowerCase();
-  if (normalized === "pass" || normalized === "passed")
-    return "pass";
-  if (normalized === "fail" || normalized === "failed")
-    return "fail";
-  if (normalized === "skip" || normalized === "skipped" || normalized === "pending" || normalized === "todo") {
-    return "skip";
-  }
-  return null;
-}
-function firstLine(value) {
-  if (typeof value !== "string")
-    return;
-  const line = value.split(`
-`).find((part) => part.trim().length > 0)?.trim();
-  return line && line.length > 0 ? line : undefined;
-}
-function parseJestLikeJsonTestResults(payload) {
-  if (typeof payload !== "object" || payload === null)
-    return [];
-  const rawSuites = payload.testResults;
-  if (!Array.isArray(rawSuites))
-    return [];
-  const parsed = [];
-  for (const suite of rawSuites) {
-    if (typeof suite !== "object" || suite === null)
-      continue;
-    const suiteObj = suite;
-    const rawFile = typeof suiteObj.name === "string" ? suiteObj.name : typeof suiteObj.testFilePath === "string" ? suiteObj.testFilePath : undefined;
-    if (!rawFile)
-      continue;
-    const testFile = rawFile.replace(/\\/g, "/");
-    const assertionResults = suiteObj.assertionResults;
-    if (!Array.isArray(assertionResults))
-      continue;
-    for (const assertion of assertionResults) {
-      if (typeof assertion !== "object" || assertion === null)
-        continue;
-      const assertionObj = assertion;
-      const result = mapFrameworkStatusToResult(assertionObj.status);
-      const testName = typeof assertionObj.fullName === "string" ? assertionObj.fullName : typeof assertionObj.title === "string" ? assertionObj.title : undefined;
-      if (!result || !testName || testName.length === 0)
-        continue;
-      const failureMessages = Array.isArray(assertionObj.failureMessages) ? assertionObj.failureMessages : [];
-      const firstFailure = failureMessages.find((entry) => typeof entry === "string" && entry.length > 0);
-      const durationMs = typeof assertionObj.duration === "number" && Number.isFinite(assertionObj.duration) ? Math.max(assertionObj.duration, 0) : 0;
-      parsed.push({
-        testFile,
-        testName,
-        result,
-        durationMs,
-        errorMessage: firstLine(firstFailure),
-        stackPrefix: firstLine(firstFailure)
-      });
-    }
-  }
-  return parsed;
-}
-function parseBunJsonLines(output) {
-  const parsed = [];
-  for (const line of output.split(`
-`)) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{") || !trimmed.endsWith("}"))
-      continue;
-    try {
-      const obj = JSON.parse(trimmed);
-      const rawFile = typeof obj.file === "string" ? obj.file : typeof obj.testFile === "string" ? obj.testFile : typeof obj.path === "string" ? obj.path : undefined;
-      const rawName = typeof obj.testName === "string" ? obj.testName : typeof obj.fullName === "string" ? obj.fullName : typeof obj.name === "string" ? obj.name : undefined;
-      const result = mapFrameworkStatusToResult(typeof obj.status === "string" ? obj.status : obj.result);
-      if (!rawFile || !rawName || !result)
-        continue;
-      const errorObj = typeof obj.error === "object" && obj.error !== null ? obj.error : undefined;
-      const durationMs = typeof obj.durationMs === "number" && Number.isFinite(obj.durationMs) ? Math.max(obj.durationMs, 0) : typeof obj.duration === "number" && Number.isFinite(obj.duration) ? Math.max(obj.duration, 0) : 0;
-      parsed.push({
-        testFile: rawFile.replace(/\\/g, "/"),
-        testName: rawName,
-        result,
-        durationMs,
-        errorMessage: firstLine(errorObj?.message ?? obj.errorMessage),
-        stackPrefix: firstLine(errorObj?.stack)
-      });
-    } catch {}
-  }
-  return parsed;
-}
-function parseFrameworkJsonTestResults(framework, output) {
-  const jsonMatch = output.match(/\{[\s\S]*"testResults"[\s\S]*\}/);
-  if (jsonMatch) {
-    try {
-      const parsed = JSON.parse(jsonMatch[0]);
-      const testResults = parseJestLikeJsonTestResults(parsed);
-      if (testResults.length > 0)
-        return testResults;
-    } catch {}
-  }
-  for (const line of output.split(`
-`)) {
-    const trimmed = line.trim();
-    if (!trimmed.startsWith("{") || !trimmed.endsWith("}"))
-      continue;
-    try {
-      const parsed = JSON.parse(trimmed);
-      const testResults = parseJestLikeJsonTestResults(parsed);
-      if (testResults.length > 0)
-        return testResults;
-    } catch {}
-  }
-  if (framework === "bun") {
-    return parseBunJsonLines(output);
-  }
-  return [];
 }
 function parseTestOutput2(framework, output) {
   const totals = {
@@ -48980,16 +48882,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
   const startTime = Date.now();
-  const vitestJsonOutputPath = framework === "vitest" ? path39.join(cwd, ".swarm", "cache", "test-runner-vitest.json") : undefined;
   try {
-    if (vitestJsonOutputPath) {
-      try {
-        fs22.mkdirSync(path39.dirname(vitestJsonOutputPath), { recursive: true });
-        if (fs22.existsSync(vitestJsonOutputPath)) {
-          fs22.unlinkSync(vitestJsonOutputPath);
-        }
-      } catch {}
-    }
     const proc = bunSpawn(command, {
       stdout: "pipe",
       stderr: "pipe",
@@ -49010,37 +48903,13 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
       output += (output ? `
 ` : "") + stderrResult.text;
     }
-    if (vitestJsonOutputPath) {
-      try {
-        if (fs22.existsSync(vitestJsonOutputPath)) {
-          const vitestJsonOutput = fs22.readFileSync(vitestJsonOutputPath, "utf-8");
-          if (vitestJsonOutput.trim().length > 0) {
-            output += (output ? `
-` : "") + vitestJsonOutput;
-          }
-        }
-      } catch {}
-    }
     if (stdoutResult.truncated || stderrResult.truncated) {
       output += `
 ... (output truncated at stream read limit)`;
     }
     const useDispatchParse = process.env.SWARM_LANG_BACKEND !== "legacy";
     const parsed = useDispatchParse ? await parseTestOutputViaDispatch(framework, output, cwd) ?? parseTestOutput2(framework, output) : parseTestOutput2(framework, output);
-    const parsedTestCases = parseFrameworkJsonTestResults(framework, output);
-    const totals = { ...parsed.totals };
-    const { coveragePercent } = parsed;
-    if (totals.total === 0 && parsedTestCases.length > 0) {
-      for (const entry of parsedTestCases) {
-        if (entry.result === "pass")
-          totals.passed++;
-        else if (entry.result === "fail")
-          totals.failed++;
-        else
-          totals.skipped++;
-      }
-      totals.total = parsedTestCases.length;
-    }
+    const { totals, coveragePercent } = parsed;
     const isTimeout = exitCode === -1;
     const testPassed = exitCode === 0 && totals.failed === 0;
     if (testPassed) {
@@ -49053,8 +48922,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
         duration_ms,
         totals,
         rawOutput: output,
-        outcome: "pass",
-        testCases: parsedTestCases
+        outcome: "pass"
       };
       if (coveragePercent !== undefined) {
         result.coveragePercent = coveragePercent;
@@ -49076,8 +48944,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
         rawOutput: output,
         error: isTimeout ? `Tests timed out after ${timeout_ms}ms` : `Tests failed with ${totals.failed} failures`,
         message: isTimeout ? `${framework} tests timed out after ${timeout_ms}ms` : `${framework} tests failed (${totals.failed}/${totals.total} failed)`,
-        outcome: isTimeout ? "error" : "regression",
-        testCases: parsedTestCases
+        outcome: isTimeout ? "error" : "regression"
       };
       if (coveragePercent !== undefined) {
         result.coveragePercent = coveragePercent;
@@ -49098,77 +48965,24 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     };
   }
 }
-function normalizeHistoryTestFile(testFile, workingDir) {
-  const normalized = testFile.replace(/\\/g, "/");
-  if (!path39.isAbsolute(testFile))
-    return normalized;
-  const relative8 = path39.relative(workingDir, testFile);
-  if (relative8.startsWith("..") || path39.isAbsolute(relative8)) {
-    return normalized;
-  }
-  return relative8.replace(/\\/g, "/");
-}
-function combineAggregateResult(current, next) {
-  if (current === "fail" || next === "fail")
-    return "fail";
-  if (current === "pass" || next === "pass")
-    return "pass";
-  return "skip";
-}
-function recordAndAnalyzeResults(result, testFiles, workingDir, sourceFiles, parsedTestCases) {
+function recordAndAnalyzeResults(result, testFiles, workingDir, sourceFiles) {
   if (!result.totals || result.totals.total === 0)
     return;
   const now = new Date().toISOString();
   const changedFiles = (sourceFiles && sourceFiles.length > 0 ? sourceFiles : testFiles).map((f) => f.replace(/\\/g, "/"));
-  const aggregateResultsByFile = new Map;
-  const validParsedCases = parsedTestCases?.filter((parsedCase) => parsedCase.testFile.length > 0 && parsedCase.testName.length > 0) ?? [];
-  for (const parsedCase of validParsedCases) {
-    const normalizedTestFile = normalizeHistoryTestFile(parsedCase.testFile, workingDir);
+  for (const testFile of testFiles) {
     try {
       appendTestRun({
         timestamp: now,
         taskId: "auto",
-        testFile: normalizedTestFile,
-        testName: parsedCase.testName,
-        result: parsedCase.result,
-        durationMs: parsedCase.durationMs,
-        errorMessage: parsedCase.errorMessage,
-        stackPrefix: parsedCase.stackPrefix,
-        changedFiles
-      }, workingDir);
-    } catch {}
-    aggregateResultsByFile.set(normalizedTestFile, combineAggregateResult(aggregateResultsByFile.get(normalizedTestFile), parsedCase.result));
-  }
-  if (aggregateResultsByFile.size === 0) {
-    const aggregateResult = result.success ? "pass" : "fail";
-    for (const testFile of testFiles) {
-      aggregateResultsByFile.set(testFile.replace(/\\/g, "/"), aggregateResult);
-    }
-  }
-  for (const [testFile, aggregateResult] of aggregateResultsByFile) {
-    try {
-      appendTestRun({
-        timestamp: now,
-        taskId: "auto",
-        testFile,
-        testName: AGGREGATE_TEST_NAME,
-        result: aggregateResult,
+        testFile: testFile.replace(/\\/g, "/"),
+        testName: "(aggregate)",
+        result: result.success ? "pass" : "fail",
         durationMs: result.duration_ms || 0,
         changedFiles
       }, workingDir);
     } catch {}
   }
-}
-function selectHistoryForAnalysis(history) {
-  const filesWithIndividualRecords = new Set;
-  for (const record3 of history) {
-    if (record3.testName !== AGGREGATE_TEST_NAME) {
-      filesWithIndividualRecords.add(record3.testFile.toLowerCase());
-    }
-  }
-  if (filesWithIndividualRecords.size === 0)
-    return history;
-  return history.filter((record3) => record3.testName !== AGGREGATE_TEST_NAME || !filesWithIndividualRecords.has(record3.testFile.toLowerCase()));
 }
 function analyzeFailures(workingDir) {
   const report = {
@@ -49177,7 +48991,7 @@ function analyzeFailures(workingDir) {
     quarantinedFailures: []
   };
   try {
-    const history = selectHistoryForAnalysis(getAllHistory(workingDir));
+    const history = getAllHistory(workingDir);
     if (history.length === 0)
       return report;
     report.flakyTests = detectFlakyTests(history);
@@ -49198,7 +49012,7 @@ function analyzeFailures(workingDir) {
   } catch {}
   return report;
 }
-var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, MAX_SAFE_SOURCE_FILES = 1, AGGREGATE_TEST_NAME = "(aggregate)", VITEST_JSON_OUTPUT_RELATIVE_PATH = ".swarm/cache/test-runner-vitest.json", POWERSHELL_METACHARACTERS, DISPATCH_FRAMEWORK_MAP, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
+var MAX_OUTPUT_BYTES3 = 512000, MAX_COMMAND_LENGTH2 = 500, DEFAULT_TIMEOUT_MS = 60000, MAX_TIMEOUT_MS = 300000, MAX_SAFE_TEST_FILES = 50, MAX_SAFE_SOURCE_FILES = 1, POWERSHELL_METACHARACTERS, DISPATCH_FRAMEWORK_MAP, COMPOUND_TEST_EXTENSIONS, TEST_DIRECTORY_NAMES, SOURCE_EXTENSIONS, SKIP_DIRECTORIES, test_runner;
 var init_test_runner = __esm(() => {
   init_zod();
   init_discovery();
@@ -49645,7 +49459,7 @@ var init_test_runner = __esm(() => {
         return JSON.stringify(errorResult, null, 2);
       }
       const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
-      recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined, result.testCases);
+      recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined);
       let historyReport;
       if (!result.success && result.totals && result.totals.failed > 0) {
         historyReport = analyzeFailures(workingDir);
