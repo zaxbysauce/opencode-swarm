@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.26.1",
+    version: "7.26.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -57527,10 +57527,31 @@ function stringHash(str) {
   h2 ^= Math.imul(h1 ^ h1 >>> 13, 3266489909);
   return (4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(16);
 }
+function isInfrastructureFailure(currentResult) {
+  const errorMessage = currentResult.errorMessage || "";
+  const stackPrefix = currentResult.stackPrefix || "";
+  if (/\bassertionerror\b/i.test(errorMessage)) {
+    return false;
+  }
+  const combinedText = `${errorMessage}
+${stackPrefix}`;
+  return INFRASTRUCTURE_FAILURE_PATTERNS.some((pattern) => pattern.test(combinedText));
+}
 function classifyFailure(currentResult, history) {
   const normalizedFile = currentResult.testFile.toLowerCase();
   const normalizedName = currentResult.testName.toLowerCase();
   const testHistory = history.filter((r) => r.testFile.toLowerCase() === normalizedFile && r.testName.toLowerCase() === normalizedName).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+  if (isInfrastructureFailure(currentResult)) {
+    return {
+      testFile: currentResult.testFile,
+      testName: currentResult.testName,
+      classification: "infrastructure_failure",
+      errorMessage: currentResult.errorMessage,
+      stackPrefix: currentResult.stackPrefix,
+      durationMs: currentResult.durationMs,
+      confidence: computeConfidence2(testHistory.length)
+    };
+  }
   const lastThree = testHistory.slice(0, 3);
   const lastTen = testHistory.slice(0, 10);
   const normalizedTestFile = currentResult.testFile.toLowerCase();
@@ -57630,6 +57651,20 @@ function classifyAndCluster(testResults, history) {
   const clusters = clusterFailures(classified);
   return { classified, clusters };
 }
+var MAX_INFRA_CONTEXT_CHARS = 80, INFRASTRUCTURE_FAILURE_PATTERNS;
+var init_failure_classifier = __esm(() => {
+  INFRASTRUCTURE_FAILURE_PATTERNS = [
+    /\boutofmemoryerror\b/i,
+    /(?:^|\n|\bcommand failed:\s*)\s*killed(?:\s*(?:[-:]\s*)?(?:out of memory|oom|by signal|signal|sigkill).*)?\s*(?:\n|$)/i,
+    /(?:^|\n)\s*etimedout\b/i,
+    new RegExp(`\\b(?:connect|connection|request|socket|network)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\betimedout\\b`, "i"),
+    /(?:^|\n)\s*econnrefused\b/i,
+    new RegExp(`\\b(?:connect|connection|socket)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\beconnrefused\\b`, "i"),
+    /(?:^|\n)\s*enotfound\b/i,
+    new RegExp(`\\b(?:getaddrinfo|dns|lookup)\\b[^\\n]{0,${MAX_INFRA_CONTEXT_CHARS}}\\benotfound\\b`, "i"),
+    /\bexit(?:ed)?(?:\s+with)?(?:\s+code)?\s*[:=]?\s*137\b/i
+  ];
+});
 
 // src/test-impact/flaky-detector.ts
 function detectFlakyTests(allHistory) {
@@ -59374,6 +59409,7 @@ var init_test_runner = __esm(() => {
   init_zod();
   init_discovery();
   init_analyzer();
+  init_failure_classifier();
   init_history_store();
   init_bun_compat();
   init_path_security();
@@ -102075,6 +102111,10 @@ var suggestPatch = createSwarmTool({
     }, null, 2);
   }
 });
+
+// src/tools/index.ts
+init_failure_classifier();
+
 // src/tools/generate-mutants.ts
 init_zod();
 
