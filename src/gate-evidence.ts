@@ -113,10 +113,20 @@ function getEvidencePath(directory: string, taskId: string): string {
 	return path.join(getEvidenceDir(directory), `${taskId}.json`);
 }
 
+/**
+ * Shared parse path: raw JSON string → normalized → schema-validated TaskEvidence.
+ * Applies legacy/manual gate normalization so both read paths produce identical results.
+ */
+function parseTaskEvidence(raw: string): TaskEvidence {
+	const parsed = JSON.parse(raw);
+	const normalized = normalizeLegacyTaskEvidence(parsed);
+	return TaskEvidenceSchema.parse(normalized);
+}
+
 function readExisting(evidencePath: string): TaskEvidence | null {
 	try {
 		const raw = readFileSync(evidencePath, 'utf-8');
-		return TaskEvidenceSchema.parse(JSON.parse(raw));
+		return parseTaskEvidence(raw);
 	} catch {
 		return null;
 	}
@@ -127,16 +137,11 @@ function readExisting(evidencePath: string): TaskEvidence | null {
  * structure so status updates don't hard-fail on schema-light gate markers.
  */
 function normalizeLegacyTaskEvidence(parsed: unknown): unknown {
-	if (
-		parsed === null ||
-		typeof parsed !== 'object' ||
-		Array.isArray(parsed)
-	) {
+	if (parsed === null || typeof parsed !== 'object' || Array.isArray(parsed)) {
 		return parsed;
 	}
 	const record = parsed as Record<string, unknown>;
 	if (
-		!Array.isArray(record.required_gates) ||
 		record.gates === null ||
 		typeof record.gates !== 'object' ||
 		Array.isArray(record.gates)
@@ -192,7 +197,7 @@ function normalizeLegacyTaskEvidence(parsed: unknown): unknown {
 				? record.taskId
 				: typeof record.task_id === 'string'
 					? record.task_id
-					: record.taskId,
+					: '',
 		gates: normalizedGates,
 	};
 }
@@ -324,8 +329,7 @@ export function readTaskEvidenceRaw(
 	const evidencePath = getEvidencePath(directory, taskId);
 	try {
 		const raw = readFileSync(evidencePath, 'utf-8');
-		const parsed = JSON.parse(raw);
-		return TaskEvidenceSchema.parse(normalizeLegacyTaskEvidence(parsed));
+		return parseTaskEvidence(raw);
 	} catch (error) {
 		if ((error as NodeJS.ErrnoException).code === 'ENOENT') return null;
 		throw error;
