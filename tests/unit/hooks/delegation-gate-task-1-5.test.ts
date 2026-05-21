@@ -44,6 +44,7 @@ function makeConfig(overrides?: Record<string, unknown>): PluginConfig {
 
 function makeMessages(
 	text: string,
+
 	agent?: string,
 	sessionID = 'test-session',
 ) {
@@ -206,6 +207,334 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			);
 
 			expect(systemMessages[0].parts[0].text).toContain('FAILED');
+		});
+
+		it('directs task completion status update before next work when QA gates finished', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-next-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-next-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+				session.lastGateOutcome = {
+					gate: 'test_engineer',
+					taskId: '1.1',
+					passed: true,
+					timestamp: Date.now(),
+				};
+
+				const messages = makeMessages(
+					'TASK: Continue with next task 1.2\nFILE: src/y.ts',
+					'architect',
+					'completion-next-session',
+				);
+
+				await hook.messagesTransform({}, messages);
+
+				const systemText = messages.messages
+					.filter((m) => m?.info?.role === 'system')
+					.map((m) => m.parts[0].text)
+					.join('\n');
+
+				expect(systemText).toContain('TASK COMPLETION REQUIRED');
+				expect(systemText).toContain('Task 1.1');
+				expect(systemText).toContain('update_task_status');
+				expect(systemText).toContain('before declare_scope or starting another task');
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+	});
+
+	describe('task completion gate before next task work', () => {
+		it('blocks coder delegation for another task after QA gates pass until update_task_status completes current task', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-block-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-block-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'Task',
+							sessionID: 'completion-block-session',
+							callID: 'call-completion-block',
+						},
+						{
+							args: {
+								subagent_type: 'coder',
+								task_id: '1.2',
+								prompt: 'Task 1.2: start the next task',
+							},
+						},
+					),
+				).rejects.toThrow('TASK_COMPLETION_GATE_VIOLATION');
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('blocks declare_scope for another task after QA gates pass until update_task_status completes current task', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-scope-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-scope-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'declare_scope',
+							sessionID: 'completion-scope-session',
+							callID: 'call-completion-scope',
+						},
+						{
+							args: {
+								taskId: '1.2',
+								files: ['src/y.ts'],
+							},
+						},
+					),
+				).rejects.toThrow('TASK_COMPLETION_GATE_VIOLATION');
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('blocks update_task_status(in_progress) for another task after QA gates pass until current task is completed', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-in-progress-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-in-progress-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'update_task_status',
+							sessionID: 'completion-in-progress-session',
+							callID: 'call-completion-in-progress',
+						},
+						{
+							args: {
+								task_id: '1.2',
+								status: 'in_progress',
+							},
+						},
+					),
+				).rejects.toThrow('TASK_COMPLETION_GATE_VIOLATION');
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('allows coder retry for the same tests_run task', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-same-task-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-same-task-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'Task',
+							sessionID: 'completion-same-task-session',
+							callID: 'call-completion-same-task',
+						},
+						{
+							args: {
+								subagent_type: 'coder',
+								task_id: '1.1',
+								prompt: 'Task 1.1: retry the current task',
+							},
+						},
+					),
+				).resolves.toBeUndefined();
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('allows same-task declare_scope while the task is awaiting completion', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-same-scope-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-same-scope-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'declare_scope',
+							sessionID: 'completion-same-scope-session',
+							callID: 'call-completion-same-scope',
+						},
+						{
+							args: {
+								taskId: '1.1',
+								files: ['src/x.ts'],
+							},
+						},
+					),
+				).resolves.toBeUndefined();
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('allows update_task_status(completed) for the awaiting task', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-status-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-status-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'update_task_status',
+							sessionID: 'completion-status-session',
+							callID: 'call-completion-status',
+						},
+						{
+							args: {
+								task_id: '1.1',
+								status: 'completed',
+							},
+						},
+					),
+				).resolves.toBeUndefined();
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('allows same-task retry when task id is parsed from prompt text', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-prompt-task-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'in_progress' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-prompt-task-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'Task',
+							sessionID: 'completion-prompt-task-session',
+							callID: 'call-completion-prompt-task',
+						},
+						{
+							args: {
+								subagent_type: 'coder',
+								prompt: 'Task 1.1: retry the current task',
+							},
+						},
+					),
+				).resolves.toBeUndefined();
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+		});
+
+		it('allows next coder delegation when the prior tests_run task is already completed in the plan', async () => {
+			const tempDir = makeTempProject('delegation-gate-completion-done-plan-');
+			try {
+				writePlanJson(tempDir, {
+					tasks: [
+						{ id: '1.1', status: 'completed' },
+						{ id: '1.2', status: 'pending' },
+					],
+				});
+
+				const config = makeConfig();
+				const hook = createDelegationGateHook(config, tempDir);
+				const session = ensureAgentSession('completion-done-plan-session');
+				session.taskWorkflowStates.set('1.1', 'tests_run');
+
+				await expect(
+					hook.toolBefore(
+						{
+							tool: 'Task',
+							sessionID: 'completion-done-plan-session',
+							callID: 'call-completion-done-plan',
+						},
+						{
+							args: {
+								subagent_type: 'coder',
+								task_id: '1.2',
+								prompt: 'Task 1.2: start the next task',
+							},
+						},
+					),
+				).resolves.toBeUndefined();
+			} finally {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
 		});
 	});
 
