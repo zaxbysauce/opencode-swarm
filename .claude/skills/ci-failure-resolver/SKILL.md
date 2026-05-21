@@ -295,9 +295,20 @@ When CI smoke tests fail with bundle size exceeded errors (e.g., `dist/cli/index
       - Reduces bundle size 30-60% without removing functionality
       - Only affects CLI bundle, not plugin bundle (which needs unminified for debugging)
    
-   b. **Tree-shake unused imports:** Review what the CLI entry point imports. Move heavy utilities out of the CLI-critical path if they're only used by the plugin.
-   
-   c. **Split heavy dependencies:** If a parser or validator is only needed for one command, lazy-load it:
+   b. **Externalize large runtime dependencies** (size reduction without bundling):
+      ```json
+      // package.json
+      "build": "... bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external bash-parser ..."
+      ```
+      - Use `--external <package>` for dependencies that are available at runtime (e.g., `bash-parser`)
+      - The dependency is excluded from the bundle and resolved at runtime via `node_modules`
+      - Most effective when a single large dependency dominates the bundle size increase
+      - Verify the externalized dependency is installed as a production dependency (`dependencies`, not `devDependencies`)
+      - Check that the externalized package's full (un-tree-shaken) footprint is acceptable at runtime — bundler optimizations like tree-shaking and inlining no longer apply to externalized packages
+
+   c. **Tree-shake unused imports:** Review what the CLI entry point imports. Move heavy utilities out of the CLI-critical path if they're only used by the plugin.
+
+   d. **Split heavy dependencies:** If a parser or validator is only needed for one command, lazy-load it:
       ```typescript
       // Instead of: import { heavyParser } from 'heavy-lib';
       // Use: const { heavyParser } = await import('heavy-lib');
@@ -312,7 +323,7 @@ When CI smoke tests fail with bundle size exceeded errors (e.g., `dist/cli/index
 5. **Monitor future regressions:**
    - The smoke test will catch future size increases
    - Consider adding `--analyze` to build scripts for visibility
-   - Document size impact in PRs that add dependencies
+   - Document size impact and any `--external` additions in PRs that add dependencies
 
 **Example from PR #940:**
 Adding `bash-parser` dependency increased CLI bundle from ~1.2MB to ~2.2MB (over 2MB smoke test limit). Fix: added `--minify` to CLI build, reducing bundle to ~1.3MB.
