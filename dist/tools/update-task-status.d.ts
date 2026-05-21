@@ -66,15 +66,19 @@ export declare function checkReviewerGate(taskId: string, workingDirectory?: str
 export declare function checkReviewerGateWithScope(taskId: string, workingDirectory?: string, sessionID?: string): Promise<ReviewerGateResult>;
 /**
  * Recovery mechanism: reconcile task state with delegation history.
- * When reviewer/test_engineer delegations occurred but the state machine
- * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,
- * cross-session gaps, or pure verification tasks without coder delegation),
- * this function walks all delegation chains and advances the task state
- * so that checkReviewerGate can make an accurate decision.
+ * When task-scoped reviewer/test_engineer delegations occurred but the state
+ * machine was not advanced (e.g., toolAfter didn't fire or subagent_type was
+ * missing), this function advances the task state so that checkReviewerGate can
+ * make an accurate decision without attributing unrelated delegation activity.
+ *
+ * Falls back to reading durable evidence files when delegation chains are empty
+ * (e.g., after a crash or session restart without snapshot). This ensures
+ * recovery works even when no in-memory delegation history exists.
  *
  * @param taskId - The task ID to recover state for
+ * @param directory - Optional project directory for evidence file fallback
  */
-export declare function recoverTaskStateFromDelegations(taskId: string): void;
+export declare function recoverTaskStateFromDelegations(taskId: string, directory?: string): void;
 /**
  * Result of the council-gate check used when transitioning to 'completed'.
  *

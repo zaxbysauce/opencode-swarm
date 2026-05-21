@@ -59,6 +59,8 @@ export interface SerializedAgentSession {
     fullAutoLastQuestionHash?: string | null;
     /** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
     sessionRehydratedAt?: number;
+    /** Stage B completion tracking: per-task set of completed Stage B agents. Optional for backward compat with old snapshots. */
+    stageBCompletion?: Record<string, string[]>;
 }
 /**
  * Minimal interface for serialized InvocationWindow

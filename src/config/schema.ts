@@ -1139,6 +1139,12 @@ export const AuthorityConfigSchema = z.object({
 	// Applied before per-agent authority checks and cannot be overridden.
 	// Example: [".env", ".git/config", "secrets/"]
 	universal_deny_prefixes: z.array(z.string().min(1)).default([]),
+	verifier_config_paths: z
+		.array(z.string())
+		.optional()
+		.describe(
+			"Additional glob patterns for verifier config files that are merged into the architect agent's blockedGlobs at plugin init. Writes to matching files are blocked by the authority layer.",
+		),
 });
 
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
@@ -1346,6 +1352,31 @@ export const PluginConfigSchema = z.object({
 			if (v === undefined) return undefined;
 			const trimmed = v.trim();
 			return trimmed === '' ? undefined : trimmed;
+		}),
+
+	// Auto-select architect — controls whether the swarm architect is automatically
+	// chosen instead of OpenCode's built-in agents for new sessions.
+	//
+	// Three modes:
+	//   - `false` (default / omitted): no auto-select — user picks manually.
+	//   - `true`: enable auto-select and disable build/plan built-in agents so
+	//     only swarm architect agents are available.
+	//   - `"<architect_name>"` (e.g. "mega_architect"): same as `true`, but
+	//     targets a specific architect by name when multiple swarms are configured.
+	//
+	// Schema-level rules:
+	//   - Accepts boolean or string via Zod union.
+	//   - Empty / whitespace-only strings are normalized to `false`.
+	//   - Non-empty strings are trimmed.
+	//   - Omitted stays omitted (no `.default(...)` — fully backward compatible).
+	auto_select_architect: z
+		.union([z.boolean(), z.string()])
+		.optional()
+		.transform((v) => {
+			if (v === undefined) return undefined;
+			if (typeof v === 'boolean') return v;
+			const trimmed = v.trim();
+			return trimmed === '' ? false : trimmed;
 		}),
 
 	// Multiple swarms support

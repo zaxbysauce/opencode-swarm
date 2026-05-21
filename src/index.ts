@@ -77,6 +77,10 @@ import { createKnowledgeInjectorHook } from './hooks/knowledge-injector.js';
 import { normalizeToolName } from './hooks/normalize-tool-name';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
+import {
+	skillPropagationGateBefore,
+	skillPropagationTransformScan,
+} from './hooks/skill-propagation-gate.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
@@ -971,11 +975,118 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 		// Configure OpenCode - merge agents into config
 		config: async (opencodeConfig: Record<string, unknown>) => {
+			// Normalize agent config to a plain object if it's absent or a non-object primitive
+			if (!opencodeConfig.agent || typeof opencodeConfig.agent !== 'object') {
+				(opencodeConfig as any).agent = {};
+			}
+
 			// Merge agent configs (don't override default_agent)
 			if (!opencodeConfig.agent) {
 				opencodeConfig.agent = { ...agents };
 			} else {
 				Object.assign(opencodeConfig.agent, agents);
+			}
+
+			// Auto-select architect: disable competing built-in agents when enabled
+			const autoSelect = config?.auto_select_architect;
+			if (autoSelect) {
+				// Check that at least one architect agent exists in the generated set
+				const hasArchitect = Object.keys(agents).some(
+					(name) => stripKnownSwarmPrefix(name) === 'architect',
+				);
+				if (hasArchitect) {
+					// Disable build and plan built-in agents
+					for (const builtin of ['build', 'plan'] as const) {
+						const existing = (opencodeConfig.agent as Record<string, any>)?.[
+							builtin
+						];
+						if (
+							existing &&
+							typeof existing === 'object' &&
+							existing.disable === true
+						) {
+							// User already disabled this agent — respect their override
+							continue;
+						}
+						(opencodeConfig.agent as Record<string, any>)[builtin] = {
+							...(existing && typeof existing === 'object' ? existing : {}),
+							disable: true,
+						};
+					}
+
+					// Warn when boolean true and multiple architects are primary
+					if (autoSelect === true) {
+						const primaryArchitects = Object.entries(agents).filter(
+							([name, cfg]) =>
+								stripKnownSwarmPrefix(name) === 'architect' &&
+								(cfg as any).mode === 'primary',
+						);
+						if (primaryArchitects.length > 1) {
+							const names = primaryArchitects.map(([n]) => n).join(', ');
+							addDeferredWarning(
+								`[swarm] auto_select_architect is true but ${primaryArchitects.length} architect agents are primary (${names}). Consider setting auto_select_architect to a specific agent name.`,
+							);
+						}
+					}
+
+					// When a specific architect name is provided, demote non-matching architects to subagent
+					if (typeof autoSelect === 'string' && autoSelect !== '') {
+						const targetName = autoSelect;
+						// Only proceed if the target is actually an architect-role agent
+						const targetIsArchitect =
+							Object.hasOwn(agents, targetName) &&
+							stripKnownSwarmPrefix(targetName) === 'architect';
+
+						if (targetIsArchitect) {
+							// Demote non-matching architects to subagent
+							for (const [name, cfg] of Object.entries(agents)) {
+								if (
+									stripKnownSwarmPrefix(name) === 'architect' &&
+									name !== targetName
+								) {
+									if (
+										opencodeConfig.agent &&
+										typeof opencodeConfig.agent === 'object'
+									) {
+										(opencodeConfig.agent as Record<string, any>)[name] = {
+											...(cfg && typeof cfg === 'object' ? cfg : {}),
+											mode: 'subagent',
+										};
+									}
+								}
+							}
+							// Promote the target architect to primary
+							if (
+								opencodeConfig.agent &&
+								typeof opencodeConfig.agent === 'object'
+							) {
+								const targetExisting = (
+									opencodeConfig.agent as Record<string, any>
+								)[targetName];
+								(opencodeConfig.agent as Record<string, any>)[targetName] = {
+									...(targetExisting && typeof targetExisting === 'object'
+										? targetExisting
+										: {}),
+									...(agents[targetName] &&
+									typeof agents[targetName] === 'object'
+										? agents[targetName]
+										: {}),
+									mode: 'primary',
+								};
+							}
+						} else {
+							// Target is not a valid architect — warn the user
+							addDeferredWarning(
+								`[swarm] auto_select_architect is set to "${targetName}" but that is not a known architect agent. No architect demotion applied.`,
+							);
+						}
+					}
+				} else {
+					// No architect agents found — warn the user
+					addDeferredWarning(
+						'[swarm] auto_select_architect is enabled but no architect agents were found in the generated set. The option has no effect.',
+					);
+				}
 			}
 
 			// Register /swarm command
@@ -1248,6 +1359,21 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 						return Promise.resolve();
 					}
 				},
+				// v2: scan for skill propagation warnings and compliance tracking
+				(input: unknown, output: unknown): Promise<void> => {
+					try {
+						const p = input as { sessionID?: string };
+						return skillPropagationTransformScan(
+							ctx.directory,
+							output as {
+								messages?: import('./hooks/knowledge-types.js').MessageWithParts[];
+							},
+							p.sessionID,
+						);
+					} catch {
+						return Promise.resolve();
+					}
+				},
 				// Final transformation: consolidate multiple system messages into one
 				(_input: unknown, output: { messages?: unknown[] }): Promise<void> => {
 					if (output.messages) {
@@ -1427,6 +1553,34 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					config.knowledge_application ?? {},
 				),
 			);
+			// 7. Skill propagation gate (soft warning when SKILLS field missing).
+			//    Logs to events.jsonl when architect delegates to skill-capable
+			//    agents without a SKILLS field. Also pushes a visible warning
+			//    to pendingAdvisoryMessages for injection into the architect's
+			//    next prompt. When enforce=true, blocks the delegation entirely.
+			const skillResult = await skillPropagationGateBefore(
+				ctx.directory,
+				{
+					tool: input.tool,
+					agent: input.agent,
+					sessionID: input.sessionID,
+					args: input.args,
+				},
+				{ enabled: true },
+			);
+			if (skillResult.blocked) {
+				throw new Error(
+					skillResult.reason ?? 'Blocked by skill propagation gate',
+				);
+			}
+			if (skillResult.reason) {
+				const skillSession = ensureAgentSession(
+					input.sessionID,
+					swarmState.activeAgent.get(input.sessionID) ?? ORCHESTRATOR_NAME,
+				);
+				skillSession.pendingAdvisoryMessages ??= [];
+				skillSession.pendingAdvisoryMessages.push(skillResult.reason);
+			}
 			// ---------------------------------------------------------------
 
 			// v6.29: One-time 50% context pressure warning

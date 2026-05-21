@@ -39,6 +39,64 @@ import {
 } from '../state';
 import { telemetry } from '../telemetry.js';
 import { log, warn } from '../utils';
+import {
+	detectInteractiveSession,
+	detectPosixWrites,
+	detectWindowsWrites,
+	resolveWriteTargets,
+	type WriteAnalysis,
+} from './shell-write-detect';
+
+/**
+ * Known verifier/linter config file glob patterns for config-zone logging.
+ * Matches patterns from architect's blockedGlobs that represent config files.
+ */
+const KNOWN_VERIFIER_CONFIG_GLOBS = [
+	'**/oxlintrc*',
+	'**/.oxlintrc*',
+	'**/.eslintrc*',
+	'**/eslint.config.*',
+	'**/.prettierrc*',
+	'**/prettier.config.*',
+	'**/biome.jsonc',
+	'**/.secretscanignore',
+	'**/.golangci*',
+] as const;
+
+/**
+ * Checks if a file path is a config file either via zone classification
+ * or by matching known verifier config glob patterns.
+ */
+function isConfigFilePath(
+	filePath: string,
+	cwd: string,
+	extraGlobs?: readonly string[],
+): boolean {
+	const normalized = path
+		.relative(path.resolve(cwd), path.resolve(cwd, filePath))
+		.replace(/\\/g, '/');
+
+	// Check zone classification
+	const { zone } = classifyFile(normalized);
+	if (zone === 'config') {
+		return true;
+	}
+
+	// Check against known verifier config globs
+	const allGlobs =
+		extraGlobs && extraGlobs.length > 0
+			? [...KNOWN_VERIFIER_CONFIG_GLOBS, ...extraGlobs]
+			: KNOWN_VERIFIER_CONFIG_GLOBS;
+	for (const glob of allGlobs) {
+		const matcher = getGlobMatcher(glob);
+		if (matcher(normalized)) {
+			return true;
+		}
+	}
+
+	return false;
+}
+
 import { bunHash } from '../utils/bun-compat';
 import * as logger from '../utils/logger';
 import { resolveAgentConflict } from './conflict-resolution';
@@ -47,6 +105,16 @@ import { extractCurrentPhaseFromPlan } from './extractors';
 import { detectLoop } from './loop-detector';
 import { extractModelInfo } from './model-limits';
 import { normalizeToolName } from './normalize-tool-name';
+
+export const _internals = {
+	getSwarmAgents,
+	getMostRecentAssistantText,
+	getProviderFailureFingerprint,
+	isTransientProviderFailureText,
+	resolveFallbackModel,
+	dcCheckJunctionCreation,
+	extractErrorSignal,
+};
 
 /**
  * Issue #853 Layer B: tools that are structurally blocked while
@@ -234,7 +302,49 @@ function extractErrorSignal(errorContent: unknown): string {
  * Matches: rate limits, overloaded, timeouts, model not found, temporary failures.
  */
 const TRANSIENT_MODEL_ERROR_PATTERN =
-	/rate.?limit|429|500|502|503|504|529|timeout|overloaded|model.?not.?found|temporarily.?unavailable|provider.?unavailable|server.?error|connection.?(refused|reset|timeout|lost)|bad.?gateway|gateway.?timeout|internal.?server.?error|service.?unavailable/i;
+	/rate.?limit|429|500|502|503|504|529|timeout|overloaded|model.?not.?found|temporarily.?unavailable|provider[_\s-]?unavailable|server.?error|network.?connection.?lost|connection.?(refused|reset|timeout|lost)|bad.?gateway|gateway.?timeout|internal.?server.?error|service.?unavailable|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|ENOTFOUND|broken.?pipe|dns(?:[\s_-]+(?:resolution)?)?[\s_-]+fail|name.?not.?resolved|EAI_AGAIN/i;
+
+const TRANSIENT_PROVIDER_RECOVERY_TAG = 'TRANSIENT PROVIDER RECOVERY';
+
+type ChatMessageLike = {
+	info?: { role?: string; sessionID?: string };
+	parts?: Array<{ type?: string; text?: unknown }>;
+};
+
+function getMessageText(message: ChatMessageLike | undefined): string {
+	if (!message?.parts) return '';
+	return message.parts
+		.filter((part) => part?.type === 'text' && typeof part.text === 'string')
+		.map((part) => part.text as string)
+		.join('\n');
+}
+
+function getMostRecentAssistantText(messages: ChatMessageLike[]): string {
+	for (let i = messages.length - 1; i >= 0; i--) {
+		if (messages[i]?.info?.role === 'assistant') {
+			return getMessageText(messages[i]);
+		}
+	}
+	return '';
+}
+
+function isTransientProviderFailureText(text: string): boolean {
+	if (!text.trim()) return false;
+	const providerFailureMarker =
+		/provider[_\s-]?unavailable|network\s+connection\s+lost|ECONNRESET|ECONNREFUSED|ETIMEDOUT|EPIPE|ENOTFOUND|broken.?pipe|dns(?:[\s_-]+(?:resolution)?)?[\s_-]+fail|name.?not.?resolved|EAI_AGAIN|connection\s+reset|connection\s+refused/i.test(
+			text,
+		);
+	if (!providerFailureMarker) return false;
+
+	const status = extractStatusCode(text);
+	const hasTransientStatus =
+		status !== null && TRANSIENT_STATUS_CODES.has(status);
+	return hasTransientStatus || TRANSIENT_MODEL_ERROR_PATTERN.test(text);
+}
+
+function getProviderFailureFingerprint(text: string): string {
+	return String(hashArgs({ providerFailure: text.slice(-4000) }));
+}
 
 /**
  * v7.12: Regex pattern for degraded model errors — context-length/token-limit/content-filter
@@ -1143,6 +1253,21 @@ export function createGuardrailsHooks(
 
 	// Pre-compute effective authority rules once — authorityConfig is immutable after plugin init
 	const precomputedAuthorityRules = buildEffectiveRules(authorityConfig);
+
+	// Merge user-supplied verifier config globs into architect's blockedGlobs for enforcement.
+	// Uses object spread to avoid mutating DEFAULT_AGENT_AUTHORITY_RULES.architect reference.
+	const verifierPaths = authorityConfig?.verifier_config_paths;
+	if (verifierPaths && verifierPaths.length > 0) {
+		const existingArchitect = precomputedAuthorityRules.architect ?? {};
+		precomputedAuthorityRules.architect = {
+			...existingArchitect,
+			blockedGlobs: [
+				...(existingArchitect.blockedGlobs ?? []),
+				...verifierPaths,
+			],
+		};
+	}
+
 	// Global deny prefixes — apply to all agents regardless of per-agent rules
 	const universalDenyPrefixes: string[] =
 		authorityConfig?.universal_deny_prefixes ?? [];
@@ -1558,6 +1683,448 @@ export function createGuardrailsHooks(
 					`BLOCKED: Disk format command (mkfs) detected — disk formatting operation`,
 				);
 			}
+
+			// ----------------------------------------------------------------
+			// 16. POSIX mv targeting .swarm/ paths
+			//    (FR-ADDED-1: mv can bypass rm blocks by relocating files)
+			// ----------------------------------------------------------------
+			// Block when mv has .swarm in ANY argument (source or destination)
+			if (/^\\?mv\s/i.test(seg)) {
+				// Extract arguments after 'mv' command (optional leading backslash for \mv evasion)
+				const mvMatch = seg.match(/^\\?mv\s+(.+)$/i);
+				if (mvMatch) {
+					const argsStr = mvMatch[1];
+					// Check if .swarm appears in the arguments (handles quoted and unquoted paths)
+					// Strip common quote patterns before checking
+					const strippedArgs = argsStr.replace(/["']/g, '');
+					// Match .swarm followed by /, \, whitespace (argument boundary), or end-of-string
+					// to catch both subpath (.swarm/evidence/) and whole-directory (.swarm) targeting
+					if (/\.swarm(?:[\x5c/\s]|$)/.test(strippedArgs)) {
+						throw new Error(
+							`BLOCKED: "mv" targeting .swarm/ detected — move operations under .swarm/ are not allowed from shell commands`,
+						);
+					}
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 17. Windows cmd move/ren targeting .swarm\ paths
+			//    (FR-ADDED-2: move/ren can bypass rm blocks by renaming files)
+			// ----------------------------------------------------------------
+			if (/^\\?(?:move|ren)(?:\.exe)?\s/i.test(seg)) {
+				const moveMatch = seg.match(/^\\?(?:move|ren)(?:\.exe)?\s+(.+)$/i);
+				if (moveMatch) {
+					const argsStr = moveMatch[1].replace(/["']/g, '');
+					if (/\.swarm(?:[\x5c/\s]|$)/i.test(argsStr)) {
+						throw new Error(
+							`BLOCKED: "move" or "ren" targeting .swarm/ detected — move/rename operations under .swarm/ are not allowed from shell commands`,
+						);
+					}
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 18. PowerShell Move-Item/Rename-Item targeting .swarm/ paths
+			//    (FR-ADDED-3: Move-Item/Rename-Item can bypass rm blocks)
+			//    Covers aliases: move, mi, mv (for Move-Item); ren, rni (for Rename-Item)
+			// ----------------------------------------------------------------
+			if (
+				/^\\?(?:Move-Item|Rename-Item|move|mi|mv|ren|rni)\b.*\.swarm(?:[\x5c/\s]|$)/i.test(
+					seg,
+				)
+			) {
+				throw new Error(
+					`BLOCKED: PowerShell Move-Item or Rename-Item targeting .swarm/ detected — move/rename operations under .swarm/ are not allowed from shell commands`,
+				);
+			}
+
+			// ----------------------------------------------------------------
+			// 19. Non-recursive rm targeting .swarm/ paths
+			//    (FR-ADDED-4: rm without -r/-f flags on single files was not blocked)
+			// ----------------------------------------------------------------
+			// Match any rm targeting .swarm/ — but NOT recursive forms (handled by Section 3 above)
+			if (
+				/^\\?rm\b/i.test(seg) &&
+				!/^\\?rm\s+(?:-[a-zA-Z]*[rR][a-zA-Z]*|--recursive)\b/i.test(seg) &&
+				/\.swarm(?:[\x5c/\s]|$)/i.test(seg)
+			) {
+				throw new Error(
+					`BLOCKED: "rm" targeting .swarm/ detected — deleting files under .swarm/ is not allowed from shell commands`,
+				);
+			}
+
+			// ----------------------------------------------------------------
+			// 20. cp + rm chain detection (copy-then-delete bypass)
+			//    (FR-ADDED-5: cp to copy .swarm/ file out, then rm the source)
+			// ----------------------------------------------------------------
+			// Check for cp of .swarm/ file followed by rm of .swarm/ in same segment
+			if (
+				/\bcp\b.*\.swarm(?:[\x5c/\s]|$)/i.test(seg) &&
+				/\brm\b.*\.swarm(?:[\x5c/\s]|$)/i.test(seg)
+			) {
+				throw new Error(
+					`BLOCKED: "cp" of .swarm/ file followed by "rm" of .swarm/ source detected — copy-and-delete bypass is not allowed`,
+				);
+			}
+
+			// ----------------------------------------------------------------
+			// 21. Archive tools with delete-source flags targeting .swarm/
+			//    (FR-ADDED-6: rsync --remove-source-files, tar --remove-files,
+			//     zip -m, 7z -sdel can delete .swarm/ contents)
+			// ----------------------------------------------------------------
+			// rsync --remove-source-files
+			if (
+				/^rsync\b.*--remove-source-files\b/i.test(seg) &&
+				/\.swarm(?:[\x5c/\s]|$)/i.test(seg)
+			) {
+				throw new Error(
+					`BLOCKED: "rsync" with delete-source flag targeting .swarm/ detected — archive with source deletion under .swarm/ is not allowed`,
+				);
+			}
+			// tar --remove-files
+			if (
+				/^tar\b.*--remove-files\b/i.test(seg) &&
+				/\.swarm(?:[\x5c/\s]|$)/i.test(seg)
+			) {
+				throw new Error(
+					`BLOCKED: "tar" with delete-source flag targeting .swarm/ detected — archive with source deletion under .swarm/ is not allowed`,
+				);
+			}
+			// zip -m (move flag)
+			if (/^zip\b.*\s-m\b/i.test(seg) && /\.swarm(?:[\x5c/\s]|$)/i.test(seg)) {
+				throw new Error(
+					`BLOCKED: "zip" with delete-source flag targeting .swarm/ detected — archive with source deletion under .swarm/ is not allowed`,
+				);
+			}
+			// 7z -sdel (delete source files after archiving)
+			if (
+				/^7z\b.*\s-sdel\b/i.test(seg) &&
+				/\.swarm(?:[\x5c/\s]|$)/i.test(seg)
+			) {
+				throw new Error(
+					`BLOCKED: "7z" with delete-source flag targeting .swarm/ detected — archive with source deletion under .swarm/ is not allowed`,
+				);
+			}
+
+			// ----------------------------------------------------------------
+			// 22. git clean -fd and git worktree remove --force (verify .swarm/ coverage)
+			//    (FR-ADDED-7: Already implemented in sections 11 above - patterns
+			//     block ALL git clean -fd and worktree remove --force commands,
+			//     which inherently covers .swarm/ paths. No extension needed.)
+			// ----------------------------------------------------------------
+
+			// ----------------------------------------------------------------
+			// 23. Swarm CLI bypass — human-only `/swarm` subcommands
+			//    (Issue #890: architect self-acknowledged spec drift by
+			//     shelling out to `bunx opencode-swarm run acknowledge-spec-drift`,
+			//     which bypassed the chat-tool refusal and the runtime
+			//     SPEC_DRIFT_BLOCK gate.)
+			//
+			//    These subcommands release human-only safety gates (spec-drift
+			//    acknowledgment, plan reset, rollback, checkpoint
+			//    save/restore/delete). They must be invoked by a human user —
+			//    either via `/swarm <cmd>` inside OpenCode or by typing the
+			//    `bunx opencode-swarm run <cmd>` form into a real terminal.
+			//    They MUST NOT be invoked from the agent's Bash tool.
+			//
+			//    `dcUnwrapWrappers` already strips `bash -c`, `sh -c`,
+			//    `powershell -c`, `cmd /c`, `env VAR=`, `sudo`, etc. before we
+			//    see the segment. We additionally strip three evasions inline
+			//    that `dcStripOneWrapper` does NOT cover: bare env-var prefix
+			//    (`FOO=bar <cmd>`), `eval "..."`, and a leading `(...)`
+			//    subshell.
+			// ----------------------------------------------------------------
+			{
+				const HUMAN_ONLY_SWARM_SUBCOMMANDS = new Set<string>([
+					'acknowledge-spec-drift',
+					'reset',
+					'reset-session',
+					'rollback',
+					'checkpoint',
+				]);
+
+				let probe = seg
+					.replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)+/, '')
+					.replace(/^eval(?:\s+--)?\s+["']?/, '')
+					.replace(/["']\s*$/, '')
+					// Strip `$(`, `(`, or backtick command-substitution wrappers.
+					// Order matters: `$(` before `(` so the dollar sign comes off.
+					.replace(/^\$\(\s*/, '')
+					.replace(/^\(\s*/, '')
+					.replace(/\s*\)$/, '')
+					.replace(/^`/, '')
+					.replace(/`$/, '')
+					.trim();
+
+				// Strip prefixes that re-introduce a runner indirectly. The
+				// `env` wrapper handled by `dcStripOneWrapper` only matches
+				// the `env KEY=VAL` form; this also catches `env -i`,
+				// `env -u <var>`, `env --ignore-environment`, and the POSIX
+				// `command` builtin (which suppresses function lookup but
+				// otherwise execs the next token). Loop because they can stack
+				// (e.g. `command env -i bunx ...`).
+				for (let i = 0; i < 4; i++) {
+					const before = probe;
+					probe = probe
+						// `env -i <cmd>`, `env --ignore-environment <cmd>`, `env -u FOO <cmd>`
+						.replace(
+							/^env\s+(?:-i\b|--ignore-environment\b|-u\s+\S+|-[a-zA-Z]+\s+)*\s*/,
+							'',
+						)
+						// POSIX `command` builtin: `command [-p] [-v] [-V] <cmd>`
+						.replace(/^command\s+(?:-[pvV]\s+)*/, '')
+						// Re-strip env-var-assignment prefix in case a wrapper exposed one
+						.replace(/^(?:[A-Za-z_][A-Za-z0-9_]*=\S+\s+)+/, '')
+						.trim();
+					if (probe === before) break;
+				}
+
+				// Form A: <runner> ... opencode-swarm ... run <subcmd>
+				const swarmCliBypassMatch = probe.match(
+					/^\\?(?:bunx|npx|pnpx|npm(?:\s+(?:exec|x)(?:\s+--)?)?|pnpm(?:\s+(?:dlx|exec))?|yarn(?:\s+(?:dlx|exec))?|bun(?:\s+x)?|node|deno\s+run|tsx|ts-node)\b[^|;&]*?\bopencode-swarm\b[^|;&]*?\brun\s+([A-Za-z0-9_-]+)/i,
+				);
+				if (
+					swarmCliBypassMatch &&
+					HUMAN_ONLY_SWARM_SUBCOMMANDS.has(swarmCliBypassMatch[1])
+				) {
+					throw new Error(
+						`BLOCKED: "${swarmCliBypassMatch[1]}" is a human-only swarm command and may not be invoked from shell by an agent. ` +
+							`Present the situation to the user and ask them to run \`/swarm ${swarmCliBypassMatch[1]}\` themselves.`,
+					);
+				}
+
+				// Form B: bare `opencode-swarm` on PATH (post-install global / local bin).
+				const swarmBareBinMatch = probe.match(
+					/^\\?opencode-swarm\b[^|;&]*?\brun\s+([A-Za-z0-9_-]+)/i,
+				);
+				if (
+					swarmBareBinMatch &&
+					HUMAN_ONLY_SWARM_SUBCOMMANDS.has(swarmBareBinMatch[1])
+				) {
+					throw new Error(
+						`BLOCKED: "${swarmBareBinMatch[1]}" is a human-only swarm command and may not be invoked from shell by an agent. ` +
+							`Present the situation to the user and ask them to run \`/swarm ${swarmBareBinMatch[1]}\` themselves.`,
+					);
+				}
+
+				// Secondary: dist-relative CLI path invocation (pnpm
+				// content-addressed store, symlinked dev installs, custom dist
+				// copies where the literal "opencode-swarm" token does not
+				// appear in argv but `cli/index.[mc]?js` does).
+				const swarmCliPathMatch = probe.match(
+					/\bcli[/\\]+index\.[mc]?(?:js|ts)\b[^|;&]*?\brun\s+([A-Za-z0-9_-]+)/i,
+				);
+				if (
+					swarmCliPathMatch &&
+					HUMAN_ONLY_SWARM_SUBCOMMANDS.has(swarmCliPathMatch[1])
+				) {
+					throw new Error(
+						`BLOCKED: "${swarmCliPathMatch[1]}" is a human-only swarm command and may not be invoked from shell by an agent. ` +
+							`Present the situation to the user and ask them to run \`/swarm ${swarmCliPathMatch[1]}\` themselves.`,
+					);
+				}
+			}
+
+			// ----------------------------------------------------------------
+			// 24. Direct shell manipulation of .swarm/spec-staleness.json
+			//    (Issue #890 deepening: closes the `bun -e fs.unlinkSync(...)`,
+			//     `node -e fs.unlinkSync(...)`, script-file, command-substitution,
+			//     xargs, heredoc, and any other path that mentions the
+			//     staleness file in a shell context. The file is system-managed;
+			//     agents have no legitimate reason to reference it from shell.
+			//     Even READING is uncommon — but only writes/deletes can break
+			//     the gate, so we match on the path token in a destructive
+			//     context. The pre-Section 19 (rm-on-.swarm) and write-tool
+			//     guards already cover the obvious cases; this section closes
+			//     the indirect-tool / script-eval surface.)
+			//
+			//    Pattern: ANY mention of `.swarm/spec-staleness.json` (or the
+			//    Windows-backslash form `.swarm\spec-staleness.json`) in a
+			//    segment that is NOT a pure read (cat/less/more/head/tail).
+			// ----------------------------------------------------------------
+			{
+				// Normalize the segment so path-noise variants
+				// (`.swarm/./spec-staleness.json`, `.swarm//spec-staleness.json`,
+				// Windows backslashes mixed with forward slashes) collapse to the
+				// canonical form before we match. This is a string-level
+				// normalization scoped to detection; we don't rewrite the actual
+				// shell command, only the form we inspect.
+				const normForPathCheck = seg
+					.replace(/\\/g, '/')
+					.replace(/\/(?:\.\/+)+/g, '/')
+					.replace(/\/{2,}/g, '/');
+				if (/\.swarm\/spec-staleness\.json\b/i.test(normForPathCheck)) {
+					const trimmed = seg.trim();
+					const looksReadOnly =
+						/^(?:cat|less|more|head|tail|file|stat|ls|dir|Get-Content|gc|Get-Item|gi|type)\b/i.test(
+							trimmed,
+						);
+					// `cat > file` and `cat >> file` are WRITES via redirection,
+					// not reads. Demote the read-only exemption if a redirect
+					// target appears anywhere in the segment.
+					const hasWriteRedirect = />{1,2}\s*[^\s>]/.test(trimmed);
+					if (!looksReadOnly || hasWriteRedirect) {
+						throw new Error(
+							'BLOCKED: shell command targeting .swarm/spec-staleness.json detected. ' +
+								'This file is system-managed and gates plan-mutating tools while spec drift is unresolved. ' +
+								'Present the drift to the user and ask them to run /swarm clarify or /swarm acknowledge-spec-drift.',
+						);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Detects the shell type from command content for the 'shell' tool.
+	 * Returns 'bash', 'powershell', 'cmd', or 'unix' (default for unknown unix shells).
+	 */
+	function detectShellType(
+		command: string,
+	): 'bash' | 'powershell' | 'cmd' | 'unix' {
+		// PowerShell indicators
+		if (
+			/^(powershell|ps1|\.\s*\\|Remove-Item|Copy-Item|Move-Item|Start-Process|New-Object|Get-ChildItem|Set-Content|Add-Content|Out-File|Invoke-WebRequest|Invoke-RestMethod|IEX|iex)\b/i.test(
+				command,
+			) ||
+			command.includes('$PSVersionTable') ||
+			command.includes('$env:') ||
+			/-EncodedCommand|-ExecutionPolicy|Enable-PSRemoting/i.test(command)
+		) {
+			return 'powershell';
+		}
+
+		// cmd.exe indicators
+		if (
+			/^(cmd|c:\/|set \w+=|\.\d+|del \/|rd \/|mkdir|chdir|echo |copy |move |ren |fc |diskpart)/i.test(
+				command,
+			) ||
+			/%[^%\s]+%/.test(command) ||
+			/\b(set|echo|if|exist)\s+/i.test(command)
+		) {
+			return 'cmd';
+		}
+
+		// bash indicators
+		if (
+			/^(bash|sh|zsh|ksh|ash|dash|fish|ruby|python|perl|npm|yarn|node|cargo|go|rustc|mv|cp|rm|chmod|chown|mkdir|ln|tar|gzip|gunzip|ssh|scp|rsync|sudo|su -|export |source |\.\s+)/i.test(
+				command,
+			) ||
+			command.includes('|') ||
+			command.includes('&&') ||
+			command.includes('>>') ||
+			/\$\{?\w+\}?/.test(command)
+		) {
+			return 'bash';
+		}
+
+		return 'unix';
+	}
+
+	/**
+	 * Checks shell write operations against declared scope.
+	 * Blocks writes outside declared scope, allows read-only commands.
+	 * Fails closed on parse errors.
+	 */
+	function checkShellWriteScope(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): void {
+		// Only check bash and shell tools
+		if (tool !== 'bash' && tool !== 'shell') return;
+
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const command =
+			typeof toolArgs?.command === 'string' ? toolArgs.command.trim() : '';
+
+		if (!command) return;
+
+		// Normalize tool name
+		const normalizedTool = tool;
+
+		// Detect shell type and analyze writes
+		let analysis: WriteAnalysis;
+		let shellType: 'posix' | 'powershell' | 'cmd' | 'unix' | 'bash' = 'posix';
+
+		if (normalizedTool === 'bash') {
+			// bash tool is always POSIX
+			shellType = 'posix';
+		} else {
+			// 'shell' tool — detect actual shell type from command content
+			shellType = detectShellType(command) as
+				| 'posix'
+				| 'powershell'
+				| 'cmd'
+				| 'unix'
+				| 'bash';
+		}
+
+		// Block interactive/session tools regardless of scope — they cannot be bounded safely
+		// 'unix' and 'bash' shell types are treated as 'posix' for interactive session detection
+		const interactiveShellType =
+			shellType === 'unix' || shellType === 'bash' ? 'posix' : shellType;
+		if (detectInteractiveSession(command, interactiveShellType)) {
+			throw new Error(
+				`BLOCKED: interactive/session tool detected — rejecting for safety`,
+			);
+		}
+
+		if (normalizedTool === 'bash') {
+			// bash tool is always POSIX
+			analysis = detectPosixWrites(command);
+		} else {
+			// 'shell' tool — detect actual shell type from command content
+			analysis =
+				shellType === 'powershell' || shellType === 'cmd'
+					? detectWindowsWrites(command, shellType)
+					: detectPosixWrites(command);
+		}
+
+		// Fail closed on parse error — malformed commands must not silently pass through
+		if (analysis.parseError) {
+			throw new Error(
+				`BLOCKED: bash write detection failed to parse command — rejecting for safety`,
+			);
+		}
+
+		// No writes detected — allow the command
+		if (!analysis.hasWrites || analysis.writes.length === 0) return;
+
+		// Resolve declared scope for this session
+		const declaredScope = resolveDeclaredScope(sessionID);
+
+		// If no scope is declared, allow (existing behavior preserved)
+		if (!declaredScope || declaredScope.length === 0) return;
+
+		// Resolve write targets against effective cwd (handles subshell cd changes)
+		const resolvedWrites = resolveWriteTargets(
+			command,
+			analysis.writes,
+			effectiveDirectory,
+		);
+
+		// Check each resolved write target against declared scope
+		for (const write of resolvedWrites) {
+			// null path means we couldn't determine the target statically — fail closed
+			if (write.resolvedPath === null) {
+				throw new Error(
+					`BLOCKED: bash/shell write operation with unresolvable path target — rejecting for safety`,
+				);
+			}
+
+			// Check if the resolved write target is within declared scope
+			if (
+				!isInDeclaredScope(
+					write.resolvedPath,
+					declaredScope,
+					effectiveDirectory,
+				)
+			) {
+				throw new Error(
+					`bash write detected outside declared scope: ${write.resolvedPath} (original: ${write.original.path})`,
+				);
+			}
 		}
 	}
 
@@ -1779,6 +2346,31 @@ export function createGuardrailsHooks(
 						);
 					}
 
+					// Log config file write attempts
+					if (
+						isConfigFilePath(
+							delegTargetPath,
+							cwd,
+							authorityConfig?.verifier_config_paths,
+						)
+					) {
+						const normalizedPath = path
+							.relative(path.resolve(cwd), path.resolve(cwd, delegTargetPath))
+							.replace(/\\/g, '/');
+						const logEntry: Record<string, unknown> = {
+							agent: agentName,
+							path: normalizedPath,
+							allowed: authorityCheck.allowed,
+							type: 'delegated_write',
+						};
+						if (!authorityCheck.allowed && 'reason' in authorityCheck) {
+							logEntry.reason = (
+								authorityCheck as { allowed: false; reason: string }
+							).reason;
+						}
+						warn('Config file write attempt', logEntry);
+					}
+
 					if (
 						!currentSession.modifiedFilesThisCoderTask.includes(delegTargetPath)
 					) {
@@ -1800,6 +2392,28 @@ export function createGuardrailsHooks(
 						precomputedAuthorityRules,
 						{ declaredScope: resolveDeclaredScope(sessionID) },
 					);
+
+					// Log config file write attempts for patches
+					if (
+						isConfigFilePath(p, cwd, authorityConfig?.verifier_config_paths)
+					) {
+						const normalizedPath = path
+							.relative(path.resolve(cwd), path.resolve(cwd, p))
+							.replace(/\\/g, '/');
+						const logEntry: Record<string, unknown> = {
+							agent: agentName,
+							path: normalizedPath,
+							allowed: authorityCheck.allowed,
+							type: 'delegated_patch',
+						};
+						if (!authorityCheck.allowed && 'reason' in authorityCheck) {
+							logEntry.reason = (
+								authorityCheck as { allowed: false; reason: string }
+							).reason;
+						}
+						warn('Config file write attempt', logEntry);
+					}
+
 					if (!authorityCheck.allowed) {
 						throw new Error(
 							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
@@ -1928,14 +2542,66 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * Collects every patch-payload field that an apply_patch / patch tool
+	 * invocation might carry. Issue #890 PR #896 follow-up review #3: a
+	 * single "first-non-null" priority chain (`input ?? patch ?? cmd[1]`)
+	 * lets an attacker put benign content in one field and malicious
+	 * content in another — the scanner reads the decoy and the runtime
+	 * honours the payload. The fix is to inspect every present field.
+	 *
+	 * Returns an array of all string payloads found in args, in stable
+	 * order. Callers should concatenate (or iterate) instead of
+	 * short-circuiting on the first one.
+	 */
+	function extractAllPatchPayloads(args: unknown): string[] {
+		const toolArgs = args as Record<string, unknown> | undefined;
+		if (!toolArgs) return [];
+		const out: string[] = [];
+		for (const key of ['patch', 'input', 'diff'] as const) {
+			const v = toolArgs[key];
+			if (typeof v === 'string' && v.length > 0) out.push(v);
+		}
+		const cmd = toolArgs.cmd;
+		if (Array.isArray(cmd)) {
+			// `cmd[1]` is the documented patch-payload slot, but scan every
+			// string in the array defensively in case a runtime variant
+			// places it elsewhere. Cheap; the array is bounded in practice.
+			for (const entry of cmd) {
+				if (typeof entry === 'string' && entry.length > 0) out.push(entry);
+			}
+		}
+		return out;
+	}
+
+	/**
+	 * Returns true if any of the apply_patch / patch payloads contain an
+	 * invocation of a human-only swarm CLI subcommand. Scans every
+	 * present field (not just the first non-null), so an attacker cannot
+	 * decoy with a benign `patch` and smuggle the real payload via `cmd[1]`.
+	 */
+	function patchPayloadHasHumanOnlyInvocation(args: unknown): boolean {
+		const payloads = extractAllPatchPayloads(args);
+		if (payloads.length === 0) return false;
+		const re =
+			/\bopencode-swarm\b[\s\S]*?\brun\s+(?:acknowledge-spec-drift|reset|reset-session|rollback|checkpoint)\b/i;
+		return payloads.some((p) => re.test(p));
+	}
+
+	/**
 	 * Extracts target file paths from apply_patch / patch tool arguments.
 	 * Returns an empty array for any other tool or unparseable payload.
 	 */
 	function extractPatchTargetPaths(tool: string, args: unknown): string[] {
 		if (tool !== 'apply_patch' && tool !== 'patch') return [];
 		const toolArgs = args as Record<string, unknown> | undefined;
+		// Reviewer of PR #896 noted `diff` was missing from this chain —
+		// add it so diff-only patches still go through path-level checks.
+		// The `cmd[1]` shape and the `input`/`patch` shapes remain
+		// supported in priority order (input first matches the historic
+		// extractor contract).
 		const patchText = (toolArgs?.input ??
 			toolArgs?.patch ??
+			toolArgs?.diff ??
 			(Array.isArray(toolArgs?.cmd) ? toolArgs.cmd[1] : undefined)) as
 			| string
 			| undefined;
@@ -1997,6 +2663,25 @@ export function createGuardrailsHooks(
 			toolArgs?.file ??
 			toolArgs?.target;
 
+		// PR #896 follow-up review #3: scan apply_patch / patch payload
+		// content BEFORE any branching on `targetPath`. Previously the
+		// `if (!targetPath && tool === 'apply_patch')` guard let an
+		// attacker pair a benign `filePath` with a malicious `cmd[1]`
+		// payload — the direct-write branch ran (and only scanned
+		// `args.content/text/...`), missing the patch payload entirely.
+		// Run the scan unconditionally for apply_patch / patch tools, on
+		// every present payload field, so neither `filePath` short-circuit
+		// nor field-priority divergence (decoy in `patch`, real payload in
+		// `cmd[1]`) can bypass it.
+		if (tool === 'apply_patch' || tool === 'patch') {
+			if (patchPayloadHasHumanOnlyInvocation(args)) {
+				throw new Error(
+					'BLOCKED: apply_patch would introduce a script invoking a human-only swarm CLI subcommand. ' +
+						'Present the situation to the user and ask them to run the command themselves.',
+				);
+			}
+		}
+
 		// Plan state protection: block direct writes to .swarm/plan.md and .swarm/plan.json
 		if (typeof targetPath === 'string' && targetPath.length > 0) {
 			const resolvedTarget = path
@@ -2017,9 +2702,50 @@ export function createGuardrailsHooks(
 						'Use phase_complete() for phase transitions only.',
 				);
 			}
+			// Issue #890: spec-staleness marker is system-managed. Direct write
+			// or edit by the architect would let the agent forge a "drift
+			// resolved" state without the user acknowledging. Empty / malformed
+			// JSON also triggers the handler's malformed-file fast path
+			// (acknowledge-spec-drift.ts JSON.parse catch → unlink), so even
+			// rewriting the content unlocks the gate.
+			const specStalenessPath = path
+				.resolve(effectiveDirectory, '.swarm', 'spec-staleness.json')
+				.toLowerCase();
+			if (resolvedTarget === specStalenessPath) {
+				throw new Error(
+					'SPEC_DRIFT_VIOLATION: Direct writes to .swarm/spec-staleness.json are blocked. ' +
+						'This file is system-managed and gates plan-mutating tools while spec drift is unresolved. ' +
+						'Present the drift to the user and ask them to run /swarm clarify or /swarm acknowledge-spec-drift.',
+				);
+			}
+			// Issue #890 script-indirection guard: if the architect writes a
+			// script file whose content invokes a HUMAN_ONLY swarm CLI
+			// subcommand, block the write. The Bash guard inspects shell
+			// commands the host SEES, but `bash tmp.sh` only shows `bash
+			// tmp.sh` — the host cannot read tmp.sh's body once the
+			// subprocess executes. Closing that surface here at write time.
+			const content =
+				toolArgs?.content ??
+				toolArgs?.text ??
+				toolArgs?.new_string ??
+				toolArgs?.newText;
+			if (
+				typeof content === 'string' &&
+				/\bopencode-swarm\b[\s\S]*?\brun\s+(?:acknowledge-spec-drift|reset|reset-session|rollback|checkpoint)\b/i.test(
+					content,
+				)
+			) {
+				throw new Error(
+					'BLOCKED: write/edit tool would create a script invoking a human-only swarm CLI subcommand. ' +
+						'Present the situation to the user and ask them to run the command themselves.',
+				);
+			}
 		}
 
-		// Fallback: apply_patch / patch tools send args as a single diff string
+		// Fallback: apply_patch / patch tools send args as a single diff
+		// string. Note: the script-indirection content scan for human-only
+		// swarm CLI invocations already ran above (unconditionally for
+		// apply_patch/patch) — this loop handles path-level protection only.
 		if (!targetPath && (tool === 'apply_patch' || tool === 'patch')) {
 			for (const p of extractPatchTargetPaths(tool, args)) {
 				const resolvedP = path.resolve(effectiveDirectory, p);
@@ -2028,6 +2754,9 @@ export function createGuardrailsHooks(
 					.toLowerCase();
 				const planJsonPath = path
 					.resolve(effectiveDirectory, '.swarm', 'plan.json')
+					.toLowerCase();
+				const specStalenessPath = path
+					.resolve(effectiveDirectory, '.swarm', 'spec-staleness.json')
 					.toLowerCase();
 				if (
 					resolvedP.toLowerCase() === planMdPath ||
@@ -2039,6 +2768,13 @@ export function createGuardrailsHooks(
 							'Use save_plan for ALL structural plan changes (adding/removing tasks, updating descriptions, dependencies, or phase names). ' +
 							'Use update_task_status() for task status only. ' +
 							'Use phase_complete() for phase transitions only.',
+					);
+				}
+				if (resolvedP.toLowerCase() === specStalenessPath) {
+					throw new Error(
+						'SPEC_DRIFT_VIOLATION: Direct writes to .swarm/spec-staleness.json are blocked. ' +
+							'This file is system-managed and gates plan-mutating tools while spec drift is unresolved. ' +
+							'Present the drift to the user and ask them to run /swarm clarify or /swarm acknowledge-spec-drift.',
 					);
 				}
 				if (
@@ -2235,6 +2971,9 @@ export function createGuardrailsHooks(
 			// Block destructive shell commands (rm -rf, force push, kubectl delete, etc.)
 			checkDestructiveCommand(input.tool, output.args);
 
+			// Shell write scope enforcement: block bash/shell writes outside declared scope
+			checkShellWriteScope(input.sessionID, input.tool, output.args);
+
 			// Issue #853 Layer B: structural spec-drift block.
 			// Refuses plan-mutating tools while .swarm/spec-staleness.json exists.
 			enforceSpecDriftGate(effectiveDirectory, input.tool);
@@ -2310,6 +3049,34 @@ export function createGuardrailsHooks(
 							`WRITE BLOCKED: Agent "${agentName}" is not authorised to write "${targetPath}". Reason: ${authorityCheck.reason}`,
 						);
 					}
+
+					// Log config file write attempts for direct writes
+					if (
+						isConfigFilePath(
+							targetPath,
+							effectiveDirectory,
+							authorityConfig?.verifier_config_paths,
+						)
+					) {
+						const normalizedPath = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, targetPath),
+							)
+							.replace(/\\/g, '/');
+						const logEntry: Record<string, unknown> = {
+							agent: agentName,
+							path: normalizedPath,
+							allowed: authorityCheck.allowed,
+							type: 'direct_write',
+						};
+						if (!authorityCheck.allowed && 'reason' in authorityCheck) {
+							logEntry.reason = (
+								authorityCheck as { allowed: false; reason: string }
+							).reason;
+						}
+						warn('Config file write attempt', logEntry);
+					}
 				}
 			}
 
@@ -2364,23 +3131,55 @@ export function createGuardrailsHooks(
 							`WRITE BLOCKED: Agent "${patchAgentName}" is not authorised to write "${p}" (via patch). Reason: ${authorityCheck.reason}`,
 						);
 					}
+
+					// Log config file write attempts for direct patches
+					if (
+						isConfigFilePath(
+							p,
+							effectiveDirectory,
+							authorityConfig?.verifier_config_paths,
+						)
+					) {
+						const normalizedPath = path
+							.relative(
+								path.resolve(effectiveDirectory),
+								path.resolve(effectiveDirectory, p),
+							)
+							.replace(/\\/g, '/');
+						const logEntry: Record<string, unknown> = {
+							agent: patchAgentName,
+							path: normalizedPath,
+							allowed: authorityCheck.allowed,
+							type: 'direct_patch',
+						};
+						if (!authorityCheck.allowed && 'reason' in authorityCheck) {
+							logEntry.reason = (
+								authorityCheck as { allowed: false; reason: string }
+							).reason;
+						}
+						warn('Config file write attempt', logEntry);
+					}
 				}
 			}
 
+			// Resolve session — returns null if architect or native-agent exempt
+			const resolved = resolveSessionAndWindow(input.sessionID);
+			if (!resolved) return;
+
 			// v6.29: PRM hard stop — blocks all tool execution when escalation level 3 is reached.
-			// Check before resolveSessionAndWindow so it fires even for architect sessions.
+			// Placed AFTER resolveSessionAndWindow so that architect sessions and native OpenCode
+			// agents (build, plan, general, explore, etc.) are exempted before this check fires.
+			// The delegationActive guard provides defense-in-depth: only swarm-delegated subagent
+			// sessions (where delegationActive=true) will hit this hard stop. Fixes #942.
+
 			{
 				const prmSession = swarmState.agentSessions.get(input.sessionID);
-				if (prmSession?.prmHardStopPending) {
+				if (prmSession?.prmHardStopPending && prmSession.delegationActive) {
 					throw new Error(
 						'🛑 PRM HARD STOP: Pattern escalation maximum reached. Stop tool calls and return progress summary.',
 					);
 				}
 			}
-
-			// Resolve session — returns null if architect-exempt
-			const resolved = resolveSessionAndWindow(input.sessionID);
-			if (!resolved) return;
 
 			const { agentConfig, window } = resolved;
 			const { repetitionCount, elapsedMinutes } = trackToolCall(
@@ -2666,11 +3465,12 @@ export function createGuardrailsHooks(
 
 				const isTransientMatch =
 					isTransientStatusCode || isTransientPatternMatch;
+				const maxTransientRetries = cfg.max_transient_retries ?? 5;
 
 				const isTransient =
 					!!session &&
 					isTransientMatch &&
-					window.transientRetryCount < cfg.max_transient_retries;
+					window.transientRetryCount < maxTransientRetries;
 
 				// Degraded errors (context-length, token-limit) bypass both counters
 				const isDegraded =
@@ -2690,7 +3490,7 @@ export function createGuardrailsHooks(
 						const baseAgentName = session.agentName
 							? session.agentName.replace(/^[^_]+[_]/, '')
 							: '';
-						const swarmAgents = getSwarmAgents();
+						const swarmAgents = _internals.getSwarmAgents();
 						const fallbackModels =
 							swarmAgents?.[baseAgentName]?.fallback_models;
 						session.modelFallbackExhausted =
@@ -2727,6 +3527,8 @@ export function createGuardrailsHooks(
 					window.consecutiveErrors++;
 				}
 
+				let modelFallbackAdvisoryEmitted = false;
+
 				// v6.33: Model fallback detection for transient model failures
 				// Only check for subagent sessions (not architect)
 				if (
@@ -2742,14 +3544,14 @@ export function createGuardrailsHooks(
 					const baseAgentName = session.agentName
 						? session.agentName.replace(/^[^_]+[_]/, '')
 						: '';
-					const swarmAgents = getSwarmAgents();
+					const swarmAgents = _internals.getSwarmAgents();
 					const fallbackModels = swarmAgents?.[baseAgentName]?.fallback_models;
 					// Mark exhausted only when all fallback models have been tried
 					session.modelFallbackExhausted =
 						!fallbackModels ||
 						session.model_fallback_index > fallbackModels.length;
 
-					const fallbackModel = resolveFallbackModel(
+					const fallbackModel = _internals.resolveFallbackModel(
 						baseAgentName,
 						session.model_fallback_index,
 						swarmAgents,
@@ -2770,6 +3572,7 @@ export function createGuardrailsHooks(
 							`MODEL FALLBACK: Applied fallback model "${fallbackModel}" (attempt ${session.model_fallback_index}). ` +
 								`Using /swarm handoff to reset to primary model.`,
 						);
+						modelFallbackAdvisoryEmitted = true;
 					} else {
 						// No fallback configured — generic advisory
 						session.pendingAdvisoryMessages ??= [];
@@ -2778,6 +3581,7 @@ export function createGuardrailsHooks(
 								`No fallback models configured for this agent. Add "fallback_models": ["model-a", "model-b"] ` +
 								`to the agent's config in opencode-swarm.json.`,
 						);
+						modelFallbackAdvisoryEmitted = true;
 					}
 
 					// Always emit telemetry when a transient model error is detected
@@ -2798,16 +3602,23 @@ export function createGuardrailsHooks(
 
 				// Advisory for transient errors that didn't trigger model fallback
 				// (fallback exhausted or no fallback configured)
-				if (session && isTransient && isTransientMatch) {
+				if (
+					session &&
+					isTransient &&
+					isTransientMatch &&
+					!modelFallbackAdvisoryEmitted
+				) {
 					session.pendingAdvisoryMessages ??= [];
 					// Only emit if no TRANSIENT ERROR advisory already exists (dedup via .some)
 					if (
-						!session.pendingAdvisoryMessages.some((m: string) =>
-							m.startsWith('TRANSIENT ERROR:'),
+						!session.pendingAdvisoryMessages.some(
+							(m: string) =>
+								m.startsWith('TRANSIENT ERROR:') ||
+								m.startsWith('MODEL FALLBACK:'),
 						)
 					) {
 						session.pendingAdvisoryMessages.push(
-							`TRANSIENT ERROR: Provider error detected (attempt ${window.transientRetryCount}/${cfg.max_transient_retries ?? 5}). Retrying...`,
+							`TRANSIENT ERROR: Provider error detected (attempt ${window.transientRetryCount}/${maxTransientRetries}). Retrying...`,
 						);
 					}
 				}
@@ -2886,6 +3697,37 @@ export function createGuardrailsHooks(
 			);
 
 			// v6.35.1: Runaway output detector — catch models streaming without tool calls
+			if (isArchitectSession && session) {
+				const lastAssistantText = getMostRecentAssistantText(
+					messages as ChatMessageLike[],
+				);
+				if (isTransientProviderFailureText(lastAssistantText)) {
+					const fingerprint = getProviderFailureFingerprint(lastAssistantText);
+					session.pendingAdvisoryMessages ??= [];
+					const alreadyPending = session.pendingAdvisoryMessages.some(
+						(message: string) =>
+							message.startsWith(TRANSIENT_PROVIDER_RECOVERY_TAG),
+					);
+					const alreadyInjected = systemMessages.some((message) =>
+						getMessageText(message as ChatMessageLike).includes(
+							TRANSIENT_PROVIDER_RECOVERY_TAG,
+						),
+					);
+					if (
+						session.lastProviderRecoveryFingerprint !== fingerprint &&
+						!alreadyPending &&
+						!alreadyInjected
+					) {
+						session.pendingAdvisoryMessages.push(
+							`${TRANSIENT_PROVIDER_RECOVERY_TAG}: The previous Architect response appears to have been interrupted by a transient provider/network error. On this turn, continue from the last stable step, inspect current repo or plan state if needed, and keep working instead of treating the interrupted response as task completion.`,
+						);
+						session.lastProviderRecoveryFingerprint = fingerprint;
+					}
+				} else {
+					session.lastProviderRecoveryFingerprint = undefined;
+				}
+			}
+
 			// Uses module-level consecutiveNoToolTurns Map for state across calls
 			if (isArchitectSession) {
 				// Find the last assistant message in conversation
@@ -3027,8 +3869,36 @@ export function createGuardrailsHooks(
 				session &&
 				(session.pendingAdvisoryMessages?.length ?? 0) > 0
 			) {
-				// Non-architect sessions never inject advisories, but must still drain
-				// the queue to prevent unbounded accumulation in long-lived coder sessions.
+				const allAdvisories = session.pendingAdvisoryMessages ?? [];
+				const TRANSIENT_PREFIXES = [
+					'TRANSIENT ERROR:',
+					'MODEL FALLBACK:',
+					'DEGRADED:',
+				];
+				const transientAdvisories = allAdvisories.filter((m: string) =>
+					TRANSIENT_PREFIXES.some((p) => m.startsWith(p)),
+				);
+				if (transientAdvisories.length > 0) {
+					let targetMsg = systemMessages[0];
+					if (!targetMsg) {
+						const newMsg = {
+							info: { role: 'system' as const },
+							parts: [{ type: 'text' as const, text: '' }],
+						};
+						messages.unshift(newMsg);
+						targetMsg = newMsg;
+					}
+					const textPart = (targetMsg.parts ?? []).find(
+						(part): part is { type: string; text: string } =>
+							part.type === 'text' && typeof part.text === 'string',
+					);
+					if (textPart) {
+						const joined = transientAdvisories.join('\n---\n');
+						textPart.text = `[ADVISORIES]\n${joined}\n[/ADVISORIES]\n\n${textPart.text}`;
+					}
+				}
+				// Drain all advisories — transient ones were injected above,
+				// non-transient ones are discarded to prevent noise in subagent sessions.
 				session.pendingAdvisoryMessages = [];
 			}
 
@@ -3607,7 +4477,21 @@ export const DEFAULT_AGENT_AUTHORITY_RULES: Record<string, AgentRule> = {
 
 	architect: {
 		blockedExact: ['.swarm/plan.md', '.swarm/plan.json'],
-		blockedZones: ['generated'],
+		// v7.x (#894): block config zone so architect cannot bypass lint gates
+		// by editing config files (biome.json, eslintrc, tsconfig, etc.)
+		// instead of fixing the underlying source code.
+		blockedZones: ['generated', 'config'],
+		blockedGlobs: [
+			'**/oxlintrc*',
+			'**/.oxlintrc*',
+			'**/.eslintrc*',
+			'**/eslint.config.*',
+			'**/.prettierrc*',
+			'**/prettier.config.*',
+			'**/biome.jsonc',
+			'**/.secretscanignore',
+			'**/.golangci*',
+		],
 	},
 	coder: {
 		blockedPrefix: ['.swarm/'],
@@ -3733,11 +4617,11 @@ function buildEffectiveRules(
 	authorityConfig?: AuthorityConfig,
 ): Record<string, AgentRule> {
 	if (authorityConfig?.enabled === false || !authorityConfig?.rules) {
-		return DEFAULT_AGENT_AUTHORITY_RULES;
+		return { ...DEFAULT_AGENT_AUTHORITY_RULES };
 	}
 	const entries = Object.entries(authorityConfig.rules);
 	if (entries.length === 0) {
-		return DEFAULT_AGENT_AUTHORITY_RULES; // fast path: no allocation
+		return { ...DEFAULT_AGENT_AUTHORITY_RULES }; // shallow copy so caller can mutate safely
 	}
 	const merged: Record<string, AgentRule> = {
 		...DEFAULT_AGENT_AUTHORITY_RULES,

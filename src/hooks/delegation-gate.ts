@@ -9,17 +9,20 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 
 import type { PluginConfig } from '../config';
+import type { Phase, Plan, Task } from '../config/plan-schema';
 import { stripKnownSwarmPrefix } from '../config/schema';
 import {
 	routeReviewForChanges,
 	shouldParallelizeReview,
 } from '../parallel/review-router.js';
+import { loadPlanJsonOnly } from '../plan/manager';
 import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
 	advanceTaskStateAndPersist,
 	ensureAgentSession,
 	getTaskState,
+	hasActiveLeanTurbo,
 	hasActiveTurboMode,
 	hasBothStageBCompletions,
 	isCouncilGateActive,
@@ -349,6 +352,129 @@ function extractPlanTaskId(text: string): string | null {
  */
 function getSeedTaskId(session: AgentSessionState): string | null {
 	return session.currentTaskId ?? session.lastCoderDelegationTaskId;
+}
+
+/**
+ * Returns all task IDs from session.taskWorkflowStates in eligible states for
+ * evidence recording. Includes post-advancement states because state machine
+ * advancement runs BEFORE evidence recording in both the stored-args and
+ * fallback paths.
+ *
+ * Batch-review contract (#929): one reviewer/test_engineer delegation covers
+ * all eligible tasks in the session, matching the state machine's batch
+ * advancement behavior. Evidence must be recorded for the same set.
+ */
+function getEligibleTaskIdsForEvidence(session: AgentSessionState): string[] {
+	if (
+		!session.taskWorkflowStates ||
+		!(session.taskWorkflowStates instanceof Map)
+	) {
+		return [];
+	}
+	const eligible: string[] = [];
+	const eligibleStates = new Set([
+		'coder_delegated',
+		'pre_check_passed',
+		'reviewer_run',
+		'tests_run',
+	]);
+	for (const [taskId, state] of session.taskWorkflowStates) {
+		if (eligibleStates.has(state)) {
+			eligible.push(taskId);
+		}
+	}
+	return eligible;
+}
+
+const ACTIVE_PARALLEL_TASK_STATES = new Set([
+	'coder_delegated',
+	'pre_check_passed',
+	'reviewer_run',
+	'tests_run',
+]);
+
+function isTaskCompletedForParallelGuidance(task: Task): boolean {
+	const status = task.status ?? 'pending';
+	return status === 'completed' || status === 'closed';
+}
+
+async function buildParallelExecutionGuidance(
+	directory: string | undefined,
+	sessionID: string,
+	session: AgentSessionState,
+): Promise<string | null> {
+	if (!directory) return null;
+
+	const plan: Plan | null = await loadPlanJsonOnly(directory);
+	if (!plan) {
+		return null;
+	}
+
+	const profile = plan.execution_profile;
+	const enabled = profile?.parallelization_enabled === true;
+	const maxConcurrent = profile?.max_concurrent_tasks ?? 1;
+	if (!enabled || maxConcurrent <= 1) return null;
+
+	if (hasActiveLeanTurbo(sessionID)) {
+		return '[NEXT] Lean Turbo is active; use lean_turbo_run_phase and Lean Turbo lane guidance instead of standard execution-profile slot filling.';
+	}
+
+	const currentPhase =
+		plan.current_phase !== undefined
+			? plan.phases.find((phase) => phase.id === plan.current_phase)
+			: plan.phases.find((phase) => !isParallelGuidancePhaseComplete(phase));
+	if (!currentPhase) return null;
+
+	const tasks = currentPhase.tasks;
+	if (tasks.length === 0) return null;
+
+	const allTasks = plan.phases.flatMap((phase) => phase.tasks);
+	const completed = new Set<string>();
+	for (const task of allTasks) {
+		const taskId = task.id;
+		if (isTaskCompletedForParallelGuidance(task)) completed.add(taskId);
+		if (getTaskState(session, taskId) === 'complete') completed.add(taskId);
+	}
+
+	// max_concurrent_tasks is a plan-level budget, so active work in earlier or
+	// later phases still occupies a standard execution slot.
+	const occupied = new Set<string>();
+	for (const task of allTasks) {
+		const taskId = task.id;
+		if (task.status === 'in_progress') occupied.add(taskId);
+		const state = getTaskState(session, taskId);
+		if (ACTIVE_PARALLEL_TASK_STATES.has(state)) occupied.add(taskId);
+	}
+
+	const availableSlots = Math.max(0, maxConcurrent - occupied.size);
+	if (availableSlots <= 0) {
+		return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; all standard execution slots are occupied. Continue current active task gates before starting more coder work.`;
+	}
+
+	const eligible = tasks
+		.filter((task) => {
+			const taskId = task.id;
+			const status = task.status ?? 'pending';
+			if (status !== 'pending') return false;
+			if (occupied.has(taskId)) return false;
+			return task.depends.every((dep) => completed.has(dep));
+		})
+		.map((task) => task.id)
+		.slice(0, availableSlots);
+
+	if (eligible.length === 0) {
+		return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; no dependency-ready pending tasks are available for a new coder slot. Continue the current task/gate.`;
+	}
+
+	return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; ${occupied.size} slot(s) occupied. Eligible now: ${eligible.join(', ')}. [NEXT] dispatch up to ${availableSlots} eligible coder task(s) before waiting; preserve ONE task per coder call and call declare_scope for each task.`;
+}
+
+function isParallelGuidancePhaseComplete(phase: Phase): boolean {
+	return (
+		phase.status === 'complete' ||
+		phase.status === 'completed' ||
+		phase.status === 'closed'
+	);
 }
 
 /**
@@ -896,44 +1022,77 @@ export function createDelegationGateHook(
 			// v6.33.7: Entire block wrapped in try-catch — getEvidenceTaskId can
 			// re-throw unexpected errors (EPERM, EBUSY on Windows) which previously
 			// escaped outside the evidence try-catch and propagated to safeHook.
+			// #929: Record for ALL eligible tasks, not just one. Mirrors state machine
+			// advancement which advances all eligible tasks when a gate agent completes.
+			// Uses Promise.allSettled for parallel per-task writes (independent lock files).
 			if (typeof subagentType === 'string') {
 				try {
 					const rawTaskId = directArgs?.task_id;
-					const evidenceTaskId =
+					const turbo = hasActiveTurboMode(input.sessionID);
+					const gateAgents = [
+						'reviewer',
+						'test_engineer',
+						'docs',
+						'designer',
+						'critic',
+						'explorer',
+						'sme',
+					];
+					const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
+
+					// When task_id is explicit and valid, record for that task only.
+					// When absent, record for all eligible tasks (batch-review contract #929).
+					let taskIds: string[];
+					if (
 						typeof rawTaskId === 'string' &&
 						rawTaskId.length <= 20 &&
 						isStrictTaskId(rawTaskId.trim())
-							? rawTaskId.trim()
-							: await getEvidenceTaskId(session, directory);
-					if (evidenceTaskId) {
-						const turbo = hasActiveTurboMode(input.sessionID);
-						const gateAgents = [
-							'reviewer',
-							'test_engineer',
-							'docs',
-							'designer',
-							'critic',
-							'explorer',
-							'sme',
-						];
-						const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
+					) {
+						taskIds = [rawTaskId.trim()];
+					} else {
+						const allEligible = getEligibleTaskIdsForEvidence(session);
+						if (allEligible.length > 0) {
+							taskIds = allEligible;
+						} else {
+							const fallback = await getEvidenceTaskId(session, directory);
+							taskIds = fallback ? [fallback] : [];
+						}
+					}
+
+					if (taskIds.length > 0) {
+						let settled: PromiseSettledResult<void>[];
 						if (gateAgents.includes(targetAgentForEvidence)) {
 							const { recordGateEvidence } = await import('../gate-evidence');
-							await recordGateEvidence(
-								directory,
-								evidenceTaskId,
-								targetAgentForEvidence,
-								input.sessionID,
-								turbo,
+							settled = await Promise.allSettled(
+								taskIds.map((tid) =>
+									recordGateEvidence(
+										directory,
+										tid,
+										targetAgentForEvidence,
+										input.sessionID,
+										turbo,
+									),
+								),
 							);
 						} else {
 							const { recordAgentDispatch } = await import('../gate-evidence');
-							await recordAgentDispatch(
-								directory,
-								evidenceTaskId,
-								targetAgentForEvidence,
-								turbo,
+							settled = await Promise.allSettled(
+								taskIds.map((tid) =>
+									recordAgentDispatch(
+										directory,
+										tid,
+										targetAgentForEvidence,
+										turbo,
+									),
+								),
 							);
+						}
+						for (const r of settled) {
+							if (r.status === 'rejected') {
+								console.warn(
+									`[delegation-gate] evidence recording failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`,
+								);
+							}
 						}
 					}
 				} catch (err) {
@@ -1094,36 +1253,60 @@ export function createDelegationGateHook(
 				}
 
 				// Record gate evidence for delegation-chain fallback path
-				// v6.33.7: Entire block wrapped in try-catch (same fix as stored-args path)
+				// #929: Record for ALL eligible tasks (same fix as stored-args path).
 				try {
 					const rawTaskId = directArgs?.task_id;
-					const evidenceTaskId =
+					let taskIds: string[];
+					if (
 						typeof rawTaskId === 'string' &&
 						rawTaskId.length <= 20 &&
 						isStrictTaskId(rawTaskId.trim())
-							? rawTaskId.trim()
-							: await getEvidenceTaskId(session, directory);
-					if (evidenceTaskId) {
-						const turbo = hasActiveTurboMode(input.sessionID);
-						if (hasReviewer) {
-							const { recordGateEvidence } = await import('../gate-evidence');
-							await recordGateEvidence(
-								directory,
-								evidenceTaskId,
-								'reviewer',
-								input.sessionID,
-								turbo,
-							);
+					) {
+						taskIds = [rawTaskId.trim()];
+					} else {
+						const allEligible = getEligibleTaskIdsForEvidence(session);
+						if (allEligible.length > 0) {
+							taskIds = allEligible;
+						} else {
+							const fallback = await getEvidenceTaskId(session, directory);
+							taskIds = fallback ? [fallback] : [];
 						}
-						if (hasTestEngineer) {
-							const { recordGateEvidence } = await import('../gate-evidence');
-							await recordGateEvidence(
-								directory,
-								evidenceTaskId,
-								'test_engineer',
-								input.sessionID,
-								turbo,
-							);
+					}
+					if (taskIds.length > 0) {
+						const turbo = hasActiveTurboMode(input.sessionID);
+						const promises: Promise<void>[] = [];
+						const { recordGateEvidence } = await import('../gate-evidence');
+						for (const tid of taskIds) {
+							if (hasReviewer) {
+								promises.push(
+									recordGateEvidence(
+										directory,
+										tid,
+										'reviewer',
+										input.sessionID,
+										turbo,
+									),
+								);
+							}
+							if (hasTestEngineer) {
+								promises.push(
+									recordGateEvidence(
+										directory,
+										tid,
+										'test_engineer',
+										input.sessionID,
+										turbo,
+									),
+								);
+							}
+						}
+						const settled = await Promise.allSettled(promises);
+						for (const r of settled) {
+							if (r.status === 'rejected') {
+								console.warn(
+									`[delegation-gate] fallback evidence recording failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`,
+								);
+							}
 						}
 					}
 				} catch (err) {
@@ -1350,6 +1533,11 @@ export function createDelegationGateHook(
 							deliberationSessionID,
 						);
 						const lastGate = deliberationSession.lastGateOutcome;
+						const parallelGuidance = await buildParallelExecutionGuidance(
+							directory,
+							deliberationSessionID,
+							deliberationSession,
+						);
 						let guidance: string;
 						if (lastGate?.taskId) {
 							const gateResult = lastGate.passed ? 'PASSED' : 'FAILED';
@@ -1370,11 +1558,15 @@ export function createDelegationGateHook(
 								.replace(/[\r\n]/g, ' ')
 								.slice(0, 32);
 							// Concise [NEXT] directive with last-gate status
-							guidance = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n[NEXT] Execute the next gate for the current task.`;
+							guidance = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n${
+								parallelGuidance ??
+								'[NEXT] Execute the next gate for the current task.'
+							}`;
 						} else {
 							// Concise [NEXT] directive to begin first plan task
 							// Also handles case where lastGate exists but taskId is missing
 							guidance =
+								parallelGuidance ??
 								'[NEXT] Begin the first plan task and run gates sequentially.';
 						}
 

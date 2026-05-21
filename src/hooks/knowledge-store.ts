@@ -145,6 +145,30 @@ export function normalizeEntry<T>(raw: T): T {
 				typeof ro.failed_after_count === 'number' ? ro.failed_after_count : 0;
 		}
 	}
+	// Backfill encounter_score for entries created before this field existed.
+	// Legacy hive entries may lack encounter_score; default to 0 per spec FR-002.
+	// try/catch guards against throwing getters (prototype pollution edge case).
+	try {
+		if (
+			typeof obj.encounter_score !== 'number' ||
+			Number.isNaN(obj.encounter_score)
+		) {
+			obj.encounter_score = 0;
+		}
+	} catch {
+		// Throwing getter or Proxy trap — define own property directly
+		// to bypass setter semantics on poisoned accessors
+		try {
+			Object.defineProperty(obj, 'encounter_score', {
+				value: 0,
+				writable: true,
+				configurable: true,
+				enumerable: true,
+			});
+		} catch {
+			// Completely frozen/sealed object — nothing we can do
+		}
+	}
 	// Ensure actionable arrays are at least undefined-or-array (never wrong type).
 	const arrayFields: Array<keyof ActionableDirectiveFields> = [
 		'triggers',

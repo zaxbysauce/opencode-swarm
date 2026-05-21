@@ -641,6 +641,7 @@ export declare const AuthorityConfigSchema: z.ZodObject<{
         allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
     universal_deny_prefixes: z.ZodDefault<z.ZodArray<z.ZodString>>;
+    verifier_config_paths: z.ZodOptional<z.ZodArray<z.ZodString>>;
 }, z.core.$strip>;
 export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 export declare const GeneralCouncilConfigSchema: z.ZodObject<{
@@ -827,6 +828,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
         fallback_models: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>>;
     default_agent: z.ZodPipe<z.ZodOptional<z.ZodString>, z.ZodTransform<string | undefined, string | undefined>>;
+    auto_select_architect: z.ZodPipe<z.ZodOptional<z.ZodUnion<readonly [z.ZodBoolean, z.ZodString]>>, z.ZodTransform<string | boolean | undefined, string | boolean | undefined>>;
     swarms: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
         name: z.ZodOptional<z.ZodString>;
         agents: z.ZodOptional<z.ZodRecord<z.ZodString, z.ZodObject<{
@@ -1005,6 +1007,7 @@ export declare const PluginConfigSchema: z.ZodObject<{
             allowedGlobs: z.ZodOptional<z.ZodArray<z.ZodString>>;
         }, z.core.$strip>>>;
         universal_deny_prefixes: z.ZodDefault<z.ZodArray<z.ZodString>>;
+        verifier_config_paths: z.ZodOptional<z.ZodArray<z.ZodString>>;
     }, z.core.$strip>>;
     plan_cursor: z.ZodOptional<z.ZodObject<{
         enabled: z.ZodDefault<z.ZodBoolean>;

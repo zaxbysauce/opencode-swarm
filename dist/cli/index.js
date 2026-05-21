@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.19.3",
+    version: "7.26.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -90,7 +90,7 @@ var init_package = __esm(() => {
     ],
     scripts: {
       clean: `bun -e "require('fs').rmSync('dist',{recursive:true,force:true})"`,
-      build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
+      build: "bun run clean && bun run scripts/copy-grammars.ts && bun build src/index.ts --outdir dist --target node --format esm --external bash-parser && bun build src/cli/index.ts --outdir dist/cli --target bun --format esm --external bash-parser && bun run scripts/copy-grammars.ts --to-dist && tsc --emitDeclarationOnly",
       typecheck: "tsc --noEmit",
       test: "bun test",
       lint: "biome lint .",
@@ -104,6 +104,7 @@ var init_package = __esm(() => {
       "@opencode-ai/plugin": "^1.1.53",
       "@opencode-ai/sdk": "^1.1.53",
       "@vscode/tree-sitter-wasm": "^0.3.0",
+      "bash-parser": "^0.5.0",
       "p-limit": "^7.3.0",
       picomatch: "^4.0.4",
       "proper-lockfile": "^4.1.2",
@@ -16061,7 +16062,7 @@ var init_manager = __esm(() => {
 
 // src/commands/acknowledge-spec-drift.ts
 import { promises as fsPromises3 } from "fs";
-async function handleAcknowledgeSpecDriftCommand(directory, _args) {
+async function handleAcknowledgeSpecDriftCommand(directory, _args, acknowledgedBy = "unknown") {
   const specStalenessPath = validateSwarmPath(directory, "spec-staleness.json");
   let stalenessContent;
   try {
@@ -16102,7 +16103,7 @@ async function handleAcknowledgeSpecDriftCommand(directory, _args) {
     timestamp: new Date().toISOString(),
     phase,
     planTitle,
-    acknowledgedBy: "architect",
+    acknowledgedBy,
     previousHash: stalenessData.specHash_plan,
     newHash: currentHash
   };
@@ -17396,7 +17397,8 @@ var init_schema = __esm(() => {
   AuthorityConfigSchema = exports_external.object({
     enabled: exports_external.boolean().default(true),
     rules: exports_external.record(exports_external.string(), AgentAuthorityRuleSchema).default({}),
-    universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([])
+    universal_deny_prefixes: exports_external.array(exports_external.string().min(1)).default([]),
+    verifier_config_paths: exports_external.array(exports_external.string()).optional().describe("Additional glob patterns for verifier config files that are merged into the architect agent's blockedGlobs at plugin init. Writes to matching files are blocked by the authority layer.")
   });
   GeneralCouncilMemberConfigSchema = exports_external.object({
     memberId: exports_external.string().min(1),
@@ -17471,6 +17473,14 @@ var init_schema = __esm(() => {
         return;
       const trimmed = v.trim();
       return trimmed === "" ? undefined : trimmed;
+    }),
+    auto_select_architect: exports_external.union([exports_external.boolean(), exports_external.string()]).optional().transform((v) => {
+      if (v === undefined)
+        return;
+      if (typeof v === "boolean")
+        return v;
+      const trimmed = v.trim();
+      return trimmed === "" ? false : trimmed;
     }),
     swarms: exports_external.record(exports_external.string(), SwarmConfigSchema).optional(),
     max_iterations: exports_external.number().min(1).max(10).default(5),
@@ -20903,6 +20913,73 @@ var init_scope_persistence = __esm(() => {
   ]);
 });
 
+// src/hooks/shell-write-detect.ts
+import parse5 from "bash-parser";
+var REDIRECT_WRITE_TOKENS, REDIRECT_HERE_TOKENS, REDIRECT_ALL_WRITE_TOKENS, BUILTIN_WRITE_COMMANDS, INPLACE_EDIT_COMMANDS, INTERPRETER_EVAL_COMMANDS, NETWORK_DOWNLOAD_COMMANDS, ARCHIVE_EXTRACT_COMMANDS, PS_WRITE_CMDLETS, PS_WRITE_ALIASES, CMD_WRITE_BUILTINS;
+var init_shell_write_detect = __esm(() => {
+  REDIRECT_WRITE_TOKENS = new Set([
+    "GREAT",
+    "DGREAT",
+    "CLOBBER",
+    "LESSGREAT"
+  ]);
+  REDIRECT_HERE_TOKENS = new Set(["DLESS", "DLESSDASH"]);
+  REDIRECT_ALL_WRITE_TOKENS = new Set([
+    ...REDIRECT_WRITE_TOKENS,
+    ...REDIRECT_HERE_TOKENS
+  ]);
+  BUILTIN_WRITE_COMMANDS = new Set([
+    "cp",
+    "mv",
+    "install",
+    "ln",
+    "truncate"
+  ]);
+  INPLACE_EDIT_COMMANDS = new Set(["sed", "perl", "awk"]);
+  INTERPRETER_EVAL_COMMANDS = new Set([
+    "python",
+    "python3",
+    "python2",
+    "node",
+    "bun",
+    "ruby",
+    "perl",
+    "php"
+  ]);
+  NETWORK_DOWNLOAD_COMMANDS = new Set(["curl", "wget", "scp"]);
+  ARCHIVE_EXTRACT_COMMANDS = new Set([
+    "tar",
+    "unzip",
+    "gunzip",
+    "gzip",
+    "bzip2",
+    "xz",
+    "7z",
+    "rar"
+  ]);
+  PS_WRITE_CMDLETS = new Set([
+    "Out-File",
+    "Set-Content",
+    "Add-Content",
+    "Clear-Content",
+    "Copy-Item",
+    "Move-Item",
+    "Remove-Item",
+    "Invoke-WebRequest",
+    "Start-Process"
+  ]);
+  PS_WRITE_ALIASES = new Set(["echo", "write"]);
+  CMD_WRITE_BUILTINS = new Set([
+    "copy",
+    "move",
+    "type",
+    "del",
+    "rd",
+    "md",
+    "ren"
+  ]);
+});
+
 // src/hooks/conflict-resolution.ts
 var init_conflict_resolution = __esm(() => {
   init_state();
@@ -20977,6 +21054,7 @@ var init_guardrails = __esm(() => {
   init_state();
   init_telemetry();
   init_utils();
+  init_shell_write_detect();
   init_bun_compat();
   init_logger();
   init_conflict_resolution();
@@ -21032,9 +21110,10 @@ var init_guardrails = __esm(() => {
 function clearPendingCoderScope() {
   pendingCoderScopeByTaskId.clear();
 }
-var pendingCoderScopeByTaskId;
+var pendingCoderScopeByTaskId, ACTIVE_PARALLEL_TASK_STATES;
 var init_delegation_gate = __esm(() => {
   init_schema();
+  init_manager();
   init_state();
   init_telemetry();
   init_logger();
@@ -21043,6 +21122,12 @@ var init_delegation_gate = __esm(() => {
   init_normalize_tool_name();
   init_utils2();
   pendingCoderScopeByTaskId = new Map;
+  ACTIVE_PARALLEL_TASK_STATES = new Set([
+    "coder_delegated",
+    "pre_check_passed",
+    "reviewer_run",
+    "tests_run"
+  ]);
 });
 
 // src/state/agent-run-context.ts
@@ -22372,7 +22457,7 @@ var _parse2 = (_Err) => (schema, value, _ctx, _params) => {
     throw e;
   }
   return result.value;
-}, parse5, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
+}, parse6, _parseAsync2 = (_Err) => async (schema, value, _ctx, params) => {
   const ctx = _ctx ? Object.assign(_ctx, { async: true }) : { async: true };
   let result = schema._zod.run({ value, issues: [] }, ctx);
   if (result instanceof Promise)
@@ -22427,7 +22512,7 @@ var init_parse3 = __esm(() => {
   init_core3();
   init_errors4();
   init_util2();
-  parse5 = /* @__PURE__ */ _parse2($ZodRealError2);
+  parse6 = /* @__PURE__ */ _parse2($ZodRealError2);
   parseAsync3 = /* @__PURE__ */ _parseAsync2($ZodRealError2);
   safeParse3 = /* @__PURE__ */ _safeParse2($ZodRealError2);
   safeParseAsync3 = /* @__PURE__ */ _safeParseAsync2($ZodRealError2);
@@ -24917,10 +25002,10 @@ var init_schemas3 = __esm(() => {
         throw new Error("implement() must be called with a function");
       }
       return function(...args) {
-        const parsedArgs = inst._def.input ? parse5(inst._def.input, args) : args;
+        const parsedArgs = inst._def.input ? parse6(inst._def.input, args) : args;
         const result = Reflect.apply(func, this, parsedArgs);
         if (inst._def.output) {
-          return parse5(inst._def.output, result);
+          return parse6(inst._def.output, result);
         }
         return result;
       };
@@ -32496,7 +32581,7 @@ __export(exports_core4, {
   regexes: () => exports_regexes2,
   prettifyError: () => prettifyError2,
   parseAsync: () => parseAsync3,
-  parse: () => parse5,
+  parse: () => parse6,
   locales: () => exports_locales2,
   isValidJWT: () => isValidJWT2,
   isValidBase64URL: () => isValidBase64URL2,
@@ -32849,11 +32934,11 @@ var init_errors5 = __esm(() => {
 });
 
 // node_modules/@opencode-ai/plugin/node_modules/zod/v4/classic/parse.js
-var parse7, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
+var parse8, parseAsync4, safeParse4, safeParseAsync4, encode4, decode4, encodeAsync4, decodeAsync4, safeEncode4, safeDecode4, safeEncodeAsync4, safeDecodeAsync4;
 var init_parse4 = __esm(() => {
   init_core4();
   init_errors5();
-  parse7 = /* @__PURE__ */ _parse2(ZodRealError2);
+  parse8 = /* @__PURE__ */ _parse2(ZodRealError2);
   parseAsync4 = /* @__PURE__ */ _parseAsync2(ZodRealError2);
   safeParse4 = /* @__PURE__ */ _safeParse2(ZodRealError2);
   safeParseAsync4 = /* @__PURE__ */ _safeParseAsync2(ZodRealError2);
@@ -33325,7 +33410,7 @@ var init_schemas4 = __esm(() => {
       reg.add(inst, meta3);
       return inst;
     };
-    inst.parse = (data, params) => parse7(inst, data, params, { callee: inst.parse });
+    inst.parse = (data, params) => parse8(inst, data, params, { callee: inst.parse });
     inst.safeParse = (data, params) => safeParse4(inst, data, params);
     inst.parseAsync = async (data, params) => parseAsync4(inst, data, params, { callee: inst.parseAsync });
     inst.safeParseAsync = async (data, params) => safeParseAsync4(inst, data, params);
@@ -33965,7 +34050,7 @@ __export(exports_external2, {
   pipe: () => pipe2,
   partialRecord: () => partialRecord2,
   parseAsync: () => parseAsync4,
-  parse: () => parse7,
+  parse: () => parse8,
   overwrite: () => _overwrite2,
   optional: () => optional2,
   object: () => object2,
@@ -34294,6 +34379,14 @@ function gitExec(args) {
   }
   return result.stdout;
 }
+function appendRetentionEvent(directory, event) {
+  try {
+    const eventsPath = path9.join(directory, ".swarm", "events.jsonl");
+    const line = `${JSON.stringify({ ...event, timestamp: new Date().toISOString() })}
+`;
+    fs6.appendFileSync(eventsPath, line);
+  } catch {}
+}
 function getCurrentSha() {
   const output = gitExec(["rev-parse", "HEAD"]);
   return output.trim();
@@ -34345,6 +34438,17 @@ function handleSave(label, directory) {
       sha: newSha,
       timestamp
     });
+    if (log2.checkpoints.length > maxCheckpoints) {
+      const evicted = log2.checkpoints.splice(0, log2.checkpoints.length - maxCheckpoints);
+      try {
+        appendRetentionEvent(directory, {
+          event: "checkpoint_retention_applied",
+          evicted_labels: evicted.map((e) => e.label),
+          evicted_count: evicted.length,
+          remaining_count: log2.checkpoints.length
+        });
+      } catch {}
+    }
     writeCheckpointLog(log2, directory);
     return JSON.stringify({
       action: "save",
@@ -35250,6 +35354,20 @@ function normalizeEntry(raw) {
       ro.failed_after_shown_count = typeof ro.failed_after_count === "number" ? ro.failed_after_count : 0;
     }
   }
+  try {
+    if (typeof obj.encounter_score !== "number" || Number.isNaN(obj.encounter_score)) {
+      obj.encounter_score = 0;
+    }
+  } catch {
+    try {
+      Object.defineProperty(obj, "encounter_score", {
+        value: 0,
+        writable: true,
+        configurable: true,
+        enumerable: true
+      });
+    } catch {}
+  }
   const arrayFields = [
     "triggers",
     "required_actions",
@@ -35809,12 +35927,26 @@ import path12 from "path";
 function isAlreadyInHive(entry, hiveEntries, threshold) {
   return findNearDuplicate(entry.lesson, hiveEntries, threshold) !== undefined;
 }
-function countDistinctPhases(confirmedBy) {
+function isHiveEligible(entry, autoPromoteDays) {
   const phaseNumbers = new Set;
-  for (const record3 of confirmedBy) {
-    phaseNumbers.add(record3.phase_number);
+  for (const record3 of entry.confirmed_by ?? []) {
+    if (record3 && typeof record3.phase_number === "number") {
+      phaseNumbers.add(record3.phase_number);
+    }
   }
-  return phaseNumbers.size;
+  if (entry.hive_eligible === true && phaseNumbers.size >= 3) {
+    return true;
+  }
+  if ((entry.tags ?? []).includes("hive-fast-track")) {
+    return true;
+  }
+  const createdMs = Date.parse(entry.created_at);
+  const ageMs = Number.isFinite(createdMs) ? Date.now() - createdMs : 0;
+  const ageThresholdMs = autoPromoteDays * 86400000;
+  if (ageMs >= ageThresholdMs) {
+    return true;
+  }
+  return false;
 }
 function countDistinctProjects(confirmedBy) {
   const projectNames = new Set;
@@ -35831,12 +35963,6 @@ function calculateEncounterScore(currentScore, isSameProject, config3) {
   const increment = config3.encounter_increment * weight;
   const newScore = currentScore + increment;
   return Math.min(Math.max(newScore, config3.min_encounter_score), config3.max_encounter_score);
-}
-function getEntryAgeMs(createdAt) {
-  const createdTime = new Date(createdAt).getTime();
-  if (Number.isNaN(createdTime))
-    return 0;
-  return Date.now() - createdTime;
 }
 async function checkHivePromotions(swarmEntries, config3) {
   let newPromotions = 0;
@@ -35856,19 +35982,7 @@ async function checkHivePromotions(swarmEntries, config3) {
     if (isAlreadyInHive(swarmEntry, hiveEntries, config3.dedup_threshold)) {
       continue;
     }
-    let shouldPromote = false;
-    if (swarmEntry.hive_eligible === true && countDistinctPhases(swarmEntry.confirmed_by) >= 3) {
-      shouldPromote = true;
-    }
-    if (swarmEntry.tags.includes("hive-fast-track")) {
-      shouldPromote = true;
-    }
-    const ageMs = getEntryAgeMs(swarmEntry.created_at);
-    const ageThresholdMs = config3.auto_promote_days * 86400000;
-    if (ageMs >= ageThresholdMs) {
-      shouldPromote = true;
-    }
-    if (!shouldPromote) {
+    if (!isHiveEligible(swarmEntry, config3.auto_promote_days)) {
       continue;
     }
     const validationResult = validateLesson(swarmEntry.lesson, hiveEntries.map((e) => e.lesson), {
@@ -37786,12 +37900,14 @@ async function handleCloseCommand(directory, args, options = {}) {
   if (planExists) {
     planAlreadyDone = phases.length > 0 && phases.every((p) => p.status === "complete" || p.status === "completed" || p.status === "blocked" || p.status === "closed");
   }
-  const config3 = KnowledgeConfigSchema.parse({});
+  const { config: loadedConfig } = loadPluginConfigWithMeta(directory);
+  const config3 = KnowledgeConfigSchema.parse(loadedConfig.knowledge ?? {});
   const projectName = planData.title ?? "Unknown Project";
   const closedPhases = [];
   const closedTasks = [];
   const warnings = [];
   let hivePromoted = 0;
+  let hiveSkipped = 0;
   if (!planAlreadyDone) {
     for (const phase of inProgressPhases) {
       closedPhases.push(phase.id);
@@ -37914,23 +38030,35 @@ async function handleCloseCommand(directory, args, options = {}) {
     await fs7.unlink(lessonsFilePath).catch(() => {});
   }
   if (curationSucceeded) {
-    try {
-      const knowledgePath = resolveSwarmKnowledgePath(directory);
-      const entries = await readKnowledge(knowledgePath);
-      if (entries.length > 0) {
-        for (const entry of entries) {
-          try {
-            await promoteToHive(directory, entry.lesson, entry.category);
-            hivePromoted++;
-          } catch (promotionErr) {
-            const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
-            warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+    if (config3.hive_enabled === false) {} else {
+      try {
+        const knowledgePath = resolveSwarmKnowledgePath(directory);
+        const entries = await readKnowledge(knowledgePath);
+        const autoPromoteDays = config3.auto_promote_days;
+        if (entries.length > 0) {
+          for (const entry of entries) {
+            if (!isHiveEligible(entry, autoPromoteDays)) {
+              hiveSkipped++;
+              continue;
+            }
+            try {
+              const result = await promoteToHive(directory, entry.lesson, entry.category);
+              if (!result.includes("already exists")) {
+                hivePromoted++;
+              }
+            } catch (promotionErr) {
+              const msg = promotionErr instanceof Error ? promotionErr.message : String(promotionErr);
+              warnings.push(`Hive promotion skipped for lesson: ${msg}`);
+            }
+          }
+          if (hiveSkipped > 0) {
+            warnings.push(`${hiveSkipped} swarm knowledge entr${hiveSkipped === 1 ? "y" : "ies"} not eligible for hive promotion`);
           }
         }
+      } catch (hiveErr) {
+        const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
+        warnings.push(`Hive promotion failed: ${msg}`);
       }
-    } catch (hiveErr) {
-      const msg = hiveErr instanceof Error ? hiveErr.message : String(hiveErr);
-      warnings.push(`Hive promotion failed: ${msg}`);
     }
   }
   const fallbackKnowledgeCreated = curationResult?.stored ?? 0;
@@ -37947,8 +38075,8 @@ async function handleCloseCommand(directory, args, options = {}) {
   let skillReviewSummary = "";
   if (runSkillReview) {
     try {
-      const { config: loadedConfig } = loadPluginConfigWithMeta(directory);
-      const skillImproverConfig = SkillImproverConfigSchema.parse(loadedConfig.skill_improver ?? {});
+      const { config: loadedConfig2 } = loadPluginConfigWithMeta(directory);
+      const skillImproverConfig = SkillImproverConfigSchema.parse(loadedConfig2.skill_improver ?? {});
       const skillReviewResult = await runAbortableSkillReview({
         directory,
         config: skillImproverConfig,
@@ -38313,7 +38441,6 @@ var init_close = __esm(() => {
     "handoff-prompt.md",
     "handoff-consumed.md",
     "escalation-report.md",
-    "knowledge.jsonl",
     "knowledge-rejected.jsonl",
     "repo-graph.json",
     "doc-manifest.json",
@@ -43449,7 +43576,7 @@ var init_handoff_service = __esm(() => {
 });
 
 // src/session/snapshot-writer.ts
-import { mkdirSync as mkdirSync10, renameSync as renameSync6 } from "fs";
+import { closeSync as closeSync3, fsyncSync as fsyncSync2, mkdirSync as mkdirSync10, openSync as openSync3, renameSync as renameSync6 } from "fs";
 import * as path27 from "path";
 function serializeAgentSession(s) {
   const gateLog = {};
@@ -43466,6 +43593,12 @@ function serializeAgentSession(s) {
   const catastrophicPhaseWarnings = Array.from(s.catastrophicPhaseWarnings ?? new Set);
   const phaseAgentsDispatched = Array.from(s.phaseAgentsDispatched ?? new Set);
   const lastCompletedPhaseAgentsDispatched = Array.from(s.lastCompletedPhaseAgentsDispatched ?? new Set);
+  const stageBCompletion = {};
+  if (s.stageBCompletion) {
+    for (const [taskId, agents] of s.stageBCompletion) {
+      stageBCompletion[taskId] = Array.from(agents);
+    }
+  }
   const windows = {};
   const rawWindows = s.windows ?? {};
   for (const [key, win] of Object.entries(rawWindows)) {
@@ -43522,7 +43655,8 @@ function serializeAgentSession(s) {
     fullAutoInteractionCount: s.fullAutoInteractionCount ?? 0,
     fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
     fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
-    sessionRehydratedAt: s.sessionRehydratedAt ?? 0
+    sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+    ...Object.keys(stageBCompletion).length > 0 && { stageBCompletion }
   };
 }
 async function writeSnapshot(directory, state) {
@@ -43544,6 +43678,14 @@ async function writeSnapshot(directory, state) {
     mkdirSync10(dir, { recursive: true });
     const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
     await bunWrite(tempPath, content);
+    try {
+      const fd = openSync3(tempPath, "r+");
+      try {
+        fsyncSync2(fd);
+      } finally {
+        closeSync3(fd);
+      }
+    } catch {}
     renameSync6(tempPath, resolvedPath);
   } catch (error93) {
     log("[snapshot-writer] write failed", {
@@ -52049,7 +52191,8 @@ async function executeSwarmCommand(args) {
           directory,
           args: resolved.remainingArgs,
           sessionID,
-          agents
+          agents,
+          source: "chat"
         });
       } catch (_err) {
         const cmdName = tokens[0] || "unknown";
@@ -52081,6 +52224,12 @@ function classifySwarmCommandToolUse(resolved) {
   const canonicalKey = canonicalCommandKey(resolved);
   const args = resolved.remainingArgs;
   if (!SWARM_COMMAND_TOOL_ALLOWLIST.has(canonicalKey)) {
+    if (HUMAN_ONLY_SWARM_COMMANDS.has(canonicalKey)) {
+      return {
+        allowed: false,
+        message: `/swarm ${canonicalKey} is a human-only command. ` + `Present the situation to the user and ask them to run \`/swarm ${canonicalKey}\` themselves ` + `(or \`bunx opencode-swarm run ${canonicalKey}\` from a terminal). ` + `You MUST NOT run it yourself via Bash, swarm_command, or any other tool \u2014 ` + `the runtime guardrail will block such attempts.`
+      };
+    }
     return {
       allowed: false,
       message: `/swarm ${canonicalKey} is not available through the chat tool yet.
@@ -52170,7 +52319,7 @@ function classifySwarmCommandChatFallbackUse(resolved) {
   }
   return { allowed: true };
 }
-var SWARM_COMMAND_TOOL_COMMANDS, SWARM_COMMAND_TOOL_ALLOWLIST, NO_ARGS, SUMMARY_ID_PATTERN, TASK_ID_PATTERN;
+var SWARM_COMMAND_TOOL_COMMANDS, SWARM_COMMAND_TOOL_ALLOWLIST, HUMAN_ONLY_SWARM_COMMANDS, NO_ARGS, SUMMARY_ID_PATTERN, TASK_ID_PATTERN;
 var init_tool_policy = __esm(() => {
   init_command_dispatch();
   SWARM_COMMAND_TOOL_COMMANDS = [
@@ -52215,6 +52364,13 @@ var init_tool_policy = __esm(() => {
     "knowledge",
     "sync-plan",
     "export"
+  ]);
+  HUMAN_ONLY_SWARM_COMMANDS = new Set([
+    "acknowledge-spec-drift",
+    "reset",
+    "reset-session",
+    "rollback",
+    "checkpoint"
   ]);
   NO_ARGS = new Set([
     "agents",
@@ -52773,7 +52929,7 @@ var init_registry = __esm(() => {
   init_write_retro2();
   COMMAND_REGISTRY = {
     "acknowledge-spec-drift": {
-      handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args),
+      handler: (ctx) => handleAcknowledgeSpecDriftCommand(ctx.directory, ctx.args, ctx.source === "cli" ? "cli" : ctx.source === "chat" ? "user" : "unknown"),
       description: "Acknowledge that the spec has drifted from the plan and suppress further warnings",
       args: "",
       category: "diagnostics"
@@ -53619,7 +53775,8 @@ Valid commands: ${VALID_COMMANDS.join(", ")}`);
     directory: cwd,
     args: resolved.remainingArgs,
     sessionID: "",
-    agents: {}
+    agents: {},
+    source: "cli"
   });
   console.log(result);
   return 0;

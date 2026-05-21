@@ -104,6 +104,58 @@ Intentionally skipped on Windows (async child process handles cause EBUSY):
 - `tests/unit/tools/pre-check-batch-secretscan-evidence.test.ts`
 - `tests/unit/tools/pre-check-batch.test.ts`
 
+### Lifecycle Hook Placement (bun:test)
+
+**CRITICAL: `afterEach` called inside a `test()` body registers on the enclosing `describe`, NOT the current test.**
+
+In bun:test (and Jest-style test frameworks), lifecycle hooks (`beforeEach`, `afterEach`) are scoped to the `describe` block they appear in. Calling `afterEach()` inside a `test()` body does NOT create a per-test cleanup — it registers a hook on the enclosing `describe` that runs after **every** test in that describe block. This causes:
+
+1. **Cleanup running at wrong time** — the hook fires after all tests, not after the test that registered it
+2. **State bleed between tests** — mock state isn't restored between individual tests
+3. **Double cleanup** — if multiple tests register `afterEach`, they all run after every test
+
+**Correct pattern:**
+```typescript
+// ✅ CORRECT — beforeEach/afterEach at describe level
+describe('validateProjectRoot guard', () => {
+  let savedValidate: typeof analyzerInternals.validateProjectRoot;
+  
+  beforeEach(() => {
+    savedValidate = analyzerInternals.validateProjectRoot;
+  });
+  
+  afterEach(() => {
+    analyzerInternals.validateProjectRoot = savedValidate;
+  });
+  
+  test('throws when path escapes project root', () => {
+    analyzerInternals.validateProjectRoot = () => { throw new Error('escapes'); };
+    // ... test ...
+    // cleanup happens automatically via describe-level afterEach
+  });
+});
+```
+
+**Incorrect pattern:**
+```typescript
+// ❌ WRONG — afterEach inside test() registers on describe, not test
+describe('validateProjectRoot guard', () => {
+  test('throws when path escapes project root', () => {
+    const savedValidate = analyzerInternals.validateProjectRoot;
+    analyzerInternals.validateProjectRoot = () => { throw new Error('escapes'); };
+    
+    // This afterEach registers on the describe, not this test!
+    afterEach(() => {
+      analyzerInternals.validateProjectRoot = savedValidate;
+    });
+    // ... test ...
+    // cleanup may run after OTHER tests, not this one
+  });
+});
+```
+
+**Rule:** Always place `beforeEach` and `afterEach` at the `describe` level, never inside `test()` bodies.
+
 4. **Never create circular mock imports.** This pattern deadlocks Bun:
 ```typescript
 // BROKEN — imports from the module it's about to mock
@@ -127,7 +179,56 @@ mock.module('../../../src/utils/path-security', () => ({
 
 ## Two-Tier Mock Convention
 
-The codebase uses a two-tier strategy for mock isolation:
+The codebase uses a two-tier strategy for mock isolation, plus a zero-mock testing pattern:
+
+### Tier 0: _test_exports Pure Function Testing (Zero Mocks)
+
+When a module contains internal utility functions (formatters, normalizers, transformers) that don't need external dependencies, export them via a `_test_exports` object for direct unit testing. This avoids `mock.module` entirely and produces tests that are deterministic, fast, and immune to Bun's cross-file mock leakage:
+
+```typescript
+// In source file (src/tools/formatter.ts)
+function formatEntry(entry: SomeType): string {
+  // internal implementation — may use optional chaining, defaults, etc.
+  return entry.score?.toFixed(2) ?? 'N/A';
+}
+
+// Public API (tool handler, command handler, etc.)
+export function handleQuery(ctx: Context) {
+  const entries = readData(ctx);
+  return entries.map(formatEntry);
+}
+
+// Export seam for testing — only used by test files
+export const _test_exports = { formatEntry };
+```
+
+```typescript
+// In test file (tests/unit/tools/formatter.test.ts)
+import { _test_exports } from '../../../src/tools/formatter';
+
+const { formatEntry } = _test_exports;
+
+describe('formatEntry', () => {
+  test('handles missing score', () => {
+    expect(formatEntry({ score: undefined })).toBe('N/A');
+  });
+  test('formats numeric score', () => {
+    expect(formatEntry({ score: 0.85 })).toBe('0.85');
+  });
+});
+```
+
+**When to use Tier 0 vs Tier 1:**
+- **Tier 0 (`_test_exports`)**: The function is a pure utility (formatter, normalizer, transformer) that doesn't call external modules. No mocking needed — test it directly.
+- **Tier 1 (`_internals`)**: You need to mock a function within the same module to test the caller in isolation. The function has side effects or calls external APIs.
+- **Tier 2 (`mock.module`)**: You need to mock a dependency from another module (Node built-ins, other application modules).
+
+**Benefits of Tier 0:**
+- Zero mock pollution — no `mock.module` calls, no `mock.restore()` needed
+- Works in batch test runs without per-file isolation
+- Type-safe (the exported object carries the real TypeScript types)
+- No filesystem dependencies (no tmpDir, no chdir, no existsSync)
+- Deterministic on all platforms and CI environments
 
 ### Tier 1: _internals DI Seams (Within-Module)
 

@@ -22,6 +22,7 @@ import {
 	hasActiveLeanTurbo,
 	hasActiveTurboMode,
 	hasBothStageBCompletions,
+	startAgentSession,
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry.js';
@@ -130,6 +131,23 @@ function matchesTier3Pattern(files: string[]): boolean {
 	return false;
 }
 
+function hasPassedDurableGateEvidence(
+	workingDirectory: string,
+	taskId: string,
+): boolean {
+	const evidence = readTaskEvidenceRaw(workingDirectory, taskId);
+	if (
+		!evidence ||
+		!Array.isArray(evidence.required_gates) ||
+		evidence.required_gates.length === 0
+	) {
+		return false;
+	}
+	return evidence.required_gates.every(
+		(gate) => evidence.gates?.[gate] != null,
+	);
+}
+
 /**
  * Check if a task has passed required QA gates using the state machine.
  * Requires the task to be in 'tests_run' or 'complete' state, which means
@@ -232,10 +250,12 @@ export function checkReviewerGate(
 				Array.isArray(evidence.required_gates) &&
 				evidence.gates
 			) {
-				const allGatesMet = evidence.required_gates.every(
-					(gate: string) => evidence.gates![gate] != null,
-				);
-				if (allGatesMet) {
+				if (
+					evidence.required_gates.length > 0 &&
+					evidence.required_gates.every(
+						(gate: string) => evidence.gates![gate] != null,
+					)
+				) {
 					return { blocked: false, reason: '' };
 				}
 				// Evidence file shows incomplete gates — save the reason and fall through to
@@ -246,10 +266,12 @@ export function checkReviewerGate(
 					(gate: string) => evidence.gates![gate] == null,
 				);
 				evidenceIncompleteReason =
-					`Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
-					`Required: [${evidence.required_gates.join(', ')}]. ` +
-					`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
-					`Delegate the missing gate agents before marking task as completed.`;
+					evidence.required_gates.length === 0
+						? `Task ${taskId} has an evidence file with no required gates. Delegate reviewer and test_engineer before marking task as completed.`
+						: `Task ${taskId} is missing required gates: [${missingGates.join(', ')}]. ` +
+							`Required: [${evidence.required_gates.join(', ')}]. ` +
+							`Completed: [${Object.keys(evidence.gates).join(', ')}]. ` +
+							`Delegate the missing gate agents before marking task as completed.`;
 			}
 		} catch (error) {
 			// Malformed JSON, permission error, or other non-ENOENT issue — BLOCK
@@ -273,8 +295,10 @@ export function checkReviewerGate(
 
 		// === session state check (fallback for pre-evidence tasks) ===
 
-		// If no active sessions, allow through (test context)
-		if (swarmState.agentSessions.size === 0) {
+		// If no active sessions, allow through only when no evidence file asserted
+		// incomplete/invalid gate state. This preserves test-context behavior for
+		// missing evidence while preventing empty evidence from vacuously passing.
+		if (swarmState.agentSessions.size === 0 && !evidenceIncompleteReason) {
 			return { blocked: false, reason: '' };
 		}
 
@@ -304,7 +328,7 @@ export function checkReviewerGate(
 
 		// If all sessions had corrupt workflow state, allow through —
 		// we cannot make a reliable gate assertion without valid state.
-		if (validSessionCount === 0) {
+		if (validSessionCount === 0 && !evidenceIncompleteReason) {
 			return { blocked: false, reason: '' };
 		}
 
@@ -318,8 +342,8 @@ export function checkReviewerGate(
 		}
 
 		// Bug 3 fix: no session has this task in tests_run or complete state.
-		// Check plan.json as fallback — covers session restarts where task was
-		// completed in a prior session and plan.json is the source of truth.
+		// Trust plan.json restart recovery only when durable gate evidence proves
+		// the required reviewer/test_engineer gates passed before completion.
 		try {
 			const resolvedDir = workingDirectory!;
 			const planPath = path.join(resolvedDir, '.swarm', 'plan.json');
@@ -329,7 +353,11 @@ export function checkReviewerGate(
 			};
 			for (const planPhase of plan.phases ?? []) {
 				for (const task of planPhase.tasks ?? []) {
-					if (task.id === taskId && task.status === 'completed') {
+					if (
+						task.id === taskId &&
+						task.status === 'completed' &&
+						hasPassedDurableGateEvidence(resolvedDir, taskId)
+					) {
 						return { blocked: false, reason: '' };
 					}
 				}
@@ -338,12 +366,10 @@ export function checkReviewerGate(
 			// plan.json missing or unreadable — fall through to blocked:true
 		}
 
-		// Final fallback: scan delegation chains directly for reviewer+test_engineer.
+		// Final fallback: scan task-scoped delegation chains directly for reviewer+test_engineer.
 		// This covers cases where:
 		// - Session was restarted (in-memory state lost)
-		// - Pure-verification/code-organization tasks with no coder delegation
 		// - toolAfter hook didn't fire (subagent_type not captured)
-		// Uses the same unscoped scan as recoverTaskStateFromDelegations.
 		{
 			let hasReviewer = false;
 			let hasTestEngineer = false;
@@ -364,26 +390,6 @@ export function checkReviewerGate(
 				}
 			}
 
-			// Pass 2: unscoped fallback when no task-scoped sessions found
-			if (!hasReviewer && !hasTestEngineer) {
-				for (const [, chain] of swarmState.delegationChains) {
-					let lastCoderIndex = -1;
-					for (let i = chain.length - 1; i >= 0; i--) {
-						const target = stripKnownSwarmPrefix(chain[i].to);
-						if (target === 'coder') {
-							lastCoderIndex = i;
-							break;
-						}
-					}
-					const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex + 1;
-					for (let i = searchStart; i < chain.length; i++) {
-						const target = stripKnownSwarmPrefix(chain[i].to);
-						if (target === 'reviewer') hasReviewer = true;
-						if (target === 'test_engineer') hasTestEngineer = true;
-					}
-				}
-			}
-
 			// If both reviewer and test_engineer are confirmed in delegation chains, allow through
 			if (hasReviewer && hasTestEngineer) {
 				return { blocked: false, reason: '' };
@@ -392,11 +398,39 @@ export function checkReviewerGate(
 
 		const currentStateStr =
 			stateEntries.length > 0 ? stateEntries.join(', ') : 'no active sessions';
-		// Prefer evidence-specific reason (lists which gates are missing) when available;
-		// fall back to generic session-state reason.
-		const finalReason =
-			evidenceIncompleteReason ??
-			`Task ${taskId} has not passed QA gates. Current state by session: [${currentStateStr}]. Missing required state: tests_run or complete in at least one valid session. Do not write directly to plan files — use update_task_status after running the reviewer and test_engineer agents.`;
+
+		// Build delegation chain summary for this task
+		const chainEntries: string[] = [];
+		for (const [sessionId, chain] of swarmState.delegationChains) {
+			const session = swarmState.agentSessions.get(sessionId);
+			if (
+				session &&
+				(session.currentTaskId === taskId ||
+					session.lastCoderDelegationTaskId === taskId)
+			) {
+				const targets = chain.map((d) => stripKnownSwarmPrefix(d.to));
+				chainEntries.push(`${sessionId}: [${targets.join(', ')}]`);
+			}
+		}
+		const chainSummary =
+			chainEntries.length > 0
+				? chainEntries.join('; ')
+				: 'no chains for this task';
+
+		// Count sessions that were rehydrated from snapshot
+		const rehydratedSessionCount = [
+			...swarmState.agentSessions.values(),
+		].filter((s) => s.sessionRehydratedAt > 0).length;
+
+		// Always include structured diagnostics with evidence detail embedded.
+		const finalReason = [
+			`Task ${taskId} has not passed QA gates.`,
+			`  Session states: [${currentStateStr}].`,
+			`  Delegation chains: [${chainSummary}].`,
+			`  Evidence: [${evidenceIncompleteReason ?? 'no evidence file found'}].`,
+			`  Rehydrated sessions: ${rehydratedSessionCount}.`,
+			`  Missing required state: tests_run or complete.`,
+		].join('\n');
 		telemetry.gateFailed(
 			'',
 			'qa_gate',
@@ -449,15 +483,22 @@ export async function checkReviewerGateWithScope(
 
 /**
  * Recovery mechanism: reconcile task state with delegation history.
- * When reviewer/test_engineer delegations occurred but the state machine
- * was not advanced (e.g., toolAfter didn't fire, subagent_type missing,
- * cross-session gaps, or pure verification tasks without coder delegation),
- * this function walks all delegation chains and advances the task state
- * so that checkReviewerGate can make an accurate decision.
+ * When task-scoped reviewer/test_engineer delegations occurred but the state
+ * machine was not advanced (e.g., toolAfter didn't fire or subagent_type was
+ * missing), this function advances the task state so that checkReviewerGate can
+ * make an accurate decision without attributing unrelated delegation activity.
+ *
+ * Falls back to reading durable evidence files when delegation chains are empty
+ * (e.g., after a crash or session restart without snapshot). This ensures
+ * recovery works even when no in-memory delegation history exists.
  *
  * @param taskId - The task ID to recover state for
+ * @param directory - Optional project directory for evidence file fallback
  */
-export function recoverTaskStateFromDelegations(taskId: string): void {
+export function recoverTaskStateFromDelegations(
+	taskId: string,
+	directory?: string,
+): void {
 	let hasReviewer = false;
 	let hasTestEngineer = false;
 
@@ -478,35 +519,39 @@ export function recoverTaskStateFromDelegations(taskId: string): void {
 		}
 	}
 
-	// Pass 2 (unscoped fallback): when no task-scoped sessions were found,
-	// scan ALL delegation chains. This covers pure-verification tasks and
-	// code-organization tasks where no coder delegation occurred, so
-	// currentTaskId / lastCoderDelegationTaskId were never set to this taskId.
-	// Safety: only scan delegations that occurred after the last coder delegation
-	// in each chain (or from the start if no coder delegation exists), to avoid
-	// attributing reviewer/test_engineer from a prior task to this one.
-	if (!hasReviewer && !hasTestEngineer) {
-		for (const [, chain] of swarmState.delegationChains) {
-			// Find the last coder delegation index in this chain
-			let lastCoderIndex = -1;
-			for (let i = chain.length - 1; i >= 0; i--) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target === 'coder') {
-					lastCoderIndex = i;
-					break;
-				}
+	// Fallback 2: Check durable evidence files when delegation chains yield nothing.
+	// This covers crash recovery where in-memory delegation history is lost but
+	// evidence files on disk prove the QA cycle completed.
+	if ((!hasReviewer || !hasTestEngineer) && directory) {
+		try {
+			const evidence = readTaskEvidenceRaw(directory, taskId);
+			if (
+				evidence &&
+				evidence.gates &&
+				Array.isArray(evidence.required_gates)
+			) {
+				if (evidence.gates.reviewer != null) hasReviewer = true;
+				if (evidence.gates.test_engineer != null) hasTestEngineer = true;
 			}
-			// Scan from after the last coder delegation (or from start if no coder)
-			const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex + 1;
-			for (let i = searchStart; i < chain.length; i++) {
-				const target = stripKnownSwarmPrefix(chain[i].to);
-				if (target === 'reviewer') hasReviewer = true;
-				if (target === 'test_engineer') hasTestEngineer = true;
-			}
+		} catch {
+			// Evidence file corrupt or unreadable — non-fatal, delegation chain
+			// result (or lack thereof) stands
 		}
 	}
 
 	if (!hasReviewer && !hasTestEngineer) return;
+
+	// Session seeding: ensure at least one session exists before advancing state.
+	// After a crash or fresh start, agentSessions may be empty, making the
+	// advancement loop below a no-op. Create a minimal recovery session so that
+	// evidence-backed recovery actually takes effect.
+	if (swarmState.agentSessions.size === 0) {
+		try {
+			startAgentSession('recovery-session', 'architect');
+		} catch {
+			// Non-fatal: session seeding failed, state advancement will be a no-op
+		}
+	}
 
 	// Advance the specific task state in all sessions
 	for (const [, session] of swarmState.agentSessions) {
@@ -863,7 +908,7 @@ export async function executeUpdateTaskStatus(
 		// This handles cases where the delegation-gate toolAfter hook did not
 		// advance the state (missing subagent_type, cross-session gaps, pure
 		// verification tasks without coder delegation, etc.).
-		recoverTaskStateFromDelegations(args.task_id);
+		recoverTaskStateFromDelegations(args.task_id, directory);
 
 		// Check if the phase requires reviewer — non-code phases (acceptance, docs) may not
 		let phaseRequiresReviewer = true;

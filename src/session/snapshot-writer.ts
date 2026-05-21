@@ -3,7 +3,7 @@
  * Serializes swarmState to .swarm/session/state.json using atomic write (temp-file + rename).
  */
 
-import { mkdirSync, renameSync } from 'node:fs';
+import { closeSync, fsyncSync, mkdirSync, openSync, renameSync } from 'node:fs';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
 import type {
@@ -74,6 +74,8 @@ export interface SerializedAgentSession {
 	fullAutoLastQuestionHash?: string | null;
 	/** Timestamp when session was rehydrated from snapshot (0 if never rehydrated) */
 	sessionRehydratedAt?: number;
+	/** Stage B completion tracking: per-task set of completed Stage B agents. Optional for backward compat with old snapshots. */
+	stageBCompletion?: Record<string, string[]>;
 }
 
 /**
@@ -146,6 +148,14 @@ export function serializeAgentSession(
 		s.lastCompletedPhaseAgentsDispatched ?? new Set(),
 	);
 
+	// Convert stageBCompletion: Map<string, Set<string>> -> Record<string, string[]>
+	const stageBCompletion: Record<string, string[]> = {};
+	if (s.stageBCompletion) {
+		for (const [taskId, agents] of s.stageBCompletion) {
+			stageBCompletion[taskId] = Array.from(agents);
+		}
+	}
+
 	// Convert windows: Record<string, InvocationWindow> (already serializable)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	const rawWindows = s.windows ?? {};
@@ -205,6 +215,7 @@ export function serializeAgentSession(
 		fullAutoDeadlockCount: s.fullAutoDeadlockCount ?? 0,
 		fullAutoLastQuestionHash: s.fullAutoLastQuestionHash ?? null,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
+		...(Object.keys(stageBCompletion).length > 0 && { stageBCompletion }),
 	};
 }
 
@@ -245,6 +256,19 @@ export async function writeSnapshot(
 		// Atomic write: write to temp file then rename
 		const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
 		await bunWrite(tempPath, content);
+		// FR-004: fsync the temp file so the rename below cannot leave us with
+		// an empty or partial canonical file on power-loss / kill -9.
+		try {
+			const fd = openSync(tempPath, 'r+');
+			try {
+				fsyncSync(fd);
+			} finally {
+				closeSync(fd);
+			}
+		} catch {
+			// fsync is best-effort; OSes / filesystems that don't support it
+			// (e.g. tmpfs, ramdisk) shouldn't block the main path.
+		}
 		renameSync(tempPath, resolvedPath);
 	} catch (error) {
 		log('[snapshot-writer] write failed', {
