@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.27.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.26.2...v7.27.0) (2026-05-21)
+
+
+### Features
+
+* **test-impact:** classify infrastructure failures separately ([#926](https://github.com/zaxbysauce/opencode-swarm/issues/926)) ([d5a2b96](https://github.com/zaxbysauce/opencode-swarm/commit/d5a2b96c2f5681f36fa6d011b2185ad11edbc918))
+
+## [7.26.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.26.1...v7.26.2) (2026-05-21)
+
+
+### Bug Fixes
+
+* **checkpoint:** contain SWARM_PLAN artifacts to .swarm/ and harden cleanup test coverage ([#939](https://github.com/zaxbysauce/opencode-swarm/issues/939)) ([63c1ee9](https://github.com/zaxbysauce/opencode-swarm/commit/63c1ee9a49e862abe7bceb5230783f5aff21f1c3))
+
 ## [7.26.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.26.0...v7.26.1) (2026-05-20)
 
 
