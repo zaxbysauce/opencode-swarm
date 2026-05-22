@@ -540,8 +540,16 @@ export function formatSkillIndexWithContext(
 	skills: string[],
 	directory: string,
 ): string {
-	const allEntries = readSkillUsageEntries(directory);
-	const hasHistory = allEntries.length > 0;
+	// Bounded check: just verify the log file exists and has content
+	// instead of reading the entire file on every delegation.
+	const usageLogPath = path.join(directory, '.swarm', 'skill-usage.jsonl');
+	let hasHistory = false;
+	try {
+		const stat = fs.statSync(usageLogPath);
+		hasHistory = stat.size > 0;
+	} catch {
+		// File doesn't exist — no history yet
+	}
 
 	if (!hasHistory) {
 		// Simple index without stats, but with enough metadata for agents to
