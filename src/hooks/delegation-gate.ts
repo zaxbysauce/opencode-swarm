@@ -15,7 +15,7 @@ import {
 	routeReviewForChanges,
 	shouldParallelizeReview,
 } from '../parallel/review-router.js';
-import { getCurrentTaskId, loadPlanJsonOnly } from '../plan/manager';
+import { loadPlanJsonOnly } from '../plan/manager';
 import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
@@ -531,7 +531,7 @@ async function buildPlanContinuationGuidance(
 	if (!directory) return null;
 
 	const plan: Plan | null = await loadPlanJsonOnly(directory);
-	const currentTaskId = getCurrentTaskId(plan);
+	const currentTaskId = getPlanContinuationTaskId(plan);
 	if (!currentTaskId) return null;
 
 	return (
@@ -539,6 +539,38 @@ async function buildPlanContinuationGuidance(
 		`then call declare_scope for the task files and dispatch coder Task call(s) according to the execution profile. ` +
 		`Preserve ONE atomic task per coder Task call; when parallel execution is enabled, use available coder slots instead of forcing a single coder.`
 	);
+}
+
+function getPlanContinuationTaskId(
+	plan: Plan | null | undefined,
+): string | undefined {
+	if (!plan) return undefined;
+	const currentPhase = plan.current_phase ?? 1;
+	const phase = plan.phases.find((p) => p.id === currentPhase);
+	if (!phase) return undefined;
+	const sortedTasks = [...phase.tasks].sort((a, b) =>
+		comparePlanTaskIds(a.id, b.id),
+	);
+	const inProgress = sortedTasks.find((task) => task.status === 'in_progress');
+	if (inProgress) return inProgress.id;
+	const incomplete = sortedTasks.find(
+		(task) => task.status !== 'completed' && task.status !== 'closed',
+	);
+	return incomplete?.id;
+}
+
+function comparePlanTaskIds(a: string, b: string): number {
+	const partsA = a.split('.').map((part) => Number.parseInt(part, 10));
+	const partsB = b.split('.').map((part) => Number.parseInt(part, 10));
+	const maxLength = Math.max(partsA.length, partsB.length);
+
+	for (let i = 0; i < maxLength; i++) {
+		const numA = partsA[i] ?? 0;
+		const numB = partsB[i] ?? 0;
+		if (numA !== numB) return numA - numB;
+	}
+
+	return 0;
 }
 
 function isParallelGuidancePhaseComplete(phase: Phase): boolean {
