@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.29.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.29.0...v7.29.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **agents:** route prefixed spec writer delegations ([#991](https://github.com/zaxbysauce/opencode-swarm/issues/991)) ([2421702](https://github.com/zaxbysauce/opencode-swarm/commit/2421702141450f4f6cf839ee60c96d4c1ee63f42))
+
 ## [7.29.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.28.3...v7.29.0) (2026-05-22)
 
 
