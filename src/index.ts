@@ -78,9 +78,11 @@ import { normalizeToolName } from './hooks/normalize-tool-name';
 import { createScopeGuardHook } from './hooks/scope-guard.js';
 import { createSelfReviewHook } from './hooks/self-review.js';
 import {
+	parseDelegationArgs,
 	skillPropagationGateBefore,
 	skillPropagationTransformScan,
 } from './hooks/skill-propagation-gate.js';
+import { appendSkillUsageEntry } from './hooks/skill-usage-log.js';
 import { createSlopDetectorHook } from './hooks/slop-detector';
 import { createSteeringConsumedHook } from './hooks/steering-consumed.js';
 import { createTrajectoryLoggerHook } from './hooks/trajectory-logger';
@@ -1580,6 +1582,112 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				);
 				skillSession.pendingAdvisoryMessages ??= [];
 				skillSession.pendingAdvisoryMessages.push(skillResult.reason);
+			}
+
+			// 8. Skill injection: auto-inject recommended skills when SKILLS field
+			//    is missing from the delegation prompt. Preserves explicit
+			//    SKILLS: none and architect-set SKILLS fields.
+			if (
+				skillResult.recommendedSkills &&
+				skillResult.recommendedSkills.length > 0
+			) {
+				const argsRecord = input.args as Record<string, unknown>;
+				const promptRaw = argsRecord.prompt;
+				if (typeof promptRaw === 'string') {
+					// Parse the prompt to check for existing SKILLS field
+					const parsedDelegation = parseDelegationArgs(input.args);
+					if (parsedDelegation) {
+						const existingSkills = parsedDelegation.skillsField.trim();
+						// Skip injection if SKILLS field already exists or is explicitly "none"
+						if (!existingSkills) {
+							// Filter by relevance score threshold (0.5)
+							const qualified = skillResult.recommendedSkills.filter(
+								(s) => s.score >= 0.5,
+							);
+
+							if (qualified.length === 0) {
+								// No skills above threshold — inject SKILLS: none
+								argsRecord.prompt = `SKILLS: none\n\n${promptRaw}`;
+								console.warn(
+									'[skill-propagation-gate] No skills above threshold 0.5 — injected SKILLS: none',
+								);
+							} else {
+								// Take top 5 by score
+								const topSkills = qualified.slice(0, 5);
+
+								// Skill description mapping
+								const SKILL_DESCRIPTIONS: Record<string, string> = {
+									'writing-tests': 'Guidelines for writing tests',
+									'engineering-conventions':
+										'Engineering invariants and conventions',
+									'running-tests': 'Safe test execution patterns',
+									'commit-pr': 'Commit and PR workflow',
+									'swarm-implement': 'Swarm implementation workflow',
+									'issue-tracer': 'Issue investigation workflow',
+									'qa-sweep': 'QA sweep workflow',
+									'research-first': 'Research-driven approach',
+									'swarm-pr-review': 'PR review workflow',
+									'tech-debt-ci-review': 'Tech debt and CI review',
+									browse: 'Fast web browsing',
+									code: 'Expert coding workflow',
+									review: 'Pre-landing PR review',
+									'ci-failure-resolver': 'CI/CD failure resolution',
+								};
+
+								const skillPaths = topSkills
+									.map((s) => {
+										const dirName = path.basename(path.dirname(s.skillPath));
+										const desc = SKILL_DESCRIPTIONS[dirName] ?? dirName;
+										return `file:${s.skillPath} (-- ${desc})`;
+									})
+									.join(', ');
+
+								const skillsLine = `SKILLS: ${skillPaths}`;
+
+								// Inject at the beginning of the prompt
+								const newPrompt = `${skillsLine}\n\n${promptRaw}`;
+								argsRecord.prompt = newPrompt;
+
+								// Log the injection
+								const skillNames = topSkills
+									.map(
+										(s) =>
+											`${path.basename(s.skillPath)} (score: ${s.score.toFixed(2)})`,
+									)
+									.join(', ');
+								console.warn(
+									`[skill-propagation-gate] Injected skills: ${skillNames}`,
+								);
+
+								// Record each injected skill to skill-usage.jsonl
+								for (const skill of topSkills) {
+									try {
+										appendSkillUsageEntry(ctx.directory, {
+											skillPath: skill.skillPath,
+											agentName: String(input.agent),
+											taskID: 'injection',
+											timestamp: new Date().toISOString(),
+											complianceVerdict: 'not_checked',
+											sessionID: input.sessionID,
+										});
+									} catch {
+										// Non-blocking: best-effort audit logging
+									}
+								}
+
+								// SKILLS_USED_BY_CODER forwarding for reviewer delegations
+								// When auto-injecting skills and the target is a reviewer,
+								// append SKILLS_USED_BY_CODER so the compliance feedback loop
+								// can track injected skills back to the scoring system.
+								const targetAgent = parsedDelegation.targetAgent.toLowerCase();
+								if (targetAgent.includes('reviewer')) {
+									const usedByCoderLine = `SKILLS_USED_BY_CODER: ${topSkills.map((s) => `file:${s.skillPath}`).join(', ')}`;
+									argsRecord.prompt = `${newPrompt}\n${usedByCoderLine}`;
+								}
+							}
+						}
+					}
+				}
 			}
 			// ---------------------------------------------------------------
 

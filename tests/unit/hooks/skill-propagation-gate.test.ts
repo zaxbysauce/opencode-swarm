@@ -2049,7 +2049,11 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 				},
 				{ enabled: true },
 			),
-		).resolves.toEqual({ blocked: false, reason: null });
+		).resolves.toMatchObject({
+			blocked: false,
+			reason: null,
+			recommendedSkills: [],
+		});
 
 		// Delegation recording should still have succeeded
 		expect(recorded).toHaveLength(1);
@@ -2245,7 +2249,11 @@ describe('skillPropagationGateBefore — delegation recording', () => {
 				},
 				{ enabled: true },
 			),
-		).resolves.toEqual({ blocked: false, reason: null });
+		).resolves.toMatchObject({
+			blocked: false,
+			reason: null,
+			recommendedSkills: [],
+		});
 
 		// Scoring was not called because the read threw before we could check
 		expect(scoringCalled).toBe(false);
@@ -3546,7 +3554,11 @@ describe('skillPropagationGateBefore — context.md skill index auto-population'
 					prompt: 'SKILLS: writing-tests\ndo work',
 				},
 			}),
-		).resolves.toEqual({ blocked: false, reason: null });
+		).resolves.toMatchObject({
+			blocked: false,
+			reason: null,
+			recommendedSkills: expect.any(Array),
+		});
 	});
 
 	test('does NOT write when formatSkillIndexWithContext returns empty string', async () => {
@@ -4365,7 +4377,11 @@ describe('skillPropagationGateBefore — edge cases: formatSkillIndexWithContext
 			{ enabled: true },
 		);
 
-		expect(result).toEqual({ blocked: false, reason: null });
+		expect(result).toMatchObject({
+			blocked: false,
+			reason: null,
+			recommendedSkills: expect.any(Array),
+		});
 		expect(writtenContent).toHaveLength(1);
 		// Should contain the ## Available Skills header with simple index (no stats)
 		expect(writtenContent[0]).toContain('## Available Skills');
