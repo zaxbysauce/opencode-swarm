@@ -533,12 +533,24 @@ async function buildPlanContinuationGuidance(
 	const plan: Plan | null = await loadPlanJsonOnly(directory);
 	const currentTaskId = getPlanContinuationTaskId(plan);
 	if (!currentTaskId) return null;
+	const sanitizedTaskId = sanitizeGuidanceValue(currentTaskId, 32);
 
 	return (
-		`[NEXT] Continue plan task ${currentTaskId}: if it is not already in progress, call update_task_status with task_id="${currentTaskId}" and status="in_progress"; ` +
+		`[NEXT] Continue plan task ${sanitizedTaskId}: if it is not already in progress, call update_task_status with task_id="${sanitizedTaskId}" and status="in_progress"; ` +
 		`then call declare_scope for the task files and dispatch coder Task call(s) according to the execution profile. ` +
 		`Preserve ONE atomic task per coder Task call; when parallel execution is enabled, use available coder slots instead of forcing a single coder.`
 	);
+}
+
+function sanitizeGuidanceValue(value: string, maxLength: number): string {
+	return value
+		.replace(/</g, '&lt;')
+		.replace(/>/g, '&gt;')
+		.replace(/\[ \]/g, '()')
+		.replace(/\[/g, '(')
+		.replace(/\]/g, ')')
+		.replace(/[\r\n]/g, ' ')
+		.slice(0, maxLength);
 }
 
 function getPlanContinuationTaskId(
@@ -1754,21 +1766,11 @@ export function createDelegationGateHook(
 						} else if (lastGate?.taskId) {
 							const gateResult = lastGate.passed ? 'PASSED' : 'FAILED';
 							// Sanitize interpolated values
-							const sanitizedGate = lastGate.gate
-								.replace(/</g, '&lt;')
-								.replace(/>/g, '&gt;')
-								.replace(/\[ \]/g, '()')
-								.replace(/\[/g, '(')
-								.replace(/\]/g, ')')
-								.replace(/[\r\n]/g, ' ')
-								.slice(0, 64);
-							const sanitizedTaskId = lastGate.taskId
-								.replace(/</g, '&lt;')
-								.replace(/>/g, '&gt;')
-								.replace(/\[/g, '(')
-								.replace(/\]/g, ')')
-								.replace(/[\r\n]/g, ' ')
-								.slice(0, 32);
+							const sanitizedGate = sanitizeGuidanceValue(lastGate.gate, 64);
+							const sanitizedTaskId = sanitizeGuidanceValue(
+								lastGate.taskId,
+								32,
+							);
 							// Concise [NEXT] directive with last-gate status
 							guidance = `[Last gate: ${sanitizedGate} ${gateResult} for task ${sanitizedTaskId}]\n${
 								parallelGuidance ??

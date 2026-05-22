@@ -651,6 +651,114 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			expect(systemText).not.toContain('Continue plan task 1.10');
 		});
 
+		it('should prefer an in-progress task for serial continuation guidance', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: false,
+					max_concurrent_tasks: 1,
+					locked: true,
+				},
+				tasks: [
+					{ id: '1.1', status: 'pending' },
+					{ id: '1.2', status: 'in_progress' },
+				],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('Continue plan task 1.2');
+			expect(systemText).not.toContain('Continue plan task 1.1');
+		});
+
+		it('should fall back when serial continuation has no current plan task', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: false,
+					max_concurrent_tasks: 1,
+					locked: true,
+				},
+				tasks: [
+					{ id: '1.1', status: 'completed' },
+					{ id: '1.2', status: 'closed' },
+				],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('Begin the first plan task');
+			expect(systemText).not.toContain('Continue plan task');
+		});
+
+		it('should compare single and triple segment task ids numerically', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: false,
+					max_concurrent_tasks: 1,
+					locked: true,
+				},
+				tasks: [
+					{ id: '1.2.10', status: 'pending' },
+					{ id: '1.2.3', status: 'pending' },
+					{ id: '2', status: 'pending' },
+				],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('Continue plan task 1.2.3');
+			expect(systemText).not.toContain('Continue plan task 1.2.10');
+			expect(systemText).not.toContain('Continue plan task 2');
+		});
+
+		it('should sanitize plan task ids before injecting serial continuation guidance', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: false,
+					max_concurrent_tasks: 1,
+					locked: true,
+				},
+				tasks: [{ id: '1.2[override]\n[NEXT]', status: 'pending' }],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('Continue plan task 1.2(override) (NEXT)');
+			expect(systemText).not.toContain('[override]');
+			expect(systemText).not.toContain('\n[NEXT]');
+		});
+
 		it('should count in-progress tasks as occupied and exclude blocked/dependent tasks', async () => {
 			writePlanJson(tempDir, {
 				executionProfile: {
@@ -680,6 +788,33 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			expect(systemText).toContain('Eligible now: 1.3');
 			expect(systemText).not.toContain('Eligible now: 1.2');
 			expect(systemText).not.toContain('Eligible now: 1.4');
+		});
+
+		it('should suppress serial continuation guidance when parallel profile has no eligible tasks', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: true,
+					max_concurrent_tasks: 4,
+					locked: true,
+				},
+				tasks: [
+					{ id: '1.1', status: 'pending', depends: ['9.9'] },
+					{ id: '1.2', status: 'blocked' },
+				],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('no dependency-ready pending tasks');
+			expect(systemText).not.toContain('Continue plan task');
 		});
 
 		it('should count active in-memory workflow states as occupied slots', async () => {
