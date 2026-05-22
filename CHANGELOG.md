@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.28.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.27.4...v7.28.0) (2026-05-22)
+
+
+### Features
+
+* **skills:** add parallel-work-check skill and integrate into pr-review-fix and swarm-implement ([8da32c0](https://github.com/zaxbysauce/opencode-swarm/commit/8da32c04a415628dd5f43835e4776e57d198892b)), closes [#975](https://github.com/zaxbysauce/opencode-swarm/issues/975)
+
 ## [7.27.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.27.3...v7.27.4) (2026-05-22)
 
 
