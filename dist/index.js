@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.26.2",
+    version: "7.27.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -26456,14 +26456,32 @@ function createGuardrailsHooks(directory, directoryOrConfig, config2, authorityC
     if (!analysis.hasWrites || analysis.writes.length === 0)
       return;
     const declaredScope = resolveDeclaredScope(sessionID);
-    if (!declaredScope || declaredScope.length === 0)
+    const shellWriteAgent = swarmState.activeAgent.get(sessionID);
+    if (!shellWriteAgent) {
+      throw new Error(`WRITE BLOCKED: No active agent registered for session "${sessionID}". Call startAgentSession before issuing shell write operations.`);
+    }
+    const isArchitect2 = stripKnownSwarmPrefix(shellWriteAgent).toLowerCase() === "architect";
+    if (!isArchitect2 && (!declaredScope || declaredScope.length === 0)) {
       return;
+    }
     const resolvedWrites = resolveWriteTargets(command, analysis.writes, effectiveDirectory);
     for (const write of resolvedWrites) {
       if (write.resolvedPath === null) {
         throw new Error(`BLOCKED: bash/shell write operation with unresolvable path target — rejecting for safety`);
       }
-      if (!isInDeclaredScope(write.resolvedPath, declaredScope, effectiveDirectory)) {
+      if (universalDenyPrefixes.length > 0) {
+        const normalizedPath = path11.relative(path11.resolve(effectiveDirectory), path11.resolve(effectiveDirectory, write.resolvedPath)).replace(/\\/g, "/");
+        for (const prefix of universalDenyPrefixes) {
+          if (normalizedPath.toLowerCase().startsWith(prefix.toLowerCase())) {
+            throw new Error(`WRITE BLOCKED: Agent "${shellWriteAgent}" is not authorised to write "${write.resolvedPath}" (via shell). Reason: Path is under universal deny prefix "${prefix}"`);
+          }
+        }
+      }
+      const authorityCheck = checkFileAuthorityWithRules(shellWriteAgent, write.resolvedPath, effectiveDirectory, precomputedAuthorityRules, { declaredScope });
+      if (!authorityCheck.allowed) {
+        throw new Error(`WRITE BLOCKED: Agent "${shellWriteAgent}" is not authorised to write "${write.resolvedPath}" (via shell). Reason: ${authorityCheck.reason}`);
+      }
+      if (declaredScope && declaredScope.length > 0 && !isInDeclaredScope(write.resolvedPath, declaredScope, effectiveDirectory)) {
         throw new Error(`bash write detected outside declared scope: ${write.resolvedPath} (original: ${write.original.path})`);
       }
     }

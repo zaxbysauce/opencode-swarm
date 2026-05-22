@@ -13,7 +13,7 @@
 This closes the tool-layer write interception gap identified in #519. Prior to this change, the swarm plugin relied solely on scope declarations and syscall-layer protections, which did not intercept shell-based write operations before execution. The new static analysis catches writes in bash/shell tool invocations and enforces declared scope boundaries.
 
 ## Migration
-No migration required. The feature is backward-compatible: when no scope is declared, all writes are allowed (existing behavior). When scope is declared, writes outside scope are now blocked with descriptive error messages.
+No migration required. The feature is backward-compatible for most agents: when no scope is declared, non-architect agents retain the original "allow all" behavior. Architect shell writes are subject to per-agent authority checks (blockedZones, blockedGlobs, etc.) regardless of scope state to block evidence-file bypasses (PR #959). When scope is declared, writes outside scope are blocked for all agents.
 
 ## Known caveats
 - Windows shell detection uses regex heuristics rather than AST parsing (PowerShell/cmd.exe lack lightweight JS parsers)

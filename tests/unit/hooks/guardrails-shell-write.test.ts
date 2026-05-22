@@ -193,7 +193,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s11'),
 					makeOutput('echo world >> /tmp/log.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks cp to file outside scope', async () => {
@@ -206,7 +208,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s12'),
 					makeOutput('cp file.txt /etc/config.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks mv to file outside scope', async () => {
@@ -219,7 +223,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s13'),
 					makeOutput('mv file.txt /home/user/file.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks sed -i on file outside scope', async () => {
@@ -245,7 +251,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s15'),
 					makeOutput('tar -xzf package.tar.gz -C /tmp/extract/'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks ln -s creating symlink outside scope', async () => {
@@ -258,7 +266,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s16'),
 					makeOutput('ln -s target.txt /tmp/link.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks truncate on file outside scope', async () => {
@@ -271,7 +281,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s17'),
 					makeOutput('truncate -s 0 /tmp/log.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('blocks dd output to file outside scope', async () => {
@@ -398,7 +410,9 @@ describe('guardrails shell write scope enforcement', () => {
 						'powershell -Command "echo hello | Out-File C:\\temp\\out.txt"',
 					),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('allows redirect > to file inside scope via shell tool', async () => {
@@ -424,7 +438,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeShellInput('s33'),
 					makeOutput('powershell -Command "echo data > C:\\outside.txt"'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('allows Copy-Item to path inside scope', async () => {
@@ -450,7 +466,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeShellInput('s35'),
 					makeOutput('Copy-Item src.txt C:\\temp\\dest.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 	});
 
@@ -482,7 +500,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeShellInput('s41'),
 					makeOutput('cmd /c "copy file.txt C:\\temp\\file.txt"'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('allows echo redirect > to file inside scope', async () => {
@@ -508,7 +528,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeShellInput('s43'),
 					makeOutput('cmd /c "echo hello > C:\\temp\\out.txt"'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('allows move to path inside scope', async () => {
@@ -534,7 +556,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeShellInput('s45'),
 					makeOutput('cmd /c "move file.txt C:\\temp\\file.txt"'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 	});
 
@@ -594,7 +618,54 @@ describe('guardrails shell write scope enforcement', () => {
 						`python3 -c "open('.swarm/evidence/5.4.json','w').write('x')"`,
 					),
 				),
-			).rejects.toThrow(/WRITE BLOCKED|unresolvable path/);
+			).rejects.toThrow(/BLOCKED|unresolvable path/);
+		});
+	});
+
+	describe('architect shell writes — compensating tests (PR #959 review findings)', () => {
+		it('allows architect shell writes to non-config-zone paths within .swarm/ even without declared scope', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			architectSession('s54-architect-allowed');
+			await expect(
+				hooks.toolBefore(
+					makeBashInput('s54-architect-allowed'),
+					makeOutput('echo summary > .swarm/outputs/summary.txt'),
+				),
+			).resolves.toBeUndefined();
+		});
+
+		it('blocks architect writes to config-zone paths even when declared scope includes .swarm/', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			architectSession('s55-architect-scoped');
+			setDeclaredScope('s55-architect-scoped', ['.swarm/']);
+			await expect(
+				hooks.toolBefore(
+					makeBashInput('s55-architect-scoped'),
+					makeOutput('echo malicious > .swarm/evidence/5.4.json'),
+				),
+			).rejects.toThrow(/config zone/);
+		});
+
+		it('blocks mega_architect redirect writes to config-zone evidence paths without declared scope', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			startAgentSession('s57-mega-architect', 'mega_architect');
+			await expect(
+				hooks.toolBefore(
+					makeBashInput('s57-mega-architect'),
+					makeOutput('echo test > .swarm/evidence/5.4.json'),
+				),
+			).rejects.toThrow(/WRITE BLOCKED.*config zone/);
+		});
+
+		it('blocks lowtier_architect redirect writes to config-zone evidence paths without declared scope', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			startAgentSession('s58-lowtier-architect', 'lowtier_architect');
+			await expect(
+				hooks.toolBefore(
+					makeBashInput('s58-lowtier-architect'),
+					makeOutput('echo test > .swarm/evidence/5.4.json'),
+				),
+			).rejects.toThrow(/WRITE BLOCKED.*config zone/);
 		});
 	});
 
@@ -804,7 +875,9 @@ describe('guardrails shell write scope enforcement', () => {
 					makeBashInput('s100'),
 					makeOutput('curl https://example.com/file.txt -o /tmp/download.txt'),
 				),
-			).rejects.toThrow(/bash write detected outside declared scope:/);
+			).rejects.toThrow(
+				/WRITE BLOCKED: Agent "coder".*resolves outside the working directory/,
+			);
 		});
 
 		it('allows curl -o download to path inside scope', async () => {

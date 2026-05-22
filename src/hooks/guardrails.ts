@@ -2103,6 +2103,17 @@ export function createGuardrailsHooks(
 			);
 		}
 
+		// Preserve backward compatibility for non-architect agents without declared scope.
+		// This closes the architect evidence-file bypass (PR #959) while keeping coder and other
+		// agents' shell writes working without scope, which was the original contract.
+		// Architect is the only agent with blockedZones: ['config', 'generated'] that the old
+		// early-return was masking.
+		const isArchitect =
+			stripKnownSwarmPrefix(shellWriteAgent).toLowerCase() === 'architect';
+		if (!isArchitect && (!declaredScope || declaredScope.length === 0)) {
+			return;
+		}
+
 		// Resolve write targets against effective cwd (handles subshell cd changes)
 		const resolvedWrites = resolveWriteTargets(
 			command,
