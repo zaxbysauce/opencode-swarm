@@ -51,7 +51,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.27.0",
+    version: "7.27.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -28254,27 +28254,76 @@ function extractPlanTaskId(text) {
 function getSeedTaskId(session) {
   return session.currentTaskId ?? session.lastCoderDelegationTaskId;
 }
-function getEligibleTaskIdsForEvidence(session) {
-  if (!session.taskWorkflowStates || !(session.taskWorkflowStates instanceof Map)) {
-    return [];
-  }
-  const eligible = [];
-  const eligibleStates = new Set([
-    "coder_delegated",
-    "pre_check_passed",
-    "reviewer_run",
-    "tests_run"
-  ]);
-  for (const [taskId, state] of session.taskWorkflowStates) {
-    if (eligibleStates.has(state)) {
-      eligible.push(taskId);
-    }
-  }
-  return eligible;
-}
 function isTaskCompletedForParallelGuidance(task) {
   const status = task.status ?? "pending";
   return status === "completed" || status === "closed";
+}
+function getPlanTaskStatus(plan, taskId) {
+  for (const phase of plan.phases) {
+    const task = phase.tasks.find((candidate) => candidate.id === taskId);
+    if (task)
+      return task.status ?? "pending";
+  }
+  return null;
+}
+function resolveDelegatedPlanTaskId(args2, knownPlanTaskIds) {
+  const rawTaskId = args2.task_id ?? args2.taskId;
+  if (typeof rawTaskId === "string") {
+    const trimmed = rawTaskId.trim();
+    if (trimmed.length <= 20 && isStrictTaskId(trimmed))
+      return trimmed;
+    return null;
+  }
+  const candidateTextFields = [
+    args2.prompt,
+    args2.description,
+    args2.task,
+    args2.input
+  ];
+  const seen = new Set;
+  for (const field of candidateTextFields) {
+    if (typeof field !== "string")
+      continue;
+    for (const m of field.matchAll(/\b(\d+\.\d+(?:\.\d+)*)\b/g)) {
+      const candidate = m[1];
+      if (isStrictTaskId(candidate)) {
+        if (knownPlanTaskIds && !knownPlanTaskIds.has(candidate))
+          continue;
+        seen.add(candidate);
+      }
+    }
+  }
+  if (seen.size === 1)
+    return seen.values().next().value;
+  return null;
+}
+async function findTaskAwaitingCompletion(directory, session, requestedTaskId) {
+  if (!directory)
+    return null;
+  let plan = null;
+  try {
+    plan = await loadPlanJsonOnly(directory);
+  } catch {
+    return null;
+  }
+  if (!plan)
+    return null;
+  for (const [taskId, state] of session.taskWorkflowStates) {
+    if (state !== "tests_run")
+      continue;
+    if (requestedTaskId && requestedTaskId === taskId)
+      continue;
+    const planStatus = getPlanTaskStatus(plan, taskId);
+    if (!planStatus)
+      continue;
+    if (planStatus === "completed" || planStatus === "closed")
+      continue;
+    return taskId;
+  }
+  return null;
+}
+function completionGateViolationMessage(taskAwaitingCompletion) {
+  return `TASK_COMPLETION_GATE_VIOLATION: Task ${taskAwaitingCompletion} reached tests_run but is not marked completed in plan.json/plan.md. ` + `Call update_task_status with task_id="${taskAwaitingCompletion}" and status="completed" before starting another task.`;
 }
 async function buildParallelExecutionGuidance(directory, sessionID, session) {
   if (!directory)
@@ -28389,6 +28438,27 @@ function createDelegationGateHook(config2, directory) {
     if (!input.sessionID)
       return;
     const normalized = normalizeToolName(input.tool);
+    const completionArgs = output.args;
+    if (completionArgs) {
+      let completionPlanTaskIds;
+      try {
+        const plan = await loadPlanJsonOnly(directory);
+        if (plan) {
+          completionPlanTaskIds = new Set(plan.phases.flatMap((p) => p.tasks.map((t) => t.id)));
+        }
+      } catch {}
+      const requestedTaskId = resolveDelegatedPlanTaskId(completionArgs, completionPlanTaskIds);
+      const completionSession = ensureAgentSession(input.sessionID);
+      const taskAwaitingCompletion = await findTaskAwaitingCompletion(directory, completionSession, requestedTaskId);
+      if (taskAwaitingCompletion) {
+        const allowingSameTaskRetry = requestedTaskId === taskAwaitingCompletion;
+        const requestedTaskIsAwaitingCompletion = requestedTaskId && completionSession.taskWorkflowStates.get(requestedTaskId) === "tests_run";
+        const allowCompletionUpdate = normalized === "update_task_status" && completionArgs.status === "completed" && requestedTaskIsAwaitingCompletion;
+        if (!allowingSameTaskRetry && !allowCompletionUpdate) {
+          throw new Error(completionGateViolationMessage(taskAwaitingCompletion));
+        }
+      }
+    }
     if (normalized !== "Task" && normalized !== "task")
       return;
     const args2 = output.args;
@@ -28446,6 +28516,23 @@ function createDelegationGateHook(config2, directory) {
       return;
     const normalized = normalizeToolName(input.tool);
     const councilActive = await isCouncilGateActive(directory, config2.council);
+    if (normalized === "update_task_status") {
+      const directArgs = input.args;
+      const storedArgs = getStoredInputArgs(input.callID);
+      const completionArgs = directArgs ?? storedArgs;
+      if (completionArgs && completionArgs.status === "completed") {
+        const rawTaskId = completionArgs.task_id ?? completionArgs.taskId;
+        const completionTaskId = typeof rawTaskId === "string" ? rawTaskId.trim() : null;
+        if (completionTaskId && isStrictTaskId(completionTaskId)) {
+          try {
+            const completionSession = ensureAgentSession(input.sessionID);
+            await advanceTaskStateAndPersist(completionSession, completionTaskId, "complete", directory, { telemetrySessionId: input.sessionID }, config2.council);
+          } catch (err2) {
+            warn(`[delegation-gate] toolAfter completion advancement: could not advance ${completionTaskId} → complete: ${err2 instanceof Error ? err2.message : String(err2)}`);
+          }
+        }
+      }
+    }
     if (normalized === "submit_council_verdicts") {
       try {
         const parsed = typeof _output === "string" ? JSON.parse(_output) : _output;
@@ -28579,42 +28666,25 @@ function createDelegationGateHook(config2, directory) {
       if (typeof subagentType === "string") {
         try {
           const rawTaskId = directArgs?.task_id;
-          const turbo = hasActiveTurboMode(input.sessionID);
-          const gateAgents = [
-            "reviewer",
-            "test_engineer",
-            "docs",
-            "designer",
-            "critic",
-            "explorer",
-            "sme"
-          ];
-          const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
-          let taskIds;
-          if (typeof rawTaskId === "string" && rawTaskId.length <= 20 && isStrictTaskId(rawTaskId.trim())) {
-            taskIds = [rawTaskId.trim()];
-          } else {
-            const allEligible = getEligibleTaskIdsForEvidence(session);
-            if (allEligible.length > 0) {
-              taskIds = allEligible;
-            } else {
-              const fallback = await getEvidenceTaskId(session, directory);
-              taskIds = fallback ? [fallback] : [];
-            }
-          }
-          if (taskIds.length > 0) {
-            let settled;
+          const evidenceTaskId = typeof rawTaskId === "string" && rawTaskId.length <= 20 && isStrictTaskId(rawTaskId.trim()) ? rawTaskId.trim() : await getEvidenceTaskId(session, directory);
+          if (evidenceTaskId) {
+            const turbo = hasActiveTurboMode(input.sessionID);
+            const gateAgents = [
+              "reviewer",
+              "test_engineer",
+              "docs",
+              "designer",
+              "critic",
+              "explorer",
+              "sme"
+            ];
+            const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
             if (gateAgents.includes(targetAgentForEvidence)) {
               const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-              settled = await Promise.allSettled(taskIds.map((tid) => recordGateEvidence2(directory, tid, targetAgentForEvidence, input.sessionID, turbo)));
+              await recordGateEvidence2(directory, evidenceTaskId, targetAgentForEvidence, input.sessionID, turbo);
             } else {
               const { recordAgentDispatch: recordAgentDispatch2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-              settled = await Promise.allSettled(taskIds.map((tid) => recordAgentDispatch2(directory, tid, targetAgentForEvidence, turbo)));
-            }
-            for (const r of settled) {
-              if (r.status === "rejected") {
-                console.warn(`[delegation-gate] evidence recording failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
-              }
+              await recordAgentDispatch2(directory, evidenceTaskId, targetAgentForEvidence, turbo);
             }
           }
         } catch (err2) {
@@ -28719,39 +28789,32 @@ function createDelegationGateHook(config2, directory) {
         }
         try {
           const rawTaskId = directArgs?.task_id;
-          let taskIds;
-          if (typeof rawTaskId === "string" && rawTaskId.length <= 20 && isStrictTaskId(rawTaskId.trim())) {
-            taskIds = [rawTaskId.trim()];
-          } else {
-            const allEligible = getEligibleTaskIdsForEvidence(session);
-            if (allEligible.length > 0) {
-              taskIds = allEligible;
-            } else {
-              const fallback = await getEvidenceTaskId(session, directory);
-              taskIds = fallback ? [fallback] : [];
-            }
-          }
-          if (taskIds.length > 0) {
+          const evidenceTaskId = typeof rawTaskId === "string" && rawTaskId.length <= 20 && isStrictTaskId(rawTaskId.trim()) ? rawTaskId.trim() : await getEvidenceTaskId(session, directory);
+          if (evidenceTaskId) {
             const turbo = hasActiveTurboMode(input.sessionID);
-            const promises3 = [];
-            const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
-            for (const tid of taskIds) {
-              if (hasReviewer) {
-                promises3.push(recordGateEvidence2(directory, tid, "reviewer", input.sessionID, turbo));
-              }
-              if (hasTestEngineer) {
-                promises3.push(recordGateEvidence2(directory, tid, "test_engineer", input.sessionID, turbo));
-              }
+            if (hasReviewer) {
+              const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
+              await recordGateEvidence2(directory, evidenceTaskId, "reviewer", input.sessionID, turbo);
             }
-            const settled = await Promise.allSettled(promises3);
-            for (const r of settled) {
-              if (r.status === "rejected") {
-                console.warn(`[delegation-gate] fallback evidence recording failed: ${r.reason instanceof Error ? r.reason.message : String(r.reason)}`);
-              }
+            if (hasTestEngineer) {
+              const { recordGateEvidence: recordGateEvidence2 } = await Promise.resolve().then(() => (init_gate_evidence(), exports_gate_evidence));
+              await recordGateEvidence2(directory, evidenceTaskId, "test_engineer", input.sessionID, turbo);
             }
           }
         } catch (err2) {
           console.warn(`[delegation-gate] fallback evidence recording failed: ${err2 instanceof Error ? err2.message : String(err2)}`);
+        }
+      }
+      if (session.taskWorkflowStates) {
+        for (const [, state] of session.taskWorkflowStates) {
+          if (state === "tests_run") {
+            const taskAwaiting = await findTaskAwaitingCompletion(directory, session);
+            if (taskAwaiting) {
+              session.pendingAdvisoryMessages ??= [];
+              session.pendingAdvisoryMessages.push(completionGateViolationMessage(taskAwaiting));
+            }
+            break;
+          }
         }
       }
     }
@@ -28878,8 +28941,12 @@ ${trimComment}${after}`;
             const deliberationSession = ensureAgentSession(deliberationSessionID);
             const lastGate = deliberationSession.lastGateOutcome;
             const parallelGuidance = await buildParallelExecutionGuidance(directory, deliberationSessionID, deliberationSession);
+            const taskAwaitingCompletion = await findTaskAwaitingCompletion(directory, deliberationSession);
             let guidance;
-            if (lastGate?.taskId) {
+            if (taskAwaitingCompletion) {
+              guidance = `[TASK COMPLETION REQUIRED] Task ${taskAwaitingCompletion} has completed reviewer/test_engineer gates and is awaiting durable plan update.
+[NEXT] Print the task completion checklist, then call update_task_status with task_id="${taskAwaitingCompletion}" and status="completed" before declare_scope or starting another task.`;
+            } else if (lastGate?.taskId) {
               const gateResult = lastGate.passed ? "PASSED" : "FAILED";
               const sanitizedGate = lastGate.gate.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[ \]/g, "()").replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 64);
               const sanitizedTaskId = lastGate.taskId.replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\[/g, "(").replace(/\]/g, ")").replace(/[\r\n]/g, " ").slice(0, 32);

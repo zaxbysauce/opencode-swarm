@@ -676,7 +676,7 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			expect(systemText).not.toContain('Eligible now: 1.1');
 		});
 
-		it('should count tests_run bridge state as an occupied slot', async () => {
+		it('should count reviewer_run bridge state as an occupied slot', async () => {
 			writePlanJson(tempDir, {
 				executionProfile: {
 					parallelization_enabled: true,
@@ -693,7 +693,6 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 			advanceTaskState(session, '1.1', 'coder_delegated');
 			advanceTaskState(session, '1.1', 'pre_check_passed');
 			advanceTaskState(session, '1.1', 'reviewer_run');
-			advanceTaskState(session, '1.1', 'tests_run');
 
 			const hook = createDelegationGateHook(makeConfig(), tempDir);
 			const messages = makeMessages('TASK: Continue work', 'architect');

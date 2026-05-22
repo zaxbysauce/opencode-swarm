@@ -354,38 +354,6 @@ function getSeedTaskId(session: AgentSessionState): string | null {
 	return session.currentTaskId ?? session.lastCoderDelegationTaskId;
 }
 
-/**
- * Returns all task IDs from session.taskWorkflowStates in eligible states for
- * evidence recording. Includes post-advancement states because state machine
- * advancement runs BEFORE evidence recording in both the stored-args and
- * fallback paths.
- *
- * Batch-review contract (#929): one reviewer/test_engineer delegation covers
- * all eligible tasks in the session, matching the state machine's batch
- * advancement behavior. Evidence must be recorded for the same set.
- */
-function getEligibleTaskIdsForEvidence(session: AgentSessionState): string[] {
-	if (
-		!session.taskWorkflowStates ||
-		!(session.taskWorkflowStates instanceof Map)
-	) {
-		return [];
-	}
-	const eligible: string[] = [];
-	const eligibleStates = new Set([
-		'coder_delegated',
-		'pre_check_passed',
-		'reviewer_run',
-		'tests_run',
-	]);
-	for (const [taskId, state] of session.taskWorkflowStates) {
-		if (eligibleStates.has(state)) {
-			eligible.push(taskId);
-		}
-	}
-	return eligible;
-}
-
 const ACTIVE_PARALLEL_TASK_STATES = new Set([
 	'coder_delegated',
 	'pre_check_passed',
@@ -406,25 +374,45 @@ function getPlanTaskStatus(plan: Plan, taskId: string): string | null {
 	return null;
 }
 
-function resolveDelegatedPlanTaskId(args: Record<string, unknown>): string | null {
+function resolveDelegatedPlanTaskId(
+	args: Record<string, unknown>,
+	knownPlanTaskIds?: ReadonlySet<string>,
+): string | null {
+	// Prefer explicit task_id/taskId fields — never fall through to text extraction
+	// when the caller provides a direct task identifier.
 	const rawTaskId = args.task_id ?? args.taskId;
 	if (typeof rawTaskId === 'string') {
 		const trimmed = rawTaskId.trim();
 		if (trimmed.length <= 20 && isStrictTaskId(trimmed)) return trimmed;
+		// Explicit field was present but invalid — fail closed, don't fish in text fields
+		return null;
 	}
 
+	// Text field extraction: collect ALL distinct task IDs to detect ambiguity.
+	// Uses direct regex rather than extractPlanTaskId because that helper returns
+	// only the first match per field, which misses multi-ID prompts.
 	const candidateTextFields = [
 		args.prompt,
 		args.description,
 		args.task,
 		args.input,
 	];
+	const seen = new Set<string>();
 	for (const field of candidateTextFields) {
 		if (typeof field !== 'string') continue;
-		const taskId = extractPlanTaskId(field);
-		if (taskId) return taskId;
+		for (const m of field.matchAll(/\b(\d+\.\d+(?:\.\d+)*)\b/g)) {
+			const candidate = m[1];
+			if (isStrictTaskId(candidate)) {
+				// Filter against known plan task IDs when available — excludes
+				// version numbers and other numeric-dot patterns that aren't tasks.
+				if (knownPlanTaskIds && !knownPlanTaskIds.has(candidate)) continue;
+				seen.add(candidate);
+			}
+		}
 	}
 
+	// Fail closed on ambiguity — multiple distinct IDs means we can't determine intent.
+	if (seen.size === 1) return seen.values().next().value as string;
 	return null;
 }
 
@@ -692,6 +680,55 @@ export function createDelegationGateHook(
 		if (!input.sessionID) return;
 
 		const normalized = normalizeToolName(input.tool);
+
+		// ── Completion gate: blocks starting a different task after QA gates pass ──
+		// Runs for ALL tools (declare_scope, update_task_status, Task), not just Task.
+		const completionArgs = output.args as Record<string, unknown> | undefined;
+		if (completionArgs) {
+			// Load plan task IDs for plan-aware text extraction (filters version numbers)
+			let completionPlanTaskIds: ReadonlySet<string> | undefined;
+			try {
+				const plan = await loadPlanJsonOnly(directory);
+				if (plan) {
+					completionPlanTaskIds = new Set(
+						plan.phases.flatMap((p) => p.tasks.map((t) => t.id)),
+					);
+				}
+			} catch {
+				// Plan unavailable — proceed without plan filtering (safe: may over-block)
+			}
+			const requestedTaskId = resolveDelegatedPlanTaskId(
+				completionArgs,
+				completionPlanTaskIds,
+			);
+			const completionSession = ensureAgentSession(input.sessionID);
+			const taskAwaitingCompletion = await findTaskAwaitingCompletion(
+				directory,
+				completionSession,
+				requestedTaskId,
+			);
+			if (taskAwaitingCompletion) {
+				const allowingSameTaskRetry =
+					requestedTaskId === taskAwaitingCompletion;
+				// Allow completion of ANY task that is itself awaiting completion,
+				// not just the one returned by findTaskAwaitingCompletion.
+				// This prevents deadlock when multiple tasks are in tests_run simultaneously.
+				const requestedTaskIsAwaitingCompletion =
+					requestedTaskId &&
+					completionSession.taskWorkflowStates.get(requestedTaskId) ===
+						'tests_run';
+				const allowCompletionUpdate =
+					normalized === 'update_task_status' &&
+					completionArgs.status === 'completed' &&
+					requestedTaskIsAwaitingCompletion;
+				if (!allowingSameTaskRetry && !allowCompletionUpdate) {
+					throw new Error(
+						completionGateViolationMessage(taskAwaitingCompletion),
+					);
+				}
+			}
+		}
+
 		if (normalized !== 'Task' && normalized !== 'task') return;
 
 		const args = output.args as Record<string, unknown> | undefined;
@@ -728,146 +765,656 @@ export function createDelegationGateHook(
 			}
 		}
 
-		const session = ensureAgentSession(input.sessionID);
-		const requestedTaskId = resolveDelegatedPlanTaskId(args);
-		const taskAwaitingCompletion = await findTaskAwaitingCompletion(
-			directory,
-			session,
-			requestedTaskId,
-		);
+		if (targetAgent !== 'coder') return;
 
-		if (taskAwaitingCompletion) {
-			const allowingSameTaskRetry = requestedTaskId === taskAwaitingCompletion;
-			const allowCompletionUpdate =
-				normalized === 'update_task_status' &&
-				args.status === 'completed' &&
-				requestedTaskId === taskAwaitingCompletion;
-			if (!allowingSameTaskRetry && !allowCompletionUpdate) {
-				throw new Error(completionGateViolationMessage(taskAwaitingCompletion));
-			}
-		}
+		// Only check for the architect session (the orchestrator)
+		const session = swarmState.agentSessions.get(input.sessionID);
+		if (!session || !session.taskWorkflowStates) return;
 
-		const directArgs = args as Record<string, unknown> | undefined;
-		if (!directArgs) return;
+		// Check if ANY task is in coder_delegated state (coder ran, no reviewer yet)
+		for (const [taskId, state] of session.taskWorkflowStates) {
+			if (state !== 'coder_delegated') continue;
 
-		const taskIdForState =
-			requestedTaskId ??
-			(taskAwaitingCompletion && session.taskWorkflowStates.has(taskAwaitingCompletion)
-				? taskAwaitingCompletion
-				: null);
-
-		// Handle state machine task workflow transitions based on delegation events
-		if (sessionID) {
-			// Determine if this is a coder delegation
-			const targetAgent = stripKnownSwarmPrefix(
-				(directArgs.subagent_type as string) || '',
+			// Before blocking, verify this coder_delegated state is from the CURRENT session.
+			// If there's no evidence of a coder delegation for this task in the current
+			// session's delegation chains, the state is inherited from a prior session — reset it.
+			// We use sessionRehydratedAt as the freshness threshold: any delegation chain
+			// entry older than rehydration time is from the prior session. For non-rehydrated
+			// sessions (sessionRehydratedAt=0), we fall back to lastPhaseCompleteTimestamp.
+			const freshnessThreshold =
+				session.sessionRehydratedAt > 0
+					? session.sessionRehydratedAt
+					: (session.lastPhaseCompleteTimestamp ?? 0);
+			const delegationChains =
+				swarmState.delegationChains.get(input.sessionID) ?? [];
+			const hasCurrentSessionCoderDelegation = delegationChains.some(
+				(d) =>
+					stripKnownSwarmPrefix(d.to) === 'coder' &&
+					d.timestamp > freshnessThreshold,
 			);
-			const isCoder = targetAgent === 'coder';
-			const hasReviewer =
-				swarmState.delegationChains.get(sessionID)?.some(
-					(d) => stripKnownSwarmPrefix(d.to) === 'reviewer',
-				) ?? false;
-			const hasTestEngineer =
-				swarmState.delegationChains.get(sessionID)?.some(
-					(d) => stripKnownSwarmPrefix(d.to) === 'test_engineer',
-				) ?? false;
-
-			// Step 1: Determine current task ID from arguments (fallback to evidence path)
-			const currentTaskId =
-				taskIdForState ??
-				getEvidenceTaskId(session, directory).catch(() => null);
-
-			// Handle coder delegation state transition (strictly before pre_check)
-			if (isCoder && typeof currentTaskId === 'string') {
-				const seedTaskId = getSeedTaskId(session);
-				if (seedTaskId && !session.taskWorkflowStates.has(seedTaskId)) {
-					session.taskWorkflowStates.set(seedTaskId, 'coder_delegated');
-				}
-				try {
-					await advanceTaskState(
-						session,
-						currentTaskId,
-						'coder_delegated',
-						{ emitTelemetry: false },
-					);
-				} catch (err) {
-					logger.warn(
-						`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
-					);
-				}
+			if (!hasCurrentSessionCoderDelegation) {
+				// Stale state from prior session — reset to idle and allow the delegation
+				session.taskWorkflowStates.set(taskId, 'idle');
+				logger.warn(
+					`[delegation-gate] Reset stale coder_delegated state for task ${taskId} — ` +
+						`no coder delegation found in current session.`,
+				);
+				continue; // Skip this task, don't block
 			}
 
-			// Handle review/test transitions if reviewer/test_engineer are present
-			if (hasReviewer || hasTestEngineer) {
-				if (
-					taskIdForState &&
-					session.taskWorkflowStates.has(taskIdForState) &&
-					(session.taskWorkflowStates.get(taskIdForState) === 'coder_delegated' ||
-						session.taskWorkflowStates.get(taskIdForState) === 'pre_check_passed')
-				) {
-					try {
-						await advanceTaskState(
-							session,
-							taskIdForState,
-							'reviewer_run',
-							{ emitTelemetry: false },
-						);
-					} catch (err) {
-						logger.warn(
-							`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
-						);
-					}
-				}
-				if (
-					taskIdForState &&
-					session.taskWorkflowStates.get(taskIdForState) === 'reviewer_run' &&
-					hasTestEngineer
-				) {
-					try {
-						await advanceTaskState(
-							session,
-							taskIdForState,
-							'tests_run',
-							{ emitTelemetry: false },
-						);
-					} catch (err) {
-						logger.warn(
-							`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
-						);
-					}
-				}
+			// Turbo mode bypasses the block — but Tier 3 tasks are never bypassed
+			const turbo = hasActiveTurboMode(input.sessionID);
+			if (turbo) {
+				// Tier 3 tasks always require reviewer, even in turbo mode
+				// Tier 3 pattern: task IDs like 3.x or tasks in phase 3
+				const isTier3 = taskId.startsWith('3.');
+				if (!isTier3) continue; // Allow bypass for non-Tier-3 in turbo
 			}
 
-			// Handle completion update when explicitly marked complete
-			if (normalized === 'update_task_status' && directArgs.status === 'completed') {
-				const completionTaskId = requestedTaskId ?? taskAwaitingCompletion;
-				if (completionTaskId) {
+			throw new Error(
+				`REVIEWER_GATE_VIOLATION: Cannot re-delegate to coder without reviewer delegation. ` +
+					`Task ${taskId} state: coder_delegated. Delegate to reviewer first. ` +
+					`If this is stale state from a prior session, run /swarm reset-session to clear workflow state.`,
+			);
+		}
+	};
+
+	// toolAfter: resets qaSkip fields and advances task states based on delegation type
+	// Uses stored input args from guardrails when available, falls back to delegationChains
+	const toolAfter = async (
+		input: {
+			tool: string;
+			sessionID: string;
+			callID: string;
+			args?: Record<string, unknown>;
+		},
+		_output: unknown,
+	): Promise<void> => {
+		if (!input.sessionID) return;
+		const session = swarmState.agentSessions.get(input.sessionID);
+		if (!session) return;
+
+		// Detect task tool calls
+		const normalized = normalizeToolName(input.tool);
+
+		// Cache council-active status; if true, Stage B advancement is REPLACED by
+		// council Phase 1 — reviewer/test_engineer Task delegations remain
+		// observable but do not advance state. The advancement event is the
+		// council verdict (handled in the submit_council_verdicts branch below).
+		// isCouncilGateActive returns false when the plan or QA gate profile is
+		// missing, which is the safe default.
+		const councilActive = await isCouncilGateActive(directory, config.council);
+
+		// ── Completion gate: advance state when architect marks task completed ──
+		if (normalized === 'update_task_status') {
+			const directArgs = input.args as Record<string, unknown> | undefined;
+			const storedArgs = getStoredInputArgs(input.callID) as
+				| Record<string, unknown>
+				| undefined;
+			const completionArgs = directArgs ?? storedArgs;
+			if (completionArgs && completionArgs.status === 'completed') {
+				const rawTaskId = completionArgs.task_id ?? completionArgs.taskId;
+				const completionTaskId =
+					typeof rawTaskId === 'string' ? rawTaskId.trim() : null;
+				if (completionTaskId && isStrictTaskId(completionTaskId)) {
 					try {
+						const completionSession = ensureAgentSession(input.sessionID);
 						await advanceTaskStateAndPersist(
-							session,
+							completionSession,
 							completionTaskId,
 							'complete',
 							directory,
-							{ telemetrySessionId: sessionID },
+							{ telemetrySessionId: input.sessionID },
+							config.council,
 						);
 					} catch (err) {
 						logger.warn(
-							`[delegation-gate] state machine warn: ${err instanceof Error ? err.message : String(err)}`,
+							`[delegation-gate] toolAfter completion advancement: could not advance ${completionTaskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
 						);
 					}
 				}
 			}
-
-			// Handle completion gate guidance for the architect once QA gates are done
-			if (taskAwaitingCompletion) {
-				session.pendingAdvisoryMessages ??= [];
-				session.pendingAdvisoryMessages.push(
-					completionGateViolationMessage(taskAwaitingCompletion),
-				);
-			}
 		}
 
-		// ... remaining hook behavior unchanged ...
+		// Council branch: handle submit_council_verdicts tool calls. Records the verdict on the
+		// session, and if APPROVE + allCriteriaMet + zero required fixes, advances the
+		// task to 'complete'. State machine still requires pre_check_passed (Stage A).
+		if (normalized === 'submit_council_verdicts') {
+			try {
+				// _output may be a string (older runtimes) or already-parsed object.
+				const parsed =
+					typeof _output === 'string' ? JSON.parse(_output) : _output;
+				const result = parsed as {
+					success?: boolean;
+					overallVerdict?: 'APPROVE' | 'REJECT' | 'CONCERNS';
+					allCriteriaMet?: boolean;
+					requiredFixesCount?: number;
+					roundNumber?: number;
+					// Quorum metadata: present on success responses from
+					// submit_council_verdicts. Used downstream to validate the
+					// fast-path APPROVE has sufficient distinct members.
+					quorumSize?: number;
+				} | null;
+				if (
+					result &&
+					typeof result === 'object' &&
+					result.success === true &&
+					typeof result.overallVerdict === 'string'
+				) {
+					const directArgs = input.args as Record<string, unknown> | undefined;
+					const storedArgs = getStoredInputArgs(input.callID) as
+						| Record<string, unknown>
+						| undefined;
+					const taskIdRaw = directArgs?.taskId ?? storedArgs?.taskId;
+					const taskId = typeof taskIdRaw === 'string' ? taskIdRaw : null;
+					if (taskId) {
+						if (!session.taskCouncilApproved)
+							session.taskCouncilApproved = new Map();
+						session.taskCouncilApproved.set(taskId, {
+							verdict: result.overallVerdict,
+							roundNumber:
+								typeof result.roundNumber === 'number' ? result.roundNumber : 1,
+							// ?? 1: conservative fallback when the tool result lacks
+							// quorumSize (e.g. older tool versions). The fast-path
+							// will reject this against the default minimumMembers=3.
+							quorumSize:
+								typeof result.quorumSize === 'number' ? result.quorumSize : 1,
+						});
+						if (
+							councilActive &&
+							result.overallVerdict === 'APPROVE' &&
+							result.allCriteriaMet === true &&
+							(result.requiredFixesCount ?? 0) === 0
+						) {
+							try {
+								// Pass council config so the fast-path quorum check
+								// inside advanceTaskState uses the configured
+								// minimumMembers (default 3) rather than rejecting
+								// every entry it sees.
+								await advanceTaskStateAndPersist(
+									session,
+									taskId,
+									'complete',
+									directory,
+									{ telemetrySessionId: input.sessionID },
+									config.council,
+								);
+							} catch (err) {
+								logger.warn(
+									`[delegation-gate] toolAfter submit_council_verdicts: could not advance ${taskId} → complete: ${err instanceof Error ? err.message : String(err)}`,
+								);
+							}
+						}
+					}
+				}
+			} catch (err) {
+				console.warn(
+					`[delegation-gate] toolAfter submit_council_verdicts: failed to parse output: ${err instanceof Error ? err.message : String(err)}`,
+				);
+			}
+			// Return early — gate-evidence recording (inside the Task branch below)
+			// does not apply to submit_council_verdicts: it is a synthesis tool, not a gate
+			// delegation, and 'submit_council_verdicts' is not in the gateAgents list.
+			return;
+		}
+
+		if (normalized === 'Task' || normalized === 'task') {
+			// Primary source: input.args from OpenCode's tool.execute.after hook (authoritative)
+			// Fallback: stored args from guardrails toolBefore (legacy path)
+			const directArgs = input.args as Record<string, unknown> | undefined;
+			const storedArgs = getStoredInputArgs(input.callID) as
+				| Record<string, unknown>
+				| undefined;
+			const subagentType =
+				directArgs?.subagent_type ?? storedArgs?.subagent_type;
+
+			// Track if we detected reviewer and/or test_engineer via stored args
+			let hasReviewer = false;
+			let hasTestEngineer = false;
+
+			// Primary path: use stored input args if available
+			if (typeof subagentType === 'string') {
+				const targetAgent = stripKnownSwarmPrefix(subagentType);
+
+				// Track which agents have been delegated to
+				if (targetAgent === 'reviewer') hasReviewer = true;
+				if (targetAgent === 'test_engineer') hasTestEngineer = true;
+
+				// Stage B advancement runs unconditionally. Council mode is additive
+				// at the phase level — it never suppresses per-task Stage B gate recording.
+				// The councilActive flag is still used above for submit_council_verdicts handling only.
+				// Stage B is always parallel — reviewer and test_engineer dispatch simultaneously.
+				// This is not configurable. Do not add a config read here.
+				const stageBParallelEnabled = true;
+
+				if (stageBParallelEnabled) {
+					// ── PR 2 Stage B parallel path ──────────────────────────────────
+					// Order-independent barrier: record each completion independently.
+					// Advance to tests_run only when BOTH reviewer and test_engineer
+					// have completed. Either may complete first.
+					if (
+						(targetAgent === 'reviewer' || targetAgent === 'test_engineer') &&
+						session.taskWorkflowStates
+					) {
+						const stageBEligibleStates = [
+							'coder_delegated',
+							'pre_check_passed',
+							'reviewer_run',
+						] as const;
+						type EligibleState = (typeof stageBEligibleStates)[number];
+
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (!(stageBEligibleStates as readonly string[]).includes(state))
+								continue;
+							const eligibleState = state as EligibleState;
+							recordStageBCompletion(
+								session,
+								taskId,
+								targetAgent as 'reviewer' | 'test_engineer',
+							);
+
+							if (hasBothStageBCompletions(session, taskId)) {
+								// Barrier reached: both reviewer and test_engineer have completed.
+								// Advance through reviewer_run → tests_run in a single compound
+								// step so the state machine stays consistent.
+								try {
+									if (
+										eligibleState === 'coder_delegated' ||
+										eligibleState === 'pre_check_passed'
+									) {
+										advanceTaskState(session, taskId, 'reviewer_run', {
+											telemetrySessionId: input.sessionID,
+										});
+									}
+									advanceTaskState(session, taskId, 'tests_run', {
+										telemetrySessionId: input.sessionID,
+									});
+								} catch (err) {
+									logger.warn(
+										`[delegation-gate] toolAfter stage-b-parallel: could not advance ${taskId} (${eligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
+								}
+							} else {
+								// Intermediate advancement: advance state immediately when a
+								// single Stage B agent completes, without waiting for the barrier.
+								// This preserves the sequential-equivalent state machine contract:
+								//   coder_delegated → reviewer_run  (when reviewer completes)
+								//   reviewer_run → tests_run        (when test_engineer completes)
+								// The barrier path above handles the case where both complete
+								// while state is still coder_delegated (compound step).
+								try {
+									if (
+										targetAgent === 'reviewer' &&
+										(eligibleState === 'coder_delegated' ||
+											eligibleState === 'pre_check_passed')
+									) {
+										advanceTaskState(session, taskId, 'reviewer_run', {
+											telemetrySessionId: input.sessionID,
+										});
+									} else if (
+										targetAgent === 'test_engineer' &&
+										eligibleState === 'reviewer_run'
+									) {
+										advanceTaskState(session, taskId, 'tests_run', {
+											telemetrySessionId: input.sessionID,
+										});
+									}
+								} catch (err) {
+									logger.warn(
+										`[delegation-gate] toolAfter stage-b-parallel intermediate: could not advance ${taskId} (${eligibleState}) after ${targetAgent}: ${err instanceof Error ? err.message : String(err)}`,
+									);
+								}
+							}
+						}
+
+						// Cross-session propagation for Stage B parallel path.
+						// Scoped to seedTaskId only — recording completion for every task
+						// in every other session would contaminate unrelated tasks.
+						const seedTaskId = getSeedTaskId(session);
+						if (seedTaskId) {
+							for (const [, otherSession] of swarmState.agentSessions) {
+								if (otherSession === session) continue;
+								if (!otherSession.taskWorkflowStates) continue;
+
+								if (!otherSession.taskWorkflowStates.has(seedTaskId)) {
+									otherSession.taskWorkflowStates.set(
+										seedTaskId,
+										'coder_delegated',
+									);
+								}
+
+								const seedState =
+									otherSession.taskWorkflowStates.get(seedTaskId);
+								if (
+									!seedState ||
+									!(stageBEligibleStates as readonly string[]).includes(
+										seedState,
+									)
+								) {
+									continue;
+								}
+								const seedEligibleState = seedState as EligibleState;
+								recordStageBCompletion(
+									otherSession,
+									seedTaskId,
+									targetAgent as 'reviewer' | 'test_engineer',
+								);
+								if (hasBothStageBCompletions(otherSession, seedTaskId)) {
+									try {
+										if (
+											seedEligibleState === 'coder_delegated' ||
+											seedEligibleState === 'pre_check_passed'
+										) {
+											advanceTaskState(
+												otherSession,
+												seedTaskId,
+												'reviewer_run',
+												{ emitTelemetry: false },
+											);
+										}
+										advanceTaskState(otherSession, seedTaskId, 'tests_run', {
+											emitTelemetry: false,
+										});
+									} catch (err) {
+										logger.warn(
+											`[delegation-gate] toolAfter cross-session stage-b-parallel: could not advance ${seedTaskId} (${seedEligibleState}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
+									}
+								} else {
+									// Intermediate cross-session advancement (mirrors same-session logic)
+									try {
+										if (
+											targetAgent === 'reviewer' &&
+											(seedEligibleState === 'coder_delegated' ||
+												seedEligibleState === 'pre_check_passed')
+										) {
+											advanceTaskState(
+												otherSession,
+												seedTaskId,
+												'reviewer_run',
+												{ emitTelemetry: false },
+											);
+										} else if (
+											targetAgent === 'test_engineer' &&
+											seedEligibleState === 'reviewer_run'
+										) {
+											advanceTaskState(otherSession, seedTaskId, 'tests_run', {
+												emitTelemetry: false,
+											});
+										}
+									} catch (err) {
+										logger.warn(
+											`[delegation-gate] toolAfter cross-session stage-b-parallel intermediate: could not advance ${seedTaskId} (${seedEligibleState}) after ${targetAgent}: ${err instanceof Error ? err.message : String(err)}`,
+										);
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+
+			// Record gate evidence for stored-args path
+			// v6.33.7: Entire block wrapped in try-catch — getEvidenceTaskId can
+			// re-throw unexpected errors (EPERM, EBUSY on Windows) which previously
+			// escaped outside the evidence try-catch and propagated to safeHook.
+			if (typeof subagentType === 'string') {
+				try {
+					const rawTaskId = directArgs?.task_id;
+					const evidenceTaskId =
+						typeof rawTaskId === 'string' &&
+						rawTaskId.length <= 20 &&
+						isStrictTaskId(rawTaskId.trim())
+							? rawTaskId.trim()
+							: await getEvidenceTaskId(session, directory);
+					if (evidenceTaskId) {
+						const turbo = hasActiveTurboMode(input.sessionID);
+						const gateAgents = [
+							'reviewer',
+							'test_engineer',
+							'docs',
+							'designer',
+							'critic',
+							'explorer',
+							'sme',
+						];
+						const targetAgentForEvidence = stripKnownSwarmPrefix(subagentType);
+						if (gateAgents.includes(targetAgentForEvidence)) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								targetAgentForEvidence,
+								input.sessionID,
+								turbo,
+							);
+						} else {
+							const { recordAgentDispatch } = await import('../gate-evidence');
+							await recordAgentDispatch(
+								directory,
+								evidenceTaskId,
+								targetAgentForEvidence,
+								turbo,
+							);
+						}
+					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+			}
+
+			// Always clean up stored args if they exist, regardless of subagent_type validity
+			if (storedArgs !== undefined) {
+				deleteStoredInputArgs(input.callID);
+			}
+
+			// Fallback: use delegationChains if stored args not available
+			// This handles cross-session cases where stored args may be fragmented/empty
+			if (!subagentType || !hasReviewer) {
+				const delegationChain = swarmState.delegationChains.get(
+					input.sessionID,
+				);
+				if (delegationChain && delegationChain.length > 0) {
+					// Find the index of the last 'coder' entry in the chain
+					let lastCoderIndex = -1;
+					for (let i = delegationChain.length - 1; i >= 0; i--) {
+						const target = stripKnownSwarmPrefix(delegationChain[i].to);
+						if (target.includes('coder')) {
+							lastCoderIndex = i;
+							break;
+						}
+					}
+
+					// If no coder in chain, skip qaSkip reset but still scan the
+					// full chain for reviewer/test_engineer so state advancement
+					// can proceed (pure verification tasks have no coder delegation).
+					const searchStart = lastCoderIndex === -1 ? 0 : lastCoderIndex;
+
+					// Walk forward from coder index (or start of chain if no coder)
+					const afterCoder = delegationChain.slice(searchStart);
+					for (const delegation of afterCoder) {
+						const target = stripKnownSwarmPrefix(delegation.to);
+						if (target === 'reviewer') hasReviewer = true;
+						if (target === 'test_engineer') hasTestEngineer = true;
+					}
+
+					// Only reset qaSkip when BOTH have been seen since last coder
+					// (skip qaSkip reset entirely when there's no coder in chain)
+					// Stage B advancement in fallback path runs unconditionally, matching
+					// the primary path. Council mode is additive at phase level only.
+					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+						session.qaSkipCount = 0;
+						session.qaSkipTaskIds = [];
+					}
+
+					// Fallback Pass 1: advance states via delegationChains
+					if (
+						lastCoderIndex !== -1 &&
+						hasReviewer &&
+						session.taskWorkflowStates
+					) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'coder_delegated' || state === 'pre_check_passed') {
+								try {
+									advanceTaskState(session, taskId, 'reviewer_run');
+								} catch (err) {
+									logger.warn(
+										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
+								}
+							}
+						}
+					}
+
+					// Fallback Pass 2: advance states via delegationChains
+					if (
+						lastCoderIndex !== -1 &&
+						hasReviewer &&
+						hasTestEngineer &&
+						session.taskWorkflowStates
+					) {
+						for (const [taskId, state] of session.taskWorkflowStates) {
+							if (state === 'reviewer_run') {
+								try {
+									advanceTaskState(session, taskId, 'tests_run');
+								} catch (err) {
+									logger.warn(
+										`[delegation-gate] fallback: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+									);
+								}
+							}
+						}
+					}
+
+					// Fallback: Also advance states in OTHER sessions via delegationChains
+					if (lastCoderIndex !== -1 && hasReviewer) {
+						for (const [, otherSession] of swarmState.agentSessions) {
+							if (otherSession === session) continue;
+							if (!otherSession.taskWorkflowStates) continue;
+
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
+								otherSession.taskWorkflowStates.set(
+									seedTaskId,
+									'coder_delegated',
+								);
+							}
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (
+									state === 'coder_delegated' ||
+									state === 'pre_check_passed'
+								) {
+									try {
+										advanceTaskState(otherSession, taskId, 'reviewer_run', {
+											emitTelemetry: false,
+										});
+									} catch (err) {
+										logger.warn(
+											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → reviewer_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
+									}
+								}
+							}
+						}
+					}
+
+					if (lastCoderIndex !== -1 && hasReviewer && hasTestEngineer) {
+						for (const [, otherSession] of swarmState.agentSessions) {
+							if (otherSession === session) continue;
+							if (!otherSession.taskWorkflowStates) continue;
+
+							// Seed task state in sessions that don't have an entry yet
+							const seedTaskId = getSeedTaskId(session);
+							if (
+								seedTaskId &&
+								!otherSession.taskWorkflowStates.has(seedTaskId)
+							) {
+								otherSession.taskWorkflowStates.set(seedTaskId, 'reviewer_run');
+							}
+							for (const [taskId, state] of otherSession.taskWorkflowStates) {
+								if (state === 'reviewer_run') {
+									try {
+										advanceTaskState(otherSession, taskId, 'tests_run', {
+											emitTelemetry: false,
+										});
+									} catch (err) {
+										logger.warn(
+											`[delegation-gate] fallback cross-session: could not advance ${taskId} (${state}) → tests_run: ${err instanceof Error ? err.message : String(err)}`,
+										);
+									}
+								}
+							}
+						}
+					}
+				}
+
+				// Record gate evidence for delegation-chain fallback path
+				// v6.33.7: Entire block wrapped in try-catch (same fix as stored-args path)
+				try {
+					const rawTaskId = directArgs?.task_id;
+					const evidenceTaskId =
+						typeof rawTaskId === 'string' &&
+						rawTaskId.length <= 20 &&
+						isStrictTaskId(rawTaskId.trim())
+							? rawTaskId.trim()
+							: await getEvidenceTaskId(session, directory);
+					if (evidenceTaskId) {
+						const turbo = hasActiveTurboMode(input.sessionID);
+						if (hasReviewer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'reviewer',
+								input.sessionID,
+								turbo,
+							);
+						}
+						if (hasTestEngineer) {
+							const { recordGateEvidence } = await import('../gate-evidence');
+							await recordGateEvidence(
+								directory,
+								evidenceTaskId,
+								'test_engineer',
+								input.sessionID,
+								turbo,
+							);
+						}
+					}
+				} catch (err) {
+					/* non-fatal — evidence is additive, never blocks delegation */
+					console.warn(
+						`[delegation-gate] fallback evidence recording failed: ${err instanceof Error ? err.message : String(err)}`,
+					);
+				}
+			}
+
+			// ── Completion gate: push advisory if a task awaits completion ──
+			if (session.taskWorkflowStates) {
+				for (const [, state] of session.taskWorkflowStates) {
+					if (state === 'tests_run') {
+						const taskAwaiting = await findTaskAwaitingCompletion(
+							directory,
+							session,
+						);
+						if (taskAwaiting) {
+							session.pendingAdvisoryMessages ??= [];
+							session.pendingAdvisoryMessages.push(
+								completionGateViolationMessage(taskAwaiting),
+							);
+						}
+						break; // only push once
+					}
+				}
+			}
+		}
 	};
 
 	return {
