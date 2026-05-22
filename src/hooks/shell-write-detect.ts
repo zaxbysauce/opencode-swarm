@@ -217,8 +217,8 @@ function detectBuiltinWritesFromString(cmd: string): WriteTarget | null {
 function wordText(node: unknown): string | null {
 	if (!node || typeof node !== 'object') return null;
 	const n = node as Record<string, unknown>;
-	if (n['type'] === 'Word' && typeof n['text'] === 'string') {
-		return n['text'];
+	if (n.type === 'Word' && typeof n.text === 'string') {
+		return n.text;
 	}
 	return null;
 }
@@ -234,12 +234,12 @@ function collectLeafCommands(node: unknown, out: unknown[]): void {
 	if (!node || typeof node !== 'object') return;
 	const n = node as Record<string, unknown>;
 
-	const type = n['type'] as string | undefined;
+	const type = n.type as string | undefined;
 
 	switch (type) {
 		case 'Script':
-			if (Array.isArray(n['commands'])) {
-				for (const cmd of n['commands']) {
+			if (Array.isArray(n.commands)) {
+				for (const cmd of n.commands) {
 					collectLeafCommands(cmd, out);
 				}
 			}
@@ -247,8 +247,8 @@ function collectLeafCommands(node: unknown, out: unknown[]): void {
 
 		case 'Pipeline':
 		case 'Sequence':
-			if (Array.isArray(n['commands'])) {
-				for (const cmd of n['commands']) {
+			if (Array.isArray(n.commands)) {
+				for (const cmd of n.commands) {
 					collectLeafCommands(cmd, out);
 				}
 			}
@@ -257,28 +257,28 @@ function collectLeafCommands(node: unknown, out: unknown[]): void {
 		case 'CompoundList':
 			// CompoundList can carry redirections; push it then recurse into commands.
 			out.push(node);
-			if (Array.isArray(n['commands'])) {
-				for (const cmd of n['commands']) {
+			if (Array.isArray(n.commands)) {
+				for (const cmd of n.commands) {
 					collectLeafCommands(cmd, out);
 				}
 			}
 			break;
 
 		case 'LogicalExpression':
-			if (n['left']) collectLeafCommands(n['left'], out);
-			if (n['right']) collectLeafCommands(n['right'], out);
+			if (n.left) collectLeafCommands(n.left, out);
+			if (n.right) collectLeafCommands(n.right, out);
 			break;
 
 		case 'And':
 		case 'Or':
-			if (n['left']) collectLeafCommands(n['left'], out);
-			if (n['right']) collectLeafCommands(n['right'], out);
+			if (n.left) collectLeafCommands(n.left, out);
+			if (n.right) collectLeafCommands(n.right, out);
 			break;
 
 		case 'Subshell':
 			// Push subshell so its redirections are detected, then recurse into list.
 			out.push(node);
-			if (n['list']) collectLeafCommands(n['list'], out);
+			if (n.list) collectLeafCommands(n.list, out);
 			break;
 
 		case 'ProcessSubstitution':
@@ -290,22 +290,19 @@ function collectLeafCommands(node: unknown, out: unknown[]): void {
 			// Only >(...) (Great operator) is a potential write — recurse into inner command.
 			// Skip <(...) (Less operator) since it is read-only.
 			{
-				const op = n['op'] as Record<string, unknown> | undefined;
+				const op = n.op as Record<string, unknown> | undefined;
 				if (op && typeof op === 'object') {
-					const opType = (op['type'] as string | undefined)?.toUpperCase();
+					const opType = (op.type as string | undefined)?.toUpperCase();
 					if (opType === 'GREAT') {
 						// >(...) is a write — recurse into the inner command
-						if (n['command']) {
-							collectLeafCommands(n['command'], out);
+						if (n.command) {
+							collectLeafCommands(n.command, out);
 						}
 					}
 					// LESS operator (<) is read-only — skip entirely
 				}
 			}
 			break;
-
-		case 'Command':
-		case 'SimpleCommand':
 		default:
 			out.push(node);
 			break;
@@ -316,24 +313,24 @@ function collectLeafCommands(node: unknown, out: unknown[]): void {
 function getCommandName(cmd: unknown): string | null {
 	if (!cmd || typeof cmd !== 'object') return null;
 	const c = cmd as Record<string, unknown>;
-	if (typeof c['name'] === 'string') return c['name'];
-	return wordText(c['name']);
+	if (typeof c.name === 'string') return c.name;
+	return wordText(c.name);
 }
 
 /** Get the suffix (arguments after command name) from a command node. Returns array of word texts. */
 function getSuffixWords(cmd: unknown): string[] {
 	if (!cmd || typeof cmd !== 'object') return [];
 	const c = cmd as Record<string, unknown>;
-	const suffix = c['suffix'];
+	const suffix = c.suffix;
 	if (!Array.isArray(suffix)) return [];
 	return suffix.map((s) => wordText(s) ?? '');
 }
 
 /** Get the prefix from a command node. */
-function getPrefixWords(cmd: unknown): string[] {
+function _getPrefixWords(cmd: unknown): string[] {
 	if (!cmd || typeof cmd !== 'object') return [];
 	const c = cmd as Record<string, unknown>;
-	const prefix = c['prefix'];
+	const prefix = c.prefix;
 	if (!Array.isArray(prefix)) return [];
 	return prefix.map((p) => wordText(p) ?? '');
 }
@@ -350,14 +347,14 @@ function getRedirections(cmd: unknown): unknown[] {
 	const c = cmd as Record<string, unknown>;
 
 	// Dedicated redirections array (compound commands)
-	if (Array.isArray(c['redirections'])) {
-		return c['redirections'] as unknown[];
+	if (Array.isArray(c.redirections)) {
+		return c.redirections as unknown[];
 	}
 
 	// Collect Redirect nodes from suffix and prefix arrays (simple commands)
 	const results: unknown[] = [];
-	const suffix = c['suffix'];
-	const prefix = c['prefix'];
+	const suffix = c.suffix;
+	const prefix = c.prefix;
 
 	if (Array.isArray(suffix)) {
 		for (const item of suffix) {
@@ -378,7 +375,7 @@ function isRedirectNode(node: unknown): boolean {
 	return !!(
 		node &&
 		typeof node === 'object' &&
-		(node as Record<string, unknown>)['type'] === 'Redirect'
+		(node as Record<string, unknown>).type === 'Redirect'
 	);
 }
 
@@ -389,7 +386,7 @@ function isRedirectNode(node: unknown): boolean {
 function operatorLabel(op: unknown): string {
 	if (!op || typeof op !== 'object') return 'unknown';
 	const o = op as Record<string, unknown>;
-	const opType = (o['type'] as string | undefined)?.toUpperCase();
+	const opType = (o.type as string | undefined)?.toUpperCase();
 	switch (opType) {
 		case 'GREAT':
 			return '>';
@@ -456,16 +453,16 @@ function detectRedirects(cmd: unknown): WriteTarget[] {
 	for (const redirect of redirections) {
 		if (!redirect || typeof redirect !== 'object') continue;
 		const r = redirect as Record<string, unknown>;
-		const opNode = r['op'];
+		const opNode = r.op;
 		if (!opNode || typeof opNode !== 'object') continue;
 
 		const opType = (
-			(opNode as Record<string, unknown>)['type'] as string | undefined
+			(opNode as Record<string, unknown>).type as string | undefined
 		)?.toUpperCase();
 
 		if (!opType || !REDIRECT_ALL_WRITE_TOKENS.has(opType)) continue;
 
-		const fileNode = r['file'];
+		const fileNode = r.file;
 		const path = extractRedirectPath(fileNode);
 		const opLabel = operatorLabel(opNode);
 
@@ -488,16 +485,16 @@ function detectHereDocMarkers(cmd: unknown): WriteTarget[] {
 	if (!cmd || typeof cmd !== 'object') return results;
 	const c = cmd as Record<string, unknown>;
 
-	const suffix = c['suffix'];
+	const suffix = c.suffix;
 	if (!Array.isArray(suffix)) return results;
 
 	for (const item of suffix) {
 		if (!item || typeof item !== 'object') continue;
 		const n = item as Record<string, unknown>;
 		// Here-doc marker: type is 'dless' or 'dlessdash', text is '<<' or '<<-'
-		const type = (n['type'] as string | undefined)?.toLowerCase();
+		const type = (n.type as string | undefined)?.toLowerCase();
 		if (type === 'dless' || type === 'dlessdash') {
-			const text = n['text'] as string | undefined;
+			const text = n.text as string | undefined;
 			results.push({
 				category: 'here_doc',
 				operator: text === '<<-' ? '<<-' : '<<',
@@ -987,7 +984,7 @@ function splitWindowsCommands(command: string): string[] {
 // ---------------------------------------------------------------------------
 
 /** PowerShell cmdlets that write to files. */
-const PS_WRITE_CMDLETS = new Set([
+const _PS_WRITE_CMDLETS = new Set([
 	'Out-File',
 	'Set-Content',
 	'Add-Content',
@@ -1000,7 +997,7 @@ const PS_WRITE_CMDLETS = new Set([
 ]);
 
 /** PowerShell aliases that map to write operations. */
-const PS_WRITE_ALIASES = new Set(['echo', 'write']);
+const _PS_WRITE_ALIASES = new Set(['echo', 'write']);
 
 /**
  * Detect write operations in a single PowerShell command string using regex.
@@ -1037,7 +1034,7 @@ function detectPowerShellWrites(command: string): WriteTarget[] {
 		const op = redirectMatch[2];
 		const path = redirectMatch[3];
 		const fdRedirectPattern = /\d>\s*$|\s\d>&$/;
-		if (!fdRedirectPattern.test(beforeRedirect + ' ' + op)) {
+		if (!fdRedirectPattern.test(`${beforeRedirect} ${op}`)) {
 			results.push({ category: 'redirect', operator: op, path });
 		}
 	}
@@ -1249,8 +1246,8 @@ function detectPowerShellWrites(command: string): WriteTarget[] {
 	);
 	if (aliasRedirectMatch) {
 		// Look for a redirect in the command
-		const aliasPart = aliasRedirectMatch[0];
-		const afterAlias = trimmed.slice(aliasRedirectMatch[0].length);
+		const _aliasPart = aliasRedirectMatch[0];
+		const _afterAlias = trimmed.slice(aliasRedirectMatch[0].length);
 		const fullRedirectMatch = trimmed.match(/((?:>){1,2})\s*(\S+)$/);
 		if (fullRedirectMatch) {
 			results.push({
@@ -1281,7 +1278,7 @@ function detectPowerShellWrites(command: string): WriteTarget[] {
 // ---------------------------------------------------------------------------
 
 /** cmd.exe builtins that write to files. */
-const CMD_WRITE_BUILTINS = new Set([
+const _CMD_WRITE_BUILTINS = new Set([
 	'copy',
 	'move',
 	'type',
@@ -1695,22 +1692,22 @@ function resolvePath(pathText: string | null, cwd: string): string | null {
 function getCdTarget(cmd: unknown): string | null {
 	if (!cmd || typeof cmd !== 'object') return null;
 	const c = cmd as Record<string, unknown>;
-	const nodeType = c['type'] as string;
+	const nodeType = c.type as string;
 	if (nodeType !== 'SimpleCommand' && nodeType !== 'Command') return null;
-	const name = c['name'];
+	const name = c.name;
 	if (!name || typeof name !== 'object') return null;
 	const n = name as Record<string, unknown>;
-	if ((n['type'] as string) !== 'Word') return null;
-	const text = n['text'] as string;
+	if ((n.type as string) !== 'Word') return null;
+	const text = n.text as string;
 	if (text !== 'cd') return null;
 	// Get the first suffix word (the directory target)
-	const suffix = c['suffix'] as unknown[] | undefined;
+	const suffix = c.suffix as unknown[] | undefined;
 	if (!Array.isArray(suffix) || suffix.length === 0) return null;
 	const first = suffix[0];
 	if (!first || typeof first !== 'object') return null;
 	const firstWord = first as Record<string, unknown>;
-	if ((firstWord['type'] as string) !== 'Word') return null;
-	const target = firstWord['text'] as string;
+	if ((firstWord.type as string) !== 'Word') return null;
+	const target = firstWord.text as string;
 	// Ignore special cd targets
 	if (target === '-' || target === '~' || target === '~' + '/') return null;
 	return target;
@@ -1738,13 +1735,13 @@ function collectWritesWithNodes(
 ): void {
 	if (!node || typeof node !== 'object') return;
 	const n = node as Record<string, unknown>;
-	const type = n['type'] as string | undefined;
+	const type = n.type as string | undefined;
 
 	switch (type) {
 		case 'Script': {
-			const globalCwd = cwdStack[0] ?? '/';
-			if (Array.isArray(n['commands'])) {
-				for (const cmd of n['commands']) {
+			const _globalCwd = cwdStack[0] ?? '/';
+			if (Array.isArray(n.commands)) {
+				for (const cmd of n.commands) {
 					collectWritesWithNodes(cmd, out, cwdStack);
 				}
 			}
@@ -1757,7 +1754,7 @@ function collectWritesWithNodes(
 			const effectiveCwd = cwdStack[0] ?? '/';
 
 			// Collect writes from the subshell's redirections (if redirect is ON the subshell)
-			const subshellRedirs = n['redirections'] as unknown[] | undefined;
+			const subshellRedirs = n.redirections as unknown[] | undefined;
 			if (Array.isArray(subshellRedirs)) {
 				for (const redirect of subshellRedirs) {
 					const writesFromRedirect = getWritesFromRedirectNode(
@@ -1772,20 +1769,20 @@ function collectWritesWithNodes(
 
 			// Recurse into the subshell's list with a COPY of the stack so
 			// cd mutations inside the subshell do not leak to the parent.
-			if (n['list']) {
+			if (n.list) {
 				const subStack = [...cwdStack];
-				collectWritesWithNodes(n['list'], out, subStack);
+				collectWritesWithNodes(n.list, out, subStack);
 			}
 			break;
 		}
 
 		case 'CompoundList': {
 			// Process each command in sequence, updating context as we go
-			if (Array.isArray(n['commands'])) {
+			if (Array.isArray(n.commands)) {
 				// Track the current stack across iterations; starts as cwdStack,
 				// but after a cd mutation, subsequent commands must use the mutated stack
 				const currentStack = cwdStack;
-				for (const cmd of n['commands']) {
+				for (const cmd of n.commands) {
 					// Check for cd command to update context
 					const cdTarget = getCdTarget(cmd);
 					if (cdTarget) {
@@ -1806,8 +1803,8 @@ function collectWritesWithNodes(
 
 		case 'Pipeline':
 		case 'Sequence': {
-			if (Array.isArray(n['commands'])) {
-				for (const cmd of n['commands']) {
+			if (Array.isArray(n.commands)) {
+				for (const cmd of n.commands) {
 					collectWritesWithNodes(cmd, out, cwdStack);
 				}
 			}
@@ -1818,15 +1815,15 @@ function collectWritesWithNodes(
 			// LogicalExpression (&& or ||) — same semantics as And/Or
 			// Process left first (may modify cwd via cd)
 			// IMPORTANT: Use cwdStack directly, not a copy, so cd mutations propagate
-			if (n['left']) {
-				collectWritesWithNodes(n['left'], out, cwdStack);
+			if (n.left) {
+				collectWritesWithNodes(n.left, out, cwdStack);
 				// Capture the context AFTER left has been processed (cd may have modified it)
 				const leftContext = cwdStack[0] ?? '/';
 				// Process right with potentially updated context from left
-				if (n['right']) {
+				if (n.right) {
 					// Use a single-element stack for right; leftContext is the only cwd needed
 					const rightStack = [leftContext];
-					collectWritesWithNodes(n['right'], out, rightStack);
+					collectWritesWithNodes(n.right, out, rightStack);
 				}
 			}
 			break;
@@ -1836,14 +1833,14 @@ function collectWritesWithNodes(
 		case 'Or': {
 			// Process left first (may modify cwd via cd)
 			// IMPORTANT: Use cwdStack directly, not a copy, so cd mutations propagate
-			if (n['left']) {
-				collectWritesWithNodes(n['left'], out, cwdStack);
+			if (n.left) {
+				collectWritesWithNodes(n.left, out, cwdStack);
 				const leftContext = cwdStack[0] ?? '/';
 				// Process right with potentially updated context from left
-				if (n['right']) {
+				if (n.right) {
 					// Use a single-element stack for right; leftContext is the only cwd needed
 					const rightStack = [leftContext];
-					collectWritesWithNodes(n['right'], out, rightStack);
+					collectWritesWithNodes(n.right, out, rightStack);
 				}
 			}
 			break;
@@ -1912,15 +1909,15 @@ function getWritesFromRedirectNode(
 ): WriteTarget[] {
 	if (!redirect || typeof redirect !== 'object') return [];
 	const r = redirect as Record<string, unknown>;
-	const opNode = r['op'];
+	const opNode = r.op;
 	if (!opNode || typeof opNode !== 'object') return [];
 
 	const opType = (
-		(opNode as Record<string, unknown>)['type'] as string | undefined
+		(opNode as Record<string, unknown>).type as string | undefined
 	)?.toUpperCase();
 	if (!opType || !REDIRECT_ALL_WRITE_TOKENS.has(opType)) return [];
 
-	const fileNode = r['file'];
+	const fileNode = r.file;
 	const path = extractRedirectPath(fileNode);
 	const opLabel = operatorLabel(opNode);
 
@@ -1946,8 +1943,8 @@ function getWritesFromCommandRedirs(
 	// Also detect here-doc markers first
 	results.push(...detectHereDocMarkers(cmd));
 
-	const suffix = c['suffix'];
-	const prefix = c['prefix'];
+	const suffix = c.suffix;
+	const prefix = c.prefix;
 
 	if (Array.isArray(suffix)) {
 		for (const item of suffix) {

@@ -246,7 +246,9 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 				expect(systemText).toContain('TASK COMPLETION REQUIRED');
 				expect(systemText).toContain('Task 1.1');
 				expect(systemText).toContain('update_task_status');
-				expect(systemText).toContain('before declare_scope or starting another task');
+				expect(systemText).toContain(
+					'before declare_scope or starting another task',
+				);
 			} finally {
 				fs.rmSync(tempDir, { recursive: true, force: true });
 			}
@@ -326,7 +328,9 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 		});
 
 		it('blocks update_task_status(in_progress) for another task after QA gates pass until current task is completed', async () => {
-			const tempDir = makeTempProject('delegation-gate-completion-in-progress-');
+			const tempDir = makeTempProject(
+				'delegation-gate-completion-in-progress-',
+			);
 			try {
 				writePlanJson(tempDir, {
 					tasks: [
@@ -467,7 +471,9 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 		});
 
 		it('allows same-task retry when task id is parsed from prompt text', async () => {
-			const tempDir = makeTempProject('delegation-gate-completion-prompt-task-');
+			const tempDir = makeTempProject(
+				'delegation-gate-completion-prompt-task-',
+			);
 			try {
 				writePlanJson(tempDir, {
 					tasks: [

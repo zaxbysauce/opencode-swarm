@@ -20950,7 +20950,7 @@ var init_scope_persistence = __esm(() => {
 
 // src/hooks/shell-write-detect.ts
 import parse5 from "bash-parser";
-var REDIRECT_WRITE_TOKENS, REDIRECT_HERE_TOKENS, REDIRECT_ALL_WRITE_TOKENS, BUILTIN_WRITE_COMMANDS, INPLACE_EDIT_COMMANDS, INTERPRETER_EVAL_COMMANDS, NETWORK_DOWNLOAD_COMMANDS, ARCHIVE_EXTRACT_COMMANDS, PS_WRITE_CMDLETS, PS_WRITE_ALIASES, CMD_WRITE_BUILTINS;
+var REDIRECT_WRITE_TOKENS, REDIRECT_HERE_TOKENS, REDIRECT_ALL_WRITE_TOKENS, BUILTIN_WRITE_COMMANDS, INPLACE_EDIT_COMMANDS, INTERPRETER_EVAL_COMMANDS, NETWORK_DOWNLOAD_COMMANDS, ARCHIVE_EXTRACT_COMMANDS, _PS_WRITE_CMDLETS, _PS_WRITE_ALIASES, _CMD_WRITE_BUILTINS;
 var init_shell_write_detect = __esm(() => {
   REDIRECT_WRITE_TOKENS = new Set([
     "GREAT",
@@ -20992,7 +20992,7 @@ var init_shell_write_detect = __esm(() => {
     "7z",
     "rar"
   ]);
-  PS_WRITE_CMDLETS = new Set([
+  _PS_WRITE_CMDLETS = new Set([
     "Out-File",
     "Set-Content",
     "Add-Content",
@@ -21003,8 +21003,8 @@ var init_shell_write_detect = __esm(() => {
     "Invoke-WebRequest",
     "Start-Process"
   ]);
-  PS_WRITE_ALIASES = new Set(["echo", "write"]);
-  CMD_WRITE_BUILTINS = new Set([
+  _PS_WRITE_ALIASES = new Set(["echo", "write"]);
+  _CMD_WRITE_BUILTINS = new Set([
     "copy",
     "move",
     "type",
