@@ -30,10 +30,10 @@ Adds a completion gate to the delegation gate hook that blocks starting a new ta
 
 ## Tests
 
-95 tests across three files:
+104 tests across three files:
 - `tests/unit/hooks/delegation-gate-completion-gate.test.ts`: 50 tests covering all helper functions, toolBefore/toolAfter hooks, messagesTransform, integration flows, edge cases, multi-task parallel completion, and 3 regression groups (toolAfter callable, coder re-delegation guard, council verdicts)
 - `tests/unit/hooks/delegation-gate-plan-aware-filtering.test.ts`: 14 tests covering version number filtering, multi-ID ambiguity detection, and plan-aware same-task retry
-- `tests/unit/hooks/delegation-gate-task-1-5.test.ts`: 31 tests covering batch detection, message preservation, and parallel execution profile guidance
+- `tests/unit/hooks/delegation-gate-task-1-5.test.ts`: 40 tests covering batch detection, message preservation, parallel execution profile guidance, [NEXT] guidance injection, and sessionID validation
 
 ## Breaking Changes
 
