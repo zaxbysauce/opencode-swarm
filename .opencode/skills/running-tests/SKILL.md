@@ -77,8 +77,7 @@ Do you need to run tests?
 | `'convention'` | ✅ Safe | ❌ Rejected (`scope_exceeded`) | Guard fires before fan-out; direct test file paths exempt |
 | `'graph'` | ✅ Safe (capped at 50 via budget) | ❌ Rejected (`scope_exceeded`) | Two-layer guard: source-file count + fan-out estimate |
 | `'impact'` | ✅ Safe (capped at 50 via budget) | ❌ Rejected (`scope_exceeded`) | Two-layer guard: source-file count + fan-out estimate |
-| `'all'` | ❌ Never | ❌ Never | Requires `allow_full_suite: true`; CI mirror only |
-| `'all'` | ❌ Never | ❌ Never | Requires `allow_full_suite: true`; CI mirror only |
+| `'all'` | ❌ Never | ❌ Never | Requires `SWARM_ALLOW_FULL_SUITE=1` env var (CI / maintainer only — not settable via tool args) |
 
 **Rule of thumb:** Pass exactly one source file to `test_runner`. For multiple files, use a shell loop.
 
