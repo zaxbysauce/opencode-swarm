@@ -1,5 +1,21 @@
 # Changelog
 
+## [7.27.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.26.0...v7.27.0) (2026-05-22)
+
+
+### Features
+
+* **test-impact:** classify infrastructure failures separately ([#926](https://github.com/zaxbysauce/opencode-swarm/issues/926)) ([d5a2b96](https://github.com/zaxbysauce/opencode-swarm/commit/d5a2b96c2f5681f36fa6d011b2185ad11edbc918))
+
+
+### Bug Fixes
+
+* **checkpoint:** contain SWARM_PLAN artifacts to .swarm/ and harden cleanup test coverage ([#939](https://github.com/zaxbysauce/opencode-swarm/issues/939)) ([63c1ee9](https://github.com/zaxbysauce/opencode-swarm/commit/63c1ee9a49e862abe7bceb5230783f5aff21f1c3))
+* **gate-evidence:** normalize legacy/manual gate evidence entries to prevent false corrupt blocks ([8860120](https://github.com/zaxbysauce/opencode-swarm/commit/88601209a310170d2f31bd32e8feed5553a0b9c8))
+* **gates:** session-scoped cross-task isolation and batched test history ([#940](https://github.com/zaxbysauce/opencode-swarm/issues/940)) ([5a8c22c](https://github.com/zaxbysauce/opencode-swarm/commit/5a8c22c7f3837556bc2c76050be32779db9fe464))
+* **guardrails:** gate PRM hard stop on delegationActive to prevent cross-session pollution ([#943](https://github.com/zaxbysauce/opencode-swarm/issues/943)) ([82c8eae](https://github.com/zaxbysauce/opencode-swarm/commit/82c8eae50609b7b6be05030805474ecbcd7bc188))
+* **guardrails:** scope-aware destructive command guard for coder declared scope ([#964](https://github.com/zaxbysauce/opencode-swarm/issues/964)) ([c142467](https://github.com/zaxbysauce/opencode-swarm/commit/c1424670380f6b338fe2c24db6771601540a6bd7))
+
 ## [7.26.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.25.2...v7.26.0) (2026-05-22)
 
 
