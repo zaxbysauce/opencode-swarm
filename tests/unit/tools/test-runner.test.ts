@@ -859,6 +859,7 @@ describe('test-runner.ts - scope:"all" gated access (SWARM_ALLOW_FULL_SUITE)', (
 			expect(parsed.success).toBe(false);
 			expect(parsed.scope).toBe('all');
 			expect(parsed.error).toContain('scope "all" is blocked');
+			expect(parsed.error).not.toContain('SWARM_ALLOW_FULL_SUITE');
 		});
 
 		// Flaky on macOS/Windows: spawns vitest via npx in temp dir without node_modules installed
@@ -1803,7 +1804,7 @@ describe('test-runner.ts - MAX_SAFE_SOURCE_FILES pre-discovery guard', () => {
 		const parsed = JSON.parse(result);
 
 		// Must NOT hit the source-file guard (1 source file is within limit)
-		expect(parsed.error).not.toContain('accepts at most');
+		expect(parsed.error ?? '').not.toContain('accepts at most');
 
 		process.chdir(originalCwd);
 		setTimeout(() => {

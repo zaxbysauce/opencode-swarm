@@ -1796,6 +1796,7 @@ export async function runTests(
 		const proc = bunSpawn(command, {
 			stdout: 'pipe',
 			stderr: 'pipe',
+			stdin: 'ignore',
 			cwd: cwd,
 			// Test frameworks (jest/vitest) fork worker processes; on timeout we
 			// must reap the whole tree, or orphaned workers keep consuming memory
@@ -1812,18 +1813,21 @@ export async function runTests(
 		// Fix: read bounded streams in parallel with exit/timeout, so the pipe is
 		// always being drained. readBoundedStream caps memory at MAX_OUTPUT_BYTES
 		// per stream, preventing OOM from unbounded test output.
-		const timeoutPromise = new Promise<number>((resolve) =>
-			setTimeout(() => {
+		let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+		const timeoutPromise = new Promise<number>((resolve) => {
+			timeoutHandle = setTimeout(() => {
 				proc.kill();
 				resolve(-1); // Timeout indicator
-			}, timeout_ms),
-		);
+			}, timeout_ms);
+		});
 
 		const [exitCode, stdoutResult, stderrResult] = await Promise.all([
 			Promise.race([proc.exited, timeoutPromise]),
 			readBoundedStream(proc.stdout, MAX_OUTPUT_BYTES),
 			readBoundedStream(proc.stderr, MAX_OUTPUT_BYTES),
 		]);
+
+		if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
 
 		const duration_ms = Date.now() - startTime;
 

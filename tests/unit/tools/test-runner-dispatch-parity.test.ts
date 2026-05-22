@@ -227,6 +227,9 @@ describe('Phase 3b: buildTestCommandViaDispatch parity', () => {
 			'npx',
 			'vitest',
 			'run',
+			'--reporter=json',
+			'--outputFile',
+			'.swarm/cache/test-runner-vitest.json',
 			'--coverage',
 			'src/foo.test.ts',
 		]);

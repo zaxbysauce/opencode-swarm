@@ -505,6 +505,7 @@ export function bunSpawn(
 		cwd: options?.cwd,
 		env: options?.env as NodeJS.ProcessEnv | undefined,
 		detached,
+		windowsHide: true,
 		stdio: [
 			mapStdio(options?.stdin),
 			mapStdio(options?.stdout),
