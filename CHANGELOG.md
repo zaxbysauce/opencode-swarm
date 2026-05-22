@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.28.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.28.0...v7.28.1) (2026-05-22)
+
+
+### Bug Fixes
+
+* **skills:** propagate descriptions to subagents ([#981](https://github.com/zaxbysauce/opencode-swarm/issues/981)) ([b51b2f8](https://github.com/zaxbysauce/opencode-swarm/commit/b51b2f80e3c156174de352e2768e0c2d426ed45d))
+
 ## [7.28.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.27.4...v7.28.0) (2026-05-22)
 
 
