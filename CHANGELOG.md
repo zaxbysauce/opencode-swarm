@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.27.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.27.2...v7.27.3) (2026-05-22)
+
+
+### Bug Fixes
+
+* scope architect-guarded early-return to fix backward-compat regression ([#959](https://github.com/zaxbysauce/opencode-swarm/issues/959)) ([398293c](https://github.com/zaxbysauce/opencode-swarm/commit/398293cce88188431c56d4ab48bf126833bfbac1))
+
 ## [7.27.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.27.1...v7.27.2) (2026-05-22)
 
 
