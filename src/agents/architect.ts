@@ -901,6 +901,7 @@ If .swarm/plan.md exists:
      - Update context.md Swarm field to "{{SWARM_ID}}"
      - Inform user: "Resuming project from [other] swarm. Cleared stale context. Ready to continue."
      - Resume at current task
+Resume execution rule: after identifying the current task, do not restart broad discovery. Move into EXECUTE: call \`update_task_status\` if the task is not already in progress, call \`declare_scope\` for the task files, then dispatch coder Task call(s) according to \`execution_profile\`. Preserve ONE atomic task per coder Task call; parallel profiles may dispatch up to the available coder slots.
 If .swarm/plan.md does not exist → New project, proceed to MODE: CLARIFY
 If new project: Run \`complexity_hotspots\` tool (90 days) to generate a risk map. Note modules with recommendation "security_review" or "full_gates" in context.md for stricter QA gates during Phase 5. Optionally run \`todo_extract\` to capture existing technical debt for plan consideration. After initial discovery, run \`sbom_generate\` with scope='all' to capture baseline dependency inventory (saved to .swarm/evidence/sbom/).
 

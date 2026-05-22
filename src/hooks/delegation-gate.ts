@@ -15,7 +15,7 @@ import {
 	routeReviewForChanges,
 	shouldParallelizeReview,
 } from '../parallel/review-router.js';
-import { loadPlanJsonOnly } from '../plan/manager';
+import { getCurrentTaskId, loadPlanJsonOnly } from '../plan/manager';
 import type { AgentSessionState } from '../state';
 import {
 	advanceTaskState,
@@ -522,7 +522,23 @@ async function buildParallelExecutionGuidance(
 		return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; no dependency-ready pending tasks are available for a new coder slot. Continue the current task/gate.`;
 	}
 
-	return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; ${occupied.size} slot(s) occupied. Eligible now: ${eligible.join(', ')}. [NEXT] dispatch up to ${availableSlots} eligible coder task(s) before waiting; preserve ONE task per coder call and call declare_scope for each task.`;
+	return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${maxConcurrent}; ${occupied.size} slot(s) occupied. Eligible now: ${eligible.join(', ')}. [NEXT] dispatch up to ${availableSlots} eligible coder task(s) before waiting; for each dispatched task, call update_task_status(in_progress), call declare_scope, then send the coder Task. Preserve ONE atomic task per coder Task call.`;
+}
+
+async function buildPlanContinuationGuidance(
+	directory: string | undefined,
+): Promise<string | null> {
+	if (!directory) return null;
+
+	const plan: Plan | null = await loadPlanJsonOnly(directory);
+	const currentTaskId = getCurrentTaskId(plan);
+	if (!currentTaskId) return null;
+
+	return (
+		`[NEXT] Continue plan task ${currentTaskId}: if it is not already in progress, call update_task_status with task_id="${currentTaskId}" and status="in_progress"; ` +
+		`then call declare_scope for the task files and dispatch coder Task call(s) according to the execution profile. ` +
+		`Preserve ONE atomic task per coder Task call; when parallel execution is enabled, use available coder slots instead of forcing a single coder.`
+	);
 }
 
 function isParallelGuidancePhaseComplete(phase: Phase): boolean {
@@ -1690,6 +1706,10 @@ export function createDelegationGateHook(
 							deliberationSessionID,
 							deliberationSession,
 						);
+						const planContinuationGuidance =
+							parallelGuidance === null
+								? await buildPlanContinuationGuidance(directory)
+								: null;
 						const taskAwaitingCompletion = await findTaskAwaitingCompletion(
 							directory,
 							deliberationSession,
@@ -1723,10 +1743,11 @@ export function createDelegationGateHook(
 								'[NEXT] Execute the next gate for the current task.'
 							}`;
 						} else {
-							// Concise [NEXT] directive to begin first plan task
+							// Concise [NEXT] directive to continue from the durable plan cursor
 							// Also handles case where lastGate exists but taskId is missing
 							guidance =
 								parallelGuidance ??
+								planContinuationGuidance ??
 								'[NEXT] Begin the first plan task and run gates sequentially.';
 						}
 

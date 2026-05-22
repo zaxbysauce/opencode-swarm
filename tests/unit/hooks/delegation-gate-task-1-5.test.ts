@@ -586,11 +586,15 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 
 			expect(systemText).toContain('PARALLEL EXECUTION PROFILE');
 			expect(systemText).toContain('max_concurrent_tasks=4');
-			expect(systemText).toContain('dispatch up to 4');
+			expect(systemText).toContain('dispatch up to 4 eligible coder task(s)');
 			expect(systemText).toContain('Eligible now: 1.1, 1.2, 1.3, 1.4');
+			expect(systemText).toContain('update_task_status(in_progress)');
+			expect(systemText).toContain('declare_scope');
+			expect(systemText).toContain('coder Task');
+			expect(systemText).toContain('ONE atomic task per coder Task call');
 		});
 
-		it('should keep serial guidance when profile is disabled or serial', async () => {
+		it('should continue the durable plan task when profile is disabled or serial', async () => {
 			writePlanJson(tempDir, {
 				executionProfile: {
 					parallelization_enabled: false,
@@ -609,8 +613,42 @@ describe('Task 1.5: [NEXT] Guidance - Model-Only System Message', () => {
 				.map((m) => m.parts[0].text)
 				.join('\n');
 
-			expect(systemText).toContain('run gates sequentially');
+			expect(systemText).toContain('Continue plan task 1.1');
+			expect(systemText).toContain('declare_scope');
+			expect(systemText).toContain('coder Task call(s)');
+			expect(systemText).toContain(
+				'Preserve ONE atomic task per coder Task call',
+			);
+			expect(systemText).toContain('use available coder slots');
 			expect(systemText).not.toContain('PARALLEL EXECUTION PROFILE');
+			expect(systemText).not.toContain('dispatch up to');
+		});
+
+		it('should use the sorted current task cursor for serial continuation guidance', async () => {
+			writePlanJson(tempDir, {
+				executionProfile: {
+					parallelization_enabled: false,
+					max_concurrent_tasks: 1,
+					locked: true,
+				},
+				tasks: [
+					{ id: '1.10', status: 'pending' },
+					{ id: '1.2', status: 'pending' },
+				],
+			});
+
+			const hook = createDelegationGateHook(makeConfig(), tempDir);
+			const messages = makeMessages('TASK: Continue work', 'architect');
+
+			await hook.messagesTransform({}, messages);
+
+			const systemText = messages.messages
+				.filter((m) => m?.info?.role === 'system')
+				.map((m) => m.parts[0].text)
+				.join('\n');
+
+			expect(systemText).toContain('Continue plan task 1.2');
+			expect(systemText).not.toContain('Continue plan task 1.10');
 		});
 
 		it('should count in-progress tasks as occupied and exclude blocked/dependent tasks', async () => {
