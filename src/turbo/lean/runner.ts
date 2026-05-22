@@ -300,11 +300,11 @@ export class LeanTurboRunner {
 		// Plan lane distribution — type cast needed because Phase (schema) is structurally
 		// wider than PlanPhase (planner) but at runtime all used fields are compatible
 		// eslint-disable-next-line @typescript-eslint/no-explicit-any
-		// biome-ignore lint/suspicious/noExplicitAny: Plan lane distribution — type cast needed because Phase (schema) is structurally wider than PlanPhase (planner) but at runtime all used fields are compatible
 		const lanePlan: LeanTurboLanePlan =
 			LeanTurboRunner._internals.planLeanTurboLanes(
 				this._directory,
 				phaseNumber,
+				// biome-ignore lint/suspicious/noExplicitAny: Phase/PlanPhase structural type mismatch
 				{ phases: plan.phases as any },
 				leanConfig,
 			);
