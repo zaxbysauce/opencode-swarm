@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.29.2",
+    version: "7.29.3",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -19875,15 +19875,36 @@ function validateProjectRoot(directory) {
     throw new Error(`Cannot verify project root for "${directory}" \u2014 directory may not exist or is inaccessible`);
   }
   let current = resolved;
+  let depth = 0;
   while (true) {
+    if (depth >= MAX_DEPTH)
+      break;
+    depth++;
     const parent = path7.dirname(current);
     if (parent === current)
       break;
     const parentSwarm = path7.join(parent, ".swarm");
     try {
       if (statSync4(parentSwarm).isDirectory()) {
-        warn(`[evidence] Rejecting write to subdirectory "${resolved}" \u2014 parent "${parent}" already contains .swarm/`);
-        throw new Error(`Cannot write evidence in "${resolved}" \u2014 parent directory "${parent}" already contains a .swarm/ folder. Evidence must be written to the project root.`);
+        let hasProjectIndicator = false;
+        for (const indicator of PROJECT_INDICATORS) {
+          try {
+            const indicatorStat = statSync4(path7.join(parent, indicator));
+            if (indicatorStat.isFile() || indicatorStat.isDirectory()) {
+              hasProjectIndicator = true;
+              break;
+            }
+          } catch (error49) {
+            if (error49 instanceof Error && "code" in error49 && error49.code === "ENOENT") {} else {
+              hasProjectIndicator = true;
+              break;
+            }
+          }
+        }
+        if (hasProjectIndicator) {
+          warn(`[evidence] Rejecting write to subdirectory "${resolved}" \u2014 parent "${parent}" already contains .swarm/`);
+          throw new Error(`Cannot write evidence in "${resolved}" \u2014 parent directory "${parent}" already contains a .swarm/ folder. Evidence must be written to the project root.`);
+        }
       }
     } catch (error49) {
       if (error49 instanceof Error && error49.message.startsWith("Cannot write evidence")) {
@@ -20126,7 +20147,7 @@ async function archiveEvidence(directory, maxAgeDays, maxBundles) {
   }
   return archived;
 }
-var VALID_EVIDENCE_TYPES, sanitizeTaskId2, LEGACY_TASK_COMPLEXITY_MAP, _internals5;
+var VALID_EVIDENCE_TYPES, sanitizeTaskId2, MAX_DEPTH = 20, PROJECT_INDICATORS, LEGACY_TASK_COMPLEXITY_MAP, _internals5;
 var init_manager2 = __esm(() => {
   init_zod();
   init_evidence_schema();
@@ -20151,6 +20172,19 @@ var init_manager2 = __esm(() => {
     "secretscan"
   ];
   sanitizeTaskId2 = sanitizeTaskId;
+  PROJECT_INDICATORS = [
+    "package.json",
+    ".git",
+    ".opencode",
+    "Cargo.toml",
+    "go.mod",
+    "pyproject.toml",
+    "Gemfile",
+    "composer.json",
+    "pom.xml",
+    "build.gradle",
+    "CMakeLists.txt"
+  ];
   LEGACY_TASK_COMPLEXITY_MAP = {
     low: "simple",
     medium: "moderate",
@@ -40711,10 +40745,10 @@ function detectStraySwarmDirs(projectRoot) {
     "__pycache__",
     ".tox"
   ]);
-  const MAX_DEPTH = 10;
+  const MAX_DEPTH2 = 10;
   const MAX_CONTENTS_ENTRIES = 20;
   function walk(dir, depth) {
-    if (depth > MAX_DEPTH)
+    if (depth > MAX_DEPTH2)
       return;
     let entries;
     try {
