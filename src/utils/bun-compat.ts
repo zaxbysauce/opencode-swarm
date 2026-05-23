@@ -246,6 +246,26 @@ export interface BunCompatSpawnOptions {
 	killProcessTree?: boolean;
 }
 
+export interface BunCompatStream {
+	text(): Promise<string>;
+	bytes(): Promise<Uint8Array>;
+	/**
+	 * Returns a Web ReadableStream reader for incremental, bounded
+	 * consumption — matches the Bun runtime's `proc.stdout.getReader()`
+	 * shape, used by the test-runner's `readBoundedStream` to cap memory
+	 * for multi-GB test output.
+	 */
+	getReader(): ReadableStreamDefaultReader<Uint8Array>;
+}
+
+export interface BunCompatSubprocess {
+	readonly stdout: BunCompatStream;
+	readonly stderr: BunCompatStream;
+	readonly exited: Promise<number>;
+	exitCode: number | null;
+	kill(signal?: NodeJS.Signals | number): void;
+}
+
 /**
  * Best-effort kill of a process and all its descendants. On Windows uses
  * `taskkill /T` (tree) keyed off the pid. On POSIX, when the child was spawned
@@ -280,26 +300,6 @@ function killProcessTreeImpl(
 		}
 	}
 	directKill();
-}
-
-export interface BunCompatStream {
-	text(): Promise<string>;
-	bytes(): Promise<Uint8Array>;
-	/**
-	 * Returns a Web ReadableStream reader for incremental, bounded
-	 * consumption — matches the Bun runtime's `proc.stdout.getReader()`
-	 * shape, used by the test-runner's `readBoundedStream` to cap memory
-	 * for multi-GB test output.
-	 */
-	getReader(): ReadableStreamDefaultReader<Uint8Array>;
-}
-
-export interface BunCompatSubprocess {
-	readonly stdout: BunCompatStream;
-	readonly stderr: BunCompatStream;
-	readonly exited: Promise<number>;
-	exitCode: number | null;
-	kill(signal?: NodeJS.Signals | number): void;
 }
 
 function streamFromNode(
@@ -556,11 +556,7 @@ export function bunSpawn(
 			return proc.exitCode;
 		},
 		kill(signal?: NodeJS.Signals | number) {
-			try {
-				killChild(signal);
-			} catch {
-				// ignore
-			}
+			killChild(signal);
 		},
 	};
 }
