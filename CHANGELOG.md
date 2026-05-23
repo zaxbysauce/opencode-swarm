@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.29.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.29.1...v7.29.2) (2026-05-23)
+
+
+### Bug Fixes
+
+* **delegation:** resume plan tasks through coder dispatch ([#992](https://github.com/zaxbysauce/opencode-swarm/issues/992)) ([c174163](https://github.com/zaxbysauce/opencode-swarm/commit/c174163ebcfbee7e79303f42c28dadf0d40060bc))
+
 ## [7.29.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.29.0...v7.29.1) (2026-05-22)
 
 
