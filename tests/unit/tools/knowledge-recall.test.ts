@@ -669,7 +669,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				makeSwarmEntry({
 					id: 'low',
 					lesson: 'Test lesson about something',
-					status: 'candidate',
+					status: 'established',
 				}),
 				makeSwarmEntry({
 					id: 'high',
@@ -882,7 +882,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				makeSwarmEntry({
 					id: 'c1',
 					lesson: 'Test candidate lesson',
-					status: 'candidate',
+					status: 'established',
 					confidence: 0.5,
 				}),
 			]);
@@ -964,7 +964,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				// tags is missing
 				scope: 'global',
 				confidence: 0.8,
-				status: 'candidate',
+				status: 'established',
 				confirmed_by: [],
 				retrieval_outcomes: {
 					applied_count: 0,
@@ -1000,7 +1000,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				tags: 'not-an-array', // Should be array but is string
 				scope: 'global',
 				confidence: 0.8,
-				status: 'candidate',
+				status: 'established',
 				confirmed_by: [],
 				retrieval_outcomes: {
 					applied_count: 0,
@@ -1036,7 +1036,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				tags: [],
 				scope: 'global',
 				confidence: 0.8,
-				status: 'candidate',
+				status: 'established',
 				confirmed_by: [],
 				retrieval_outcomes: {
 					applied_count: 0,
@@ -1055,9 +1055,8 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				tmpDir,
 			);
 			const parsed = JSON.parse(result);
-			// Should not crash
-			expect(parsed.results).toBeDefined();
-			expect(parsed.total).toBeDefined();
+			expect(parsed.success).toBe(false);
+			expect(Array.isArray(parsed.errors)).toBe(true);
 		});
 
 		it('Returns partial results when some entries are malformed', async () => {
@@ -1071,7 +1070,7 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				tags: [],
 				scope: 'global',
 				confidence: 0.8,
-				status: 'candidate',
+				status: 'established',
 				confirmed_by: [],
 				retrieval_outcomes: {
 					applied_count: 0,
@@ -1111,17 +1110,14 @@ describe('knowledge_recall tool verification tests (FR-A1)', () => {
 				'utf-8',
 			);
 
-			// The tool catches the TypeError from entry.tags.join() being called on undefined
-			// at the scoring loop and returns an error JSON via createSwarmTool's catch block.
-			// It does NOT return partial results - the entire operation fails.
 			const result = await knowledge_recall.execute(
 				{ query: 'valid lesson about testing' } as Record<string, unknown>,
 				tmpDir,
 			);
 			const parsed = JSON.parse(result);
-			expect(parsed.success).toBe(false);
-			expect(parsed.errors).toBeDefined();
-			expect(Array.isArray(parsed.errors)).toBe(true);
+			expect(parsed.results).toBeDefined();
+			expect(parsed.total).toBe(1);
+			expect(parsed.results[0].id).toBe('valid-entry');
 		});
 	});
 });

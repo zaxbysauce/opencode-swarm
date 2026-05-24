@@ -110,7 +110,7 @@ function makeSwarmEntry(
 		tags: [],
 		scope: 'global',
 		confidence: 0.5,
-		status: 'candidate',
+		status: 'established',
 		confirmed_by: [defaultPhaseConfirmation],
 		retrieval_outcomes: {
 			applied_count: 0,
