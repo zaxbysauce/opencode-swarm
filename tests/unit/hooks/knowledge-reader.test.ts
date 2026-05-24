@@ -41,6 +41,7 @@ vi.mock('../../../src/hooks/knowledge-store.js', () => ({
 			.trim(),
 	),
 	readKnowledge: vi.fn(async () => []),
+	readRetractionRecords: vi.fn(async () => []),
 	rewriteKnowledge: vi.fn(async () => {}),
 	resolveSwarmKnowledgePath: vi.fn(() => '/mock/.swarm/knowledge.jsonl'),
 	resolveHiveKnowledgePath: vi.fn(() => '/mock/hive/shared-learnings.jsonl'),

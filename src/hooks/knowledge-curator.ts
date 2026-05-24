@@ -1,7 +1,7 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 
-import { updateRetrievalOutcome } from './knowledge-reader.js';
 import {
+	appendRetractionRecord,
 	appendKnowledge,
 	appendRejectedLesson,
 	computeConfidence,
@@ -10,10 +10,13 @@ import {
 	inferTags,
 	normalize,
 	readKnowledge,
+	readRetractionRecords,
+	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
 	rewriteKnowledge,
 } from './knowledge-store.js';
 import type {
+	HiveKnowledgeEntry,
 	KnowledgeCategory,
 	KnowledgeConfig,
 	RejectedLesson,
@@ -219,15 +222,28 @@ async function processRetractions(
 ): Promise<void> {
 	if (retractions.length === 0) return;
 
-	const knowledgePath = resolveSwarmKnowledgePath(directory);
-	const entries =
-		(await readKnowledge<SwarmKnowledgeEntry>(knowledgePath)) ?? [];
+	const swarmEntries =
+		(await readKnowledge<SwarmKnowledgeEntry>(
+			resolveSwarmKnowledgePath(directory),
+		)) ?? [];
+	const hiveEntries =
+		(await readKnowledge<HiveKnowledgeEntry>(resolveHiveKnowledgePath())) ?? [];
+	const existingRetractions = await readRetractionRecords(directory);
+	const existingSuppressedLessons = new Set(
+		existingRetractions
+			.map((record) => record.normalized_lesson)
+			.filter((value): value is string => typeof value === 'string' && value.length > 0),
+	);
 
 	for (const retractionText of retractions) {
 		const normalizedRetraction = normalize(retractionText);
-		for (const entry of entries) {
+		const matchedSwarmIds: string[] = [];
+		const matchedHiveIds: string[] = [];
+
+		for (const entry of swarmEntries) {
 			const normalizedLesson = normalize(entry.lesson);
 			if (normalizedLesson === normalizedRetraction) {
+				matchedSwarmIds.push(entry.id);
 				await quarantineEntry(
 					directory,
 					entry.id,
@@ -238,6 +254,25 @@ async function processRetractions(
 					`[knowledge-curator] Quarantined entry ${entry.id}: "${entry.lesson}"`,
 				);
 			}
+		}
+
+		for (const entry of hiveEntries) {
+			if (normalize(entry.lesson) === normalizedRetraction) {
+				matchedHiveIds.push(entry.id);
+			}
+		}
+
+		if (!existingSuppressedLessons.has(normalizedRetraction)) {
+			await appendRetractionRecord(directory, {
+				id: crypto.randomUUID(),
+				retracted_lesson: retractionText,
+				normalized_lesson: normalizedRetraction,
+				recorded_at: new Date().toISOString(),
+				reported_by: 'architect',
+				matched_swarm_ids: matchedSwarmIds,
+				matched_hive_ids: matchedHiveIds,
+			});
+			existingSuppressedLessons.add(normalizedRetraction);
 		}
 	}
 }
@@ -526,7 +561,6 @@ export function createKnowledgeCuratorHook(
 				config,
 			);
 
-			await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
 			return;
 		}
 
@@ -570,7 +604,6 @@ export function createKnowledgeCuratorHook(
 			config,
 		);
 
-		await updateRetrievalOutcome(directory, `Phase ${phaseNumber}`, true);
 	};
 
 	return safeHook(handler);
