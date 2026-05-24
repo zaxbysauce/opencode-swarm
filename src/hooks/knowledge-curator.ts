@@ -1,9 +1,9 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 
 import {
-	appendRetractionRecord,
 	appendKnowledge,
 	appendRejectedLesson,
+	appendRetractionRecord,
 	computeConfidence,
 	enforceKnowledgeCap,
 	findNearDuplicate,
@@ -232,7 +232,10 @@ async function processRetractions(
 	const existingSuppressedLessons = new Set(
 		existingRetractions
 			.map((record) => record.normalized_lesson)
-			.filter((value): value is string => typeof value === 'string' && value.length > 0),
+			.filter(
+				(value): value is string =>
+					typeof value === 'string' && value.length > 0,
+			),
 	);
 
 	for (const retractionText of retractions) {
@@ -603,7 +606,6 @@ export function createKnowledgeCuratorHook(
 			directory,
 			config,
 		);
-
 	};
 
 	return safeHook(handler);
