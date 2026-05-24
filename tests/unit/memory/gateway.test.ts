@@ -5,6 +5,7 @@ import * as path from 'node:path';
 import {
 	MemoryDisabledError,
 	MemoryGateway,
+	type MemoryProvider,
 	type MemoryRecord,
 } from '../../../src/memory';
 
@@ -146,6 +147,63 @@ describe('MemoryGateway', () => {
 		expect(bundle.promptBlock).toContain('## Retrieved Swarm Memory');
 		expect(bundle.promptBlock).toContain('untrusted retrieved facts');
 		expect(bundle.promptBlock).toContain(record.id);
+		expect(bundle.promptBlock).toContain('age=today');
+	});
+
+	test('recall no-ops when provider omits optional usage recording', async () => {
+		const provider: MemoryProvider = {
+			name: 'fake-no-usage-recording',
+			upsert: async (record) => record,
+			get: async () => null,
+			delete: async () => {},
+			recall: async () => [],
+			list: async () => [],
+		};
+		const gateway = new MemoryGateway(
+			{ directory: tmpDir, sessionID: 'session-a', agentRole: 'coder' },
+			{
+				config: { enabled: true },
+				provider,
+				now: () => new Date('2026-05-24T12:00:00.000Z'),
+			},
+		);
+
+		const bundle = await gateway.recall({ query: 'missing memory safe noop' });
+
+		expect(bundle.items).toHaveLength(0);
+	});
+
+	test('recall accepts only explicitly allowed controller scopes', async () => {
+		const gateway = new MemoryGateway(
+			{ directory: tmpDir, sessionID: 'session-a', agentRole: 'coder' },
+			{
+				config: { enabled: true },
+				now: () => new Date('2026-05-24T12:00:00.000Z'),
+			},
+		);
+		const allowedScopes = gateway.deriveAllowedScopes();
+		const record = gateway.createRecord({
+			kind: 'repo_convention',
+			text: 'This repo keeps recall scoped to allowed controller scopes.',
+			evidenceRefs: ['README.md'],
+			confidence: 0.9,
+		});
+		await gateway.upsertCurated(record);
+
+		const bundle = await gateway.recall({
+			query: 'controller scoped recall',
+			scopes: allowedScopes,
+			minScore: 0,
+		});
+		expect(bundle.items.map((item) => item.record.id)).toEqual([record.id]);
+
+		await expect(
+			gateway.recall({
+				query: 'scope escalation attempt',
+				scopes: [{ type: 'repository', repoId: 'other-repo' }],
+				minScore: 0,
+			}),
+		).rejects.toThrow('recall scope is not allowed');
 	});
 
 	test('token budget truncates recall output deterministically', async () => {
