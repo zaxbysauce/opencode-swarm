@@ -8,8 +8,8 @@ import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	normalize,
-	readRetractionRecords,
 	readKnowledge,
+	readRetractionRecords,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
 } from '../hooks/knowledge-store.js';
@@ -42,7 +42,12 @@ const VALID_CATEGORIES: KnowledgeCategory[] = [
 ];
 
 // Valid statuses for filtering
-const VALID_STATUSES = ['candidate', 'established', 'promoted', 'archived'] as const;
+const VALID_STATUSES = [
+	'candidate',
+	'established',
+	'promoted',
+	'archived',
+] as const;
 const DEFAULT_QUERY_STATUSES = new Set(['established', 'promoted']);
 
 // Valid tiers for filtering
@@ -316,7 +321,10 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 		const suppressedLessons = new Set(
 			retractionRecords
 				.map((record) => record.normalized_lesson)
-				.filter((value): value is string => typeof value === 'string' && value.length > 0),
+				.filter(
+					(value): value is string =>
+						typeof value === 'string' && value.length > 0,
+				),
 		);
 
 		// Collect results
@@ -351,7 +359,11 @@ export const knowledge_query: ReturnType<typeof tool> = createSwarmTool({
 		// Read hive knowledge if requested
 		if (tier === 'hive' || tier === 'all') {
 			const hiveEntries = await readHiveKnowledge();
-			const filtered = filterHiveEntries(hiveEntries, filters, suppressedLessons);
+			const filtered = filterHiveEntries(
+				hiveEntries,
+				filters,
+				suppressedLessons,
+			);
 			for (const entry of filtered) {
 				results.push({ entry, tier: 'hive' });
 			}

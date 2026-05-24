@@ -8,10 +8,10 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { warn } from '../utils/logger.js';
 import {
-	readRetractionRecords,
 	jaccardBigram,
 	normalize,
 	readKnowledge,
+	readRetractionRecords,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
 	rewriteKnowledge,
@@ -365,7 +365,10 @@ export async function readMergedKnowledge(
 	const suppressedLessons = new Set(
 		retractionRecords
 			.map((record) => record.normalized_lesson)
-			.filter((value): value is string => typeof value === 'string' && value.length > 0),
+			.filter(
+				(value): value is string =>
+					typeof value === 'string' && value.length > 0,
+			),
 	);
 
 	// Step 3.5: Apply scope_filter — exclude entries whose scope doesn't match

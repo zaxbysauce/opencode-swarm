@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import {
 	jaccardBigram,
-	readRetractionRecords,
 	normalize,
 	readKnowledge,
+	readRetractionRecords,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
 	wordBigrams,
