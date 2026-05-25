@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.32.1",
+    version: "7.32.2",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -17349,8 +17349,32 @@ var init_schema = __esm(() => {
     recall: exports_external.object({
       defaultMaxItems: exports_external.number().int().min(1).max(20).default(8),
       defaultTokenBudget: exports_external.number().int().min(100).max(5000).default(1200),
-      minScore: exports_external.number().min(0).max(1).default(0.05)
-    }).default({ defaultMaxItems: 8, defaultTokenBudget: 1200, minScore: 0.05 }),
+      minScore: exports_external.number().min(0).max(1).default(0.05),
+      injection: exports_external.object({
+        enabled: exports_external.boolean().default(true),
+        minScore: exports_external.number().min(0).max(1).default(0.25),
+        requireQuerySignal: exports_external.boolean().default(true),
+        maxItems: exports_external.number().int().min(1).max(20).default(6),
+        tokenBudget: exports_external.number().int().min(100).max(5000).default(1000)
+      }).default({
+        enabled: true,
+        minScore: 0.25,
+        requireQuerySignal: true,
+        maxItems: 6,
+        tokenBudget: 1000
+      })
+    }).default({
+      defaultMaxItems: 8,
+      defaultTokenBudget: 1200,
+      minScore: 0.05,
+      injection: {
+        enabled: true,
+        minScore: 0.25,
+        requireQuerySignal: true,
+        maxItems: 6,
+        tokenBudget: 1000
+      }
+    }),
     writes: exports_external.object({
       mode: exports_external.literal("propose").default("propose")
     }).default({ mode: "propose" }),
