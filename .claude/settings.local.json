@@ -7,7 +7,9 @@
       "Bash(git fetch *)",
       "Bash(git checkout *)",
       "Bash(git config *)",
-      "Bash(git -C \"C:\\\\ClaudeCode\\\\opencode-swarm\" log --oneline -5)"
+      "Bash(git -C \"C:\\\\ClaudeCode\\\\opencode-swarm\" log --oneline -5)",
+      "Bash(git add *)",
+      "Bash(git rebase *)"
     ]
   }
 }

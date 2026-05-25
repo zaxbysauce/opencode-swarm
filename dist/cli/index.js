@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.33.0",
+    version: "7.33.1",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -39041,14 +39041,16 @@ async function parseGitLog(directory, maxCommits) {
   }
   return commitMap;
 }
-function buildCoChangeMatrix(commitMap) {
+function buildCoChangeMatrix(commitMap, maxFilesPerCommit = 500) {
   const matrix = new Map;
   const fileCommitCount = new Map;
   for (const files of commitMap.values()) {
-    const fileArray = Array.from(files).sort();
-    for (const file3 of fileArray) {
+    for (const file3 of files) {
       fileCommitCount.set(file3, (fileCommitCount.get(file3) || 0) + 1);
     }
+    if (files.size > maxFilesPerCommit)
+      continue;
+    const fileArray = Array.from(files).sort();
     for (let i = 0;i < fileArray.length; i++) {
       for (let j = i + 1;j < fileArray.length; j++) {
         const fileA = fileArray[i];
@@ -39211,6 +39213,7 @@ async function detectDarkMatter(directory, options) {
   const minCoChanges = options?.minCoChanges ?? 3;
   const npmiThreshold = options?.npmiThreshold ?? 0.5;
   const maxCommitsToAnalyze = options?.maxCommitsToAnalyze ?? 500;
+  const maxFilesPerCommit = options?.maxFilesPerCommit ?? 500;
   try {
     const { stdout } = await getExecFileAsync()("git", ["rev-list", "--count", "HEAD"], {
       cwd: directory,
@@ -39224,7 +39227,7 @@ async function detectDarkMatter(directory, options) {
     return [];
   }
   const commitMap = await _internals11.parseGitLog(directory, maxCommitsToAnalyze);
-  const matrix = _internals11.buildCoChangeMatrix(commitMap);
+  const matrix = _internals11.buildCoChangeMatrix(commitMap, maxFilesPerCommit);
   const staticEdges = await _internals11.getStaticEdges(directory);
   const results = [];
   for (const entry of matrix.values()) {

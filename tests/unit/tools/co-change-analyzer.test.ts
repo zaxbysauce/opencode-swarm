@@ -193,6 +193,87 @@ describe('buildCoChangeMatrix', () => {
 		expect(entry?.fileA).toBe('src/file-1.ts');
 		expect(entry?.fileB).toBe('src/file_2.ts');
 	});
+
+	it('skips pair generation for commits with >500 files (#1021)', () => {
+		const commitMap = new Map<string, Set<string>>();
+
+		// Normal commit with 2 files — should be processed
+		commitMap.set('normal', new Set(['src/a.ts', 'src/b.ts']));
+
+		// Massive commit with 600 files — pair generation skipped
+		const massiveFiles = new Set<string>();
+		for (let i = 0; i < 600; i++) {
+			massiveFiles.add(`src/file_${i}.ts`);
+		}
+		commitMap.set('massive', massiveFiles);
+
+		const result = buildCoChangeMatrix(commitMap);
+
+		// Only the pair from the normal commit should exist
+		expect(result.size).toBe(1);
+		expect(result.has('src/a.ts::src/b.ts')).toBe(true);
+	});
+
+	it('still counts file commit frequencies for skipped large commits (#1021)', () => {
+		const commitMap = new Map<string, Set<string>>();
+
+		// File "shared.ts" appears in both a normal and a large commit
+		commitMap.set('c1', new Set(['shared.ts', 'other.ts']));
+		commitMap.set('c2', new Set(['shared.ts', 'other.ts']));
+		commitMap.set('c3', new Set(['shared.ts', 'other.ts']));
+
+		// Large commit also touches shared.ts — pair gen skipped but count still updated
+		const largeFiles = new Set<string>();
+		largeFiles.add('shared.ts');
+		for (let i = 0; i < 600; i++) {
+			largeFiles.add(`bulk_${i}.ts`);
+		}
+		commitMap.set('large', largeFiles);
+
+		const result = buildCoChangeMatrix(commitMap);
+
+		// The pair (other.ts, shared.ts) should exist with coChangeCount=3
+		const entry = result.get('other.ts::shared.ts');
+		expect(entry).toBeDefined();
+		expect(entry?.coChangeCount).toBe(3);
+		// shared.ts appears in 4 commits (3 normal + 1 large), other.ts in 3
+		expect(entry?.commitsA).toBe(3); // other.ts
+		expect(entry?.commitsB).toBe(4); // shared.ts — includes the large commit
+	});
+
+	it('processes commits with exactly 500 files', () => {
+		const commitMap = new Map<string, Set<string>>();
+
+		const files = new Set<string>();
+		for (let i = 0; i < 500; i++) {
+			files.add(`src/file_${String(i).padStart(4, '0')}.ts`);
+		}
+		commitMap.set('boundary', files);
+
+		const result = buildCoChangeMatrix(commitMap);
+
+		// 500 files → 500*499/2 = 124750 pairs — should be processed (at boundary)
+		expect(result.size).toBe(124750);
+	});
+
+	it('respects custom maxFilesPerCommit parameter', () => {
+		const commitMap = new Map<string, Set<string>>();
+
+		// Commit with 10 files
+		const files = new Set<string>();
+		for (let i = 0; i < 10; i++) {
+			files.add(`src/file_${i}.ts`);
+		}
+		commitMap.set('c1', files);
+
+		// With cap at 5, this commit is skipped for pair generation
+		const resultCapped = buildCoChangeMatrix(commitMap, 5);
+		expect(resultCapped.size).toBe(0);
+
+		// With default (500), this commit is processed
+		const resultDefault = buildCoChangeMatrix(commitMap);
+		expect(resultDefault.size).toBe(45); // 10*9/2
+	});
 });
 
 describe('parseGitLog', () => {

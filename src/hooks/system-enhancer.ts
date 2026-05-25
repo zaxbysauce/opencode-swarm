@@ -613,16 +613,23 @@ export function createSystemEnhancerHook(
 								minCommits: 20,
 								minCoChanges: 3,
 							});
-							if (darkMatter && darkMatter.length > 0) {
-								const darkMatterReport = formatDarkMatterOutput(darkMatter);
-								await fs.promises.writeFile(
-									darkMatterPath,
-									darkMatterReport,
-									'utf-8',
-								);
-								warn(
-									`[system-enhancer] Dark matter scan complete: ${darkMatter.length} co-change patterns found`,
-								);
+							// Always write cache — even on empty results — to prevent
+							// repeated O(n²) recomputation on every chat turn (#1021).
+							// Ensure .swarm/ directory exists before writing (may not exist
+							// on first run in a fresh repo before plugin init creates it).
+							await fs.promises.mkdir(path.dirname(darkMatterPath), {
+								recursive: true,
+							});
+							const darkMatterReport = formatDarkMatterOutput(darkMatter);
+							await fs.promises.writeFile(
+								darkMatterPath,
+								darkMatterReport,
+								'utf-8',
+							);
+							warn(
+								`[system-enhancer] Dark matter scan complete: ${darkMatter.length} co-change patterns found`,
+							);
+							if (darkMatter.length > 0) {
 								// Generate knowledge entries from dark matter results
 								try {
 									const projectName = path.basename(path.resolve(directory));
