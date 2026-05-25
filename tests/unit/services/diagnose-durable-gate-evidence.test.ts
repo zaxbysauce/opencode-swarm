@@ -41,26 +41,58 @@ function writePlanWithCompletedTask(directory: string): void {
 	);
 }
 
-function writeDurableGateEvidence(directory: string, taskId: string): void {
+function writeLegacyEvidenceBundleDirectory(
+	directory: string,
+	taskId: string,
+): void {
+	mkdirSync(join(directory, '.swarm', 'evidence', taskId), {
+		recursive: true,
+	});
+}
+
+function writeDurableGateEvidence(
+	directory: string,
+	taskId: string,
+	requiredGates = ['reviewer', 'test_engineer'],
+	gates: Record<
+		string,
+		{ sessionId: string; timestamp: string; agent: string }
+	> = {
+		reviewer: {
+			sessionId: 'review-session',
+			timestamp: '2026-01-01T00:00:00.000Z',
+			agent: 'reviewer',
+		},
+		test_engineer: {
+			sessionId: 'test-session',
+			timestamp: '2026-01-01T00:01:00.000Z',
+			agent: 'test_engineer',
+		},
+	},
+): void {
 	const evidenceDir = join(directory, '.swarm', 'evidence');
 	mkdirSync(evidenceDir, { recursive: true });
 	writeFileSync(
 		join(evidenceDir, `${taskId}.json`),
 		JSON.stringify({
 			taskId,
-			required_gates: ['reviewer', 'test_engineer'],
-			gates: {
-				reviewer: {
-					sessionId: 'review-session',
-					timestamp: '2026-01-01T00:00:00.000Z',
-					agent: 'reviewer',
-				},
-				test_engineer: {
-					sessionId: 'test-session',
-					timestamp: '2026-01-01T00:01:00.000Z',
-					agent: 'test_engineer',
-				},
-			},
+			required_gates: requiredGates,
+			gates,
+		}),
+	);
+}
+
+function writeInvalidDurableGateEvidence(
+	directory: string,
+	taskId: string,
+): void {
+	const evidenceDir = join(directory, '.swarm', 'evidence');
+	mkdirSync(evidenceDir, { recursive: true });
+	writeFileSync(
+		join(evidenceDir, `${taskId}.json`),
+		JSON.stringify({
+			taskId,
+			required_gates: ['critic'],
 		}),
 	);
 }
@@ -103,5 +135,49 @@ describe('diagnose durable gate evidence', () => {
 		expect(check).toBeDefined();
 		expect(check?.status).toBe('✅');
 		expect(check?.detail).toContain('All 1 completed tasks have evidence');
+	});
+
+	test('fails completed tasks with legacy evidence but incomplete durable gates', async () => {
+		writePlanWithCompletedTask(testDir);
+		writeLegacyEvidenceBundleDirectory(testDir, '1.1');
+		writeDurableGateEvidence(
+			testDir,
+			'1.1',
+			['critic', 'reviewer', 'test_engineer'],
+			{
+				reviewer: {
+					sessionId: 'review-session',
+					timestamp: '2026-01-01T00:00:00.000Z',
+					agent: 'reviewer',
+				},
+				test_engineer: {
+					sessionId: 'test-session',
+					timestamp: '2026-01-01T00:01:00.000Z',
+					agent: 'test_engineer',
+				},
+			},
+		);
+
+		const result = await getDiagnoseData(testDir);
+		const check = findCheck(result.checks, 'Evidence');
+
+		expect(check).toBeDefined();
+		expect(check?.status).toBe('❌');
+		expect(check?.detail).toContain('1 completed task(s) missing evidence');
+		expect(check?.detail).toContain('1.1');
+	});
+
+	test('fails completed tasks with legacy evidence but invalid durable gates', async () => {
+		writePlanWithCompletedTask(testDir);
+		writeLegacyEvidenceBundleDirectory(testDir, '1.1');
+		writeInvalidDurableGateEvidence(testDir, '1.1');
+
+		const result = await getDiagnoseData(testDir);
+		const check = findCheck(result.checks, 'Evidence');
+
+		expect(check).toBeDefined();
+		expect(check?.status).toBe('❌');
+		expect(check?.detail).toContain('1 completed task(s) missing evidence');
+		expect(check?.detail).toContain('1.1');
 	});
 });

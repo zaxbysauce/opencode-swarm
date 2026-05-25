@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.32.3",
+    version: "7.33.0",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -11339,7 +11339,7 @@ function finalize(ctx, schema) {
     result.$schema = "http://json-schema.org/draft-07/schema#";
   } else if (ctx.target === "draft-04") {
     result.$schema = "http://json-schema.org/draft-04/schema#";
-  } else if (ctx.target === "openapi-3.0") {}
+  } else if (ctx.target === "openapi-3.0") {} else {}
   if (ctx.external?.uri) {
     const id = ctx.external.registry.get(schema)?.id;
     if (!id)
@@ -11604,7 +11604,7 @@ var formatMap, stringProcessor = (schema, ctx, _json, _params) => {
     if (val === undefined) {
       if (ctx.unrepresentable === "throw") {
         throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-      }
+      } else {}
     } else if (typeof val === "bigint") {
       if (ctx.unrepresentable === "throw") {
         throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -32382,7 +32382,7 @@ class JSONSchemaGenerator2 {
               if (val === undefined) {
                 if (this.unrepresentable === "throw") {
                   throw new Error("Literal `undefined` cannot be represented in JSON Schema");
-                }
+                } else {}
               } else if (typeof val === "bigint") {
                 if (this.unrepresentable === "throw") {
                   throw new Error("BigInt literals cannot be represented in JSON Schema");
@@ -39422,6 +39422,9 @@ var init_task_file = __esm(() => {
 
 // src/gate-evidence.ts
 import { mkdirSync as mkdirSync7, readFileSync as readFileSync6 } from "fs";
+function isValidTaskId(taskId) {
+  return isStrictTaskId(taskId);
+}
 function assertValidTaskId(taskId) {
   assertStrictTaskId(taskId);
 }
@@ -39446,6 +39449,18 @@ async function readTaskEvidence(directory, taskId) {
     return readExisting(getEvidencePath(directory, taskId), taskId);
   } catch {
     return null;
+  }
+}
+function readTaskEvidenceRaw(directory, taskId) {
+  assertValidTaskId(taskId);
+  const evidencePath = getEvidencePath(directory, taskId);
+  try {
+    const raw = readFileSync6(evidencePath, "utf-8");
+    return TaskEvidenceSchema.parse(JSON.parse(raw));
+  } catch (error93) {
+    if (error93.code === "ENOENT")
+      return null;
+    throw error93;
   }
 }
 var GateEvidenceSchema, TaskEvidenceSchema;
@@ -39475,21 +39490,50 @@ async function readDurableGateEvidence(directory, taskId) {
     return null;
   }
 }
-function hasCompleteDurableGateEvidence(evidence) {
-  return getDurableGateEvidenceStatus(evidence).isComplete;
-}
 function getDurableGateEvidenceStatus(evidence) {
   if (!evidence?.gates || typeof evidence.gates !== "object") {
-    return { isComplete: false, missingGates: [] };
+    return {
+      isComplete: false,
+      missingGates: [],
+      evidenceExists: evidence != null,
+      invalid: false
+    };
   }
   if (!Array.isArray(evidence.required_gates) || evidence.required_gates.length === 0) {
-    return { isComplete: false, missingGates: ["required_gates"] };
+    return {
+      isComplete: false,
+      missingGates: ["required_gates"],
+      evidenceExists: true,
+      invalid: false
+    };
   }
   const missingGates = evidence.required_gates.filter((gate) => evidence.gates[gate] == null);
-  return { isComplete: missingGates.length === 0, missingGates };
+  return {
+    isComplete: missingGates.length === 0,
+    missingGates,
+    evidenceExists: true,
+    invalid: false
+  };
 }
-async function hasCompleteDurableGateEvidenceForTask(directory, taskId) {
-  return hasCompleteDurableGateEvidence(await readDurableGateEvidence(directory, taskId));
+async function getDurableGateEvidenceStatusForTask(directory, taskId) {
+  if (!isValidTaskId(taskId)) {
+    return {
+      isComplete: false,
+      missingGates: [],
+      evidenceExists: false,
+      invalid: false
+    };
+  }
+  try {
+    return getDurableGateEvidenceStatus(readTaskEvidenceRaw(directory, taskId));
+  } catch {
+    return {
+      isComplete: false,
+      missingGates: ["invalid_gate_evidence"],
+      evidenceExists: true,
+      invalid: true
+    };
+  }
 }
 function gateEvidenceToEntry(taskId, gate, type, evidence) {
   const gateRecord = evidence.gates[gate];
@@ -39643,10 +39687,15 @@ async function checkEvidenceCompleteness(directory, plan) {
     const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
     const missingEvidence = [];
     for (const id of completedTaskIds) {
-      if (evidenceTaskIds.has(id)) {
+      const gateStatus = await getDurableGateEvidenceStatusForTask(directory, id);
+      if (gateStatus.isComplete) {
         continue;
       }
-      if (await hasCompleteDurableGateEvidenceForTask(directory, id)) {
+      if (gateStatus.evidenceExists && gateStatus.missingGates.length > 0) {
+        missingEvidence.push(id);
+        continue;
+      }
+      if (evidenceTaskIds.has(id)) {
         continue;
       }
       missingEvidence.push(id);
@@ -50642,10 +50691,15 @@ async function runEvidenceCheck(dir) {
     const evidenceTaskIds = new Set(await listEvidenceTaskIds(dir));
     const missingEvidence = [];
     for (const id of completedTaskIds) {
-      if (evidenceTaskIds.has(id)) {
+      const gateStatus = await getDurableGateEvidenceStatusForTask(dir, id);
+      if (gateStatus.isComplete) {
         continue;
       }
-      if (await hasCompleteDurableGateEvidenceForTask(dir, id)) {
+      if (gateStatus.evidenceExists && gateStatus.missingGates.length > 0) {
+        missingEvidence.push(id);
+        continue;
+      }
+      if (evidenceTaskIds.has(id)) {
         continue;
       }
       missingEvidence.push(id);

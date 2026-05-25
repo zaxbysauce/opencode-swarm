@@ -1,5 +1,10 @@
 import type { Evidence } from '../config/evidence-schema';
-import { readTaskEvidence, type TaskEvidence } from '../gate-evidence.js';
+import {
+	isValidTaskId,
+	readTaskEvidence,
+	readTaskEvidenceRaw,
+	type TaskEvidence,
+} from '../gate-evidence.js';
 
 type SyntheticGateEvidenceType = 'review' | 'test' | 'approval';
 
@@ -11,6 +16,8 @@ const GATE_EVIDENCE_TYPE_BY_GATE: Record<string, SyntheticGateEvidenceType> = {
 export interface DurableGateEvidenceStatus {
 	isComplete: boolean;
 	missingGates: string[];
+	evidenceExists: boolean;
+	invalid: boolean;
 }
 
 export async function readDurableGateEvidence(
@@ -34,29 +41,68 @@ export function getDurableGateEvidenceStatus(
 	evidence: TaskEvidence | null | undefined,
 ): DurableGateEvidenceStatus {
 	if (!evidence?.gates || typeof evidence.gates !== 'object') {
-		return { isComplete: false, missingGates: [] };
+		return {
+			isComplete: false,
+			missingGates: [],
+			evidenceExists: evidence != null,
+			invalid: false,
+		};
 	}
 
 	if (
 		!Array.isArray(evidence.required_gates) ||
 		evidence.required_gates.length === 0
 	) {
-		return { isComplete: false, missingGates: ['required_gates'] };
+		return {
+			isComplete: false,
+			missingGates: ['required_gates'],
+			evidenceExists: true,
+			invalid: false,
+		};
 	}
 
 	const missingGates = evidence.required_gates.filter(
 		(gate) => evidence.gates[gate] == null,
 	);
-	return { isComplete: missingGates.length === 0, missingGates };
+	return {
+		isComplete: missingGates.length === 0,
+		missingGates,
+		evidenceExists: true,
+		invalid: false,
+	};
+}
+
+export async function getDurableGateEvidenceStatusForTask(
+	directory: string,
+	taskId: string,
+): Promise<DurableGateEvidenceStatus> {
+	if (!isValidTaskId(taskId)) {
+		return {
+			isComplete: false,
+			missingGates: [],
+			evidenceExists: false,
+			invalid: false,
+		};
+	}
+
+	try {
+		return getDurableGateEvidenceStatus(readTaskEvidenceRaw(directory, taskId));
+	} catch {
+		return {
+			isComplete: false,
+			missingGates: ['invalid_gate_evidence'],
+			evidenceExists: true,
+			invalid: true,
+		};
+	}
 }
 
 export async function hasCompleteDurableGateEvidenceForTask(
 	directory: string,
 	taskId: string,
 ): Promise<boolean> {
-	return hasCompleteDurableGateEvidence(
-		await readDurableGateEvidence(directory, taskId),
-	);
+	return (await getDurableGateEvidenceStatusForTask(directory, taskId))
+		.isComplete;
 }
 
 function gateEvidenceToEntry(

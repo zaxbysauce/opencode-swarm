@@ -91,6 +91,48 @@ describe('Preflight Service', () => {
 		);
 	}
 
+	function writeIncompleteDurableGateEvidence(taskId: string): void {
+		const evidenceDir = path.join(testDir, '.swarm', 'evidence');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(evidenceDir, `${taskId}.json`),
+			JSON.stringify({
+				taskId,
+				required_gates: ['critic', 'reviewer', 'test_engineer'],
+				gates: {
+					reviewer: {
+						sessionId: 'review-session',
+						timestamp: '2026-01-01T00:00:00.000Z',
+						agent: 'reviewer',
+					},
+					test_engineer: {
+						sessionId: 'test-session',
+						timestamp: '2026-01-01T00:01:00.000Z',
+						agent: 'test_engineer',
+					},
+				},
+			}),
+		);
+	}
+
+	function writeInvalidDurableGateEvidence(taskId: string): void {
+		const evidenceDir = path.join(testDir, '.swarm', 'evidence');
+		fs.mkdirSync(evidenceDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(evidenceDir, `${taskId}.json`),
+			JSON.stringify({
+				taskId,
+				required_gates: ['critic'],
+			}),
+		);
+	}
+
+	function writeLegacyEvidenceBundleDirectory(taskId: string): void {
+		fs.mkdirSync(path.join(testDir, '.swarm', 'evidence', taskId), {
+			recursive: true,
+		});
+	}
+
 	describe('runPreflight', () => {
 		it('should return a valid report structure', async () => {
 			const report = await runPreflight(testDir, 1);
@@ -676,6 +718,50 @@ describe('Preflight Service', () => {
 			);
 			expect(evidenceCheck?.details?.totalCompleted).toBe(1);
 			expect(evidenceCheck?.details?.totalWithEvidence).toBe(1);
+		});
+
+		it('should fail completed tasks with legacy evidence but incomplete durable gates', async () => {
+			writePlanWithCompletedTask();
+			writeLegacyEvidenceBundleDirectory('1.1');
+			writeIncompleteDurableGateEvidence('1.1');
+
+			const report = await runPreflight(testDir, 1, {
+				skipTests: true,
+				skipSecrets: true,
+				skipVersion: true,
+			});
+
+			const evidenceCheck = report.checks.find((c) => c.type === 'evidence');
+			expect(evidenceCheck).toBeDefined();
+			expect(evidenceCheck?.status).toBe('fail');
+			expect(evidenceCheck?.message).toContain(
+				'1 completed task(s) missing evidence',
+			);
+			expect(evidenceCheck?.details?.totalCompleted).toBe(1);
+			expect(evidenceCheck?.details?.totalWithEvidence).toBe(0);
+			expect(evidenceCheck?.details?.missingTasks).toContain('1.1');
+		});
+
+		it('should fail completed tasks with legacy evidence but invalid durable gates', async () => {
+			writePlanWithCompletedTask();
+			writeLegacyEvidenceBundleDirectory('1.1');
+			writeInvalidDurableGateEvidence('1.1');
+
+			const report = await runPreflight(testDir, 1, {
+				skipTests: true,
+				skipSecrets: true,
+				skipVersion: true,
+			});
+
+			const evidenceCheck = report.checks.find((c) => c.type === 'evidence');
+			expect(evidenceCheck).toBeDefined();
+			expect(evidenceCheck?.status).toBe('fail');
+			expect(evidenceCheck?.message).toContain(
+				'1 completed task(s) missing evidence',
+			);
+			expect(evidenceCheck?.details?.totalCompleted).toBe(1);
+			expect(evidenceCheck?.details?.totalWithEvidence).toBe(0);
+			expect(evidenceCheck?.details?.missingTasks).toContain('1.1');
 		});
 	});
 

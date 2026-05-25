@@ -6,7 +6,7 @@ import packageJson from '../../package.json' with { type: 'json' };
 import { getPluginCachePaths } from '../config/cache-paths.js';
 import { loadPluginConfig } from '../config/loader';
 import type { Plan } from '../config/plan-schema';
-import { hasCompleteDurableGateEvidenceForTask } from '../evidence/gate-bridge.js';
+import { getDurableGateEvidenceStatusForTask } from '../evidence/gate-bridge.js';
 import { listEvidenceTaskIds } from '../evidence/manager';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { loadPlanJsonOnly } from '../plan/manager';
@@ -82,10 +82,18 @@ async function checkEvidenceCompleteness(
 		const evidenceTaskIds = new Set(await listEvidenceTaskIds(directory));
 		const missingEvidence: string[] = [];
 		for (const id of completedTaskIds) {
-			if (evidenceTaskIds.has(id)) {
+			const gateStatus = await getDurableGateEvidenceStatusForTask(
+				directory,
+				id,
+			);
+			if (gateStatus.isComplete) {
 				continue;
 			}
-			if (await hasCompleteDurableGateEvidenceForTask(directory, id)) {
+			if (gateStatus.evidenceExists && gateStatus.missingGates.length > 0) {
+				missingEvidence.push(id);
+				continue;
+			}
+			if (evidenceTaskIds.has(id)) {
 				continue;
 			}
 			missingEvidence.push(id);

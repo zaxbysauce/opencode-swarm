@@ -14,7 +14,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { hasCompleteDurableGateEvidenceForTask } from '../evidence/gate-bridge.js';
+import { getDurableGateEvidenceStatusForTask } from '../evidence/gate-bridge.js';
 import {
 	checkRequirementCoverage,
 	listEvidenceTaskIds,
@@ -581,10 +581,15 @@ async function runEvidenceCheck(dir: string): Promise<PreflightCheckResult> {
 		// Find missing evidence
 		const missingEvidence: string[] = [];
 		for (const id of completedTaskIds) {
-			if (evidenceTaskIds.has(id)) {
+			const gateStatus = await getDurableGateEvidenceStatusForTask(dir, id);
+			if (gateStatus.isComplete) {
 				continue;
 			}
-			if (await hasCompleteDurableGateEvidenceForTask(dir, id)) {
+			if (gateStatus.evidenceExists && gateStatus.missingGates.length > 0) {
+				missingEvidence.push(id);
+				continue;
+			}
+			if (evidenceTaskIds.has(id)) {
 				continue;
 			}
 			missingEvidence.push(id);
