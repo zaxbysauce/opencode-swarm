@@ -112,6 +112,8 @@ mock.module('../../../src/plan/manager.js', () => ({
 	getCurrentTaskId: () => undefined,
 	migrateLegacyPlan: async () => {},
 	resetStartupLedgerCheck: () => {},
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 	_internals: {},
 }));
 mock.module('../../../src/hooks/extractors.js', () => ({
