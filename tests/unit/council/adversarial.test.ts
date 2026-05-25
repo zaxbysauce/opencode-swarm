@@ -203,7 +203,7 @@ describe('adversarial — evidence writer defense in depth', () => {
 			roundNumber: 1,
 			allCriteriaMet: true,
 		};
-		await expect(writeCouncilEvidence('/tmp', badSynthesis)).rejects.toThrow(
+		expect(() => writeCouncilEvidence('/tmp', badSynthesis)).toThrow(
 			/invalid taskId/,
 		);
 	});
@@ -226,7 +226,7 @@ describe('adversarial — evidence writer defense in depth', () => {
 			roundNumber: 1,
 			allCriteriaMet: true,
 		};
-		await expect(writeCouncilEvidence('/tmp', badSynthesis)).rejects.toThrow(
+		expect(() => writeCouncilEvidence('/tmp', badSynthesis)).toThrow(
 			/invalid taskId/,
 		);
 	});
