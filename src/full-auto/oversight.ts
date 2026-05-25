@@ -29,8 +29,8 @@ import { tryAcquireLock } from '../parallel/file-locks.js';
 import { _internals as stateInternals } from '../state.js';
 import * as logger from '../utils/logger';
 import {
-	parseCriticResponseFields,
 	type ParsedCriticResponse,
+	parseCriticResponseFields,
 } from './critic-response-parser';
 import {
 	loadFullAutoRunState,

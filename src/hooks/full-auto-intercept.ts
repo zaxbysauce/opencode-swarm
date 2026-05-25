@@ -14,14 +14,14 @@ import { createCriticAutonomousOversightAgent } from '../agents/critic';
 import type { PluginConfig } from '../config';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import {
+	type ParsedCriticResponse,
+	parseCriticResponseFields,
+} from '../full-auto/critic-response-parser';
+import {
 	type FullAutoOversightEvent as V2FullAutoOversightEvent,
 	writeFullAutoOversightEvent as v2WriteOversightEvent,
 	writeFullAutoOversightEvidence as v2WriteOversightEvidence,
 } from '../full-auto/oversight';
-import {
-	parseCriticResponseFields,
-	type ParsedCriticResponse,
-} from '../full-auto/critic-response-parser';
 import {
 	loadFullAutoRunState,
 	pauseFullAutoRun,
@@ -584,7 +584,9 @@ export async function dispatchCriticAndWriteEvent(
 		};
 	}
 
-	// 5. Write the auto_oversight event AFTER the critic responds
+	// 5. Write the auto_oversight event AFTER the critic responds.
+	// Note: if this throws (e.g. disk error), the v2 mirror step below is skipped,
+	// meaning phase-approval evidence coherence depends on the write succeeding.
 	await writeAutoOversightEvent(
 		directory,
 		architectOutput,
