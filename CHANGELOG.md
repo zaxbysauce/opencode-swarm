@@ -1,5 +1,24 @@
 # Changelog
 
+## [7.33.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.32.3...v7.33.0) (2026-05-25)
+
+
+### Features
+
+* **memory:** add sqlite provider foundation ([8da5a5d](https://github.com/zaxbysauce/opencode-swarm/commit/8da5a5dd85e2e07c302feb9d4035e50756c0d9f9))
+* **memory:** add sqlite provider foundation ([c7e5b0d](https://github.com/zaxbysauce/opencode-swarm/commit/c7e5b0d776298573cb0c7225b811e4d82528be0c))
+* **sandbox:** filesystem write-authority enforcement for coder subprocesses ([12d6607](https://github.com/zaxbysauce/opencode-swarm/commit/12d6607d7a7a736ec33d939f05a4e3fdee34eed9))
+* **sandbox:** filesystem write-authority enforcement for coder subprocesses ([ecf378b](https://github.com/zaxbysauce/opencode-swarm/commit/ecf378b6bfa5c23c2c6795139516bed331895a23))
+
+
+### Bug Fixes
+
+* **ci:** resolve quality lint failures ([1cd6fc3](https://github.com/zaxbysauce/opencode-swarm/commit/1cd6fc38922711a4ea8d09a4fbedbdeaa6b7dcb7))
+* **dist:** refresh artifacts after main rebase ([43b202a](https://github.com/zaxbysauce/opencode-swarm/commit/43b202ac65ad404b52afcfb323fd7cec94a29d17))
+* **dist:** regenerate with ci bun parity ([31ffebc](https://github.com/zaxbysauce/opencode-swarm/commit/31ffebc0077ff69fd6d28b10b0e4adbc5bebeb9b))
+* **memory:** dispose providers in memory tools ([7b87ded](https://github.com/zaxbysauce/opencode-swarm/commit/7b87ded4ef1019ee5f9f2ccfb8d1c2e93c42c7c0))
+* **test:** add mock.restore() cleanup to linux.test.ts wrapCommand describe block ([45e9376](https://github.com/zaxbysauce/opencode-swarm/commit/45e9376e83ddb9f3143d3f99a832caf4e4fbc408))
+
 ## [7.32.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.32.2...v7.32.3) (2026-05-25)
 
 
