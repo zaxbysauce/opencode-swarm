@@ -12,6 +12,8 @@ vi.mock('../../../src/hooks/utils.js', () => ({
 
 vi.mock('../../../src/plan/manager.js', () => ({
 	loadPlanJsonOnly: vi.fn(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 
 // Import mocked modules

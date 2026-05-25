@@ -5,6 +5,8 @@ import { getDiagnoseData } from '../../../src/services/diagnose-service.js';
 // Mock all the imported modules
 vi.mock('../../../src/plan/manager.js', () => ({
 	loadPlanJsonOnly: vi.fn(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 vi.mock('../../../src/evidence/manager.js', () => ({
 	listEvidenceTaskIds: vi.fn(),

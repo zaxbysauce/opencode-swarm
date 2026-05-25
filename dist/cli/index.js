@@ -14962,6 +14962,32 @@ async function appendLedgerEvent(directory, eventInput, options) {
   fs.renameSync(tempPath, ledgerPath);
   return event;
 }
+async function takeSnapshotWithRetry(directory, plan, options) {
+  const MAX_RETRIES = 3;
+  const TOTAL_ATTEMPTS = 1 + MAX_RETRIES;
+  const telemetrySource = options?.source ?? "save_plan_tool";
+  const snapshotOptions = { planHashAfter: options?.planHashAfter };
+  let lastError;
+  for (let attempt = 1;attempt <= TOTAL_ATTEMPTS; attempt++) {
+    try {
+      await takeSnapshotEvent(directory, plan, snapshotOptions);
+      return;
+    } catch (err) {
+      lastError = err instanceof Error ? err : new Error(String(err));
+      if (attempt < TOTAL_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 10 * 2 ** (attempt - 1)));
+      }
+    }
+  }
+  console.warn(`[takeSnapshotWithRetry] Snapshot failed after ${MAX_RETRIES} retries (${TOTAL_ATTEMPTS} attempts): ${lastError.message}`);
+  try {
+    emit("snapshot_failed", {
+      error: lastError.message,
+      retries: MAX_RETRIES,
+      source: telemetrySource
+    });
+  } catch {}
+}
 async function takeSnapshotEvent(directory, plan, options) {
   const payloadHash = computePlanHash(plan);
   const snapshotPayload = {
@@ -15195,6 +15221,7 @@ async function loadLastApprovedPlan(directory, expectedPlanId) {
 var LEDGER_SCHEMA_VERSION = "1.1.0", LEDGER_FILENAME = "plan-ledger.jsonl", PLAN_JSON_FILENAME = "plan.json", LedgerStaleWriterError;
 var init_ledger = __esm(() => {
   init_plan_schema();
+  init_telemetry();
   LedgerStaleWriterError = class LedgerStaleWriterError extends Error {
     constructor(message) {
       super(message);
@@ -15388,7 +15415,9 @@ async function loadPlan(directory) {
                 try {
                   const rebuilt = await replayFromLedger(directory);
                   if (rebuilt) {
-                    await rebuildPlan(directory, rebuilt);
+                    await rebuildPlan(directory, rebuilt, {
+                      reason: "ledger_hash_mismatch_recovery"
+                    });
                     warn("[loadPlan] Rebuilt plan from ledger. Checkpoint available at .swarm/SWARM_PLAN.md if it exists.");
                     return rebuilt;
                   }
@@ -15396,7 +15425,9 @@ async function loadPlan(directory) {
                   try {
                     const approved = await loadLastApprovedPlan(directory, currentPlanId);
                     if (approved) {
-                      await rebuildPlan(directory, approved.plan);
+                      await rebuildPlan(directory, approved.plan, {
+                        reason: "approved_snapshot_fallback"
+                      });
                       try {
                         await takeSnapshotEvent(directory, approved.plan, {
                           source: "recovery_from_approved_snapshot",
@@ -15473,7 +15504,9 @@ async function loadPlan(directory) {
           } else if (catchFirstEvent !== null && rawPlanId !== null) {
             const rebuilt = await replayFromLedger(directory);
             if (rebuilt) {
-              await rebuildPlan(directory, rebuilt);
+              await rebuildPlan(directory, rebuilt, {
+                reason: "validation_failure_recovery"
+              });
               warn("[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.");
               return rebuilt;
             }
@@ -15834,12 +15867,9 @@ async function savePlan(directory, plan, options) {
   const SNAPSHOT_INTERVAL = 50;
   const latestSeq = await getLatestLedgerSeq(directory);
   if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-    await takeSnapshotEvent(directory, validated, {
-      planHashAfter: hashAfter
-    }).catch((err) => {
-      if (process.env.DEBUG_SWARM) {
-        warn(`[savePlan] Periodic snapshot write failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`);
-      }
+    await takeSnapshotWithRetry(directory, validated, {
+      planHashAfter: hashAfter,
+      source: "savePlan_manager"
     });
   }
   const swarmDir = path4.resolve(directory, ".swarm");
@@ -15853,6 +15883,17 @@ async function savePlan(directory, plan, options) {
       unlinkSync(tempPath);
     } catch {}
   }
+  try {
+    const markerPath = path4.join(swarmDir, ".plan-write-marker");
+    const inProgressMarker = JSON.stringify({
+      source: "plan_manager",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: validated.phases.reduce((sum, p) => sum + p.tasks.length, 0),
+      in_progress: true
+    });
+    await bunWrite(markerPath, inProgressMarker);
+  } catch {}
   try {
     const contentHash = computePlanContentHash(validated);
     const markdown = derivePlanMarkdown(validated);
@@ -15886,40 +15927,145 @@ ${markdown}`;
       source: "plan_manager",
       timestamp: new Date().toISOString(),
       phases_count: validated.phases.length,
-      tasks_count: tasksCount
+      tasks_count: tasksCount,
+      in_progress: false
     });
     await bunWrite(markerPath, marker);
   } catch {}
 }
-async function rebuildPlan(directory, plan) {
+async function rebuildPlan(directory, plan, options) {
   const targetPlan = plan ?? await replayFromLedger(directory);
   if (!targetPlan)
     return null;
   const swarmDir = path4.join(directory, ".swarm");
   const planPath = path4.join(swarmDir, "plan.json");
   const mdPath = path4.join(swarmDir, "plan.md");
-  const tempPlanPath = path4.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+  const tempPlanPath = path4.join(swarmDir, `plan.json.rebuild.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
   await bunWrite(tempPlanPath, JSON.stringify(targetPlan, null, 2));
   renameSync2(tempPlanPath, planPath);
-  const contentHash = computePlanContentHash(targetPlan);
-  const markdown = derivePlanMarkdown(targetPlan);
-  const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
-${markdown}`;
-  const tempMdPath = path4.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-  await bunWrite(tempMdPath, markdownWithHash);
-  renameSync2(tempMdPath, mdPath);
   try {
     const markerPath = path4.join(swarmDir, ".plan-write-marker");
-    const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
-    const marker = JSON.stringify({
+    const inProgressMarker = JSON.stringify({
       source: "plan_manager",
       timestamp: new Date().toISOString(),
       phases_count: targetPlan.phases.length,
-      tasks_count: tasksCount
+      tasks_count: targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0),
+      in_progress: true
     });
-    await bunWrite(markerPath, marker);
+    await bunWrite(markerPath, inProgressMarker);
+  } catch {}
+  try {
+    const contentHash = computePlanContentHash(targetPlan);
+    const markdown = derivePlanMarkdown(targetPlan);
+    const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+    const tempMdPath = path4.join(swarmDir, `plan.md.rebuild.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+    await bunWrite(tempMdPath, markdownWithHash);
+    renameSync2(tempMdPath, mdPath);
+  } finally {
+    try {
+      const markerPath = path4.join(swarmDir, ".plan-write-marker");
+      const tasksCount = targetPlan.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+      const marker = JSON.stringify({
+        source: "plan_manager",
+        timestamp: new Date().toISOString(),
+        phases_count: targetPlan.phases.length,
+        tasks_count: tasksCount,
+        in_progress: false
+      });
+      await bunWrite(markerPath, marker);
+    } catch {}
+  }
+  try {
+    const planId = derivePlanId(targetPlan);
+    const planHashAfter = computePlanHash(targetPlan);
+    await appendLedgerEvent(directory, {
+      event_type: "plan_rebuilt",
+      source: "rebuildPlan",
+      plan_id: planId,
+      payload: {
+        reason: options?.reason ?? "ledger_replay_recovery",
+        phases_count: targetPlan.phases.length,
+        tasks_count: targetPlan.phases.reduce((sum, p) => sum + p.tasks.length, 0)
+      }
+    }, { planHashAfter });
   } catch {}
   return targetPlan;
+}
+async function closePlanTerminalState(directory, plan, options) {
+  const planId = derivePlanId(plan);
+  const validated = PlanSchema.parse(plan);
+  const hashAfter = computePlanHash(validated);
+  for (const taskId of options.closedTaskIds) {
+    let taskPhaseId;
+    for (const phase of validated.phases) {
+      if (phase.tasks.some((t) => t.id === taskId)) {
+        taskPhaseId = phase.id;
+        break;
+      }
+    }
+    const fromStatus = options.originalStatuses?.get(taskId) ?? "in_progress";
+    await appendLedgerEvent(directory, {
+      plan_id: planId,
+      event_type: "task_status_changed",
+      task_id: taskId,
+      phase_id: taskPhaseId,
+      from_status: fromStatus,
+      to_status: "closed",
+      source: "close_terminal"
+    }, { planHashAfter: hashAfter });
+  }
+  for (const phaseId of options.closedPhaseIds) {
+    await appendLedgerEvent(directory, {
+      plan_id: planId,
+      event_type: "phase_completed",
+      phase_id: phaseId,
+      source: "close_terminal"
+    }, { planHashAfter: hashAfter });
+  }
+  await takeSnapshotEvent(directory, validated, {
+    planHashAfter: hashAfter,
+    source: "close_terminal"
+  });
+  const swarmDir = path4.join(directory, ".swarm");
+  const planPath = path4.join(swarmDir, "plan.json");
+  const tempPlanPath = path4.join(swarmDir, `plan.json.close.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+  await bunWrite(tempPlanPath, JSON.stringify(validated, null, 2));
+  renameSync2(tempPlanPath, planPath);
+  try {
+    const markerPath = path4.join(swarmDir, ".plan-write-marker");
+    const inProgressMarker = JSON.stringify({
+      source: "plan_manager_close",
+      timestamp: new Date().toISOString(),
+      phases_count: validated.phases.length,
+      tasks_count: validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0),
+      in_progress: true
+    });
+    await bunWrite(markerPath, inProgressMarker);
+  } catch {}
+  try {
+    const mdPath = path4.join(swarmDir, "plan.md");
+    const contentHash = computePlanContentHash(validated);
+    const markdown = derivePlanMarkdown(validated);
+    const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->
+${markdown}`;
+    const mdTempPath = path4.join(swarmDir, `plan.md.close.${Date.now()}.${Math.floor(Math.random() * 1e9)}`);
+    await bunWrite(mdTempPath, markdownWithHash);
+    renameSync2(mdTempPath, mdPath);
+  } finally {
+    try {
+      const markerPath = path4.join(swarmDir, ".plan-write-marker");
+      const tasksCount = validated.phases.reduce((sum, phase) => sum + phase.tasks.length, 0);
+      const marker = JSON.stringify({
+        source: "plan_manager_close",
+        timestamp: new Date().toISOString(),
+        phases_count: validated.phases.length,
+        tasks_count: tasksCount,
+        in_progress: false
+      });
+      await bunWrite(markerPath, marker);
+    } catch {}
+  }
 }
 function derivePlanMarkdown(plan) {
   const statusMap = {
@@ -38353,6 +38499,12 @@ async function handleCloseCommand(directory, args, options = {}) {
     }
   }
   if (planExists) {
+    const originalStatuses = new Map;
+    for (const phase of planData.phases ?? []) {
+      for (const task of phase.tasks ?? []) {
+        originalStatuses.set(task.id, task.status);
+      }
+    }
     const guaranteeResult = guaranteeAllPlansComplete(planData);
     for (const phaseId of guaranteeResult.closedPhaseIds) {
       if (!closedPhases.includes(phaseId)) {
@@ -38366,11 +38518,15 @@ async function handleCloseCommand(directory, args, options = {}) {
     }
     if (!planAlreadyDone || guaranteeResult.closedPhaseIds.length > 0 || guaranteeResult.closedTaskIds.length > 0) {
       try {
-        await fs7.writeFile(planPath, JSON.stringify(planData, null, 2), "utf-8");
+        await closePlanTerminalState(directory, planData, {
+          closedPhaseIds: guaranteeResult.closedPhaseIds,
+          closedTaskIds: guaranteeResult.closedTaskIds,
+          originalStatuses
+        });
       } catch (error93) {
         const msg = error93 instanceof Error ? error93.message : String(error93);
-        warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
-        console.warn("[close-command] Failed to write plan.json:", error93);
+        warnings.push(`Failed to persist terminal plan state: ${msg}`);
+        console.warn("[close-command] Failed to write terminal plan state:", error93);
       }
     }
   }
@@ -38658,6 +38814,7 @@ var init_close = __esm(() => {
   init_knowledge_curator();
   init_knowledge_store();
   init_utils2();
+  init_manager();
   init_scope_persistence();
   init_skill_improver();
   init_state();

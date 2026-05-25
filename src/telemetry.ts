@@ -35,6 +35,7 @@ export type TelemetryEvent =
 	| 'evidence_lock_stale_recovered'
 	| 'plan_ledger_cas_retry'
 	| 'plan_md_write_failed'
+	| 'snapshot_failed' // FR-004: emitted when snapshot write exhausts retries
 	// PRM events
 	| 'prm_pattern_detected'
 	| 'prm_course_correction_injected'

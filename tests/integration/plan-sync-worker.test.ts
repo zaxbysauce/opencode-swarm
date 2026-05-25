@@ -9,7 +9,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 
@@ -100,8 +100,43 @@ describe('PlanSyncWorker Integration', () => {
 			],
 		};
 
+		// Read existing plan to acknowledge any task removals
+		let acknowledgedRemovals:
+			| { ids: string[]; reason: string; source: string }
+			| undefined;
+		try {
+			const existingRaw = readFileSync(
+				path.join(tempDir, '.swarm', 'plan.json'),
+				'utf-8',
+			);
+			const existing = JSON.parse(existingRaw) as {
+				phases?: Array<{ tasks?: Array<{ id: string }> }>;
+			};
+			const existingTaskIds: string[] = [];
+			for (const phase of existing.phases ?? []) {
+				for (const task of phase.tasks ?? []) {
+					existingTaskIds.push(task.id);
+				}
+			}
+			const newTaskIds = new Set(
+				plan.phases.flatMap((p) => p.tasks.map((t) => t.id)),
+			);
+			const removedIds = existingTaskIds.filter((id) => !newTaskIds.has(id));
+			if (removedIds.length > 0) {
+				acknowledgedRemovals = {
+					ids: removedIds,
+					reason: 'Integration test: plan replacement',
+					source: 'plan-sync-worker.test.ts',
+				};
+			}
+		} catch {
+			// No existing plan — nothing to acknowledge
+		}
+
 		const validated = PlanSchema.parse(plan);
-		await savePlan(tempDir, validated);
+		await savePlan(tempDir, validated, {
+			acknowledged_removals: acknowledgedRemovals,
+		});
 	}
 
 	// ============================================================================

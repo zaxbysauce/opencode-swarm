@@ -44,6 +44,8 @@ vi.mock('../../../src/hooks/curator-drift.js', () => ({
 vi.mock('../../../src/plan/manager.js', () => ({
 	loadPlan: vi.fn(async () => null),
 	getCurrentTaskId: vi.fn(() => undefined),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 vi.mock('../../../src/hooks/extractors.js', () => ({
 	extractCurrentPhaseFromPlan: vi.fn(() => 'Phase 1: Setup'),

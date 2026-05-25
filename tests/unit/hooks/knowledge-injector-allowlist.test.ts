@@ -43,6 +43,8 @@ vi.mock('../../../src/plan/manager.js', () => ({
 		title: 'Test Project',
 		phases: [{ id: 1, name: 'Setup', tasks: [] }],
 	})),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 vi.mock('../../../src/hooks/extractors.js', () => ({
 	extractCurrentPhaseFromPlan: vi.fn(() => 'Phase 1: Setup'),

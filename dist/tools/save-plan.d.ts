@@ -3,6 +3,11 @@
  * Allows the Architect agent to save structured plans to .swarm/plan.json and .swarm/plan.md.
  */
 import type { ToolDefinition } from '@opencode-ai/plugin/tool';
+import { takeSnapshotWithRetry } from '../plan/ledger';
+/** Test seam for the snapshot retry helper (FR-004). */
+export declare const _test_exports: {
+    takeSnapshotWithRetry: typeof takeSnapshotWithRetry;
+};
 /**
  * Arguments for the save_plan tool
  */
@@ -52,6 +57,13 @@ export interface SavePlanArgs {
      * prevent a destructive reset from silently dropping unfinished work.
      */
     confirm_destructive_reset?: boolean;
+    /**
+     * When true, allows save_plan to overwrite an existing plan that has a
+     * different identity (swarm_id + title). Without this flag, save_plan
+     * rejects with PLAN_IDENTITY_MISMATCH if the incoming identity differs
+     * from the existing plan's identity.
+     */
+    confirm_identity_change?: boolean;
     /**
      * Architect-facing concurrency controls for this plan.
      * When execution_profile.locked is true the profile is immutable — subsequent

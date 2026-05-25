@@ -39,7 +39,7 @@ export interface AcknowledgedRemovals {
     source: string;
 }
 import { type Plan, type RuntimePlan, type TaskStatus } from '../config/plan-schema';
-import { type LedgerEvent, type LedgerEventInput } from './ledger';
+import { type LedgerEvent, type LedgerEventInput, takeSnapshotWithRetry } from './ledger';
 /** Reset the startup ledger check flag. For testing only. */
 export declare function resetStartupLedgerCheck(): void;
 /**
@@ -54,6 +54,10 @@ export declare const _internals: {
     loadPlan: typeof loadPlan;
     loadPlanJsonOnly: typeof loadPlanJsonOnly;
     regeneratePlanMarkdown: typeof regeneratePlanMarkdown;
+};
+/** @internal Test seam for snapshot retry helper */
+export declare const _snapshot_test_exports: {
+    takeSnapshotWithRetry: typeof takeSnapshotWithRetry;
 };
 /**
  * Append a ledger event with exponential-backoff retry on stale-writer conflicts.
@@ -130,7 +134,29 @@ export declare function savePlan(directory: string, plan: Plan, options?: {
  * @param directory - The working directory
  * @returns Reconstructed Plan from ledger, or null if ledger is empty/missing
  */
-export declare function rebuildPlan(directory: string, plan?: Plan): Promise<Plan | null>;
+export declare function rebuildPlan(directory: string, plan?: Plan, options?: {
+    reason?: string;
+}): Promise<Plan | null>;
+/**
+ * Write terminal plan state through the managed write path (FR-002, FR-005, FR-006).
+ *
+ * Used by the `/swarm close` command to record the final plan state when a session
+ * is unconditionally terminated. Unlike `savePlan()`, this function:
+ * - Does NOT re-derive task statuses or enforce locked profiles
+ * - Does NOT use CAS protection (no concurrent writer should be active during close)
+ * - Appends terminal ledger events for audit trail before writing plan files
+ *
+ * @param directory - Project root directory
+ * @param plan - The plan with terminal state already applied by the caller
+ * @param options.closedPhaseIds - Phase IDs that were closed
+ * @param options.closedTaskIds - Task IDs that were closed
+ * @param options.originalStatuses - Optional map of taskId → from_status for ledger events
+ */
+export declare function closePlanTerminalState(directory: string, plan: Plan, options: {
+    closedPhaseIds: number[];
+    closedTaskIds: string[];
+    originalStatuses?: Map<string, string>;
+}): Promise<void>;
 /**
  * Load plan → find task by ID → update status → save → return updated plan.
  * Throw if plan not found or task not found.

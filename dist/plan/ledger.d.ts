@@ -176,6 +176,15 @@ export declare function appendLedgerEventWithRetry(directory: string, eventInput
     verifyValid?: () => Promise<boolean> | boolean;
 }): Promise<LedgerEvent | null>;
 /**
+ * Take a snapshot with bounded retry and always-visible warning logging (FR-004).
+ * Retries up to 3 times with exponential backoff, then logs a visible warning.
+ * Non-fatal — never throws. Shared by save-plan tool and plan manager.
+ */
+export declare function takeSnapshotWithRetry(directory: string, plan: Plan, options?: {
+    planHashAfter?: string;
+    source?: string;
+}): Promise<void>;
+/**
  * Take a snapshot event and append it to the ledger.
  * The snapshot embeds the full Plan payload for ledger-only rebuild.
  *

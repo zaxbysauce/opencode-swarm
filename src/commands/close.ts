@@ -1,6 +1,7 @@
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { loadPluginConfigWithMeta } from '../config';
+import type { Plan } from '../config/plan-schema';
 import {
 	KnowledgeConfigSchema,
 	SkillImproverConfigSchema,
@@ -19,7 +20,7 @@ import {
 } from '../hooks/knowledge-store';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types';
 import { validateSwarmPath } from '../hooks/utils';
-
+import { closePlanTerminalState } from '../plan/manager';
 import { clearAllScopes } from '../scope/scope-persistence';
 import {
 	runSkillImprover,
@@ -605,6 +606,14 @@ export async function handleCloseCommand(
 
 	// ─── ALL-PLANS-COMPLETE GUARANTEE ────────────────────────────────
 	if (planExists) {
+		// Capture original task statuses before guaranteeAllPlansComplete mutates them
+		const originalStatuses = new Map<string, string>();
+		for (const phase of planData.phases ?? []) {
+			for (const task of phase.tasks ?? []) {
+				originalStatuses.set(task.id, task.status);
+			}
+		}
+
 		const guaranteeResult = guaranteeAllPlansComplete(planData);
 		// Only track newly closed phases/tasks by identity
 		for (const phaseId of guaranteeResult.closedPhaseIds) {
@@ -625,15 +634,18 @@ export async function handleCloseCommand(
 			guaranteeResult.closedTaskIds.length > 0
 		) {
 			try {
-				await fs.writeFile(
-					planPath,
-					JSON.stringify(planData, null, 2),
-					'utf-8',
-				);
+				await closePlanTerminalState(directory, planData as Plan, {
+					closedPhaseIds: guaranteeResult.closedPhaseIds,
+					closedTaskIds: guaranteeResult.closedTaskIds,
+					originalStatuses,
+				});
 			} catch (error) {
 				const msg = error instanceof Error ? error.message : String(error);
-				warnings.push(`Failed to persist terminal plan.json state: ${msg}`);
-				console.warn('[close-command] Failed to write plan.json:', error);
+				warnings.push(`Failed to persist terminal plan state: ${msg}`);
+				console.warn(
+					'[close-command] Failed to write terminal plan state:',
+					error,
+				);
 			}
 		}
 	}

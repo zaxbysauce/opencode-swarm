@@ -42,6 +42,8 @@ vi.mock('../../../src/plan/manager.js', () => ({
 	readSwarmFileAsync: vi.fn(),
 	readSwarmFile: vi.fn(),
 	writeSwarmFile: vi.fn(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 vi.mock('../../../src/hooks/extractors.js', () => ({
 	extractCurrentPhaseFromPlan: vi.fn(() => 'Phase 1: Setup'),

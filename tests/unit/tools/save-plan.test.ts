@@ -1123,6 +1123,7 @@ describe('save-plan tool verification tests', () => {
 			const args2: SavePlanArgs = {
 				title: 'Merge Test Project v2',
 				swarm_id: 'mega',
+				confirm_identity_change: true,
 				phases: [
 					{
 						id: 1,
@@ -1168,6 +1169,7 @@ describe('save-plan tool verification tests', () => {
 			const args2: SavePlanArgs = {
 				title: 'In-Progress Merge Test v2',
 				swarm_id: 'mega',
+				confirm_identity_change: true,
 				phases: [
 					{
 						id: 1,
@@ -1209,6 +1211,7 @@ describe('save-plan tool verification tests', () => {
 			const args2: SavePlanArgs = {
 				title: 'New Tasks Merge Test v2',
 				swarm_id: 'mega',
+				confirm_identity_change: true,
 				phases: [
 					{
 						id: 1,
@@ -1279,6 +1282,7 @@ describe('save-plan tool verification tests', () => {
 			const args2: SavePlanArgs = {
 				title: 'Blocked Merge Test v2',
 				swarm_id: 'mega',
+				confirm_identity_change: true,
 				phases: [
 					{
 						id: 1,

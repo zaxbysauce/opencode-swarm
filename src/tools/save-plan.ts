@@ -22,7 +22,7 @@ import { writeCheckpoint } from '../plan/checkpoint';
 import {
 	appendLedgerEvent,
 	computePlanHash,
-	takeSnapshotEvent,
+	takeSnapshotWithRetry,
 } from '../plan/ledger';
 import {
 	loadPlanJsonOnly,
@@ -32,6 +32,9 @@ import {
 import { derivePlanId } from '../plan/utils.js';
 import { swarmState } from '../state';
 import { createSwarmTool } from './create-tool';
+
+/** Test seam for the snapshot retry helper (FR-004). */
+export const _test_exports = { takeSnapshotWithRetry };
 
 /**
  * Arguments for the save_plan tool
@@ -82,6 +85,13 @@ export interface SavePlanArgs {
 	 * prevent a destructive reset from silently dropping unfinished work.
 	 */
 	confirm_destructive_reset?: boolean;
+	/**
+	 * When true, allows save_plan to overwrite an existing plan that has a
+	 * different identity (swarm_id + title). Without this flag, save_plan
+	 * rejects with PLAN_IDENTITY_MISMATCH if the incoming identity differs
+	 * from the existing plan's identity.
+	 */
+	confirm_identity_change?: boolean;
 	/**
 	 * Architect-facing concurrency controls for this plan.
 	 * When execution_profile.locked is true the profile is immutable — subsequent
@@ -431,6 +441,33 @@ export async function executeSavePlan(
 				}
 			}
 
+			// Step 2.6: Plan identity verification — reject mismatched identity
+			// unless explicitly confirmed (FR-001). Prevents accidental overwrite
+			// when an architect passes the wrong title or swarm_id.
+			if (args.confirm_identity_change !== true) {
+				const existingId = derivePlanId(existing);
+				const incomingId = derivePlanId({
+					swarm: args.swarm_id,
+					title: args.title,
+				});
+				if (existingId !== incomingId) {
+					return {
+						success: false,
+						message:
+							'PLAN_IDENTITY_MISMATCH: The incoming plan identity does not match the existing plan. ' +
+							'To overwrite with a new identity, set confirm_identity_change: true.',
+						errors: [
+							`Existing plan identity: ${existingId} (swarm: "${existing.swarm}", title: "${existing.title}")`,
+							`Incoming plan identity: ${incomingId} (swarm: "${args.swarm_id}", title: "${args.title}")`,
+						],
+						recovery_guidance:
+							'Verify the title and swarm_id match the intended plan. ' +
+							'If the identity change is intentional, retry with confirm_identity_change: true. ' +
+							'Never write .swarm/plan.json or .swarm/plan.md directly.',
+					};
+				}
+			}
+
 			// Locked execution_profile enforcement — fail closed (unless reset_statuses clears it)
 			if (existing.execution_profile?.locked) {
 				if (args.execution_profile !== undefined && !args.reset_statuses) {
@@ -713,7 +750,7 @@ export async function executeSavePlan(
 			// This ensures replayFromLedger always has a complete plan baseline to work from.
 			const savedPlan = await loadPlanJsonOnly(dir);
 			if (savedPlan) {
-				await takeSnapshotEvent(dir, savedPlan).catch(() => {});
+				await takeSnapshotWithRetry(dir, savedPlan);
 			}
 			// Append execution_profile ledger events when the profile changed.
 			// execution_profile_set tracks every profile write; execution_profile_locked
@@ -934,6 +971,14 @@ export const save_plan: ToolDefinition = createSwarmTool({
 					'the new plan. Set true to acknowledge that the destructive reset drops ' +
 					'unfinished work. When set together with reset_statuses, save_plan auto-' +
 					'populates removed_task_ids from the missing set.',
+			),
+		confirm_identity_change: z
+			.boolean()
+			.optional()
+			.describe(
+				'When true, allows overwriting an existing plan that has a different ' +
+					'identity (swarm_id + title). Without this flag, save_plan rejects ' +
+					'with PLAN_IDENTITY_MISMATCH if the identity differs.',
 			),
 		execution_profile: z
 			.object({

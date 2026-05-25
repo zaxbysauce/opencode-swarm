@@ -18,6 +18,8 @@ const mockListEvidenceTaskIds = vi.fn();
 // Mock the plan manager
 vi.mock('../../../src/plan/manager.js', () => ({
 	loadPlanJsonOnly: () => mockLoadPlanJsonOnly(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 
 // Mock the evidence manager

@@ -16,6 +16,8 @@ import {
 // Mock the plan/manager module to control updateTaskStatus behavior
 vi.mock('../../../src/plan/manager', () => ({
 	updateTaskStatus: vi.fn<() => Promise<{ current_phase: number }>>(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 
 // Mock the parallel/file-locks module to control lock acquisition

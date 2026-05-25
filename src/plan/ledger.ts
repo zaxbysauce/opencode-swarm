@@ -14,6 +14,7 @@ import {
 	PlanSchema,
 	TaskStatusSchema,
 } from '../config/plan-schema';
+import { emit } from '../telemetry.js';
 import { derivePlanId } from './utils';
 
 /**
@@ -517,6 +518,48 @@ export async function appendLedgerEventWithRetry(
 			// Refresh concurrency token against the latest on-disk plan.
 			currentExpected = computeCurrentPlanHash(directory);
 		}
+	}
+}
+
+/**
+ * Take a snapshot with bounded retry and always-visible warning logging (FR-004).
+ * Retries up to 3 times with exponential backoff, then logs a visible warning.
+ * Non-fatal — never throws. Shared by save-plan tool and plan manager.
+ */
+export async function takeSnapshotWithRetry(
+	directory: string,
+	plan: Plan,
+	options?: { planHashAfter?: string; source?: string },
+): Promise<void> {
+	const MAX_RETRIES = 3;
+	const TOTAL_ATTEMPTS = 1 + MAX_RETRIES;
+	const telemetrySource = options?.source ?? 'save_plan_tool';
+	// Pass only planHashAfter to takeSnapshotEvent — the source field is
+	// telemetry-only and must not leak into the ledger event source.
+	const snapshotOptions = { planHashAfter: options?.planHashAfter };
+	let lastError: Error | undefined;
+	for (let attempt = 1; attempt <= TOTAL_ATTEMPTS; attempt++) {
+		try {
+			await takeSnapshotEvent(directory, plan, snapshotOptions);
+			return;
+		} catch (err) {
+			lastError = err instanceof Error ? err : new Error(String(err));
+			if (attempt < TOTAL_ATTEMPTS) {
+				await new Promise<void>((r) => setTimeout(r, 10 * 2 ** (attempt - 1)));
+			}
+		}
+	}
+	console.warn(
+		`[takeSnapshotWithRetry] Snapshot failed after ${MAX_RETRIES} retries (${TOTAL_ATTEMPTS} attempts): ${lastError!.message}`,
+	);
+	try {
+		emit('snapshot_failed', {
+			error: lastError!.message,
+			retries: MAX_RETRIES,
+			source: telemetrySource,
+		});
+	} catch {
+		// telemetry emit is non-fatal
 	}
 }
 

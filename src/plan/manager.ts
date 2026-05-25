@@ -87,6 +87,7 @@ import {
 	readLedgerEvents,
 	replayFromLedger,
 	takeSnapshotEvent,
+	takeSnapshotWithRetry,
 } from './ledger';
 import { derivePlanId } from './utils';
 
@@ -123,6 +124,9 @@ export const _internals: {
 	loadPlanJsonOnly,
 	regeneratePlanMarkdown,
 };
+
+/** @internal Test seam for snapshot retry helper */
+export const _snapshot_test_exports = { takeSnapshotWithRetry };
 
 // ── CAS backoff constants ─────────────────────────────────────────────────────
 const CAS_BACKOFF_START_MS = 5;
@@ -446,7 +450,9 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 								try {
 									const rebuilt = await replayFromLedger(directory);
 									if (rebuilt) {
-										await rebuildPlan(directory, rebuilt);
+										await rebuildPlan(directory, rebuilt, {
+											reason: 'ledger_hash_mismatch_recovery',
+										});
 										warn(
 											'[loadPlan] Rebuilt plan from ledger. Checkpoint available at .swarm/SWARM_PLAN.md if it exists.',
 										);
@@ -465,7 +471,9 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 											currentPlanId,
 										);
 										if (approved) {
-											await rebuildPlan(directory, approved.plan);
+											await rebuildPlan(directory, approved.plan, {
+												reason: 'approved_snapshot_fallback',
+											});
 											// Heal the ledger tail so subsequent loadPlan calls don't
 											// loop back into this recovery path. The recovered plan is
 											// now the authoritative state; tag it as a fresh snapshot
@@ -614,7 +622,9 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 						// Identities match — attempt ledger rebuild
 						const rebuilt = await replayFromLedger(directory);
 						if (rebuilt) {
-							await rebuildPlan(directory, rebuilt);
+							await rebuildPlan(directory, rebuilt, {
+								reason: 'validation_failure_recovery',
+							});
 							warn(
 								'[loadPlan] Rebuilt plan from ledger after validation failure. Projection was stale.',
 							);
@@ -1241,14 +1251,9 @@ export async function savePlan(
 	const SNAPSHOT_INTERVAL = 50;
 	const latestSeq = await getLatestLedgerSeq(directory);
 	if (latestSeq > 0 && latestSeq % SNAPSHOT_INTERVAL === 0) {
-		await takeSnapshotEvent(directory, validated, {
+		await takeSnapshotWithRetry(directory, validated, {
 			planHashAfter: hashAfter,
-		}).catch((err) => {
-			if (process.env.DEBUG_SWARM) {
-				warn(
-					`[savePlan] Periodic snapshot write failed (non-fatal): ${err instanceof Error ? err.message : String(err)}`,
-				);
-			}
+			source: 'savePlan_manager',
 		});
 	}
 
@@ -1269,6 +1274,23 @@ export async function savePlan(
 		} catch {
 			/* already renamed or never created */
 		}
+	}
+
+	// Write in-progress marker right after plan.json rename so that
+	// PlanSyncWorker's checkForUnauthorizedWrite() can skip its mtime
+	// comparison instead of false-positive-ing during an active savePlan().
+	try {
+		const markerPath = path.join(swarmDir, '.plan-write-marker');
+		const inProgressMarker = JSON.stringify({
+			source: 'plan_manager',
+			timestamp: new Date().toISOString(),
+			phases_count: validated.phases.length,
+			tasks_count: validated.phases.reduce((sum, p) => sum + p.tasks.length, 0),
+			in_progress: true,
+		});
+		await bunWrite(markerPath, inProgressMarker);
+	} catch {
+		/* Advisory only */
 	}
 
 	// Derive and write markdown atomically (with content hash for sync detection).
@@ -1323,6 +1345,7 @@ export async function savePlan(
 			timestamp: new Date().toISOString(),
 			phases_count: validated.phases.length,
 			tasks_count: tasksCount,
+			in_progress: false,
 		});
 		await bunWrite(markerPath, marker);
 	} catch {
@@ -1341,6 +1364,7 @@ export async function savePlan(
 export async function rebuildPlan(
 	directory: string,
 	plan?: Plan,
+	options?: { reason?: string },
 ): Promise<Plan | null> {
 	const targetPlan = plan ?? (await replayFromLedger(directory));
 	if (!targetPlan) return null;
@@ -1351,40 +1375,244 @@ export async function rebuildPlan(
 	const mdPath = path.join(swarmDir, 'plan.md');
 
 	// Atomic write for plan.json
-	const tempPlanPath = path.join(swarmDir, `plan.json.rebuild.${Date.now()}`);
+	const tempPlanPath = path.join(
+		swarmDir,
+		`plan.json.rebuild.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+	);
 	await bunWrite(tempPlanPath, JSON.stringify(targetPlan, null, 2));
 	renameSync(tempPlanPath, planPath);
 
-	// Also regenerate plan.md with content hash (matches the format written by savePlan/
-	// regeneratePlanMarkdown so that isPlanMdInSync() can detect the hash and avoid
-	// unnecessary re-generation on the next loadPlan() call).
-	const contentHash = computePlanContentHash(targetPlan);
-	const markdown = derivePlanMarkdown(targetPlan);
-	const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
-	const tempMdPath = path.join(swarmDir, `plan.md.rebuild.${Date.now()}`);
-	await bunWrite(tempMdPath, markdownWithHash);
-	renameSync(tempMdPath, mdPath);
-
-	// Update write-marker so PlanSyncWorker's checkForUnauthorizedWrite() does not
-	// emit spurious warnings after a ledger-triggered rebuild.
+	// Write in-progress marker right after plan.json rename.
 	try {
 		const markerPath = path.join(swarmDir, '.plan-write-marker');
-		const tasksCount = targetPlan.phases.reduce(
-			(sum, phase) => sum + phase.tasks.length,
-			0,
-		);
-		const marker = JSON.stringify({
+		const inProgressMarker = JSON.stringify({
 			source: 'plan_manager',
 			timestamp: new Date().toISOString(),
 			phases_count: targetPlan.phases.length,
-			tasks_count: tasksCount,
+			tasks_count: targetPlan.phases.reduce(
+				(sum, phase) => sum + phase.tasks.length,
+				0,
+			),
+			in_progress: true,
 		});
-		await bunWrite(markerPath, marker);
+		await bunWrite(markerPath, inProgressMarker);
 	} catch {
 		/* Advisory only */
 	}
 
+	// Also regenerate plan.md with content hash (matches the format written by savePlan/
+	// regeneratePlanMarkdown so that isPlanMdInSync() can detect the hash and avoid
+	// unnecessary re-generation on the next loadPlan() call).
+	try {
+		const contentHash = computePlanContentHash(targetPlan);
+		const markdown = derivePlanMarkdown(targetPlan);
+		const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
+		const tempMdPath = path.join(
+			swarmDir,
+			`plan.md.rebuild.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+		);
+		await bunWrite(tempMdPath, markdownWithHash);
+		renameSync(tempMdPath, mdPath);
+	} finally {
+		// Always reset the marker to in_progress: false, even if plan.md write failed,
+		// so PlanSyncWorker's unauthorized-write checks are not permanently disabled.
+		try {
+			const markerPath = path.join(swarmDir, '.plan-write-marker');
+			const tasksCount = targetPlan.phases.reduce(
+				(sum, phase) => sum + phase.tasks.length,
+				0,
+			);
+			const marker = JSON.stringify({
+				source: 'plan_manager',
+				timestamp: new Date().toISOString(),
+				phases_count: targetPlan.phases.length,
+				tasks_count: tasksCount,
+				in_progress: false,
+			});
+			await bunWrite(markerPath, marker);
+		} catch {
+			/* Advisory only */
+		}
+	}
+
+	// Append plan_rebuilt ledger event for audit trail (FR-003).
+	// This is NOT circular — rebuildPlan replays existing events to reconstruct state;
+	// appending a metadata event that records "rebuild occurred" does not create a loop
+	// because applyEventToPlan treats plan_rebuilt as an idempotent no-op.
+	try {
+		const planId = derivePlanId(targetPlan);
+		const planHashAfter = computePlanHash(targetPlan);
+		await appendLedgerEvent(
+			directory,
+			{
+				event_type: 'plan_rebuilt',
+				source: 'rebuildPlan',
+				plan_id: planId,
+				payload: {
+					reason: options?.reason ?? 'ledger_replay_recovery',
+					phases_count: targetPlan.phases.length,
+					tasks_count: targetPlan.phases.reduce(
+						(sum, p) => sum + p.tasks.length,
+						0,
+					),
+				},
+			},
+			{ planHashAfter },
+		);
+	} catch {
+		// Non-fatal — audit trail gap is acceptable if ledger is unavailable
+	}
+
 	return targetPlan;
+}
+
+/**
+ * Write terminal plan state through the managed write path (FR-002, FR-005, FR-006).
+ *
+ * Used by the `/swarm close` command to record the final plan state when a session
+ * is unconditionally terminated. Unlike `savePlan()`, this function:
+ * - Does NOT re-derive task statuses or enforce locked profiles
+ * - Does NOT use CAS protection (no concurrent writer should be active during close)
+ * - Appends terminal ledger events for audit trail before writing plan files
+ *
+ * @param directory - Project root directory
+ * @param plan - The plan with terminal state already applied by the caller
+ * @param options.closedPhaseIds - Phase IDs that were closed
+ * @param options.closedTaskIds - Task IDs that were closed
+ * @param options.originalStatuses - Optional map of taskId → from_status for ledger events
+ */
+export async function closePlanTerminalState(
+	directory: string,
+	plan: Plan,
+	options: {
+		closedPhaseIds: number[];
+		closedTaskIds: string[];
+		originalStatuses?: Map<string, string>;
+	},
+): Promise<void> {
+	const planId = derivePlanId(plan);
+
+	// Step 1: Validate plan against PlanSchema BEFORE appending ledger events.
+	// This ensures invalid plans are rejected early and no ledger entries are
+	// written for plans that will never be persisted to disk.
+	const validated = PlanSchema.parse(plan);
+
+	// Step 2: Compute hash from the validated plan — all subsequent ledger
+	// events carry this hash so that replay can verify state integrity.
+	const hashAfter = computePlanHash(validated);
+
+	// Step 3: Append terminal ledger events for each closed task.
+	for (const taskId of options.closedTaskIds) {
+		// Find the phase containing this task for the phase_id field.
+		let taskPhaseId: number | undefined;
+		for (const phase of validated.phases) {
+			if (phase.tasks.some((t) => t.id === taskId)) {
+				taskPhaseId = phase.id;
+				break;
+			}
+		}
+
+		const fromStatus = options.originalStatuses?.get(taskId) ?? 'in_progress';
+
+		await appendLedgerEvent(
+			directory,
+			{
+				plan_id: planId,
+				event_type: 'task_status_changed',
+				task_id: taskId,
+				phase_id: taskPhaseId,
+				from_status: fromStatus,
+				to_status: 'closed',
+				source: 'close_terminal',
+			},
+			{ planHashAfter: hashAfter },
+		);
+	}
+
+	// Step 3b: Append terminal ledger events for each closed phase.
+	for (const phaseId of options.closedPhaseIds) {
+		await appendLedgerEvent(
+			directory,
+			{
+				plan_id: planId,
+				event_type: 'phase_completed',
+				phase_id: phaseId,
+				source: 'close_terminal',
+			},
+			{ planHashAfter: hashAfter },
+		);
+	}
+
+	// Step 3c: Append a terminal snapshot so that ledger replay preserves
+	// the final "closed" statuses without relying on plan.json alone.
+	await takeSnapshotEvent(directory, validated, {
+		planHashAfter: hashAfter,
+		source: 'close_terminal',
+	});
+
+	// Step 4: Write plan.json using atomic temp+rename.
+	const swarmDir = path.join(directory, '.swarm');
+	const planPath = path.join(swarmDir, 'plan.json');
+	const tempPlanPath = path.join(
+		swarmDir,
+		`plan.json.close.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+	);
+	await bunWrite(tempPlanPath, JSON.stringify(validated, null, 2));
+	renameSync(tempPlanPath, planPath);
+
+	// Write in-progress marker right after plan.json rename so that
+	// PlanSyncWorker's checkForUnauthorizedWrite() can skip its mtime
+	// comparison instead of false-positive-ing during an active close.
+	try {
+		const markerPath = path.join(swarmDir, '.plan-write-marker');
+		const inProgressMarker = JSON.stringify({
+			source: 'plan_manager_close',
+			timestamp: new Date().toISOString(),
+			phases_count: validated.phases.length,
+			tasks_count: validated.phases.reduce(
+				(sum, phase) => sum + phase.tasks.length,
+				0,
+			),
+			in_progress: true,
+		});
+		await bunWrite(markerPath, inProgressMarker);
+	} catch {
+		/* Advisory only */
+	}
+
+	// Step 5: Write plan.md with content hash.
+	try {
+		const mdPath = path.join(swarmDir, 'plan.md');
+		const contentHash = computePlanContentHash(validated);
+		const markdown = derivePlanMarkdown(validated);
+		const markdownWithHash = `<!-- PLAN_HASH: ${contentHash} -->\n${markdown}`;
+		const mdTempPath = path.join(
+			swarmDir,
+			`plan.md.close.${Date.now()}.${Math.floor(Math.random() * 1e9)}`,
+		);
+		await bunWrite(mdTempPath, markdownWithHash);
+		renameSync(mdTempPath, mdPath);
+	} finally {
+		// Always reset the marker to in_progress: false, even if plan.md write failed,
+		// so PlanSyncWorker's unauthorized-write checks are not permanently disabled.
+		try {
+			const markerPath = path.join(swarmDir, '.plan-write-marker');
+			const tasksCount = validated.phases.reduce(
+				(sum, phase) => sum + phase.tasks.length,
+				0,
+			);
+			const marker = JSON.stringify({
+				source: 'plan_manager_close',
+				timestamp: new Date().toISOString(),
+				phases_count: validated.phases.length,
+				tasks_count: tasksCount,
+				in_progress: false,
+			});
+			await bunWrite(markerPath, marker);
+		} catch {
+			/* Advisory only */
+		}
+	}
 }
 
 /**

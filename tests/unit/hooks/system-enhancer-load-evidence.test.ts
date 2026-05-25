@@ -46,6 +46,8 @@ vi.mock('../../../src/plan/manager.js', () => ({
 	updateTaskStatus: vi.fn(),
 	migrateLegacyPlan: vi.fn(),
 	regeneratePlanMarkdown: vi.fn(),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 
 describe('System Enhancer - loadEvidence Discriminated Union Migration', () => {

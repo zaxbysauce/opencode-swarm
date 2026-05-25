@@ -13,6 +13,7 @@
 | `.swarm/plan.md` | Human-readable plan view | Derived — generated from plan.json |
 | `.swarm/SWARM_PLAN.md` | Operator checkpoint artifact | Export-only — not live source of truth |
 | `.swarm/SWARM_PLAN.json` | Machine-readable checkpoint artifact | Export-only — for import/export workflows |
+| `.swarm/.plan-write-marker` | Advisory write counter for PlanSyncWorker | Advisory — used to detect unauthorized writes |
 
 > **Migration note:** As of v7.x, SWARM_PLAN files live inside `.swarm/` instead of the project root. The `/swarm close` command cleans up both locations during the transition window.
 
@@ -27,11 +28,14 @@
 {"type":"task_reordered","taskId":"1.1","afterTaskId":"1.2","ts":"ISO8601"}
 {"type":"phase_completed","phase":1,"ts":"ISO8601"}
 {"type":"snapshot","data":{"plan":{...},"payload_hash":"abc123"},"ts":"ISO8601"}
-{"type":"plan_rebuilt","ts":"ISO8601"}
+{"type":"plan_rebuilt","source":"rebuildPlan","plan_id":"...","payload":{"reason":"ledger_replay_recovery | approved_snapshot_fallback | validation_failure_recovery | ...","phases_count":1,"tasks_count":3},"ts":"ISO8601"}
 {"type":"plan_exported","path":".swarm/SWARM_PLAN.json","ts":"ISO8601"}
 {"type":"plan_reset","ts":"ISO8601"}
 {"type":"execution_profile_set","data":{"execution_profile":{...}},"ts":"ISO8601"}
 {"type":"execution_profile_locked","ts":"ISO8601"}
+{"type":"task_status_changed","taskId":"1.1","from_status":"in_progress","to_status":"closed","source":"close_terminal","ts":"ISO8601"}
+{"type":"phase_completed","phase":1,"source":"close_terminal","ts":"ISO8601"}
+{"type":"snapshot","source":"close_terminal","data":{"plan":{...},"payload_hash":"abc123"},"ts":"ISO8601"}
 ```
 
 ### Task removal contract (v7.19.0+)
@@ -139,6 +143,42 @@ Every **50 ledger events** and on `phase_complete`, a `snapshot` event is append
 ```
 
 Snapshot events embed the full Plan payload and its `payload_hash`. During `loadPlan()`, `replayFromLedger()` scans for the latest snapshot event and uses it as the base state, then replays only events after that snapshot. This avoids replaying the entire ledger on every load.
+
+## Snapshot Retry (FR-004)
+
+Snapshot writes (triggered every 50 ledger events and on `phase_complete`) use a bounded retry helper in both `save-plan.ts` and `manager.ts`:
+
+- **Retries**: Up to 3 attempts with exponential backoff (10ms, 20ms, 40ms)
+- **Non-fatal**: Exhausted retries log a visible `console.warn` but do not block the save operation
+- **Telemetry**: Emits `snapshot_failed` event with `{ error, retries, source }` after all retries are exhausted
+- **Sources**: Both `save_plan` tool and `savePlan` manager layer independently retry their own snapshot calls
+
+## Terminal Plan State Write — `/swarm close` Managed Path (Phase 2)
+
+The `/swarm close` command uses `closePlanTerminalState()` (`src/plan/manager.ts`) to write terminal plan state through the managed ledger-first path instead of raw filesystem writes.
+
+### Write sequence
+
+1. **PlanSchema validation** — plan is validated before any ledger events or file writes; invalid plans rejected early with no side effects
+2. **Terminal ledger events** — for each closed task: `task_status_changed` with `from_status` preserved (from the original status map); for each closed phase: `phase_completed`
+3. **Terminal snapshot** — `takeSnapshotEvent` called with `source: 'close_terminal'` to embed final closed statuses in the ledger
+4. **Atomic plan.json write** — temp+rename pattern (`.plan.json.close.{timestamp}`)
+5. **Atomic plan.md write** — with `<!-- PLAN_HASH: ... -->` comment for sync detection
+6. **Write-marker update** — `.plan-write-marker` refreshed with `source: 'plan_manager_close'` for `PlanSyncWorker` compatibility
+
+### How it differs from `savePlan`
+
+| Aspect | `savePlan` | `closePlanTerminalState` |
+|--------|------------|------------------------|
+| CAS protection | Yes (retry with backoff) | No (no concurrent writer during close) |
+| Task status re-derivation | Yes (phase statuses recomputed) | No (terminal state pre-applied by caller) |
+| Execution profile enforcement | Yes | No |
+| Ledger events | `task_status_changed`, `task_removed` | `task_status_changed` (source: `close_terminal`), `phase_completed` |
+| Snapshot | Every 50 events + phase_complete | Terminal snapshot on close |
+
+### Crash/restart recovery
+
+If the process crashes during `/swarm close` after ledger events are appended but before plan file writes complete, the next `loadPlan()` call detects the hash mismatch and rebuilds plan files from the ledger, recovering the terminal state.
 
 ## Corruption Handling
 

@@ -472,6 +472,15 @@ export class PlanSyncWorker {
 
 			const markerContent = fs.readFileSync(markerPath, 'utf8');
 			const marker = JSON.parse(markerContent);
+
+			// Skip check if a plan write is currently in progress
+			if (marker.in_progress === true) {
+				log(
+					'[PlanSyncWorker] Skipping unauthorized-write check - plan write in progress',
+				);
+				return;
+			}
+
 			const markerTimestampMs = new Date(marker.timestamp).getTime();
 
 			if (planMtimeMs > markerTimestampMs + 5000) {

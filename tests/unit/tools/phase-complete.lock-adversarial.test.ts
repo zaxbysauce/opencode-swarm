@@ -97,6 +97,8 @@ vi.mock('../../../src/plan/manager', () => ({
 		phases: [{ id: 1, status: 'in_progress', tasks: [] }],
 	}),
 	savePlan: vi.fn().mockResolvedValue(undefined),
+	closePlanTerminalState: async () => {},
+	_snapshot_test_exports: {},
 }));
 
 vi.mock('../../../src/session/snapshot-writer', () => ({
