@@ -30,6 +30,7 @@ export interface DarkMatterOptions {
 	minCoChanges?: number;
 	npmiThreshold?: number;
 	maxCommitsToAnalyze?: number;
+	maxFilesPerCommit?: number;
 }
 
 /**
@@ -91,18 +92,26 @@ export async function parseGitLog(
  */
 export function buildCoChangeMatrix(
 	commitMap: Map<string, Set<string>>,
+	maxFilesPerCommit = 500,
 ): Map<string, CoChangeEntry> {
 	const matrix = new Map<string, CoChangeEntry>();
 	const fileCommitCount = new Map<string, number>();
 
 	// Count co-changes
 	for (const files of commitMap.values()) {
-		const fileArray = Array.from(files).sort();
-
-		// Update individual file commit counts
-		for (const file of fileArray) {
+		// Always update individual file commit counts (even for oversized commits)
+		// so that marginal frequencies used in NPMI computation stay accurate.
+		for (const file of files) {
 			fileCommitCount.set(file, (fileCommitCount.get(file) || 0) + 1);
 		}
+
+		// Skip pair generation for commits with excessive file counts to prevent
+		// O(n²) memory blowup (#1021). A commit touching >500 files is typically
+		// a bulk import, merge, or tooling change that produces noise rather than
+		// meaningful co-change signal.
+		if (files.size > maxFilesPerCommit) continue;
+
+		const fileArray = Array.from(files).sort();
 
 		// Process all pairs
 		for (let i = 0; i < fileArray.length; i++) {
@@ -365,6 +374,7 @@ export async function detectDarkMatter(
 	const minCoChanges = options?.minCoChanges ?? 3;
 	const npmiThreshold = options?.npmiThreshold ?? 0.5;
 	const maxCommitsToAnalyze = options?.maxCommitsToAnalyze ?? 500;
+	const maxFilesPerCommit = options?.maxFilesPerCommit ?? 500;
 
 	// Check total commits
 	try {
@@ -390,7 +400,7 @@ export async function detectDarkMatter(
 		directory,
 		maxCommitsToAnalyze,
 	);
-	const matrix = _internals.buildCoChangeMatrix(commitMap);
+	const matrix = _internals.buildCoChangeMatrix(commitMap, maxFilesPerCommit);
 
 	// Get static edges
 	const staticEdges = await _internals.getStaticEdges(directory);

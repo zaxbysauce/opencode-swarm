@@ -274,8 +274,8 @@ describe('repos without git skip silently', () => {
 		rmSync(tempDir, { recursive: true, force: true });
 	});
 
-	test('system-enhancer skips dark-matter.md when detectDarkMatter returns empty', async () => {
-		// When detectDarkMatter returns empty, system-enhancer skips writing dark-matter.md
+	test('system-enhancer writes dark-matter.md even when detectDarkMatter returns empty (#1021)', async () => {
+		// Empty results must still be cached to prevent repeated O(n²) recomputation
 		const darkMatterPath = path.join(tempDir, '.swarm', 'dark-matter.md');
 
 		// Create .swarm directory
@@ -291,8 +291,59 @@ describe('repos without git skip silently', () => {
 
 		await transform({ sessionID: 'test-session' }, { system: [] });
 
-		// dark-matter.md should not exist because mock returns empty
-		expect(fs.existsSync(darkMatterPath)).toBe(false);
+		// dark-matter.md MUST exist even on empty results to prevent recomputation
+		expect(fs.existsSync(darkMatterPath)).toBe(true);
+		const content = fs.readFileSync(darkMatterPath, 'utf-8');
+		expect(content).toContain('No hidden couplings detected');
+	});
+
+	test('system-enhancer does not recompute when dark-matter.md cache exists (#1021)', async () => {
+		// Create .swarm directory with pre-existing cache
+		mkdirSync(path.join(tempDir, '.swarm'), { recursive: true });
+		const darkMatterPath = path.join(tempDir, '.swarm', 'dark-matter.md');
+		fs.writeFileSync(
+			darkMatterPath,
+			'## Dark Matter: Hidden Couplings\n\nNo hidden couplings detected.',
+			'utf-8',
+		);
+
+		mockDetectDarkMatter.mockImplementation(async () => []);
+		const hook = createSystemEnhancerHook({} as PluginConfig, tempDir);
+		const transform = hook['experimental.chat.system.transform'] as (
+			input: { sessionID?: string; model?: unknown },
+			output: { system: string[] },
+		) => Promise<void>;
+
+		// Invoke twice
+		await transform({ sessionID: 'test-session' }, { system: [] });
+		await transform({ sessionID: 'test-session' }, { system: [] });
+
+		// detectDarkMatter should NOT have been called — cache was present
+		expect(mockDetectDarkMatter).not.toHaveBeenCalled();
+	});
+
+	test('system-enhancer writes dark-matter.md even when .swarm/ directory does not pre-exist (#1021)', async () => {
+		// Regression guard: if .swarm/ doesn't exist when writeFile is called, the ENOENT
+		// would be swallowed by the outer catch and O(n²) recomputation would repeat forever.
+		// The fix: mkdir({ recursive: true }) before writeFile ensures the directory is created.
+		const darkMatterPath = path.join(tempDir, '.swarm', 'dark-matter.md');
+
+		// Deliberately do NOT create .swarm/ — tempDir is a bare empty directory
+		expect(fs.existsSync(path.join(tempDir, '.swarm'))).toBe(false);
+
+		mockDetectDarkMatter.mockImplementation(async () => []);
+		const hook = createSystemEnhancerHook({} as PluginConfig, tempDir);
+		const transform = hook['experimental.chat.system.transform'] as (
+			input: { sessionID?: string; model?: unknown },
+			output: { system: string[] },
+		) => Promise<void>;
+
+		await transform({ sessionID: 'test-session' }, { system: [] });
+
+		// dark-matter.md must exist even though .swarm/ was not pre-created
+		expect(fs.existsSync(darkMatterPath)).toBe(true);
+		const content = fs.readFileSync(darkMatterPath, 'utf-8');
+		expect(content).toContain('No hidden couplings detected');
 	});
 
 	test('system-enhancer wraps detectDarkMatter in try-catch', async () => {

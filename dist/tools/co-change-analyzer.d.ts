@@ -16,6 +16,7 @@ export interface DarkMatterOptions {
     minCoChanges?: number;
     npmiThreshold?: number;
     maxCommitsToAnalyze?: number;
+    maxFilesPerCommit?: number;
 }
 /**
  * Parses git log to extract commit -> files mapping.
@@ -25,7 +26,7 @@ export declare function parseGitLog(directory: string, maxCommits: number): Prom
 /**
  * Builds co-change matrix from commit -> files mapping.
  */
-export declare function buildCoChangeMatrix(commitMap: Map<string, Set<string>>): Map<string, CoChangeEntry>;
+export declare function buildCoChangeMatrix(commitMap: Map<string, Set<string>>, maxFilesPerCommit?: number): Map<string, CoChangeEntry>;
 /**
  * Detects static import edges between files.
  */
