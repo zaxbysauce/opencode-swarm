@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.33.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.33.0...v7.33.1) (2026-05-25)
+
+
+### Bug Fixes
+
+* add missing export stubs to all vi.mock/mock.module calls for plan/manager ([c567cdd](https://github.com/zaxbysauce/opencode-swarm/commit/c567cdd86cdf14ca695394a48428a3a3b2d2e9b9))
+* add missing export stubs to knowledge-injector adversarial test mock ([924e578](https://github.com/zaxbysauce/opencode-swarm/commit/924e5786795a59690fa8312a3abe35f862be6e68))
+* **evidence:** prioritize durable gate file status ([8178259](https://github.com/zaxbysauce/opencode-swarm/commit/81782595ffc9d0c2712c03c51fa74e8509a576ef))
+* **evidence:** recognize durable gates and plan retries ([a5fbb75](https://github.com/zaxbysauce/opencode-swarm/commit/a5fbb757873a742f1c1a66e59cf0d28ffb0cccf9))
+* **plan:** add identity gate, terminal write path, rebuild audit, and race mitigation ([9d4f89a](https://github.com/zaxbysauce/opencode-swarm/commit/9d4f89a6c5dbacef29ece4b82c43fa9d2dabdfbc))
+* **plan:** add identity gate, terminal write path, rebuild audit, and race mitigation ([#976](https://github.com/zaxbysauce/opencode-swarm/issues/976)) ([a9156f5](https://github.com/zaxbysauce/opencode-swarm/commit/a9156f5c97cc7d42ec17dcae50c8a6b8b3c732c7))
+
 ## [7.33.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.32.3...v7.33.0) (2026-05-25)
 
 
