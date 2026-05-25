@@ -1,5 +1,14 @@
 # Changelog
 
+## [7.34.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.33.2...v7.34.0) (2026-05-25)
+
+
+### Features
+
+* **memory:** default sqlite provider and migrate jsonl ([d9eda4f](https://github.com/zaxbysauce/opencode-swarm/commit/d9eda4fcdc17e98f9c1828ef6031f0572c1a4cf0))
+* **memory:** default sqlite provider and migrate jsonl ([d31cffa](https://github.com/zaxbysauce/opencode-swarm/commit/d31cffac92915467168e47df80ee81d8e8ae0c47))
+* **skills:** promote subprocess-safety from generated to curated skill ([b8a80cd](https://github.com/zaxbysauce/opencode-swarm/commit/b8a80cd585394eb049b6fcf41e991ea134146273))
+
 ## [7.33.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.33.1...v7.33.2) (2026-05-25)
 
 
