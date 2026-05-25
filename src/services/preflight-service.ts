@@ -14,6 +14,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { getDurableGateEvidenceStatusForTask } from '../evidence/gate-bridge.js';
 import {
 	checkRequirementCoverage,
 	listEvidenceTaskIds,
@@ -578,9 +579,24 @@ async function runEvidenceCheck(dir: string): Promise<PreflightCheckResult> {
 		const evidenceTaskIds = new Set(await listEvidenceTaskIds(dir));
 
 		// Find missing evidence
-		const missingEvidence = completedTaskIds.filter(
-			(id) => !evidenceTaskIds.has(id),
-		);
+		const missingEvidence: string[] = [];
+		for (const id of completedTaskIds) {
+			const gateStatus = await getDurableGateEvidenceStatusForTask(dir, id);
+			if (gateStatus.isComplete) {
+				continue;
+			}
+			if (gateStatus.evidenceExists && gateStatus.missingGates.length > 0) {
+				missingEvidence.push(id);
+				continue;
+			}
+			if (evidenceTaskIds.has(id)) {
+				continue;
+			}
+			missingEvidence.push(id);
+		}
+
+		const completedWithEvidence =
+			completedTaskIds.length - missingEvidence.length;
 
 		if (missingEvidence.length > 0) {
 			return {
@@ -589,7 +605,7 @@ async function runEvidenceCheck(dir: string): Promise<PreflightCheckResult> {
 				message: `${missingEvidence.length} completed task(s) missing evidence`,
 				details: {
 					totalCompleted: completedTaskIds.length,
-					totalWithEvidence: evidenceTaskIds.size,
+					totalWithEvidence: completedWithEvidence,
 					missingTasks: missingEvidence.slice(0, 10), // Limit detail
 					missingCount: missingEvidence.length,
 				},
@@ -603,7 +619,7 @@ async function runEvidenceCheck(dir: string): Promise<PreflightCheckResult> {
 			message: `All ${completedTaskIds.length} completed tasks have evidence`,
 			details: {
 				totalCompleted: completedTaskIds.length,
-				totalWithEvidence: evidenceTaskIds.size,
+				totalWithEvidence: completedWithEvidence,
 			},
 			durationMs: Date.now() - startTime,
 		};

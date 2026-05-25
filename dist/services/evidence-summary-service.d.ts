@@ -70,6 +70,10 @@ declare function getTaskStatus(task: Task | undefined, bundle: EvidenceBundle | 
 /**
  * Check if evidence meets completion criteria for a task
  */
+declare function evidenceCompleteFromEntries(entries: Evidence[]): {
+    isComplete: boolean;
+    missingEvidence: string[];
+};
 declare function isEvidenceComplete(bundle: EvidenceBundle | null): {
     isComplete: boolean;
     missingEvidence: string[];
@@ -116,6 +120,7 @@ export declare const _internals: {
     isAutoSummaryEnabled: typeof isAutoSummaryEnabled;
     normalizeBundleEntries: typeof normalizeBundleEntries;
     getTaskStatus: typeof getTaskStatus;
+    evidenceCompleteFromEntries: typeof evidenceCompleteFromEntries;
     isEvidenceComplete: typeof isEvidenceComplete;
     getTaskBlockers: typeof getTaskBlockers;
     buildTaskSummary: typeof buildTaskSummary;

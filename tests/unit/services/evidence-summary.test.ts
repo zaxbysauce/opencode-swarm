@@ -147,6 +147,37 @@ function createMockEvidence(
 	}));
 }
 
+function writeDurableGateEvidence(
+	taskId: string,
+	requiredGates = ['reviewer', 'test_engineer'],
+	gates: Record<
+		string,
+		{ sessionId: string; timestamp: string; agent: string }
+	> = {
+		reviewer: {
+			sessionId: 'review-session',
+			timestamp: '2026-01-01T00:00:00.000Z',
+			agent: 'reviewer',
+		},
+		test_engineer: {
+			sessionId: 'test-session',
+			timestamp: '2026-01-01T00:01:00.000Z',
+			agent: 'test_engineer',
+		},
+	},
+): void {
+	const evidenceDir = join(tempDir, '.swarm', 'evidence');
+	mkdirSync(evidenceDir, { recursive: true });
+	writeFileSync(
+		join(evidenceDir, `${taskId}.json`),
+		JSON.stringify({
+			taskId,
+			required_gates: requiredGates,
+			gates,
+		}),
+	);
+}
+
 describe('isAutoSummaryEnabled', () => {
 	it('returns false when config is undefined', () => {
 		expect(isAutoSummaryEnabled(undefined)).toBe(false);
@@ -272,6 +303,55 @@ describe('buildEvidenceSummary', () => {
 		);
 		expect(task12?.isComplete).toBe(false);
 		expect(task12?.missingEvidence).toContain('test');
+	});
+
+	it('counts durable gate evidence when no evidence bundle exists', async () => {
+		const plan = createMockPlan();
+		mockLoadPlanJsonOnly.mockResolvedValue(plan);
+		mockListEvidenceTaskIds.mockResolvedValue([]);
+		mockLoadEvidence.mockResolvedValue(NOT_FOUND);
+		writeDurableGateEvidence('1.1');
+
+		const result = await buildEvidenceSummary(tempDir, 1);
+
+		expect(result).not.toBeNull();
+		const task11 = result!.phaseSummaries[0].tasks.find(
+			(t) => t.taskId === '1.1',
+		);
+
+		expect(task11?.evidenceCount).toBe(2);
+		expect(task11?.hasReview).toBe(true);
+		expect(task11?.hasTest).toBe(true);
+		expect(task11?.isComplete).toBe(true);
+		expect(task11?.missingEvidence).toHaveLength(0);
+		expect(task11?.blockers).toHaveLength(0);
+		expect(
+			result!.phaseSummaries[0].missingEvidenceByType.review,
+		).not.toContain('1.1');
+		expect(result!.phaseSummaries[0].missingEvidenceByType.test).not.toContain(
+			'1.1',
+		);
+	});
+
+	it('does not mark durable gate evidence complete when required gates are missing', async () => {
+		const plan = createMockPlan();
+		mockLoadPlanJsonOnly.mockResolvedValue(plan);
+		mockListEvidenceTaskIds.mockResolvedValue([]);
+		mockLoadEvidence.mockResolvedValue(NOT_FOUND);
+		writeDurableGateEvidence('1.1', ['critic', 'reviewer', 'test_engineer']);
+
+		const result = await buildEvidenceSummary(tempDir, 1);
+
+		expect(result).not.toBeNull();
+		const task11 = result!.phaseSummaries[0].tasks.find(
+			(t) => t.taskId === '1.1',
+		);
+
+		expect(task11?.hasReview).toBe(true);
+		expect(task11?.hasTest).toBe(true);
+		expect(task11?.isComplete).toBe(false);
+		expect(task11?.missingEvidence).toContain('gate:critic');
+		expect(task11?.blockers).toContain('Missing evidence: gate:critic');
 	});
 
 	it('detects blockers correctly', async () => {

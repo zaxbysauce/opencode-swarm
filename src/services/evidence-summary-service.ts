@@ -16,6 +16,11 @@ import type {
 	Task,
 	TaskStatus,
 } from '../config/plan-schema';
+import {
+	getDurableGateEvidenceStatus,
+	mergeDurableGateEntriesFromEvidence,
+	readDurableGateEvidence,
+} from '../evidence/gate-bridge.js';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { loadPlanJsonOnly } from '../plan/manager';
 import { log } from '../utils';
@@ -162,12 +167,10 @@ function getTaskStatus(
 /**
  * Check if evidence meets completion criteria for a task
  */
-function isEvidenceComplete(bundle: EvidenceBundle | null): {
+function evidenceCompleteFromEntries(entries: Evidence[]): {
 	isComplete: boolean;
 	missingEvidence: string[];
 } {
-	// Use normalized entries for safety
-	const entries = _internals.normalizeBundleEntries(bundle);
 	if (entries.length === 0) {
 		return {
 			isComplete: false,
@@ -188,6 +191,13 @@ function isEvidenceComplete(bundle: EvidenceBundle | null): {
 		isComplete: missing.length === 0,
 		missingEvidence: missing,
 	};
+}
+
+function isEvidenceComplete(bundle: EvidenceBundle | null): {
+	isComplete: boolean;
+	missingEvidence: string[];
+} {
+	return evidenceCompleteFromEntries(_internals.normalizeBundleEntries(bundle));
 }
 
 /**
@@ -225,13 +235,27 @@ async function buildTaskSummary(
 ): Promise<TaskEvidenceSummary> {
 	const result = await loadEvidence(directory, taskId);
 	const bundle = result.status === 'found' ? result.bundle : null;
+	const gateEvidence = await readDurableGateEvidence(directory, taskId);
 	const phase = task?.phase ?? 0;
 	const status = _internals.getTaskStatus(task, bundle);
-	const evidenceCheck = _internals.isEvidenceComplete(bundle);
+	const entries = mergeDurableGateEntriesFromEvidence(
+		taskId,
+		_internals.normalizeBundleEntries(bundle),
+		gateEvidence,
+	);
+	let evidenceCheck = _internals.evidenceCompleteFromEntries(entries);
+	if (gateEvidence) {
+		const gateStatus = getDurableGateEvidenceStatus(gateEvidence);
+		evidenceCheck = gateStatus.isComplete
+			? { isComplete: true, missingEvidence: [] }
+			: {
+					isComplete: false,
+					missingEvidence: gateStatus.missingGates.map(
+						(gate) => `gate:${gate}`,
+					),
+				};
+	}
 	const blockers = _internals.getTaskBlockers(task, evidenceCheck, status);
-
-	// Use normalized entries for safety
-	const entries = _internals.normalizeBundleEntries(bundle);
 
 	// Determine evidence presence
 	const hasReview = entries.some((e) => e.type === 'review');
@@ -524,6 +548,7 @@ export const _internals: {
 	isAutoSummaryEnabled: typeof isAutoSummaryEnabled;
 	normalizeBundleEntries: typeof normalizeBundleEntries;
 	getTaskStatus: typeof getTaskStatus;
+	evidenceCompleteFromEntries: typeof evidenceCompleteFromEntries;
 	isEvidenceComplete: typeof isEvidenceComplete;
 	getTaskBlockers: typeof getTaskBlockers;
 	buildTaskSummary: typeof buildTaskSummary;
@@ -534,6 +559,7 @@ export const _internals: {
 	isAutoSummaryEnabled,
 	normalizeBundleEntries,
 	getTaskStatus,
+	evidenceCompleteFromEntries,
 	isEvidenceComplete,
 	getTaskBlockers,
 	buildTaskSummary,
