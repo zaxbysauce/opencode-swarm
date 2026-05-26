@@ -97,6 +97,8 @@ function isConfigFilePath(
 	return false;
 }
 
+import { getExecutor } from '../sandbox/executor';
+import { resolveScopePaths } from '../sandbox/scope-resolver';
 import { bunHash } from '../utils/bun-compat';
 import * as logger from '../utils/logger';
 import { resolveAgentConflict } from './conflict-resolution';
@@ -2240,6 +2242,73 @@ export function createGuardrailsHooks(
 	}
 
 	/**
+	 * OS-native sandbox wrapper for bash/shell commands.
+	 *
+	 * Defense-in-depth: runs AFTER all static-analysis scope checks have passed.
+	 * Adds platform-specific sandbox enforcement (bubblewrap/sandbox-exec/Windows Sandbox)
+	 * as an additional OS-level boundary. If the sandbox is unavailable or
+	 * wrapping fails, the command passes through unchanged — existing enforcement
+	 * remains the primary protection.
+	 *
+	 * FR-004: Graceful fallback when sandbox unavailable (pass-through).
+	 * FR-006: OS-level errors from sandbox reach the coder as distinguishable errors.
+	 */
+	async function applySandboxExecution(
+		sessionID: string,
+		tool: string,
+		args: unknown,
+	): Promise<void> {
+		// Only wrap bash and shell tools
+		if (tool !== 'bash' && tool !== 'shell') return;
+
+		// Get the platform-appropriate executor (cached after first call)
+		const executor = await getExecutor();
+		if (!executor || !executor.isAvailable()) return;
+
+		const toolArgs = args as Record<string, unknown> | undefined;
+		const rawCommand =
+			typeof toolArgs?.command === 'string' ? toolArgs.command.trim() : '';
+		if (!rawCommand || !toolArgs) return;
+
+		// Get declared scope paths for this session
+		const declaredPaths = resolveDeclaredScope(sessionID);
+		if (!declaredPaths || declaredPaths.length === 0) return;
+
+		// Resolve scope paths to absolute paths for the sandbox
+		const resolved = resolveScopePaths(declaredPaths, effectiveDirectory);
+		if (resolved.paths.length === 0) return;
+
+		// F-002 fix: Block on sandbox errors instead of falling through.
+		// Sandboxing failures indicate a serious security configuration issue
+		// and should not silently allow unsandboxed execution.
+		try {
+			// Wrap the command with sandbox prefix (platform-specific)
+			const wrappedCommand = executor.wrapCommand(rawCommand, resolved.paths);
+
+			// Modify the args in-place so the bash tool executes the sandbox-wrapped version
+			toolArgs.command = wrappedCommand;
+
+			// F-003 fix: Apply environment variable overrides from the sandbox executor.
+			// DYLD_* vars on macOS and other platform-specific env hardening must be
+			// applied so sandbox enforcement cannot be bypassed via environment injection.
+			const envOverrides = executor.getEnvOverrides();
+			if (Object.keys(envOverrides).length > 0) {
+				const existingEnv =
+					(toolArgs.env as Record<string, string | null> | undefined) ?? {};
+				// Merge: env overrides take precedence over existing env
+				toolArgs.env = { ...existingEnv, ...envOverrides };
+			}
+		} catch (err) {
+			// Sandboxing failed — BLOCK instead of falling through.
+			// The error message includes the mechanism name so coders understand
+			// why a command was blocked at the OS level.
+			throw new Error(
+				`[sandbox] BLOCKED: Failed to wrap command with ${executor.mechanism}: ${err}. Command will not be executed unsandboxed.`,
+			);
+		}
+	}
+
+	/**
 	 * Checks gate limits (hard limits, idle timeout, soft warnings) for the current invocation.
 	 * Extracted from toolBefore for maintainability.
 	 */
@@ -3302,6 +3371,11 @@ export function createGuardrailsHooks(
 				elapsedMinutes,
 				repetitionCount,
 			});
+
+			// F-003 fix: Apply OS-level sandbox enforcement (command wrapping + env hardening)
+			// after all static-analysis checks have passed but before the command is executed.
+			// Applies to bash/shell tools when a sandbox executor is available for the platform.
+			await applySandboxExecution(input.sessionID, input.tool, output.args);
 
 			// v6.12: Store input args for delegation detection in toolAfter
 			setStoredInputArgs(input.callID, output.args);

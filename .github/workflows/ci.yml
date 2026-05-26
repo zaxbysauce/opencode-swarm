@@ -329,6 +329,29 @@ jobs:
             done
           done
           exit $failed
+      - name: Unit tests (sandbox)
+        shell: bash
+        run: |
+          set -o pipefail
+          IFS=$'\n'
+          # Per-file isolation to prevent --smol cache poisoning (#330).
+          failed=0
+          tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
+          trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
+          while IFS= read -r -d '' f; do
+            [ -f "$f" ] || continue
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
+            exit_code=0
+            bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
+            if [ $exit_code -ne 0 ]; then
+              if grep -qE "^[[:space:]]*(FAIL|✗|AssertionError)" "$tmp"; then
+                echo "::error file=$f::FAILED: $f"
+                failed=1
+              fi
+            fi
+            rm -f "$tmp"
+          done < <(find tests/unit/sandbox -name '*.test.ts' -type f -print0)
+          exit $failed
       - name: Unit tests (state, agents, knowledge, evidence, plan, misc)
         shell: bash
         run: |

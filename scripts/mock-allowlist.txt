@@ -97,6 +97,9 @@ src/tools/sast-scan
 src/tools/secretscan
 src/tools/write-retro
 
+# --- src/sandbox ---
+src/sandbox/linux/bubblewrap-executor
+
 # --- src/utils ---
 src/utils/bun-compat
 src/utils/logger
