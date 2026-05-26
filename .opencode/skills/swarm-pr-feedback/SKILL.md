@@ -58,7 +58,11 @@ Rules:
 - Split compound comments into separate ledger items only when they require
   different evidence or fixes.
 - Keep duplicate symptoms linked to one root cause rather than deleting them.
-- Include conflicts and CI failures as first-class ledger items.
+- Include conflicts, stale branch state, obsolete older-head CI, generated
+  `dist` drift, and other CI failures as first-class ledger items.
+- Use explicit IDs for non-review feedback when useful, for example
+  `CONFLICT-001` for merge/base drift and `CI-001` for check failures, so PR
+  bodies can show exactly how operational blockers were closed.
 
 ## Verification
 
@@ -126,6 +130,10 @@ Run targeted validation for every changed surface:
 - `git diff --check`,
 - PR metadata checks after push: head SHA, check status, mergeability/conflicts,
   and unresolved feedback state.
+- After conflict fixes, verify remote mergeability is clean (`MERGEABLE` /
+  `CLEAN`), not only that local conflict markers disappeared.
+- For current-head CI, prefer run-level details when PR checks look stale:
+  `gh run view <run-id> --json headSha,status,conclusion,jobs,url`.
 
 If a validation failure is suspected pre-existing, prove it on the base branch or
 label it `UNVERIFIED`. Do not call the branch green while required checks are
@@ -140,6 +148,8 @@ FB-001 | fixed | commit/test evidence
 FB-002 | disproved | code evidence
 FB-003 | pre-existing | base-branch evidence
 FB-004 | needs user decision | decision required
+CONFLICT-001 | fixed | remote mergeability is MERGEABLE/CLEAN
+CI-001 | fixed | current-head check/run evidence
 ```
 
 Do not resolve GitHub review threads unless explicitly instructed. If instructed,
