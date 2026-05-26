@@ -47330,9 +47330,9 @@ class SQLiteMemoryProvider {
       return { records: [], usedFts: true, ftsOrder: new Map };
     }
     try {
-      const rows = this.requireDb().query(`SELECT id, bm25(memory_items_fts) AS rank
-					FROM memory_items_fts
-					WHERE memory_items_fts MATCH ?
+      const rows = this.requireDb().query(`SELECT id, bm25(${FTS_TABLE_NAME}) AS rank
+					FROM ${FTS_TABLE_NAME}
+					WHERE ${FTS_TABLE_NAME} MATCH ?
 						AND id IN (SELECT value FROM json_each(?))
 					ORDER BY rank ASC
 					LIMIT ?`).all(ftsQuery, JSON.stringify(Array.from(scopedIds)), Math.max(100, request.maxItems * 20));
@@ -47380,19 +47380,18 @@ class SQLiteMemoryProvider {
   initializeFtsIndex() {
     const db = this.requireDb();
     try {
-      db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS memory_items_fts USING fts5(
-				id UNINDEXED,
-				text,
-				tags,
-				kind,
-				source_file_path,
-				source_ref,
-				metadata_symbols,
-				metadata_files
-			)`);
+      if (!this.hasMigration(FTS_SCHEMA_MIGRATION_NAME)) {
+        this.recreateFtsIndex();
+        this.markMigration(FTS_SCHEMA_MIGRATION_VERSION, FTS_SCHEMA_MIGRATION_NAME);
+        this.insertEvent("migration", String(FTS_SCHEMA_MIGRATION_VERSION), FTS_SCHEMA_MIGRATION_NAME);
+      } else {
+        db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS ${FTS_TABLE_NAME} USING fts5(
+					${ftsCreateColumnsSql()}
+				)`);
+      }
       this.ftsAvailable = true;
       const memoryCount = db.query("SELECT COUNT(*) AS count FROM memory_items").get()?.count ?? 0;
-      const ftsCount = db.query("SELECT COUNT(*) AS count FROM memory_items_fts").get()?.count ?? 0;
+      const ftsCount = db.query(`SELECT COUNT(*) AS count FROM ${FTS_TABLE_NAME}`).get()?.count ?? 0;
       if (memoryCount !== ftsCount) {
         this.rebuildFtsIndex();
       }
@@ -47402,11 +47401,21 @@ class SQLiteMemoryProvider {
       return false;
     }
   }
+  recreateFtsIndex() {
+    const db = this.requireDb();
+    const recreate = db.transaction(() => {
+      db.run(`DROP TABLE IF EXISTS ${FTS_TABLE_NAME}`);
+      db.run(`CREATE VIRTUAL TABLE ${FTS_TABLE_NAME} USING fts5(
+				${ftsCreateColumnsSql()}
+			)`);
+    });
+    recreate();
+  }
   rebuildFtsIndex() {
     const db = this.requireDb();
     const rows = db.query("SELECT id, record_json FROM memory_items").all();
     const rebuild = db.transaction(() => {
-      db.run("DELETE FROM memory_items_fts");
+      db.run(`DELETE FROM ${FTS_TABLE_NAME}`);
       for (const row of rows) {
         try {
           const record3 = validateMemoryRecordRules(JSON.parse(row.record_json), {
@@ -47478,28 +47487,11 @@ class SQLiteMemoryProvider {
     if (!this.ftsAvailable)
       return;
     try {
-      const searchable = toFtsSearchableFields(record3);
       const db = this.requireDb();
-      db.run("DELETE FROM memory_items_fts WHERE id = ?", [record3.id]);
-      db.run(`INSERT INTO memory_items_fts (
-					id,
-					text,
-					tags,
-					kind,
-					source_file_path,
-					source_ref,
-					metadata_symbols,
-					metadata_files
-				) VALUES (?, ?, ?, ?, ?, ?, ?, ?)`, [
-        record3.id,
-        searchable.text,
-        searchable.tags,
-        searchable.kind,
-        searchable.sourceFilePath,
-        searchable.sourceRef,
-        searchable.metadataSymbols,
-        searchable.metadataFiles
-      ]);
+      db.run(`DELETE FROM ${FTS_TABLE_NAME} WHERE id = ?`, [record3.id]);
+      db.run(`INSERT INTO ${FTS_TABLE_NAME} (
+					${FTS_INSERT_COLUMNS.join(", ")}
+				) VALUES (${FTS_INSERT_COLUMNS.map(() => "?").join(", ")})`, [record3.id, ...ftsColumnValues(record3)]);
     } catch {
       this.ftsAvailable = false;
     }
@@ -47508,7 +47500,7 @@ class SQLiteMemoryProvider {
     if (!this.ftsAvailable)
       return;
     try {
-      this.requireDb().run("DELETE FROM memory_items_fts WHERE id = ?", [id]);
+      this.requireDb().run(`DELETE FROM ${FTS_TABLE_NAME} WHERE id = ?`, [id]);
     } catch {
       this.ftsAvailable = false;
     }
@@ -47614,24 +47606,15 @@ function extractFtsTerms(text) {
   }
   return terms;
 }
-function toFtsSearchableFields(record3) {
-  return {
-    text: record3.text,
-    tags: record3.tags.join(" "),
-    kind: record3.kind.replace(/_/g, " "),
-    sourceFilePath: record3.source.filePath ?? "",
-    sourceRef: record3.source.ref ?? "",
-    metadataSymbols: collectMetadataSearchStrings(record3.metadata, [
-      "symbol",
-      "symbols"
-    ]).join(" "),
-    metadataFiles: collectMetadataSearchStrings(record3.metadata, [
-      "file",
-      "filePath",
-      "files",
-      "touchedFiles"
-    ]).join(" ")
-  };
+function ftsCreateColumnsSql() {
+  return [
+    "id UNINDEXED",
+    ...FTS_INDEX_COLUMNS.map((column) => column.name)
+  ].join(`,
+				`);
+}
+function ftsColumnValues(record3) {
+  return FTS_INDEX_COLUMNS.map((column) => column.value(record3));
 }
 function collectMetadataSearchStrings(metadata, keys) {
   const values = [];
@@ -47664,7 +47647,7 @@ function rerankWithFts(items, ftsOrder) {
     };
   }).sort((a, b) => b.score - a.score || a.record.id.localeCompare(b.record.id));
 }
-var _DatabaseCtor2 = null, MIGRATIONS2, FTS_STOP_WORDS;
+var _DatabaseCtor2 = null, FTS_SCHEMA_MIGRATION_VERSION = 3, FTS_SCHEMA_MIGRATION_NAME = "create_memory_fts5_shadow_index", FTS_TABLE_NAME = "memory_items_fts", FTS_INDEX_COLUMNS, FTS_INSERT_COLUMNS, MIGRATIONS2, FTS_STOP_WORDS;
 var init_sqlite_provider = __esm(() => {
   init_utils2();
   init_config3();
@@ -47672,6 +47655,45 @@ var init_sqlite_provider = __esm(() => {
   init_jsonl_migration();
   init_schema2();
   init_scoring();
+  FTS_INDEX_COLUMNS = [
+    {
+      name: "text",
+      value: (record3) => record3.text
+    },
+    {
+      name: "tags",
+      value: (record3) => record3.tags.join(" ")
+    },
+    {
+      name: "kind",
+      value: (record3) => record3.kind.replace(/_/g, " ")
+    },
+    {
+      name: "source_file_path",
+      value: (record3) => record3.source.filePath ?? ""
+    },
+    {
+      name: "source_ref",
+      value: (record3) => record3.source.ref ?? ""
+    },
+    {
+      name: "metadata_symbols",
+      value: (record3) => collectMetadataSearchStrings(record3.metadata, ["symbol", "symbols"]).join(" ")
+    },
+    {
+      name: "metadata_files",
+      value: (record3) => collectMetadataSearchStrings(record3.metadata, [
+        "file",
+        "filePath",
+        "files",
+        "touchedFiles"
+      ]).join(" ")
+    }
+  ];
+  FTS_INSERT_COLUMNS = [
+    "id",
+    ...FTS_INDEX_COLUMNS.map((column) => column.name)
+  ];
   MIGRATIONS2 = [
     {
       version: 1,

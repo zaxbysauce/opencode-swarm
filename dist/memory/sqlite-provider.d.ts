@@ -51,6 +51,7 @@ export declare class SQLiteMemoryProvider implements MemoryProvider, MemoryPropo
     private selectRecallCandidates;
     private runMigrations;
     private initializeFtsIndex;
+    private recreateFtsIndex;
     private rebuildFtsIndex;
     private loadMemories;
     private loadProposals;
@@ -69,5 +70,7 @@ declare function extractFtsTerms(text: string): Set<string>;
 export declare const _test_exports: {
     buildFtsQuery: typeof buildFtsQuery;
     extractFtsTerms: typeof extractFtsTerms;
+    FTS_SCHEMA_MIGRATION_NAME: string;
+    FTS_SCHEMA_MIGRATION_VERSION: number;
 };
 export {};

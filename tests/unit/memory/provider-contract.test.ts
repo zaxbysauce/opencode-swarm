@@ -20,6 +20,7 @@ import {
 	resolveMemoryConfig,
 	SQLiteMemoryProvider,
 } from '../../../src/memory';
+import { _test_exports as sqliteProviderTestExports } from '../../../src/memory/sqlite-provider';
 
 type ContractProvider = MemoryProvider &
 	MemoryProposalStore & { close?: () => void };
@@ -250,6 +251,15 @@ describe('SQLiteMemoryProvider', () => {
 					'schema_migrations',
 				]),
 			);
+			const ftsMigration = db
+				.query<{ version: number; name: string }, []>(
+					'SELECT version, name FROM schema_migrations WHERE name = "create_memory_fts5_shadow_index"',
+				)
+				.get();
+			expect(ftsMigration).toEqual({
+				version: sqliteProviderTestExports.FTS_SCHEMA_MIGRATION_VERSION,
+				name: sqliteProviderTestExports.FTS_SCHEMA_MIGRATION_NAME,
+			});
 		} finally {
 			db.close();
 		}
@@ -390,6 +400,49 @@ describe('SQLiteMemoryProvider', () => {
 		expect(results[0]?.reason).toContain('fts_rank=1');
 		expect(results[0]?.signals.symbolOverlap).toBeGreaterThan(0);
 		expect(results[0]?.signals.fileOverlap).toBeGreaterThan(0);
+	});
+
+	test('builds safe FTS queries from task and recall text', () => {
+		const query = sqliteProviderTestExports.buildFtsQuery({
+			query: 'How should PR7 handle src/memory/sqlite-provider.ts?',
+			task: 'Implement FTS recall for HybridRecallPlanner and C++ notes.',
+			mode: 'injection',
+			scopes: [{ type: 'repository', repoId: 'repo-search' }],
+			maxItems: 5,
+			tokenBudget: 1000,
+		});
+
+		expect(query).toContain('"implement"');
+		expect(query).toContain('"hybridrecallplanner"');
+		expect(query).toContain('"sqlite"');
+		expect(query).not.toContain('how');
+		expect(query).not.toContain(' OR OR ');
+	});
+
+	test('documents conservative injection behavior when FTS has no candidates', async () => {
+		const root = await providerRoot('sqlite-fts-injection-empty');
+		const provider = track(
+			new SQLiteMemoryProvider(root, { enabled: true, provider: 'sqlite' }),
+		);
+		const record = makeSearchRecord({
+			text: 'Same-scope memory can be recalled manually by pure scoring.',
+			tags: ['manual-only'],
+			confidence: 1,
+		});
+		await provider.upsert(record);
+
+		const results = await provider.recall({
+			query: 'missingterm',
+			mode: 'injection',
+			scopes: [record.scope],
+			kinds: ['code_pattern'],
+			maxItems: 5,
+			tokenBudget: 1000,
+			minScore: 0,
+			requireQuerySignal: false,
+		});
+
+		expect(results).toEqual([]);
 	});
 
 	test('evaluation fixture ranks file-specific recall ahead of broad PR2-style scoring noise', async () => {

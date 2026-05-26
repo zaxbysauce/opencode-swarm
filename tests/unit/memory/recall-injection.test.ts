@@ -137,6 +137,22 @@ describe('memory recall role profiles', () => {
 		expect(normalizeMemoryAgentRole('unknown_specialist')).toBe('coder');
 	});
 
+	test('normalizes every role-profile branch', () => {
+		expect(normalizeMemoryAgentRole(undefined)).toBe('architect');
+		expect(normalizeMemoryAgentRole('critic')).toBe('security');
+		expect(normalizeMemoryAgentRole('critic_sounding_board')).toBe('security');
+		expect(normalizeMemoryAgentRole('critic_hallucination_verifier')).toBe(
+			'security',
+		);
+		expect(normalizeMemoryAgentRole('curator_init')).toBe('curator');
+		expect(normalizeMemoryAgentRole('curator_phase')).toBe('curator');
+		expect(normalizeMemoryAgentRole('docs')).toBe('sme');
+		expect(normalizeMemoryAgentRole('architect')).toBe('architect');
+		expect(normalizeMemoryAgentRole('sme')).toBe('sme');
+		expect(normalizeMemoryAgentRole('security')).toBe('security');
+		expect(normalizeMemoryAgentRole('curator')).toBe('curator');
+	});
+
 	test('coder profile recalls code, test, and failure patterns', () => {
 		const profile = resolveMemoryRecallProfile('coder');
 		expect(profile.kinds).toContain('code_pattern');
