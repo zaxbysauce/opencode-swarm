@@ -198,9 +198,26 @@ If the failure reproduces on `main`, document it under `## Pre-existing failures
 `dist-check` is a **hard gate**. Unlike test failures, a `dist-check` failure is never "pre-existing" and must be resolved before the PR merges.
 
 - **If your PR touches `src/`**: You must run `bun run build`, verify `git diff -- dist/` shows only expected changes from your source edits, and commit `dist/` in the same PR.
-- **If your PR does NOT touch `src/` but `dist-check` fails**: `origin/main` has dist drift. Do **not** commit rebuilt `dist/` to your PR. The fix belongs on `main`, not in your PR. Notify maintainers.
+- **If your PR does NOT touch `src/` but `dist-check` fails**: `origin/main` has generated-output (`dist/`) drift. Do **not** commit rebuilt `dist/` to your PR. The fix belongs on `main`, not in your PR. Notify maintainers.
 - **Never** commit rebuilt `dist/` solely to make CI green when your PR does not touch source files.
 - **If CI `dist-check` fails after a source-touching PR already rebuilt `dist/` locally**: inspect the CI log before classifying the failure, then refresh dependency-generated output with `bun install --frozen-lockfile --force`, rerun `bun run build`, verify the `dist/` diff is expected, and commit the regenerated files. Stale nested dependencies can make local `dist/` output differ from CI even when the build command succeeds.
+
+Concrete recovery sequence for source-touching generated-output drift:
+
+```bash
+gh run view <run-id> --job <job-id> --log
+bun install --frozen-lockfile --force
+bun run build
+node --input-type=module -e "await import('./dist/index.js'); console.log('dist import OK')"
+bun --smol test tests/unit/build/bundle-portability.test.ts tests/unit/build/bundle-plugin-shape.test.ts --timeout 30000
+git diff -- dist/
+git diff --check
+```
+
+On Windows, if the forced install causes `EPERM` while later commands read
+`node_modules`, treat it as host permission friction first: rerun the exact
+focused command that failed, such as the build, import, or focused test command,
+with approved access before diagnosing a code or test failure.
 
 ## Step 4 - Workflow changes
 
@@ -311,7 +328,7 @@ If a PR already exists for the branch:
 7. after any follow-up push or force-push, verify the PR head matches the expected commit and that reported checks belong to the current `headRefOid`:
 
 ```powershell
-gh pr view <number> --json headRefOid,body,isDraft,state,statusCheckRollup,url
+gh pr view <number> --json headRefOid,body,isDraft,state,mergeable,mergeStateStatus,statusCheckRollup,url
 ```
 
 Useful commands:
@@ -322,7 +339,43 @@ gh pr ready <number>
 gh pr checks <number> --watch --fail-fast
 ```
 
-If a previous run from an older PR head is still in progress or already failed and is blocking the current head's workflow through concurrency, inspect it with `gh run view <run-id> --json headSha,status,conclusion,jobs,url`. Cancel only obsolete older-head runs that are no longer relevant to the PR head you are validating, then wait for the current-head checks to complete.
+### Conflict closeout
+
+After resolving merge conflicts or syncing a stale branch:
+
+1. verify there are no local unmerged paths or conflict markers,
+2. push the conflict-resolution commit,
+3. verify GitHub reports both `mergeable: MERGEABLE` and
+   `mergeStateStatus: CLEAN`, not merely that local markers are gone, and
+4. keep a conflict/branch-drift item in the PR closure ledger when it affected
+   the PR.
+
+If GitHub still reports `DIRTY`, `BLOCKED`, or stale checks after local conflict
+resolution, fetch current `origin/main` again and re-evaluate before claiming the
+conflict is resolved.
+
+### Check closeout
+
+`gh pr checks --watch --fail-fast` is useful but can lag or flatten matrix and
+downstream jobs. When the PR checks view looks stale, missing, or inconsistent,
+use the workflow run as the authoritative detail:
+
+```powershell
+gh run view <run-id> --json headSha,status,conclusion,jobs,url
+```
+
+Keep watching after unit jobs pass; this repository may enqueue integration and
+smoke jobs later in the same CI run. Do not call the PR green until the current
+`headRefOid` has all required jobs completed successfully.
+
+If a previous run from an older PR head is still in progress or already failed
+and is blocking the current head's workflow through concurrency, inspect it with
+`gh run view <run-id> --json headSha,status,conclusion,jobs,url`. Cancel only
+obsolete older-head runs that are no longer relevant to the PR head you are
+validating, then wait for the current-head checks to complete.
+
+If you edit the PR body after checks are green, expect PR Standards / title
+checks to rerun. Re-check before claiming final green or merge-readiness.
 
 ## Step 8 - Cancelled jobs and skipped dependents
 

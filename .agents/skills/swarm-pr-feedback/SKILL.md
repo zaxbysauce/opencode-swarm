@@ -31,4 +31,6 @@ canonical workflow.
   or closing out CI.
 
 Final responses must include a closure ledger that maps every original feedback
-item to `fixed`, `disproved`, `pre-existing`, or `needs user decision`.
+item to `fixed`, `disproved`, `pre-existing`, or `needs user decision`. Include
+merge conflicts, stale branch state, obsolete older-head CI, and generated-output
+drift as ledger items when they affected the PR.

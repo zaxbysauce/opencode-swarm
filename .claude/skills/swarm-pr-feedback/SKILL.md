@@ -27,3 +27,6 @@ canonical workflow.
 - Use the repository commit/PR workflow before pushing or updating the PR.
 
 Final output must include a closure ledger for every original feedback item.
+Include operational blockers such as merge conflicts, stale branch state,
+obsolete older-head CI, and generated-output drift as explicit ledger items when
+they affected the PR.
