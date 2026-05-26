@@ -1,6 +1,7 @@
 export type { MemoryConfig } from './config';
 export { DEFAULT_MEMORY_CONFIG, resolveMemoryConfig } from './config';
 export { MemoryDisabledError, MemoryValidationError } from './errors';
+export { evaluateMemoryRecallFixtures, loadRecallEvaluationFixtures, type RecallEvaluationMetrics, type RecallEvaluationMode, type RecallEvaluationOptions, type RecallEvaluationProviderName, type RecallEvaluationReport, type RecallEvaluationRun, } from './evaluation';
 export type { MemoryGatewayOptions, ProposeMemoryInput, RecallMemoryInput, } from './gateway';
 export { createConfiguredMemoryProvider, createMemoryGateway, MemoryGateway, } from './gateway';
 export { createMemoryLifecycleHooks, type MemoryLifecycleHookOptions, type MemoryLifecycleHooks, } from './injector';

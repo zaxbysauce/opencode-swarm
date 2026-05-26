@@ -4,6 +4,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	handleMemoryEvaluateCommand,
 	handleMemoryExportCommand,
 	handleMemoryImportCommand,
 	handleMemoryStatusCommand,
@@ -97,6 +98,47 @@ describe('/swarm memory commands', () => {
 		expect(output).toContain('Invalid rows: `2`');
 		expect(output).toContain('memories.jsonl:2');
 		expect(output).toContain('proposals.jsonl:2');
+	});
+
+	test('evaluate emits a parseable JSON recall report', async () => {
+		const output = await handleMemoryEvaluateCommand(tmpDir, ['--json']);
+		const report = JSON.parse(output);
+
+		expect(report.summary.fixture_count).toBe(5);
+		expect(report.summary.run_count).toBe(30);
+		expect(report.summary.noisy_injection_count).toBe(0);
+		expect(report.summary.same_scope_noise_count).toBeGreaterThan(0);
+		expect(report.summary.cross_scope_leak_count).toBe(0);
+		expect(report.summary.stale_memory_count).toBe(0);
+		expect(report.summary).toHaveProperty('precision@k');
+		expect(report.summary).toHaveProperty('recall@k');
+	});
+
+	test('evaluate without arguments emits the markdown recall summary', async () => {
+		const output = await handleMemoryEvaluateCommand(tmpDir, []);
+
+		expect(output).toContain('## Swarm Memory Recall Evaluation');
+		expect(output).toContain('Fixtures: `5`');
+		expect(output).toContain('Same-scope noise: `');
+		expect(output).toContain(
+			'Use `/swarm memory evaluate --json` for the full report.',
+		);
+		expect(() => JSON.parse(output)).toThrow();
+	});
+
+	test('evaluate reports usage for unknown flags and missing fixture values', async () => {
+		const usage =
+			'Usage: /swarm memory evaluate [--json] [--fixtures <directory>]';
+
+		await expect(
+			handleMemoryEvaluateCommand(tmpDir, ['--bogus']),
+		).resolves.toBe(usage);
+		await expect(
+			handleMemoryEvaluateCommand(tmpDir, ['--fixtures']),
+		).resolves.toBe(usage);
+		await expect(
+			handleMemoryEvaluateCommand(tmpDir, ['--fixture-dir', 'fixtures']),
+		).resolves.toBe(usage);
 	});
 });
 
