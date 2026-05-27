@@ -101,6 +101,18 @@ mock.module('../../../src/hooks/knowledge-store.js', () => ({
 		mockComputeConfidence(...(args as [number, boolean])),
 	inferTags: (...args: unknown[]) => mockInferTags(...(args as [string])),
 	normalize: (...args: unknown[]) => mockNormalize(...(args as [string])),
+	enforceKnowledgeCap: async () => {},
+	sweepAgedEntries: async () => {},
+	sweepStaleTodos: async () => {},
+	bumpKnowledgeConfidenceBatch: async () => {},
+	resolveSwarmRetractionsPath: () => '',
+	resolveHiveRejectedPath: () => '',
+	readRejectedLessons: async () => [],
+	normalizeEntry: (e: unknown) => e,
+	getPlatformConfigDir: () => '/tmp',
+	_internals: {},
+	wordBigrams: (_t: string) => new Set<string>(),
+	jaccardBigram: () => 0,
 }));
 
 mock.module('../../../src/hooks/utils.js', () => ({
