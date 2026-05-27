@@ -61,17 +61,14 @@ export async function handleConcurrencyCommand(
 		return buildStatusMessage(session, plan);
 	}
 
-	// set and reset require an active plan
+	// Plan check — only needed for subcommands that require a plan
 	if (!hasPlan) {
-		if (arg0 === 'reset') {
-			return 'No active plan. Concurrency override requires an active plan.';
-		}
 		if (arg0 === 'set') {
 			return 'No active plan. Concurrency override requires an active plan.';
 		}
 	}
 
-	// Handle reset command
+	// Handle reset command (works without plan)
 	if (arg0 === 'reset') {
 		session.maxConcurrencyOverride = undefined;
 		return 'Concurrency override cleared';
@@ -135,7 +132,12 @@ function handleSetCommand(
  */
 function buildStatusMessage(
 	session: NonNullable<ReturnType<typeof getAgentSession>>,
-	plan: { execution_profile?: { max_concurrent_tasks?: number; parallelization_enabled?: boolean } } | null,
+	plan: {
+		execution_profile?: {
+			max_concurrent_tasks?: number;
+			parallelization_enabled?: boolean;
+		};
+	} | null,
 ): string {
 	const overrideActive = session.maxConcurrencyOverride !== undefined;
 	const configuredOverride = session.maxConcurrencyOverride ?? 'absent';
@@ -149,9 +151,9 @@ function buildStatusMessage(
 		: false;
 
 	// Calculate effective concurrency
-	const operationalEffective =
-		!parallelizationEnabled ? 1
-		: session.maxConcurrencyOverride ?? planBaseline;
+	const operationalEffective = !parallelizationEnabled
+		? 1
+		: (session.maxConcurrencyOverride ?? planBaseline);
 
 	// Build description
 	let description: string;

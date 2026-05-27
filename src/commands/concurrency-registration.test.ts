@@ -7,8 +7,8 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { handleConcurrencyCommand } from '../commands/concurrency';
 import * as commandsIndex from '../commands/index';
 import { COMMAND_REGISTRY, VALID_COMMANDS } from '../commands/registry';
-import { getAgentSession, swarmState } from '../state';
 import type { Plan } from '../config/plan-schema';
+import { getAgentSession, swarmState } from '../state';
 
 // Mock plan for switch-case routing tests that call handleConcurrencyCommand directly
 const mockLoadPlanJsonOnly = mock(async () => null);

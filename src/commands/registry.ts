@@ -33,6 +33,7 @@ import {
 } from './knowledge.js';
 import {
 	handleMemoryCommand,
+	handleMemoryEvaluateCommand,
 	handleMemoryExportCommand,
 	handleMemoryImportCommand,
 	handleMemoryMigrateCommand,
@@ -753,6 +754,13 @@ export const COMMAND_REGISTRY = {
 		subcommandOf: 'memory',
 		args: '',
 		category: 'utility',
+	},
+	'memory evaluate': {
+		handler: (ctx) => handleMemoryEvaluateCommand(ctx.directory, ctx.args),
+		description: 'Run golden Swarm memory recall evaluation fixtures',
+		subcommandOf: 'memory',
+		args: '--json, --fixtures <directory>',
+		category: 'diagnostics',
 	},
 	'memory import': {
 		handler: (ctx) => handleMemoryImportCommand(ctx.directory, ctx.args),
