@@ -441,6 +441,34 @@ export declare const COMMAND_REGISTRY: {
         readonly args: "";
         readonly category: "diagnostics";
     };
+    readonly 'memory pending': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Show pending Swarm memory proposals and rejection reasons";
+        readonly subcommandOf: "memory";
+        readonly args: "--limit <n>";
+        readonly category: "diagnostics";
+    };
+    readonly 'memory recall-log': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Summarize Swarm memory recall usage";
+        readonly subcommandOf: "memory";
+        readonly args: "--limit <n>";
+        readonly category: "diagnostics";
+    };
+    readonly 'memory compact': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Compact deleted, superseded, and expired scratch memories";
+        readonly subcommandOf: "memory";
+        readonly args: "--confirm";
+        readonly category: "utility";
+    };
+    readonly 'memory stale': {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "List stale and low-utility Swarm memories";
+        readonly subcommandOf: "memory";
+        readonly args: "--limit <n>";
+        readonly category: "diagnostics";
+    };
     readonly 'memory export': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Export current Swarm memory to JSONL files";
