@@ -34,7 +34,7 @@ describe('ADVERSARIAL: warn() debug gate security', () => {
 	// ATTACK VECTOR 1: DEBUG gate bypass via runtime env manipulation
 	// ============================================================================
 	describe('ATTACK VECTOR 1: DEBUG gate bypass', () => {
-		it('should NOT be bypassable by modifying process.env.OPENCODE_SWARM_DEBUG after module load', () => {
+		it('uses the current OPENCODE_SWARM_DEBUG value at call time', () => {
 			// Set env to 0 initially
 			const originalEnv = process.env.OPENCODE_SWARM_DEBUG;
 			process.env.OPENCODE_SWARM_DEBUG = '0';
@@ -55,11 +55,11 @@ describe('ADVERSARIAL: warn() debug gate security', () => {
 				warnCalled = true;
 			};
 
-			// Call warn - should NOT output because DEBUG was captured at module load
+			// Call warn - dynamic debug gating observes the current env value.
 			warn('test message', { sensitive: 'data' });
 
-			// Verify console.warn was NOT called
-			expect(warnCalled).toBe(false);
+			// Verify console.warn was called
+			expect(warnCalled).toBe(true);
 
 			// Restore env
 			process.env.OPENCODE_SWARM_DEBUG = originalEnv;

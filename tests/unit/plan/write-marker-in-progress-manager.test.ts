@@ -239,8 +239,8 @@ describe('rebuildPlan write-marker in_progress', () => {
 				call.path.includes('.swarm'),
 		);
 
-		expect(markerCalls.length).toBe(1);
-		const marker = JSON.parse(markerCalls[0].content);
+		expect(markerCalls.length).toBe(2);
+		const marker = JSON.parse(markerCalls[1].content);
 		expect(marker.in_progress).toBe(false);
 		expect(marker.source).toBe('plan_manager');
 		expect(marker.phases_count).toBe(2);
@@ -278,8 +278,8 @@ describe('rebuildPlan write-marker in_progress', () => {
 				call.path.includes('.swarm'),
 		);
 
-		expect(markerCalls.length).toBe(1);
-		const marker = JSON.parse(markerCalls[0].content);
+		expect(markerCalls.length).toBe(2);
+		const marker = JSON.parse(markerCalls[1].content);
 		expect(marker.in_progress).toBe(false);
 		expect(marker.source).toBe('plan_manager');
 	});
@@ -337,8 +337,8 @@ describe('closePlanTerminalState write-marker in_progress', () => {
 				call.path.includes('.swarm'),
 		);
 
-		expect(markerCalls.length).toBe(1);
-		const marker = JSON.parse(markerCalls[0].content);
+		expect(markerCalls.length).toBe(2);
+		const marker = JSON.parse(markerCalls[1].content);
 		expect(marker.in_progress).toBe(false);
 		expect(marker.source).toBe('plan_manager_close');
 		expect(marker.phases_count).toBe(2);

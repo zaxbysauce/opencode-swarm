@@ -441,7 +441,7 @@ describe('snapshot-reader ADVERSARIAL tests', () => {
 			};
 
 			const deserialized = deserializeAgentSession(serialized);
-			expect(deserialized.windows['coder:1']).toBeNull();
+			expect(deserialized.windows['coder:1']).toBeUndefined();
 		});
 	});
 

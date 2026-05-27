@@ -21,6 +21,7 @@ import { mkdtemp } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import type { Plan } from '../../../src/config/plan-schema';
+import * as realHookUtils from '../../../src/hooks/utils';
 import * as realLedger from '../../../src/plan/ledger';
 
 // ---------------------------------------------------------------------------
@@ -182,6 +183,7 @@ describe('rebuildPlan — F-004 marker reset on failure', () => {
 	 */
 	test('F-004: plan.md write failure — marker still reset to in_progress: false in finally', async () => {
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -245,6 +247,7 @@ describe('rebuildPlan — F-004 marker reset on failure', () => {
 	 */
 	test('F-004: rebuildPlan success — markers written in correct sequence', async () => {
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -322,6 +325,7 @@ describe('closePlanTerminalState — F-004 marker reset on failure', () => {
 	 */
 	test('F-004: plan.md write failure — marker still reset to in_progress: false in finally', async () => {
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -410,6 +414,7 @@ describe('F-002 — temp file naming includes random suffix', () => {
 	 */
 	test('F-002: rebuildPlan temp files include random suffix (Math.floor(Math.random() * 1e9))', async () => {
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -475,6 +480,7 @@ describe('F-002 — temp file naming includes random suffix', () => {
 	 */
 	test('F-002: closePlanTerminalState temp files include random suffix (Math.floor(Math.random() * 1e9))', async () => {
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -563,6 +569,7 @@ describe('F-005 + telemetry — import deduplication and source attribution', ()
 	test('F-005: takeSnapshotWithRetry is imported in save-plan.ts (_test_exports)', async () => {
 		// Mock hooks/utils so that save-plan's imports don't fail on validateSwarmPath
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,
@@ -656,6 +663,7 @@ describe('F-005 + telemetry — import deduplication and source attribution', ()
 
 		// Mock hooks/utils for save-plan imports
 		mock.module('../../../src/hooks/utils', () => ({
+			...realHookUtils,
 			readSwarmFileAsync: mock(async () => null),
 			validateSwarmPath: (p: string) => p,
 			safeHook: (name: string) => null as any,

@@ -21,6 +21,12 @@ import { _internals as planManagerInternals } from '../../../src/plan/manager';
 const mockLoadPlan = mock(async () => null);
 const mockLoadPlanJsonOnly = mock(async () => null);
 const mockRegeneratePlanMarkdown = mock(async () => {});
+const planSyncWorkerPrototype = PlanSyncWorker.prototype as unknown as {
+	start: () => void;
+	setupNativeWatcher: () => boolean;
+};
+const originalStart = planSyncWorkerPrototype.start;
+const originalSetupNativeWatcher = planSyncWorkerPrototype.setupNativeWatcher;
 
 // File watcher timing varies across platforms. Skip on non-Linux.
 describe.skipIf(process.platform !== 'linux')(
@@ -72,6 +78,15 @@ describe.skipIf(process.platform !== 'linux')(
 		}
 
 		beforeEach(() => {
+			// These tests exercise timeout/liveness behavior, not native fs.watch.
+			// Force the polling path so prior Linux watcher churn in the same CI shard
+			// cannot leave this file with non-deterministic native watcher handles.
+			planSyncWorkerPrototype.setupNativeWatcher = () => false;
+			planSyncWorkerPrototype.start = function (this: unknown) {
+				(this as { pollIntervalMs: number }).pollIntervalMs = 10;
+				return originalStart.call(this);
+			};
+
 			// Install mock functions onto _internals seam
 			planManagerInternals.loadPlan = mockLoadPlan;
 			planManagerInternals.loadPlanJsonOnly = mockLoadPlanJsonOnly;
@@ -86,6 +101,8 @@ describe.skipIf(process.platform !== 'linux')(
 		});
 
 		afterEach(async () => {
+			planSyncWorkerPrototype.start = originalStart;
+			planSyncWorkerPrototype.setupNativeWatcher = originalSetupNativeWatcher;
 			// Restore original functions to _internals seam
 			planManagerInternals.loadPlan = mockLoadPlan;
 			planManagerInternals.loadPlanJsonOnly = mockLoadPlanJsonOnly;

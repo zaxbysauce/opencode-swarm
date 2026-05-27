@@ -66,13 +66,15 @@ describe('file-locks — adversarial security tests', () => {
 			).rejects.toThrow('Invalid file path: path traversal not allowed');
 		});
 
-		test('rejects traversal with backslashes (Windows-style)', async () => {
-			// Note: on Unix, backslashes are valid filename characters, not separators.
-			// The path.resolve normalizes this to an absolute path outside the project.
-			await expect(
-				tryAcquireLock(dir, '..\\..\\etc\\passwd', 'attacker', 't1'),
-			).rejects.toThrow('Invalid file path: path traversal not allowed');
-		});
+		test.skipIf(process.platform !== 'win32')(
+			'rejects traversal with backslashes (Windows-style)',
+			async () => {
+				// Note: on Unix, backslashes are valid filename characters, not separators.
+				await expect(
+					tryAcquireLock(dir, '..\\..\\etc\\passwd', 'attacker', 't1'),
+				).rejects.toThrow('Invalid file path: path traversal not allowed');
+			},
+		);
 
 		test('rejects absolute path outside project', async () => {
 			const outside = path.join(os.tmpdir(), 'totally-outside.txt');
@@ -100,15 +102,14 @@ describe('file-locks — adversarial security tests', () => {
 			).rejects.toThrow('Invalid file path: path traversal not allowed');
 		});
 
-		test('rejects Windows root-level path (C:\\)', async () => {
-			if (process.platform !== 'win32') {
-				test.skip('Windows-only attack vector');
-				return;
-			}
-			await expect(
-				tryAcquireLock(dir, 'C:\\', 'attacker', 't1'),
-			).rejects.toThrow('Invalid file path: path traversal not allowed');
-		});
+		test.skipIf(process.platform !== 'win32')(
+			'rejects Windows root-level path (C:\\)',
+			async () => {
+				await expect(
+					tryAcquireLock(dir, 'C:\\', 'attacker', 't1'),
+				).rejects.toThrow('Invalid file path: path traversal not allowed');
+			},
+		);
 
 		test('accepts legitimate relative paths within project root', async () => {
 			// This must NOT throw — valid in-project path.

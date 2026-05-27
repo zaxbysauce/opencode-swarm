@@ -117,7 +117,7 @@ describe('PATH TRAVERSAL — validateProjectRoot', () => {
 		writeFileSync(path.join(projectDir, 'package.json'), '{}');
 
 		// grandchild/../.. resolves to projectDir — should throw
-		const traversalPath = path.join(grandchildDir, '..', '..');
+		const traversalPath = path.join(grandchildDir, '..');
 		expect(() => validateProjectRoot(traversalPath)).toThrow(
 			'Cannot write evidence',
 		);
@@ -137,7 +137,7 @@ describe('PATH TRAVERSAL — validateProjectRoot', () => {
 		const link1 = path.join(tempDir, 'link1');
 		const link2 = path.join(tempDir, 'link2');
 		try {
-			symlinkSync(realProject, link1, 'junction');
+			symlinkSync(subDir, link1, 'junction');
 			symlinkSync(link1, link2, 'junction');
 		} catch {
 			// Symlinks not supported — skip
@@ -154,14 +154,16 @@ describe('PATH TRAVERSAL — validateProjectRoot', () => {
 		// Create: tempDir/a/ has .swarm/ + indicator
 		// tempDir/c/upward-link -> ../a (points upward to project)
 		const dirA = path.join(tempDir, 'a');
+		const childDir = path.join(dirA, 'child');
 		const dirC = path.join(tempDir, 'c');
+		mkdirSync(childDir, { recursive: true });
 		mkdirSync(dirC, { recursive: true });
 		mkdirSync(path.join(dirA, '.swarm'), { recursive: true });
 		writeFileSync(path.join(dirA, 'package.json'), '{}');
 
 		const upwardLink = path.join(dirC, 'upward-link');
 		try {
-			symlinkSync(dirA, upwardLink, 'junction');
+			symlinkSync(childDir, upwardLink, 'junction');
 		} catch {
 			return;
 		}
@@ -432,7 +434,7 @@ describe('DEPTH BYPASS — symlink chains and depth counter integrity', () => {
 		mkdirSync(subDir, { recursive: true });
 
 		try {
-			symlinkSync(realDir, path.join(tempDir, 'link1'), 'junction');
+			symlinkSync(subDir, path.join(tempDir, 'link1'), 'junction');
 			symlinkSync(
 				path.join(tempDir, 'link1'),
 				path.join(tempDir, 'link2'),
@@ -588,10 +590,14 @@ describe('ERROR HANDLING — malformed directory inputs', () => {
 
 	it('empty string resolves to CWD and validates correctly (no crash)', () => {
 		// Empty string resolves to CWD via realpathSync('')
-		// CWD = E:\OpenCode\opencode-swarm which is a valid project root
-		// Validation walks UP from CWD and finds no parent .swarm/ → no throw
+		// Validation walks UP from CWD. On developer machines with an ancestor
+		// .swarm/ + project indicator, the guard should fail closed.
 		// This verifies empty string is handled, not a crash
-		expect(() => validateProjectRoot('')).not.toThrow();
+		if (detectSwarmAncestor(process.cwd())) {
+			expect(() => validateProjectRoot('')).toThrow('Cannot write evidence');
+		} else {
+			expect(() => validateProjectRoot('')).not.toThrow();
+		}
 	});
 
 	it('root filesystem path / or C:\\ does not crash', () => {

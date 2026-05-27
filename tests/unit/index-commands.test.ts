@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, spyOn } from 'bun:test';
 import OpenCodeSwarm from '../../src/index';
 
 // Mock the @opencode-ai/plugin types
@@ -14,15 +14,15 @@ const mockPluginInput = {
 
 describe('Swarm subcommand registration', () => {
 	it('should initialize plugin successfully', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		expect(plugin).toBeDefined();
 		// Plugin returns Hooks interface, which includes optional config function
 		expect(plugin).toHaveProperty('config');
 		expect(typeof plugin.config).toBe('function');
 	});
 
-	it('should register 37 individual subcommands plus catch-all', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+	it('should register individual subcommands plus catch-all', async () => {
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -34,15 +34,15 @@ describe('Swarm subcommand registration', () => {
 		expect(commands).toBeDefined();
 		const commandKeys = Object.keys(commands);
 
-		// Should have catch-all + 37 subcommands = 38 total
-		expect(commandKeys.length).toBe(38);
+		// Catch-all plus the current command registry entries.
+		expect(commandKeys.length).toBe(50);
 
 		// Verify catch-all exists
 		expect(commands.swarm).toBeDefined();
 	});
 
 	it('should have catch-all swarm command with correct template', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -54,12 +54,12 @@ describe('Swarm subcommand registration', () => {
 		expect(commands.swarm).toBeDefined();
 		expect(commands.swarm.template).toBe('/swarm $ARGUMENTS');
 		expect(commands.swarm.description).toBe(
-			'Swarm management commands: /swarm [status|plan|agents|history|config|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|qa-gates|dark-matter|knowledge|curate|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor-tools|close]',
+			'Swarm management commands: /swarm [status|show-plan|plan|agents|history|config|help|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|memory|curate|concurrency|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor tools|finalize|close]',
 		);
 	});
 
-	it('should register all 37 individual subcommands with correct keys', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+	it('should register all individual subcommands with correct keys', async () => {
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -70,10 +70,12 @@ describe('Swarm subcommand registration', () => {
 
 		const expectedSubcommands = [
 			'swarm-status',
+			'swarm-show-plan',
 			'swarm-plan',
 			'swarm-agents',
 			'swarm-history',
 			'swarm-config',
+			'swarm-deep-dive',
 			'swarm-evidence',
 			'swarm-handoff',
 			'swarm-archive',
@@ -89,10 +91,19 @@ describe('Swarm subcommand registration', () => {
 			'swarm-analyze',
 			'swarm-specify',
 			'swarm-brainstorm',
+			'swarm-council',
+			'swarm-pr-review',
+			'swarm-issue',
 			'swarm-qa-gates',
 			'swarm-dark-matter',
 			'swarm-knowledge',
+			'swarm-memory',
+			'swarm-memory-status',
+			'swarm-memory-export',
+			'swarm-memory-import',
+			'swarm-memory-migrate',
 			'swarm-curate',
+			'swarm-concurrency',
 			'swarm-turbo',
 			'swarm-full-auto',
 			'swarm-write-retro',
@@ -104,6 +115,7 @@ describe('Swarm subcommand registration', () => {
 			'swarm-evidence-summary',
 			'swarm-acknowledge-spec-drift',
 			'swarm-doctor-tools',
+			'swarm-finalize',
 			'swarm-close',
 			'swarm-diagnosis',
 		];
@@ -124,7 +136,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should have all subcommand templates starting with /swarm', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -147,7 +159,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should have non-empty descriptions for all subcommands', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -179,7 +191,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should have one-line descriptions for subcommands', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -203,7 +215,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should register simulate command', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -217,7 +229,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should have correct templates for specific subcommands', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -235,7 +247,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should have descriptions matching expected values', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {};
 
 		await plugin.config?.(mockConfig);
@@ -249,7 +261,7 @@ describe('Swarm subcommand registration', () => {
 			'Use /swarm status to show current swarm status and active phase',
 		);
 		expect(commands['swarm-plan'].description).toBe(
-			'Use /swarm plan to view or filter the current execution plan',
+			'Deprecated alias for /swarm show-plan',
 		);
 		expect(commands['swarm-agents'].description).toBe(
 			'Use /swarm agents to list registered swarm agents',
@@ -260,7 +272,7 @@ describe('Swarm subcommand registration', () => {
 	});
 
 	it('should preserve existing commands when merging', async () => {
-		const plugin = await OpenCodeSwarm(mockPluginInput);
+		const plugin = await OpenCodeSwarm.server(mockPluginInput);
 		const mockConfig: Record<string, unknown> = {
 			command: {
 				existing: {
@@ -291,7 +303,7 @@ describe('Swarm subcommand registration', () => {
 
 		beforeEach(() => {
 			// Spy on console.log to capture output during plugin init and config
-			consoleLogSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+			consoleLogSpy = spyOn(console, 'log').mockImplementation(() => {});
 		});
 
 		afterEach(() => {
@@ -301,7 +313,7 @@ describe('Swarm subcommand registration', () => {
 
 		it('does not emit debug text during plugin initialization', async () => {
 			// Initialize plugin - this creates delegation tracker hook among others
-			await OpenCodeSwarm(mockPluginInput);
+			await OpenCodeSwarm.server(mockPluginInput);
 
 			// Verify no debug leakage in console output during init
 			const loggedOutput = consoleLogSpy.mock.calls
@@ -313,7 +325,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('does not emit debug text during config function execution', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			// Execute config function - this is the handoff setup path
@@ -330,7 +342,7 @@ describe('Swarm subcommand registration', () => {
 
 		it('does not emit debug text during combined init and config flow', async () => {
 			// Initialize plugin and run config in sequence - this covers the full setup path
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 			await plugin.config?.(mockConfig);
 
@@ -350,7 +362,7 @@ describe('Swarm subcommand registration', () => {
 	// Task 4.4: Tests for curate command summary behavior, clear failure messaging, and alias discoverability
 	describe('swarm-curate command (Task 4.4)', () => {
 		it('should register swarm-curate command', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
@@ -364,7 +376,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('should have correct template for swarm-curate command', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
@@ -378,7 +390,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('should have syntax-hint description for discoverability', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
@@ -394,7 +406,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('should include curate in the swarm management commands list', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
@@ -408,7 +420,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('should have non-empty description for swarm-curate', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
@@ -423,7 +435,7 @@ describe('Swarm subcommand registration', () => {
 		});
 
 		it('should have one-line description for swarm-curate', async () => {
-			const plugin = await OpenCodeSwarm(mockPluginInput);
+			const plugin = await OpenCodeSwarm.server(mockPluginInput);
 			const mockConfig: Record<string, unknown> = {};
 
 			await plugin.config?.(mockConfig);
