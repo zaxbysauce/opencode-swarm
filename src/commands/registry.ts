@@ -33,10 +33,14 @@ import {
 } from './knowledge.js';
 import {
 	handleMemoryCommand,
+	handleMemoryCompactCommand,
 	handleMemoryEvaluateCommand,
 	handleMemoryExportCommand,
 	handleMemoryImportCommand,
 	handleMemoryMigrateCommand,
+	handleMemoryPendingCommand,
+	handleMemoryRecallLogCommand,
+	handleMemoryStaleCommand,
 	handleMemoryStatusCommand,
 } from './memory.js';
 import { handlePlanCommand } from './plan.js';
@@ -746,6 +750,34 @@ export const COMMAND_REGISTRY = {
 		description: 'Show Swarm memory provider, JSONL, and migration status',
 		subcommandOf: 'memory',
 		args: '',
+		category: 'diagnostics',
+	},
+	'memory pending': {
+		handler: (ctx) => handleMemoryPendingCommand(ctx.directory, ctx.args),
+		description: 'Show pending Swarm memory proposals and rejection reasons',
+		subcommandOf: 'memory',
+		args: '--limit <n>',
+		category: 'diagnostics',
+	},
+	'memory recall-log': {
+		handler: (ctx) => handleMemoryRecallLogCommand(ctx.directory, ctx.args),
+		description: 'Summarize Swarm memory recall usage',
+		subcommandOf: 'memory',
+		args: '--limit <n>',
+		category: 'diagnostics',
+	},
+	'memory compact': {
+		handler: (ctx) => handleMemoryCompactCommand(ctx.directory, ctx.args),
+		description: 'Compact deleted, superseded, and expired scratch memories',
+		subcommandOf: 'memory',
+		args: '--confirm',
+		category: 'utility',
+	},
+	'memory stale': {
+		handler: (ctx) => handleMemoryStaleCommand(ctx.directory, ctx.args),
+		description: 'List stale and low-utility Swarm memories',
+		subcommandOf: 'memory',
+		args: '--limit <n>',
 		category: 'diagnostics',
 	},
 	'memory export': {
