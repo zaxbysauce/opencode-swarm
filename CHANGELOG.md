@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.40.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.39.0...v7.40.0) (2026-05-27)
+
+
+### Features
+
+* **memory:** add maintenance observability commands ([c9ffa6d](https://github.com/zaxbysauce/opencode-swarm/commit/c9ffa6d21aa5130767ce494a399cb2b92387c9e6))
+* **memory:** add maintenance observability commands ([3d2d155](https://github.com/zaxbysauce/opencode-swarm/commit/3d2d1552b3f6d24aa1a8a24f5c653b5f31e0f7d0))
+
 ## [7.39.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.38.0...v7.39.0) (2026-05-27)
 
 
