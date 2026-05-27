@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.39.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.38.0...v7.39.0) (2026-05-27)
+
+
+### Features
+
+* **commands:** add /swarm concurrency command for runtime plan parallelism override ([401436f](https://github.com/zaxbysauce/opencode-swarm/commit/401436f87a76f8933dceae905e5e543616de24b9))
+* **commands:** add /swarm concurrency command for runtime plan parallelism override ([fb170d8](https://github.com/zaxbysauce/opencode-swarm/commit/fb170d82e137d7d70500330fa259e4cec65b4860))
+
 ## [7.38.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.37.0...v7.38.0) (2026-05-26)
 
 
