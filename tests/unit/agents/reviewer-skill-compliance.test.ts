@@ -176,8 +176,10 @@ describe('Architect prompt assertions — SKILLS_USED_BY_CODER and skill forward
 	});
 
 	describe('SKILLS PROPAGATION section', () => {
-		test('ARCHITECT_PROMPT contains "Step 4 — Forward skills to reviewer"', () => {
-			expect(ARCHITECT_PROMPT).toContain('Step 4 — Forward skills to reviewer');
+		test('ARCHITECT_PROMPT contains "Step 4 — Forward SKILLS_USED_BY_CODER to reviewer"', () => {
+			expect(ARCHITECT_PROMPT).toContain(
+				'Step 4 — Forward SKILLS_USED_BY_CODER to reviewer',
+			);
 		});
 
 		test('Step 4 mentions including SKILLS_USED_BY_CODER field', () => {

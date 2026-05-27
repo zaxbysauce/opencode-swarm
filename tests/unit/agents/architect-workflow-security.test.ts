@@ -1,5 +1,22 @@
 import { describe, expect, test } from 'bun:test';
-import { createArchitectAgent } from '../../../src/agents/architect';
+import { createArchitectAgent as baseCreateArchitectAgent } from '../../../src/agents/architect';
+import {
+	EXECUTE_PROTOCOL,
+	withExtractedModeProtocols,
+} from './architect-mode-skill-helpers';
+
+const createArchitectAgent = (
+	...args: Parameters<typeof baseCreateArchitectAgent>
+) => {
+	const agent = baseCreateArchitectAgent(...args);
+	return {
+		...agent,
+		config: {
+			...agent.config,
+			prompt: withExtractedModeProtocols(agent.config.prompt ?? ''),
+		},
+	};
+};
 
 /**
  * ADVERSARIAL TESTS: Orchestration Prompt Security (Task 3.2)
@@ -73,6 +90,7 @@ describe('ARCHITECT WORKFLOW: Sequence Bypass Prevention', () => {
 
 describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
+	const executeProtocol = EXECUTE_PROTOCOL;
 
 	test('SECURITY: Cannot skip verification tests (Phase 5l)', () => {
 		expect(prompt).toContain(
@@ -81,9 +99,9 @@ describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 		expect(prompt).toContain('FAIL → return to coder');
 
 		// Verify step exists in sequence
-		const step5l = prompt.substring(
-			prompt.indexOf('5l.'),
-			prompt.indexOf('5m.'),
+		const step5l = executeProtocol.substring(
+			executeProtocol.indexOf('5l.'),
+			executeProtocol.indexOf('5m.'),
 		);
 		expect(step5l).toContain('Verification tests');
 	});
@@ -95,8 +113,8 @@ describe('ARCHITECT WORKFLOW: Gate Skipping Prevention', () => {
 		expect(prompt).toContain('FAIL → return to coder');
 
 		// Verify adversarial tests run AFTER verification tests
-		const verifPos = prompt.indexOf('Verification tests');
-		const adversPos = prompt.indexOf('Adversarial tests');
+		const verifPos = executeProtocol.indexOf('Verification tests');
+		const adversPos = executeProtocol.indexOf('ADVERSARIAL TEST STEP');
 		expect(adversPos).toBeGreaterThan(verifPos);
 	});
 
@@ -136,10 +154,7 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 	test('SECURITY: Secretscan runs unconditionally in QA sequence', () => {
 		// Secretscan is now in pre_check_batch (step 5i)
 		// Check the detailed step text, not just the sequence summary
-		const phase5Section = prompt.substring(
-			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP'),
-		);
+		const phase5Section = EXECUTE_PROTOCOL;
 		expect(phase5Section).toContain('pre_check_batch');
 		expect(phase5Section).toContain('secretscan');
 
@@ -152,10 +167,7 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 	test('SECURITY: Secretscan cannot be bypassed by task wording', () => {
 		// In v6.10, secretscan runs inside pre_check_batch (step 5i)
 		// Check that pre_check_batch step contains secretscan in the detailed section
-		const phase5Section = prompt.substring(
-			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP'),
-		);
+		const phase5Section = EXECUTE_PROTOCOL;
 		// Find the pre_check_batch section and check what tools it runs
 		expect(phase5Section).toContain('5i. Run `pre_check_batch`');
 		expect(phase5Section).toContain('secretscan');
@@ -167,10 +179,7 @@ describe('ARCHITECT WORKFLOW: Secretscan Bypass Prevention', () => {
 		expect(prompt).toContain('gates_passed === true');
 
 		// Verify the pre_check_batch section contains secretscan and the flow control
-		const phase5Section = prompt.substring(
-			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP'),
-		);
+		const phase5Section = EXECUTE_PROTOCOL;
 		expect(phase5Section).toContain('secretscan');
 		expect(phase5Section).toContain('gates_passed');
 	});
@@ -215,10 +224,7 @@ describe('ARCHITECT WORKFLOW: Reviewer Order Manipulation Prevention', () => {
 		expect(prompt).toContain('5j. {{AGENT_PREFIX}}reviewer');
 
 		// Sequential numbering enforces order
-		const phase5Section = prompt.substring(
-			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP'),
-		);
+		const phase5Section = EXECUTE_PROTOCOL;
 
 		const stepC = phase5Section.indexOf('5c.');
 		const stepD = phase5Section.indexOf('5d.');

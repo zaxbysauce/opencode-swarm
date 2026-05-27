@@ -1,5 +1,22 @@
 import { describe, expect, it } from 'bun:test';
-import { createArchitectAgent } from '../../../src/agents/architect';
+import { createArchitectAgent as baseCreateArchitectAgent } from '../../../src/agents/architect';
+import {
+	EXECUTE_PROTOCOL,
+	withExtractedModeProtocols,
+} from './architect-mode-skill-helpers';
+
+const createArchitectAgent = (
+	...args: Parameters<typeof baseCreateArchitectAgent>
+) => {
+	const agent = baseCreateArchitectAgent(...args);
+	return {
+		...agent,
+		config: {
+			...agent.config,
+			prompt: withExtractedModeProtocols(agent.config.prompt ?? ''),
+		},
+	};
+};
 
 /**
  * Task 6.3: Focused tests for adversarial testing checklist output
@@ -211,11 +228,11 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 			const prompt = agent.config.prompt!;
 
 			// Find the TASK COMPLETION GATE section
-			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			const gateStart = EXECUTE_PROTOCOL.indexOf('TASK COMPLETION GATE');
 			expect(gateStart).toBeGreaterThan(0);
 
 			// Extract the gate section (next 500 chars should contain it)
-			const gateSection = prompt.slice(gateStart, gateStart + 800);
+			const gateSection = EXECUTE_PROTOCOL.slice(gateStart, gateStart + 800);
 			expect(gateSection).toContain('regression-sweep');
 		});
 
@@ -223,8 +240,8 @@ describe('Task 5.1: Regression sweep prompt content', () => {
 			const agent = createArchitectAgent('test-model');
 			const prompt = agent.config.prompt!;
 
-			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
-			const gateSection = prompt.slice(gateStart, gateStart + 800);
+			const gateStart = EXECUTE_PROTOCOL.indexOf('TASK COMPLETION GATE');
+			const gateSection = EXECUTE_PROTOCOL.slice(gateStart, gateStart + 800);
 
 			// Should show the format: [GATE] regression-sweep: PASS / SKIPPED — value: ___
 			expect(gateSection).toMatch(/regression-sweep:\s*PASS\s*\/\s*SKIPPED/);
@@ -405,11 +422,11 @@ describe('Task 5.l-ter: Test drift check prompt content', () => {
 			const prompt = agent.config.prompt!;
 
 			// Find the TASK COMPLETION GATE section
-			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
+			const gateStart = EXECUTE_PROTOCOL.indexOf('TASK COMPLETION GATE');
 			expect(gateStart).toBeGreaterThan(0);
 
 			// Extract the gate section
-			const gateSection = prompt.slice(gateStart, gateStart + 1000);
+			const gateSection = EXECUTE_PROTOCOL.slice(gateStart, gateStart + 1000);
 			expect(gateSection).toContain('test-drift');
 		});
 
@@ -417,8 +434,8 @@ describe('Task 5.l-ter: Test drift check prompt content', () => {
 			const agent = createArchitectAgent('test-model');
 			const prompt = agent.config.prompt!;
 
-			const gateStart = prompt.indexOf('TASK COMPLETION GATE');
-			const gateSection = prompt.slice(gateStart, gateStart + 1000);
+			const gateStart = EXECUTE_PROTOCOL.indexOf('TASK COMPLETION GATE');
+			const gateSection = EXECUTE_PROTOCOL.slice(gateStart, gateStart + 1000);
 
 			// Should show the format: [GATE] test-drift: TRIGGERED / NOT TRIGGERED — value: ___
 			expect(gateSection).toMatch(

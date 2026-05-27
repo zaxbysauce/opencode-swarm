@@ -1,0 +1,51 @@
+/**
+ * Verification tests for .opencode/skills/plan/SKILL.md protocol content.
+ */
+
+import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+const SKILL_PATH = join(process.cwd(), '.opencode/skills/plan/SKILL.md');
+const skillContent = readFileSync(SKILL_PATH, 'utf-8');
+
+describe('.opencode/skills/plan/SKILL.md protocol content', () => {
+	describe('frontmatter', () => {
+		it('declares the plan skill', () => {
+			expect(skillContent).toContain('name: plan');
+			expect(skillContent).toContain('description:');
+		});
+	});
+
+	describe('planning protocol', () => {
+		it('keeps spec gate and external plan ingestion rules', () => {
+			expect(skillContent).toContain('SPEC GATE');
+			expect(skillContent).toContain('PLAN INGESTION DETECTION');
+			expect(skillContent).toContain('EXTERNAL PLAN IMPORT PATH');
+		});
+
+		it('keeps save_plan requirements and example', () => {
+			expect(skillContent).toContain('Use the `save_plan` tool');
+			expect(skillContent).toContain('Required parameters:');
+			expect(skillContent).toContain('save_plan({ title: "My Real Project"');
+		});
+
+		it('keeps post-save QA gate persistence and inline gate warning', () => {
+			expect(skillContent).toContain('POST-SAVE_PLAN: APPLY QA GATE SELECTION');
+			expect(skillContent).toContain('Pending QA Gate Selection');
+			expect(skillContent).not.toContain('{{QA_GATE_DIALOGUE_PLAN}}');
+			expect(skillContent).toContain('Present the eleven gates');
+			expect(skillContent).toContain('final_council (default: OFF)');
+			expect(skillContent).toContain('How many coders should run in parallel?');
+			expect(skillContent).toContain('Commit frequency for completed tasks?');
+			expect(skillContent).toContain('INLINE GATE SELECTION');
+		});
+
+		it('keeps planning quality controls', () => {
+			expect(skillContent).toContain('TASK GRANULARITY RULES');
+			expect(skillContent).toContain('TEST TASK DEDUPLICATION');
+			expect(skillContent).toContain('PHASE COUNT GUIDANCE');
+			expect(skillContent).toContain('TRACEABILITY CHECK');
+		});
+	});
+});

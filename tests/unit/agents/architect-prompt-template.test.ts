@@ -1,8 +1,14 @@
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 describe('architect-prompt-template: task 11.1 verification tests', () => {
 	let prompt: string;
+	const planSkill = readFileSync(
+		join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+		'utf-8',
+	);
 
 	it('should create architect agent and extract prompt', () => {
 		const agent = createArchitectAgent('gpt-4');
@@ -153,17 +159,19 @@ describe('architect-prompt-template: task 11.1 verification tests', () => {
 	// MODE:PLAN update verification tests
 	it('25. MODE:PLAN section includes save_plan tool usage', () => {
 		expect(prompt).toContain('save_plan');
-		expect(prompt).toMatch(/Use the `save_plan` tool/);
+		expect(planSkill).toMatch(/Use the `save_plan` tool/);
 	});
 
 	it('26. MODE:PLAN section includes swarm_id as required parameter', () => {
 		expect(prompt).toContain('swarm_id');
-		expect(prompt).toMatch(/`swarm_id`: The swarm identifier/);
+		expect(planSkill).toMatch(/`swarm_id`: The swarm identifier/);
 	});
 
 	it('27. MODE:PLAN section includes fallback delegation pattern', () => {
 		expect(prompt).toContain('If `save_plan` is unavailable');
-		expect(prompt).toContain('delegate plan writing to {{AGENT_PREFIX}}coder');
+		expect(planSkill).toContain(
+			'delegate plan writing to {{AGENT_PREFIX}}coder',
+		);
 	});
 
 	it('28. MODE:PLAN section does NOT contain old direct instruction "Create .swarm/plan.md"', () => {
@@ -181,15 +189,15 @@ describe('architect-prompt-template: task 11.1 verification tests', () => {
 	});
 
 	it('29. MODE:PLAN section includes context.md creation instruction', () => {
-		expect(prompt).toContain('Also create .swarm/context.md');
-		expect(prompt).toContain(
+		expect(planSkill).toContain('Also create .swarm/context.md');
+		expect(planSkill).toContain(
 			'decisions made, patterns identified, SME cache entries, and relevant file map',
 		);
 	});
 
 	it('30. MODE:PLAN section includes save_plan example call', () => {
-		expect(prompt).toContain('Example call:');
-		expect(prompt).toMatch(
+		expect(planSkill).toContain('Example call:');
+		expect(planSkill).toMatch(
 			/save_plan\(\{\s*title: "My Real Project",\s*swarm_id: "mega",/,
 		);
 	});

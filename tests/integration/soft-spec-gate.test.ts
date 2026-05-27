@@ -1,13 +1,16 @@
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../src/agents/architect';
 
 describe('Soft Spec Gate — integration (v6.15 Task 7.6)', () => {
-	// Extract the PLAN mode section from the architect prompt
+	// Extract PLAN protocol text from the extracted plan skill.
 	const agent = createArchitectAgent('test-model');
 	const prompt = agent.config.prompt!;
-	const planStart = prompt.indexOf('### MODE: PLAN');
-	const planEnd = prompt.indexOf('### MODE: CRITIC-GATE', planStart);
-	const planSection = prompt.slice(planStart, planEnd);
+	const planSection = readFileSync(
+		join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+		'utf-8',
+	);
 
 	describe('Gate completeness (both branches present)', () => {
 		it('SPEC GATE presents exactly two branches: spec absent and spec present', () => {

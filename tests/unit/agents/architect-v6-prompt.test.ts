@@ -4,8 +4,19 @@
  * Removed: all expect(prompt).toContain() exact string assertions.
  */
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../../src/agents/architect';
 import { createCriticAgent } from '../../../src/agents/critic';
+
+const PLAN_SKILL = readFileSync(
+	join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+	'utf-8',
+);
+const EXECUTE_SKILL = readFileSync(
+	join(process.cwd(), '.opencode/skills/execute/SKILL.md'),
+	'utf-8',
+);
 
 // ==========================================
 // ARCHITECT AGENT - SMOKE TESTS
@@ -91,7 +102,7 @@ describe('Architect Agent - Key Structural Elements', () => {
 
 	it('RETROSPECTIVE TRACKING, RETRY PROTOCOL, FAILURE COUNTING', () => {
 		expect(p.indexOf('RETROSPECTIVE TRACKING')).toBeGreaterThan(-1);
-		expect(p.indexOf('RETRY PROTOCOL')).toBeGreaterThan(-1);
+		expect((p + EXECUTE_SKILL).indexOf('RETRY PROTOCOL')).toBeGreaterThan(-1);
 		expect(p.indexOf('FAILURE COUNTING')).toBeGreaterThan(-1);
 	});
 
@@ -112,12 +123,13 @@ describe('Architect Agent - Key Structural Elements', () => {
 
 	it('SPEC GATE in PLAN mode', () => {
 		const planIdx = p.indexOf('### MODE: PLAN');
-		expect(p.indexOf('SPEC GATE', planIdx)).toBeGreaterThan(planIdx);
+		expect(planIdx).toBeGreaterThan(-1);
+		expect(PLAN_SKILL.indexOf('SPEC GATE')).toBeGreaterThan(-1);
 	});
 
 	it('PLAN INGESTION DETECTION and STALE SPEC DETECTION', () => {
-		expect(p.indexOf('PLAN INGESTION DETECTION')).toBeGreaterThan(-1);
-		expect(p.indexOf('STALE SPEC DETECTION')).toBeGreaterThan(-1);
+		expect(PLAN_SKILL.indexOf('PLAN INGESTION DETECTION')).toBeGreaterThan(-1);
+		expect(PLAN_SKILL.indexOf('STALE SPEC DETECTION')).toBeGreaterThan(-1);
 	});
 });
 
@@ -127,7 +139,7 @@ describe('Architect Agent - Phase 5 EXECUTE Structure', () => {
 	it('EXECUTE before PHASE-WRAP with pre_check_batch', () => {
 		const execIdx = p.indexOf('### MODE: EXECUTE');
 		const wrapIdx = p.indexOf('### MODE: PHASE-WRAP');
-		const section = p.slice(execIdx, wrapIdx);
+		const section = p.slice(execIdx, wrapIdx) + EXECUTE_SKILL;
 		expect(execIdx).toBeGreaterThan(-1);
 		expect(wrapIdx).toBeGreaterThan(execIdx);
 		expect(section).toContain('pre_check_batch');
@@ -136,7 +148,7 @@ describe('Architect Agent - Phase 5 EXECUTE Structure', () => {
 	it('references reviewer, security gate, QA_RETRY_LIMIT', () => {
 		const execIdx = p.indexOf('### MODE: EXECUTE');
 		const wrapIdx = p.indexOf('### MODE: PHASE-WRAP');
-		const section = p.slice(execIdx, wrapIdx);
+		const section = p.slice(execIdx, wrapIdx) + EXECUTE_SKILL;
 		expect(section).toContain('{{AGENT_PREFIX}}reviewer');
 		expect(section).toMatch(/Security gate|security.*gate/i);
 		expect(section).toContain('QA_RETRY_LIMIT');
@@ -145,7 +157,7 @@ describe('Architect Agent - Phase 5 EXECUTE Structure', () => {
 	it('has step 5b and reviewer step', () => {
 		const execIdx = p.indexOf('### MODE: EXECUTE');
 		const wrapIdx = p.indexOf('### MODE: PHASE-WRAP');
-		const section = p.slice(execIdx, wrapIdx);
+		const section = p.slice(execIdx, wrapIdx) + EXECUTE_SKILL;
 		expect(section).toContain('5b.');
 		expect(section).toMatch(/5j\.|reviewer/i);
 	});
@@ -257,9 +269,13 @@ describe('Architect Agent - STALE SPEC DETECTION', () => {
 	const p = createArchitectAgent('test-model').config.prompt!;
 
 	it('has STALE SPEC DETECTION with 3 numbered options', () => {
-		const idx = p.indexOf('STALE SPEC DETECTION');
-		const proceedIdx = p.indexOf('proceed with spec:', idx);
-		const section = p.slice(idx, proceedIdx > 0 ? proceedIdx + 100 : idx + 600);
+		expect(p).toContain('file:.opencode/skills/plan/SKILL.md');
+		const idx = PLAN_SKILL.indexOf('STALE SPEC DETECTION');
+		const proceedIdx = PLAN_SKILL.indexOf('proceed with spec:', idx);
+		const section = PLAN_SKILL.slice(
+			idx,
+			proceedIdx > 0 ? proceedIdx + 100 : idx + 600,
+		);
 		const count = (section.match(/^\s*\d+\.\s+\*\*/gm) || []).length;
 		expect(count).toBe(3);
 	});
