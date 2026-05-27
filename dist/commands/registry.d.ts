@@ -256,6 +256,13 @@ export declare const COMMAND_REGISTRY: {
         readonly aliasOf: "finalize";
         readonly deprecated: true;
     };
+    readonly concurrency: {
+        readonly handler: (ctx: CommandContext) => Promise<string>;
+        readonly description: "Manage runtime concurrency override for plan execution [set|status|reset]";
+        readonly args: "set <N|preset>, status, reset";
+        readonly details: string;
+        readonly category: "utility";
+    };
     readonly simulate: {
         readonly handler: (ctx: CommandContext) => Promise<string>;
         readonly description: "Dry-run hidden coupling analysis with configurable thresholds";
@@ -440,13 +447,6 @@ export declare const COMMAND_REGISTRY: {
         readonly subcommandOf: "memory";
         readonly args: "";
         readonly category: "utility";
-    };
-    readonly 'memory evaluate': {
-        readonly handler: (ctx: CommandContext) => Promise<string>;
-        readonly description: "Run golden Swarm memory recall evaluation fixtures";
-        readonly subcommandOf: "memory";
-        readonly args: "--json, --fixtures <directory>";
-        readonly category: "diagnostics";
     };
     readonly 'memory import': {
         readonly handler: (ctx: CommandContext) => Promise<string>;
