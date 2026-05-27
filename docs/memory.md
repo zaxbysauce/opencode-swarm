@@ -62,6 +62,17 @@ Local memory lives under the project root:
 .swarm/memory/audit.jsonl
 ```
 
+External API docs, web search results, and crawled pages are not stored as
+durable memory by default. They are captured as evidence documents under:
+
+```text
+.swarm/evidence-cache/documents.jsonl
+```
+
+Evidence documents use refs such as `evidence-cache:evd_...`. Agents and SMEs can
+cite those refs in findings, and the curator can promote only a concise durable
+fact supported by those refs into memory.
+
 SQLite stores the default durable state in `memory.db`. `memories.jsonl` and `proposals.jsonl` are still supported for legacy/debug mode, migration input, and JSONL export. `audit.jsonl` is used only by the JSONL provider.
 
 When `provider` is `sqlite`, the database defaults to `.swarm/memory/memory.db` and stores the provider tables `memory_items`, `memory_proposals`, `memory_events`, `memory_recall_usage`, and `schema_migrations`.
@@ -108,6 +119,18 @@ Bad memory is a transcript:
 
 ```text
 The user asked me to inspect tests and then I said I would run a command.
+```
+
+Raw external documentation is evidence, not memory:
+
+```text
+Here are 40 paragraphs scraped from the Next.js docs...
+```
+
+If a durable fact matters, propose only the fact and cite the evidence ref:
+
+```text
+This repo uses Vitest for frontend unit tests. Evidence: evidence-cache:evd_...
 ```
 
 Supported kinds include:

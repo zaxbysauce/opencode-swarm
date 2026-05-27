@@ -15,6 +15,7 @@ import {
 	buildCuratorDecisionEvent,
 	curatorDecisionReason,
 	markProposalReviewed,
+	validateCuratorPromotableMemory,
 	validateDecisionMatchesProposal,
 } from './curator-decision-helpers';
 import { MemoryValidationError } from './errors';
@@ -281,6 +282,7 @@ export class LocalJsonlMemoryProvider
 				...decision.memory,
 				updatedAt: appliedAt,
 			});
+			validateCuratorPromotableMemory(memory);
 			this.memories.set(memory.id, memory);
 			await appendJsonl(this.pathFor('memories'), memory);
 			memoryId = memory.id;
@@ -289,6 +291,7 @@ export class LocalJsonlMemoryProvider
 			const updated = this.validateDecisionMemory(
 				applyPatchToMemory(existing, decision.patch, appliedAt),
 			);
+			validateCuratorPromotableMemory(updated);
 			if (updated.id !== existing.id) {
 				// Update replacements are linked through updateReplacementId; the
 				// supersedes graph is reserved for explicit supersede decisions.
@@ -318,6 +321,7 @@ export class LocalJsonlMemoryProvider
 					new Set([...(decision.replacement.supersedes ?? []), oldMemory.id]),
 				),
 			});
+			validateCuratorPromotableMemory(replacement);
 			const superseded = this.validateDecisionMemory({
 				...oldMemory,
 				updatedAt: appliedAt,
