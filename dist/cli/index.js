@@ -36356,7 +36356,8 @@ async function quarantineEntry(directory, entryId, reason, reportedBy) {
       rejected_at: new Date().toISOString(),
       rejection_layer: 3
     };
-    await appendKnowledge(rejectedPath, rejectedRecord);
+    await appendFile3(rejectedPath, `${JSON.stringify(rejectedRecord)}
+`, "utf-8");
   } finally {
     if (release) {
       await release();
