@@ -582,9 +582,9 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 		resetMockState();
 		tempDir = path.join(tmpdir(), `.test-plan-sync-lifecycle-${Date.now()}`);
 		swarmDir = path.join(tempDir, '.swarm');
-		// Use sync fs ops to avoid Bun I/O hang after many fs.watch create/destroy cycles (bun 1.3.9)
-		fs.mkdirSync(swarmDir, { recursive: true });
-		fs.writeFileSync(path.join(swarmDir, '.gitkeep'), '');
+		// Most lifecycle tests do not need native fs.watch coverage. Leave .swarm
+		// absent until a test writes plan.json so this file exercises polling cleanup
+		// without exhausting Bun/Linux watcher handles across dozens of cycles.
 	});
 
 	afterEach(async () => {
@@ -718,6 +718,7 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 			worker.start();
 
 			// Trigger sync (sync write to avoid Bun I/O hang after many fs.watch cycles)
+			fs.mkdirSync(swarmDir, { recursive: true });
 			fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{}');
 
 			// Dispose immediately while sync may be in progress
@@ -735,6 +736,7 @@ describe('ADVERSARIAL: Lifecycle Abuse Scenarios', () => {
 			worker.start();
 
 			// Trigger a change (sync write to avoid Bun I/O hang after many fs.watch cycles)
+			fs.mkdirSync(swarmDir, { recursive: true });
 			fs.writeFileSync(path.join(swarmDir, 'plan.json'), '{}');
 
 			// Stop immediately (debounce timer should be cleared)
@@ -947,9 +949,6 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 				process.cwd(),
 				`.test-callback-${Date.now()}`,
 			);
-			const localSwarmDir = path.join(localTempDir, '.swarm');
-			fs.mkdirSync(localSwarmDir, { recursive: true });
-			fs.writeFileSync(path.join(localSwarmDir, '.gitkeep'), '');
 
 			const worker = new PlanSyncWorker({
 				directory: localTempDir,
@@ -1000,9 +999,6 @@ describe('ADVERSARIAL: Edge Case Attack Vectors', () => {
 				process.cwd(),
 				`.test-memory-${Date.now()}`,
 			);
-			const localSwarmDir = path.join(localTempDir, '.swarm');
-			fs.mkdirSync(localSwarmDir, { recursive: true });
-			fs.writeFileSync(path.join(localSwarmDir, '.gitkeep'), '');
 
 			// Create and dispose many workers rapidly
 			for (let i = 0; i < 20; i++) {

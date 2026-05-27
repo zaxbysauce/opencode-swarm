@@ -8,6 +8,10 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	recordAgentDispatch,
+	recordGateEvidence,
+} from '../../../src/gate-evidence';
+import {
 	ensureAgentSession,
 	resetSwarmState,
 	startAgentSession,
@@ -62,7 +66,7 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 		expect(result.blocked).toBe(true); // No completed task found
 	});
 
-	it('ATTACK: plan.json with null tasks in array should not crash', () => {
+	it('ATTACK: plan.json with null tasks in array should not crash', async () => {
 		// Setup: create plan.json with tasks containing null elements
 		const swarmDir = path.join(tempDir, '.swarm');
 		fs.mkdirSync(swarmDir, { recursive: true });
@@ -81,6 +85,17 @@ describe('ADVERSARIAL: update-task-status.ts checkReviewerGate', () => {
 				],
 			}),
 			'utf-8',
+		);
+
+		// Durable evidence is required before restart-recovery plan.json fallback
+		// can trust completed plan state.
+		await recordAgentDispatch(tempDir, '1.1', 'coder');
+		await recordGateEvidence(tempDir, '1.1', 'reviewer', 'sess-reviewer');
+		await recordGateEvidence(
+			tempDir,
+			'1.1',
+			'test_engineer',
+			'sess-test-engineer',
 		);
 
 		// Should not throw - should handle nulls gracefully

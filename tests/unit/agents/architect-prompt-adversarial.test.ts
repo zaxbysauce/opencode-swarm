@@ -1,5 +1,19 @@
 import { describe, expect, it } from 'bun:test';
-import { createArchitectAgent } from '../../../src/agents/architect';
+import { createArchitectAgent as baseCreateArchitectAgent } from '../../../src/agents/architect';
+import { withExtractedModeProtocols } from './architect-mode-skill-helpers';
+
+const createArchitectAgent = (
+	...args: Parameters<typeof baseCreateArchitectAgent>
+) => {
+	const agent = baseCreateArchitectAgent(...args);
+	return {
+		...agent,
+		config: {
+			...agent.config,
+			prompt: withExtractedModeProtocols(agent.config.prompt ?? ''),
+		},
+	};
+};
 
 /**
  * ADVERSARIAL TESTS for task 11.1 — architect prompt template change

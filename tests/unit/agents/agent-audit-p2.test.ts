@@ -3,6 +3,8 @@
  * Tests for: X3 (critic/designer), CR1, CR2, DS1, DS2, C3, C4, R3, E2, S2, D2, A1, A2, A3, T5
  */
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../../src/agents/architect';
 import { createCoderAgent } from '../../../src/agents/coder';
 import { createCriticAgent } from '../../../src/agents/critic';
@@ -476,32 +478,37 @@ describe('A2: Context triage', () => {
 describe('A3: Traceability check in MODE: PLAN', () => {
 	const agent = createArchitectAgent('test-model');
 	const prompt = agent.config.prompt!;
+	const planSkill = readFileSync(
+		join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+		'utf-8',
+	);
 
 	it('contains TRACEABILITY CHECK', () => {
 		expect(prompt).toContain('TRACEABILITY CHECK');
+		expect(planSkill).toContain('TRACEABILITY CHECK');
 	});
 
 	it('requires every FR-### to map to at least one task', () => {
-		const traceIdx = prompt.indexOf('TRACEABILITY CHECK');
-		const traceSection = prompt.substring(traceIdx, traceIdx + 400);
+		const traceIdx = planSkill.indexOf('TRACEABILITY CHECK');
+		const traceSection = planSkill.substring(traceIdx, traceIdx + 400);
 		expect(traceSection).toContain('FR-###');
 	});
 
 	it('flags tasks with no FR as gold-plating risk', () => {
-		const traceIdx = prompt.indexOf('TRACEABILITY CHECK');
-		const traceSection = prompt.substring(traceIdx, traceIdx + 400);
+		const traceIdx = planSkill.indexOf('TRACEABILITY CHECK');
+		const traceSection = planSkill.substring(traceIdx, traceIdx + 400);
 		expect(traceSection).toContain('gold-plating');
 	});
 
 	it('traceability check is skipped when no spec.md exists', () => {
-		const traceIdx = prompt.indexOf('TRACEABILITY CHECK');
-		const traceSection = prompt.substring(traceIdx, traceIdx + 600);
+		const traceIdx = planSkill.indexOf('TRACEABILITY CHECK');
+		const traceSection = planSkill.substring(traceIdx, traceIdx + 600);
 		expect(traceSection).toMatch(/no spec\.md|spec\.md.*skip/i);
 	});
 
 	it('TRACEABILITY CHECK appears after save_plan in MODE: PLAN', () => {
-		const savePlanIdx = prompt.indexOf('save_plan');
-		const traceIdx = prompt.indexOf('TRACEABILITY CHECK');
+		const savePlanIdx = planSkill.indexOf('save_plan');
+		const traceIdx = planSkill.indexOf('TRACEABILITY CHECK');
 		expect(savePlanIdx).toBeGreaterThan(-1);
 		expect(traceIdx).toBeGreaterThan(savePlanIdx);
 	});

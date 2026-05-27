@@ -7,7 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { loadPlanJsonOnly, regeneratePlanMarkdown } from '../plan/manager';
+import { _internals as planManagerInternals } from '../plan/manager';
 import { log } from '../utils';
 
 /** Configuration options for PlanSyncWorker */
@@ -382,14 +382,14 @@ export class PlanSyncWorker {
 
 			// Wrap in timeout to prevent runaway hangs
 			const plan = await this.withTimeout(
-				loadPlanJsonOnly(this.directory),
+				planManagerInternals.loadPlanJsonOnly(this.directory),
 				this.syncTimeoutMs,
 				'Sync operation timed out',
 			);
 
 			if (plan && plan.phases.length > 0) {
 				// Regenerate plan.md only — never rewrite plan.json
-				await regeneratePlanMarkdown(this.directory, plan);
+				await planManagerInternals.regeneratePlanMarkdown(this.directory, plan);
 				log('[PlanSyncWorker] Sync complete', {
 					title: plan.title,
 					phase: plan.current_phase,

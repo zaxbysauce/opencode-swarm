@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'bun:test';
-import { createArchitectAgent } from '../../../src/agents/architect';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 
 describe('SPEC GATE — adversarial (standalone)', () => {
-	const agent = createArchitectAgent('test-model');
-	const prompt = agent.config.prompt!;
+	const prompt = readFileSync(
+		join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+		'utf-8',
+	);
 
 	it('Gate is NOT a hard gate — no blocking language for skip path', () => {
 		// ATTACK VECTOR: If the gate contains blocking language like "MUST", "blocked", "forbidden",
@@ -11,7 +14,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The spec gate should warn but NOT block planning when user chooses to skip.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
+			prompt.length,
 		);
 
 		// These blocking phrases must NOT appear in the spec gate
@@ -34,7 +37,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// Both options must be present together in the same context.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
+			prompt.length,
 		);
 
 		// Both options must be present
@@ -55,7 +58,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The phrase "do NOT modify any planning behavior" must be present.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
+			prompt.length,
 		);
 
 		expect(specGateSection).toContain('do NOT modify any planning behavior');
@@ -70,7 +73,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// No language should require creating a new spec if spec.md already exists.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
+			prompt.length,
 		);
 
 		// These phrases would force re-spec and must NOT appear
@@ -98,7 +101,7 @@ describe('SPEC GATE — adversarial (standalone)', () => {
 		// The FR-### pattern must be explicitly mentioned for regex matching.
 		const specGateSection = prompt.substring(
 			prompt.indexOf('SPEC GATE'),
-			Math.min(prompt.indexOf('SPEC GATE') + 3500, prompt.length),
+			prompt.length,
 		);
 
 		// Must contain FR-### pattern explicitly

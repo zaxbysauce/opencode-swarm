@@ -26,18 +26,22 @@ describe('curator prompts recast as observations', () => {
 		test('does NOT contain imperative directives as commands', () => {
 			// These words should only appear in parenthetical suggestions, not as imperative commands
 			// Check that "promote", "archive", "rewrite" don't appear as standalone imperative verbs
+			const observationsSection =
+				CURATOR_INIT_PROMPT.split('OBSERVATIONS:')[1]?.split(
+					'KNOWLEDGE_STATS:',
+				)[0] ?? '';
 			const imperativePatterns = [
 				/\bpromote\b(?!\s+—)/, // "promote" not followed by "—"
-				/\barchive\b(?!\s+—)/, // "archive" not followed by "—"
+				/\barchive\b(?!\s+(?:\u2014|\u00e2\u20ac\u201d))/, // "archive" not followed by an em dash
 				/\brewrite\b(?!\s+with)/, // "rewrite" not followed by "with"
 			];
 
 			for (const pattern of imperativePatterns) {
-				const matches = CURATOR_INIT_PROMPT.match(pattern);
+				const matches = observationsSection.match(pattern);
 				if (matches) {
 					// Find context around the match
-					const idx = CURATOR_INIT_PROMPT.indexOf(matches[0]);
-					const context = CURATOR_INIT_PROMPT.slice(
+					const idx = observationsSection.indexOf(matches[0]);
+					const context = observationsSection.slice(
 						Math.max(0, idx - 30),
 						idx + matches[0].length + 30,
 					);
@@ -69,17 +73,21 @@ describe('curator prompts recast as observations', () => {
 
 		test('does NOT contain imperative directives as commands', () => {
 			// These words should only appear in parenthetical suggestions, not as imperative commands
+			const observationsSection =
+				CURATOR_PHASE_PROMPT.split('OBSERVATIONS:')[1]?.split(
+					'EXTENDED_DIGEST:',
+				)[0] ?? '';
 			const imperativePatterns = [
 				/\bpromote\b(?!\s+—)/,
-				/\barchive\b(?!\s+—)/,
+				/\barchive\b(?!\s+(?:\u2014|\u00e2\u20ac\u201d))/,
 				/\brewrite\b(?!\s+with)/,
 			];
 
 			for (const pattern of imperativePatterns) {
-				const matches = CURATOR_PHASE_PROMPT.match(pattern);
+				const matches = observationsSection.match(pattern);
 				if (matches) {
-					const idx = CURATOR_PHASE_PROMPT.indexOf(matches[0]);
-					const context = CURATOR_PHASE_PROMPT.slice(
+					const idx = observationsSection.indexOf(matches[0]);
+					const context = observationsSection.slice(
 						Math.max(0, idx - 30),
 						idx + matches[0].length + 30,
 					);

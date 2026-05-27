@@ -26,66 +26,61 @@ describe('Skills Propagation to Subagents', () => {
 			expect(prompt).toContain('SKILLS PROPAGATION');
 		});
 
-		it('instructs architect to scan .opencode/skills and .claude/skills directories', () => {
-			expect(prompt).toContain('.opencode/skills');
-			expect(prompt).toContain('.claude/skills');
+		it('documents hook-managed skill discovery', () => {
+			expect(prompt).toContain('Skills are auto-discovered and scored');
+			expect(prompt).toContain('The hook auto-injects them');
 		});
 
-		it('uses the search tool with include patterns for skill discovery', () => {
+		it('uses the SKILLS field for top recommended skills', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('search');
-			expect(skillsSection).toContain('include');
+			expect(skillsSection).toContain('SKILLS:');
+			expect(skillsSection).toContain('top recommended skills');
 		});
 
-		it('instructs architect to cache skill index in .swarm/context.md', () => {
+		it('describes hook-managed routing configuration', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('.swarm/context.md');
-			expect(skillsSection).toContain('Available Skills');
+			expect(skillsSection).toContain('.opencode/skill-routing.yaml');
+			expect(skillsSection).toContain('delegation time');
 		});
 
-		it('provides skill-to-agent routing table', () => {
+		it('mentions the receiving agent roles that use mandatory coding-task skills', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
 			expect(skillsSection).toContain('test_engineer');
 			expect(skillsSection).toContain('reviewer');
 			expect(skillsSection).toContain('coder');
 		});
 
-		it('explains that file references reduce context bloat', () => {
+		it('explains that skill references carry context descriptions', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('context');
-			expect(skillsSection).toContain('bloat');
-			expect(skillsSection).toContain('file:');
+			expect(skillsSection).toContain('context descriptions');
+			expect(skillsSection).toContain('file:path (-- description)');
 		});
 
 		it('prefers file references by default and keeps inline fallback for load failures', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain(
-				'Default to repo-relative `file:` references',
-			);
+			expect(skillsSection).toContain('Prefer `file:` references');
 			expect(skillsSection).toContain('SKILL_LOAD_FAILED');
-			expect(skillsSection).toContain('Use inline skill bodies only');
+			expect(skillsSection).toContain('full skill body pasted inline');
 		});
 
-		it('instructs architect to inspect project contract files before delegation', () => {
+		it('states mandatory coding-task skills when present', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('AGENTS.md');
-			expect(skillsSection).toContain('MUST/NEVER rules');
-			expect(skillsSection).toContain('INPUT/CONSTRAINT');
+			expect(skillsSection).toContain('writing-tests');
+			expect(skillsSection).toContain('engineering-conventions');
+			expect(skillsSection).toContain('when those skills are present');
 		});
 
 		it('requires descriptions next to file references for on-demand skill loading', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('file:` path and description');
-			expect(skillsSection).toContain('load on demand');
-			expect(skillsSection).toContain('Guidelines for writing tests');
+			expect(skillsSection).toContain('brief context descriptions');
+			expect(skillsSection).toContain('file:path (-- description)');
+			expect(skillsSection).toContain('top recommended skills');
 		});
 
 		it('includes anti-rationalization rules against skipping skills', () => {
 			const skillsSection = prompt.slice(prompt.indexOf('SKILLS PROPAGATION'));
-			expect(skillsSection).toContain('ANTI-RATIONALIZATION');
-			expect(skillsSection).toContain(
-				'Skills do NOT persist across Task boundaries',
-			);
+			expect(skillsSection).toContain('SKILL_LOAD_FAILED recovery');
+			expect(skillsSection).toContain('Never re-use a file: reference');
 		});
 
 		it('explains that subagents run in isolated contexts without inherited skills', () => {

@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 describe('architect prompt: declare_scope instruction at every coder delegation site (#493)', () => {
@@ -12,6 +14,10 @@ describe('architect prompt: declare_scope instruction at every coder delegation 
 			enabled: true,
 		},
 	).config.prompt!;
+	const executeSkill = readFileSync(
+		join(process.cwd(), '.opencode/skills/execute/SKILL.md'),
+		'utf-8',
+	);
 
 	it('ARCHITECT_PROMPT mentions declare_scope (canonical Rule 1a check)', () => {
 		expect(prompt).toContain('declare_scope');
@@ -60,18 +66,18 @@ describe('architect prompt: declare_scope instruction at every coder delegation 
 	});
 
 	it('MODE: EXECUTE Step 5b is preceded by a declare_scope pre-step', () => {
-		const start = prompt.indexOf('5a-bis');
-		const end = prompt.indexOf('5b. {{AGENT_PREFIX}}coder - Implement');
+		const start = executeSkill.indexOf('5a-bis');
+		const end = executeSkill.indexOf('5b. {{AGENT_PREFIX}}coder - Implement');
 		expect(start).toBeGreaterThan(-1);
 		expect(end).toBeGreaterThan(start);
-		const slice = prompt.slice(start, end);
+		const slice = executeSkill.slice(start, end);
 		expect(slice).toContain('declare_scope');
 	});
 
 	it('MODE: EXECUTE RETRY PROTOCOL gate-failure path has a declare_scope reminder', () => {
-		const start = prompt.indexOf('RIGHT response to gate failure');
+		const start = executeSkill.indexOf('RIGHT response to gate failure');
 		expect(start).toBeGreaterThan(-1);
-		const slice = prompt.slice(start, start + 800);
+		const slice = executeSkill.slice(start, start + 800);
 		expect(slice).toContain('declare_scope');
 	});
 

@@ -1,5 +1,22 @@
 import { describe, expect, test } from 'bun:test';
-import { createArchitectAgent } from '../../../src/agents/architect';
+import { createArchitectAgent as baseCreateArchitectAgent } from '../../../src/agents/architect';
+import {
+	EXECUTE_PROTOCOL,
+	withExtractedModeProtocols,
+} from './architect-mode-skill-helpers';
+
+const createArchitectAgent = (
+	...args: Parameters<typeof baseCreateArchitectAgent>
+) => {
+	const agent = baseCreateArchitectAgent(...args);
+	return {
+		...agent,
+		config: {
+			...agent.config,
+			prompt: withExtractedModeProtocols(agent.config.prompt ?? ''),
+		},
+	};
+};
 
 /**
  * QA GATE TESTS: pre_check_batch Integration (v6.10)
@@ -868,10 +885,7 @@ describe('ARCHITECT QA GATE: Full Sequence Verification (v6.10)', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt;
 
 	test('Phase 5 maintains correct step ordering (v6.10)', () => {
-		const phase5Section = prompt.substring(
-			prompt.indexOf('### MODE: EXECUTE'),
-			prompt.indexOf('### MODE: PHASE-WRAP'),
-		);
+		const phase5Section = EXECUTE_PROTOCOL;
 
 		// Verify each step exists and is ordered correctly
 		// v6.10 step map:

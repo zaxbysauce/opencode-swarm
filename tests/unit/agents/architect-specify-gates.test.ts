@@ -1,4 +1,6 @@
 import { describe, expect, test } from 'bun:test';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { createArchitectAgent } from '../../../src/agents/architect';
 
 /**
@@ -11,6 +13,10 @@ import { createArchitectAgent } from '../../../src/agents/architect';
  */
 describe('architect prompt — MODE: SPECIFY step 5b QA gate selection', () => {
 	const prompt = createArchitectAgent('test-model').config.prompt!;
+	const planSkill = readFileSync(
+		join(process.cwd(), '.opencode/skills/plan/SKILL.md'),
+		'utf-8',
+	);
 
 	function getSpecifySection(): string {
 		// SPECIFY runs from "### MODE: SPECIFY" header through the next "### MODE:" header
@@ -67,16 +73,10 @@ describe('architect prompt — MODE: SPECIFY step 5b QA gate selection', () => {
 	});
 
 	test('MODE: PLAN block contains POST-SAVE_PLAN gate application instructions', () => {
-		const planStart = prompt.indexOf('### MODE: PLAN');
-		expect(planStart).toBeGreaterThan(-1);
-		const after = prompt.indexOf('### MODE:', planStart + 1);
-		const planBlock = prompt.substring(
-			planStart,
-			after === -1 ? prompt.length : after,
-		);
-		expect(planBlock).toContain('POST-SAVE_PLAN');
-		expect(planBlock).toContain('## Pending QA Gate Selection');
-		expect(planBlock).toContain('set_qa_gates');
+		expect(prompt).toContain('file:.opencode/skills/plan/SKILL.md');
+		expect(planSkill).toContain('POST-SAVE_PLAN');
+		expect(planSkill).toContain('## Pending QA Gate Selection');
+		expect(planSkill).toContain('set_qa_gates');
 	});
 
 	test('MODE: PLAN inline path does not leave {{QA_GATE_DIALOGUE_PLAN}} placeholder unexpanded', () => {

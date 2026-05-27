@@ -309,10 +309,11 @@ describe('savePlan write-marker adversarial tests', () => {
 		const markerContent = await readFile(markerPath, 'utf-8');
 		const marker = JSON.parse(markerContent);
 
-		// Marker should have exactly these 4 fields
+		// Marker should have exactly these safe bookkeeping fields.
 		const allowedFields = [
 			'source',
 			'timestamp',
+			'in_progress',
 			'phases_count',
 			'tasks_count',
 		];

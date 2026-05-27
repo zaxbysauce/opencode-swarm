@@ -123,6 +123,9 @@ export function deserializeAgentSession(
 	// Migration: ensure transientRetryCount exists on all windows (v6.86.14)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	for (const [key, win] of Object.entries(s.windows ?? {})) {
+		if (!win || typeof win !== 'object') {
+			continue;
+		}
 		windows[key] = {
 			...win,
 			transientRetryCount:

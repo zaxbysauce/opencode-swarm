@@ -100,7 +100,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['typescript', 'vitest'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -144,7 +144,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.5,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -178,7 +178,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['typescript', 'vitest', 'react'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -216,7 +216,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -250,7 +250,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -284,7 +284,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -318,7 +318,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -351,7 +351,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -388,7 +388,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -421,7 +421,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.5,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -454,7 +454,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -489,7 +489,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['typescript', 'vitest', 'react'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -523,7 +523,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['typescript', 'vitest', 'react', 'jest'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -558,7 +558,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['python', 'pytest', 'django'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -592,7 +592,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['TypeScript', 'Vitest', 'React'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -626,7 +626,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -660,7 +660,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['@types/node', '@vitest/ui'],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -697,7 +697,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 
@@ -708,7 +708,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-12-01T00:00:00Z',
 			};
 
@@ -744,7 +744,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-12-01T00:00:00Z',
 			};
 
@@ -755,7 +755,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 
@@ -793,7 +793,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.9,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 
@@ -804,7 +804,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'project',
 				confidence: 0.9,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-12-01T00:00:00Z',
 			};
 
@@ -843,7 +843,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'global', // Gets +0.1 boost
 				confidence: 1.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -880,7 +880,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['python'], // No match with tech stack
 				scope: 'project',
 				confidence: 0.0,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -916,7 +916,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: ['typescript'],
 				scope: 'project',
 				confidence: 0.7,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(
@@ -955,7 +955,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 					tags: ['typescript', 'vitest'],
 					scope: 'global',
 					confidence: 1.0,
-					status: 'validated',
+					status: 'established',
 					created_at: '2024-01-01T00:00:00Z',
 				},
 				{
@@ -965,7 +965,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 					tags: ['vitest'],
 					scope: 'project',
 					confidence: 0.7,
-					status: 'validated',
+					status: 'established',
 					created_at: '2024-06-01T00:00:00Z',
 				},
 				{
@@ -975,7 +975,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 					tags: ['python'],
 					scope: 'project',
 					confidence: 0.3,
-					status: 'validated',
+					status: 'established',
 					created_at: '2024-12-01T00:00:00Z',
 				},
 			];
@@ -1014,7 +1014,7 @@ describe('Task 3.4: Relevance Scoring Algorithm Implementation', () => {
 				tags: [],
 				scope: 'global',
 				confidence: 0.8,
-				status: 'validated',
+				status: 'established',
 				created_at: '2024-01-01T00:00:00Z',
 			};
 			writeFileSync(

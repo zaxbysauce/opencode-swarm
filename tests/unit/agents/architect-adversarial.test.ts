@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
+import { getExtractedExecuteSection } from './architect-mode-skill-helpers';
 
 /**
  * ADVERSARIAL TESTS for architect.ts
@@ -156,6 +157,7 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 	describe('Attack Vector 5: Coverage threshold "< 70%" ambiguity', () => {
 		const agent = createArchitectAgent(testModel);
 		const prompt = agent.config.prompt!;
+		const executeSection = getExtractedExecuteSection(prompt);
 
 		/**
 		 * ATTACK: Verify coverage threshold is mathematically unambiguous
@@ -165,18 +167,14 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 		 *   - ≥70%: include 70% as passing threshold
 		 */
 		it('Phase 5h uses strictly less-than: "< 70%" (not ≤, not >, not ≥)', () => {
-			const phase5Start = prompt.indexOf('### MODE: EXECUTE');
-			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-			const phase5Section = prompt.slice(phase5Start, phase6Start);
+			const phase5Section = executeSection;
 
 			// Must contain the exact "< 70%" phrasing
 			expect(phase5Section).toContain('< 70%');
 		});
 
 		it('Coverage check does NOT use "≤70%" or "<=70%"', () => {
-			const phase5Start = prompt.indexOf('### MODE: EXECUTE');
-			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-			const phase5Section = prompt.slice(phase5Start, phase6Start);
+			const phase5Section = executeSection;
 
 			expect(phase5Section).not.toContain('≤70%');
 			expect(phase5Section).not.toContain('<=70%');
@@ -186,9 +184,7 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 			// The COVERAGE CHECK trigger line must use "< 70%" not ">70%" or "≥70%"
 			// Note: the completion checklist legitimately uses "≥70%" as the pass label — that is correct.
 			// This test verifies only the TRIGGER condition (the line that says when to delegate for more tests).
-			const phase5Start = prompt.indexOf('### MODE: EXECUTE');
-			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-			const phase5Section = prompt.slice(phase5Start, phase6Start);
+			const phase5Section = executeSection;
 
 			// Find the coverage check line specifically
 			const coverageCheckLine = phase5Section
@@ -206,9 +202,7 @@ describe('createArchitectAgent - Adversarial Attack Vectors', () => {
 
 		it('Coverage 70% means additional test pass is triggered BELOW 70%', () => {
 			// "coverage < 70%" means: 69% triggers, 70% does NOT trigger, 71% does NOT trigger
-			const phase5Start = prompt.indexOf('### MODE: EXECUTE');
-			const phase6Start = prompt.indexOf('### MODE: PHASE-WRAP');
-			const phase5Section = prompt.slice(phase5Start, phase6Start);
+			const phase5Section = executeSection;
 
 			expect(phase5Section).toContain('coverage < 70%');
 			// Verify the guidance language supports this interpretation
