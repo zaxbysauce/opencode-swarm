@@ -5,6 +5,7 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
+import { atomicWriteFile } from '../evidence/task-file.js';
 import type {
 	ActionableDirectiveFields,
 	KnowledgeEntryBase,
@@ -262,7 +263,8 @@ export async function appendKnowledge<T>(
 }
 
 // Rewrite the entire JSONL file with a new array of entries.
-// Uses proper-lockfile on the directory for crash-safe writes.
+// Uses proper-lockfile on the directory for concurrent-access safety.
+// The file write itself uses atomic temp-file + rename so readers never observe a torn file.
 // The lock is acquired on the DIRECTORY (not the file) because proper-lockfile requires
 // the target to exist. The directory is guaranteed to exist after mkdir.
 export async function rewriteKnowledge<T>(
@@ -281,7 +283,7 @@ export async function rewriteKnowledge<T>(
 		const content =
 			entries.map((e) => JSON.stringify(e)).join('\n') +
 			(entries.length > 0 ? '\n' : '');
-		await writeFile(filePath, content, 'utf-8');
+		await atomicWriteFile(filePath, content);
 	} finally {
 		if (release) {
 			try {

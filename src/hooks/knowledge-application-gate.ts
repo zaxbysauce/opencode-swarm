@@ -48,6 +48,8 @@ export const HIGH_RISK_TOOLS = new Set([
 	'phase_complete',
 	'task',
 	'Task',
+	'skill_regenerate',
+	'skill_retire',
 ]);
 
 export interface GateInput {
