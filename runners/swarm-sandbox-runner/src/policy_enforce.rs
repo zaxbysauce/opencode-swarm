@@ -114,7 +114,10 @@ pub fn enforce_symlink_egress(policy: &Policy, cwd: &str) -> Result<(), RunnerEr
         });
 
     if !in_allowed {
-        events::emit(&events::denial_event("deny_symlink_egress", Some(canonical_str)));
+        events::emit(&events::denial_event(
+            "deny_symlink_egress",
+            Some(canonical_str),
+        ));
         return Err(RunnerError::PolicyViolation {
             reason: format!("cwd resolves outside allowed roots (symlink egress): {canonical_str}"),
         });
