@@ -113,9 +113,7 @@ pub fn enforce_symlink_egress(policy: &Policy, cwd: &str) -> Result<(), RunnerEr
             Some(canonical_str),
         ));
         return Err(RunnerError::PolicyViolation {
-            reason: format!(
-                "cwd resolves outside allowed roots (symlink egress): {canonical_str}"
-            ),
+            reason: format!("cwd resolves outside allowed roots (symlink egress): {canonical_str}"),
         });
     }
     Ok(())
