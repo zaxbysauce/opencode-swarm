@@ -1,7 +1,6 @@
 use clap::{Parser, Subcommand};
 use std::io::Read;
 use swarm_sandbox_runner::error::RunnerError;
-use swarm_sandbox_runner::events;
 use swarm_sandbox_runner::mode;
 use swarm_sandbox_runner::policy::Policy;
 use swarm_sandbox_runner::probe;

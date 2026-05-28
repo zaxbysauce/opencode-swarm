@@ -1,5 +1,4 @@
 use std::fs;
-use std::path::Path;
 
 #[test]
 fn temp_watcher_detects_size() {
