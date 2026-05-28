@@ -208,8 +208,9 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
     let attr_list = LPPROC_THREAD_ATTRIBUTE_LIST(attr_list_buf.as_mut_ptr() as *mut _);
 
     unsafe {
-        InitializeProcThreadAttributeList(attr_list, 1, 0, &mut attr_list_size)
-            .map_err(|e| RunnerError::OsApiFailure(format!("InitializeProcThreadAttributeList: {e}")))?;
+        InitializeProcThreadAttributeList(attr_list, 1, 0, &mut attr_list_size).map_err(|e| {
+            RunnerError::OsApiFailure(format!("InitializeProcThreadAttributeList: {e}"))
+        })?;
 
         UpdateProcThreadAttribute(
             attr_list,
@@ -274,11 +275,7 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
             let _ = TerminateProcess(pi_handle, 65);
         }
     });
-    let mut watcher = TempWatcher::start(
-        policy.temp_root.clone(),
-        policy.temp_cap_bytes,
-        kill_cb,
-    );
+    let mut watcher = TempWatcher::start(policy.temp_root.clone(), policy.temp_cap_bytes, kill_cb);
 
     // Resume
     unsafe {

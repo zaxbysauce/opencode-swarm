@@ -461,13 +461,20 @@ jobs:
           # while Linux bun produces node_modules/PACKAGE.
           # After build, dist/ has clean Linux paths. We must normalize the committed
           # (git index) side before comparing, not the freshly built working tree.
+          #
+          # Also normalize var __dirname = "..." values: bun ESM bundles embed the
+          # build-time source path, which differs between Windows and Linux builders.
           tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
           dist_committed="$tmpdir/dist-committed"
           mkdir -p "$dist_committed"
           git archive HEAD dist/ | tar -x -C "$dist_committed"
           find "$dist_committed/dist/" -name "*.js" -type f -exec sed -i \
             -e 's|node_modules/\.bun/[^/]\+/node_modules/|node_modules/|g' \
-            -e 's/\r$//' {} +
+            -e 's/\r$//' \
+            -e 's|var __dirname = "[^"]*"|var __dirname = "__DIRNAME_NORMALIZED__"|g' {} +
+          # Normalize __dirname in the freshly built dist too (Linux vs Windows paths).
+          find dist/ -name "*.js" -type f -exec sed -i \
+            -e 's|var __dirname = "[^"]*"|var __dirname = "__DIRNAME_NORMALIZED__"|g' {} +
           # Remove gitignored paths from the freshly built dist before comparing.
           # These are intentionally excluded from commits (see .gitignore lines 29-35).
           rm -rf dist/build/ dist/quality/ dist/sbom/
