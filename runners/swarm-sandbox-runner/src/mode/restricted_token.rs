@@ -190,11 +190,16 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
     // 15. Start temp watcher
     let kill_flag = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let kf = kill_flag.clone();
-    let pi_handle = pi.hProcess;
+    // HANDLE wraps *mut c_void which is not Send+Sync. Extract as usize so the
+    // closure can cross thread boundaries; reconstruct HANDLE inside unsafe.
+    let pi_handle_raw = pi.hProcess.0 as usize;
     let kill_cb = Arc::new(move || {
         kf.store(true, std::sync::atomic::Ordering::Relaxed);
         unsafe {
-            let _ = TerminateProcess(pi_handle, 65);
+            let _ = TerminateProcess(
+                windows::Win32::Foundation::HANDLE(pi_handle_raw as *mut _),
+                65,
+            );
         }
     });
     let mut watcher = TempWatcher::start(
