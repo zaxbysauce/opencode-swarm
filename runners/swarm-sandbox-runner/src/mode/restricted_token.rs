@@ -49,7 +49,7 @@ pub fn is_available() -> bool {
 #[cfg(windows)]
 pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, RunnerError> {
     use std::sync::Arc;
-    use windows::core::HSTRING;
+    use windows::core::{HSTRING, PWSTR};
     use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_TIMEOUT};
     use windows::Win32::Security::{
         CreateRestrictedToken, DISABLE_MAX_PRIVILEGE, TOKEN_ALL_ACCESS,
@@ -158,7 +158,7 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
         CreateProcessAsUserW(
             restricted_token,
             None,
-            Some(cmd_wide.as_mut_slice()),
+            Some(PWSTR(cmd_wide.as_mut_ptr())),
             None,
             None,
             false,

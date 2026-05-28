@@ -73,7 +73,7 @@ pub fn setup_workspace_acls(
         }
     }
 
-    std::fs::create_dir_all(temp_root).map_err(|e| RunnerError::Io(e))?;
+    std::fs::create_dir_all(temp_root)?;
     grant_access(temp_root, sid_string)?;
 
     Ok(())

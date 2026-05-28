@@ -14,12 +14,6 @@ pub struct ProbeResult {
 
 #[cfg(windows)]
 pub fn run_probe() -> ProbeResult {
-    use windows::Win32::Foundation::HANDLE;
-    use windows::Win32::Security::{
-        GetTokenInformation, TokenElevation, TOKEN_ELEVATION, TOKEN_QUERY,
-    };
-    use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
-
     let is_admin = check_admin();
     let integrity = get_integrity_level();
     let os_ver = get_os_version();
@@ -87,11 +81,13 @@ fn check_admin() -> bool {
 #[cfg(windows)]
 fn get_integrity_level() -> String {
     use windows::Win32::Foundation::HANDLE;
-    use windows::Win32::Security::GetSidSubAuthority;
     use windows::Win32::Security::{
-        GetTokenInformation, TokenIntegrityLevel, SECURITY_MANDATORY_HIGH_RID,
-        SECURITY_MANDATORY_LOW_RID, SECURITY_MANDATORY_MEDIUM_RID, SECURITY_MANDATORY_SYSTEM_RID,
-        TOKEN_MANDATORY_LABEL, TOKEN_QUERY,
+        GetSidSubAuthority, GetTokenInformation, TokenIntegrityLevel, TOKEN_MANDATORY_LABEL,
+        TOKEN_QUERY,
+    };
+    use windows::Win32::System::SystemServices::{
+        SECURITY_MANDATORY_HIGH_RID, SECURITY_MANDATORY_LOW_RID, SECURITY_MANDATORY_MEDIUM_RID,
+        SECURITY_MANDATORY_SYSTEM_RID,
     };
     use windows::Win32::System::Threading::{GetCurrentProcess, OpenProcessToken};
 
@@ -168,7 +164,10 @@ fn get_os_version() -> String {
 #[cfg(windows)]
 fn probe_app_container() -> bool {
     use windows::core::HSTRING;
-    use windows::Win32::Security::{CreateAppContainerProfile, DeleteAppContainerProfile};
+    use windows::Win32::Security::Isolation::{
+        CreateAppContainerProfile, DeleteAppContainerProfile,
+    };
+    use windows::Win32::Security::{FreeSid, PSID};
 
     let probe_name = HSTRING::from("swarm.sandbox.probe-test");
     let display_name = HSTRING::from("Probe Test");
@@ -177,14 +176,14 @@ fn probe_app_container() -> bool {
     unsafe {
         let _ = DeleteAppContainerProfile(&probe_name);
 
-        let mut sid = windows::Win32::Foundation::PSID::default();
+        let mut sid = PSID::default();
         let result =
             CreateAppContainerProfile(&probe_name, &display_name, &description, None, &mut sid);
 
         if result.is_ok() {
             let _ = DeleteAppContainerProfile(&probe_name);
             if !sid.is_invalid() {
-                windows::Win32::Security::FreeSid(sid);
+                FreeSid(sid);
             }
             true
         } else {
@@ -267,7 +266,6 @@ fn probe_restricted_token() -> bool {
 #[cfg(windows)]
 fn probe_private_desktop() -> bool {
     use windows::core::HSTRING;
-    use windows::Win32::Security::SECURITY_ATTRIBUTES;
     use windows::Win32::System::StationsAndDesktops::{
         CloseDesktop, CreateDesktopW, DESKTOP_CONTROL_FLAGS,
     };

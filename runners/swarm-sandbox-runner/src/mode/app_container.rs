@@ -12,13 +12,16 @@ use crate::temp_watcher::TempWatcher;
 #[cfg(windows)]
 pub fn is_available() -> bool {
     use windows::core::HSTRING;
-    use windows::Win32::Security::{CreateAppContainerProfile, DeleteAppContainerProfile};
+    use windows::Win32::Security::Isolation::{
+        CreateAppContainerProfile, DeleteAppContainerProfile,
+    };
+    use windows::Win32::Security::{FreeSid, PSID};
 
     let probe_name = HSTRING::from("swarm.sandbox.ac-probe");
     unsafe {
         let _ = DeleteAppContainerProfile(&probe_name);
 
-        let mut sid = windows::Win32::Foundation::PSID::default();
+        let mut sid = PSID::default();
         let ok = CreateAppContainerProfile(
             &probe_name,
             &HSTRING::from("Probe"),
@@ -29,7 +32,7 @@ pub fn is_available() -> bool {
         if ok.is_ok() {
             let _ = DeleteAppContainerProfile(&probe_name);
             if !sid.is_invalid() {
-                windows::Win32::Security::FreeSid(sid);
+                FreeSid(sid);
             }
             true
         } else {
@@ -46,9 +49,13 @@ pub fn is_available() -> bool {
 #[cfg(windows)]
 pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, RunnerError> {
     use std::sync::Arc;
-    use windows::core::HSTRING;
-    use windows::Win32::Foundation::{CloseHandle, HANDLE, PSID, WAIT_TIMEOUT};
+    use windows::core::{HSTRING, PWSTR};
+    use windows::Win32::Foundation::{CloseHandle, HANDLE, WAIT_TIMEOUT};
     use windows::Win32::Security::*;
+    use windows::Win32::Security::Authorization::ConvertSidToStringSidW;
+    use windows::Win32::Security::Isolation::{
+        CreateAppContainerProfile, DeleteAppContainerProfile,
+    };
     use windows::Win32::System::Threading::*;
 
     if command.is_empty() {
@@ -89,7 +96,7 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
     impl Drop for ProfileGuard {
         fn drop(&mut self) {
             unsafe {
-                let _ = windows::Win32::Security::DeleteAppContainerProfile(&self.name);
+                let _ = windows::Win32::Security::Isolation::DeleteAppContainerProfile(&self.name);
                 if !self.sid.is_invalid() {
                     windows::Win32::Security::FreeSid(self.sid);
                 }
@@ -109,7 +116,7 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
         let s = string_sid
             .to_string()
             .map_err(|e| RunnerError::OsApiFailure(format!("SID string conversion: {e}")))?;
-        windows::Win32::System::Memory::LocalFree(windows::Win32::Foundation::HLOCAL(
+        windows::Win32::Foundation::LocalFree(windows::Win32::Foundation::HLOCAL(
             string_sid.0 as *mut _,
         ));
         s
@@ -243,7 +250,7 @@ pub fn execute(policy: &Policy, command: &[String]) -> Result<SandboxResult, Run
     unsafe {
         CreateProcessW(
             None,
-            Some(cmd_wide.as_mut_slice()),
+            Some(PWSTR(cmd_wide.as_mut_ptr())),
             None,
             None,
             false,

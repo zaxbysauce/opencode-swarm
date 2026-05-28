@@ -83,7 +83,6 @@ fn dir_size(path: &Path) -> Result<u64, RunnerError> {
 mod tests {
     use super::*;
     use std::fs;
-    use std::sync::atomic::AtomicBool;
 
     #[test]
     fn dir_size_empty() {
