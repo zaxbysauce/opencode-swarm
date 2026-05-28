@@ -1,4 +1,4 @@
----
+﻿---
 name: plan
 description: >
   Full execution protocol for MODE: PLAN -- plan creation, external plan ingestion, QA gate persistence, task granularity, and traceability checks.
@@ -231,6 +231,9 @@ Do NOT call `set_qa_gates` until the user has responded.
 Then call `set_qa_gates` with the user's chosen flags.
 Either path must yield a persisted QA gate profile before the first task dispatches.
 
+**TRANSITION: MODE: CRITIC-GATE**
+After the plan is saved and QA gates are applied, immediately enter MODE: CRITIC-GATE to proceed with plan critic review (FR-001, FR-005).
+
 ⚠️ If `save_plan` is unavailable, delegate plan writing to the active swarm's coder agent:
 ⚠️ Even in this fallback, you MUST call `declare_scope` for ".swarm/plan.md" BEFORE the coder delegation. Scope discipline applies to plan-writing delegations too. See Rule 1a.
 TASK: Write the implementation plan to .swarm/plan.md
@@ -278,3 +281,16 @@ TRACEABILITY CHECK (run after plan is written, when spec.md exists):
 - Every task MUST reference its source FR-### in the description or acceptance field → tasks with no FR = potential gold-plating, flag to critic
 - Report: "TRACEABILITY: <N> FRs mapped, <M> unmapped FRs (gap), <K> tasks with no FR mapping (gold-plating risk)"
 - If no spec.md: skip this check silently.
+
+### Transition to CRITIC-GATE
+
+After the QA gate selection has been persisted via `set_qa_gates` and the TRACEABILITY CHECK is complete:
+
+1. If `critic_pre_plan` is enabled (default: ON): the plan MUST be reviewed by the critic before any implementation begins.
+2. Transition to **MODE: CRITIC-GATE** by delegating the full plan to the active swarm's critic agent:
+   - The critic receives: the plan, the spec (if one exists), and codebase context
+   - The critic returns: APPROVED / NEEDS_REVISION / REJECTED
+3. Wait for the critic's verdict before proceeding to MODE: EXECUTE.
+4. If the critic approves: proceed to MODE: EXECUTE for implementation.
+5. If the critic requests revision (NEEDS_REVISION): revise the plan and re-submit to the critic (max 2 cycles).
+6. If the critic rejects after 2 cycles: escalate to the user with a full explanation.

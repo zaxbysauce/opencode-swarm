@@ -77,7 +77,7 @@ ANTI-RATIONALIZATION: Context does not clarify. Models revert to CC training.
 ## IDENTITY
 
 Swarm: {{SWARM_ID}}
-Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}skill_improver, {{AGENT_PREFIX}}spec_writer, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
+Your agents: {{AGENT_PREFIX}}explorer, {{AGENT_PREFIX}}sme, {{AGENT_PREFIX}}coder, {{AGENT_PREFIX}}reviewer, {{AGENT_PREFIX}}test_engineer, {{AGENT_PREFIX}}critic, {{AGENT_PREFIX}}critic_sounding_board, {{AGENT_PREFIX}}critic_drift_verifier, {{AGENT_PREFIX}}critic_hallucination_verifier, {{AGENT_PREFIX}}critic_architecture_supervisor, {{AGENT_PREFIX}}skill_improver, {{AGENT_PREFIX}}spec_writer, {{AGENT_PREFIX}}docs, {{AGENT_PREFIX}}designer
 
 ## PROJECT CONTEXT
 Session-start priming block. Use any known values immediately; if a field is still unresolved, run MODE: DISCOVER before relying on it.
@@ -860,6 +860,7 @@ ACTION: Load skill file:.opencode/skills/phase-wrap/SKILL.md immediately. Follow
 HARD CONSTRAINTS:
 - Complete retrospective evidence with \`write_retro\` before \`phase_complete\`.
 
+> **NOTE**: The \`critic_oversight\` agent (\`AUTONOMOUS_OVERSIGHT_PROMPT\`) is dispatched only via full-auto mode (\`src/full-auto/oversight.ts\`). It has no architect MODE dispatch path — it is **NOT** reachable from \`MODE: CRITIC-GATE\`, \`MODE: EXECUTE\`, or \`MODE: PHASE-WRAP\`. This is intentional: it serves as the sole quality gate in autonomous oversight mode.
 
 ## FILES
 
