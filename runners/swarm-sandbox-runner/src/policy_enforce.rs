@@ -86,7 +86,13 @@ pub fn enforce_symlink_egress(policy: &Policy, cwd: &str) -> Result<(), RunnerEr
     let canonical = std::fs::canonicalize(cwd).map_err(|e| RunnerError::PolicyViolation {
         reason: format!("cannot canonicalize cwd for symlink egress check: {e}"),
     })?;
-    let canonical_str = canonical.to_string_lossy().to_lowercase();
+    // Windows std::fs::canonicalize prepends the verbatim path prefix \\?\ to bypass
+    // MAX_PATH limits.  Strip it so comparison against policy roots (stored as regular
+    // DOS paths without the prefix) works correctly.
+    let canonical_lower = canonical.to_string_lossy().to_lowercase();
+    let canonical_str = canonical_lower
+        .strip_prefix("\\\\?\\")
+        .unwrap_or(&canonical_lower);
 
     let in_allowed = policy
         .workspace_roots
@@ -94,16 +100,22 @@ pub fn enforce_symlink_egress(policy: &Policy, cwd: &str) -> Result<(), RunnerEr
         .chain(std::iter::once(&policy.temp_root))
         .any(|root| {
             let root_lower = root.to_lowercase();
-            canonical_str.starts_with(&root_lower)
+            let root_cmp = root_lower
+                .strip_prefix("\\\\?\\")
+                .unwrap_or(&root_lower)
+                .to_owned();
+            canonical_str.starts_with(&root_cmp)
         });
 
     if !in_allowed {
         events::emit(&events::denial_event(
             "deny_symlink_egress",
-            Some(&canonical_str),
+            Some(canonical_str),
         ));
         return Err(RunnerError::PolicyViolation {
-            reason: format!("cwd resolves outside allowed roots (symlink egress): {canonical_str}"),
+            reason: format!(
+                "cwd resolves outside allowed roots (symlink egress): {canonical_str}"
+            ),
         });
     }
     Ok(())
