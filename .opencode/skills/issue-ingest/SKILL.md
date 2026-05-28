@@ -45,7 +45,7 @@ Flags parsed from signal:
    - WHAT users need and WHY — never HOW to implement
    - FR-### / SC-### numbering, Given/When/Then scenarios
    - No technology stack, APIs, or code structure
-   - `[NEEDS CLARIFICATION]` markers (max 3)
+    - `[NEEDS CLARIFICATION]` markers only for items that survive the clarification funnel: inventory all material uncertainties without numeric cap → classify each (self_resolved/critic_resolved/research_needed/user_decision/deferred_nonblocking) — **overconfidence guard:** if the default is not directly supported by user request, spec, or recorded context, classify as `user_decision` rather than `self_resolved` → consult critic_sounding_board — critic responds per SoundingBoardVerdict: UNNECESSARY→DROP, RESOLVE→RESOLVE, REPHRASE→REPHRASE, APPROVED→ASK_USER — **always-surface protection:** always-surface categories must not receive UNNECESSARY/DROP; override to APPROVED/ASK_USER → record resolved items as assumptions → surface only survivors as markers with decision packet format (grouped by category, recommended defaults, blocking vs optional markers)
 2. Cross-reference the spec against the issue's expected behavior to ensure alignment.
 3. If the issue is a bug: spec must describe the correct behavior, not the broken behavior.
 4. If the issue is a feature: spec must describe the user-facing outcome, not the implementation.

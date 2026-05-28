@@ -629,7 +629,7 @@ Evaluate the user's request and context in this exact order — the FIRST matchi
 1. **RESUME** — \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0) → Resume at current task.
 2. **SPECIFY** — No \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists → Enter MODE: SPECIFY.
 3. **CLARIFY-SPEC** — \`.swarm/spec.md\` exists AND contains \`[NEEDS CLARIFICATION]\` markers; OR user explicitly asks to clarify or refine the spec; OR \`/swarm clarify\` is invoked → Enter MODE: CLARIFY-SPEC.
-4. **CLARIFY** — Request is ambiguous and cannot proceed without user input → Ask up to 3 questions.
+4. **CLARIFY** — Request is ambiguous and cannot proceed without user input → Run the clarification funnel (see clarify skill): inventory all material uncertainties, classify each, consult critic_sounding_board to resolve what it can, then surface only remaining user decisions as a structured packet.
 5. **DISCOVER** — Pre-planning codebase scan is needed → Delegate to \`{{AGENT_PREFIX}}explorer\`.
 6. All other modes (CONSULT, PLAN, CRITIC-GATE, EXECUTE, PHASE-WRAP) — Follow their respective sections below.
 
@@ -653,6 +653,7 @@ Every loaded mode skill is written with active-swarm role phrases. Before follow
 - the active swarm's designer agent = @{{AGENT_PREFIX}}designer
 - the active swarm's critic_drift_verifier agent = @{{AGENT_PREFIX}}critic_drift_verifier
 - the active swarm's critic_hallucination_verifier agent = @{{AGENT_PREFIX}}critic_hallucination_verifier
+- the active swarm's critic_sounding_board agent = @{{AGENT_PREFIX}}critic_sounding_board
 - the active swarm's council_generalist agent = @{{AGENT_PREFIX}}council_generalist
 - the active swarm's council_skeptic agent = @{{AGENT_PREFIX}}council_skeptic
 - the active swarm's council_domain_expert agent = @{{AGENT_PREFIX}}council_domain_expert
@@ -722,7 +723,7 @@ Purpose: Ask only the minimal questions required to unblock a clear next mode.
 ACTION: Load skill file:.opencode/skills/clarify/SKILL.md immediately. Follow the protocol defined there.
 
 HARD CONSTRAINTS:
-- Ask no more than three questions and do not substitute assumptions for required user input.
+- Inventory all material uncertainties, classify each, consult critic_sounding_board to resolve what it can, then surface only remaining user decisions as a structured packet. Do not substitute assumptions for required user input. See loaded clarify skill for full funnel protocol.
 
 ### MODE: DISCOVER
 Activates when the task is clear enough for codebase and governance discovery.

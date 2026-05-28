@@ -15,7 +15,11 @@ const MODE_SKILLS = [
 	['SPECIFY', 'specify', ['SPEC CONTENT RULES', 'EXTERNAL PLAN IMPORT PATH']],
 	['CLARIFY-SPEC', 'clarify-spec', ['[NEEDS CLARIFICATION]', 'delta format']],
 	['RESUME', 'resume', ['.swarm/plan.md exists', 'Swarm field differs']],
-	['CLARIFY', 'clarify', ['Ask up to 3 questions', 'Clear request']],
+	[
+		'CLARIFY',
+		'clarify',
+		['Stage 2: Classify Each Uncertainty', 'Always-Surface Categories'],
+	],
 	['DISCOVER', 'discover', ['governance', 'Project Governance']],
 	['CONSULT', 'consult', ['cached guidance', 'SME calls per project phase']],
 	[
