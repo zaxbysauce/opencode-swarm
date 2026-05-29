@@ -32,8 +32,8 @@ for pair in "${PAIRS[@]}"; do
   if [ $exit_code -ne 0 ]; then
     actual=$(grep -oP '^\s*\d+ pass' "$tmp" | grep -oP '\d+' || echo "0")
 
-    if [ "$actual" -lt "$known_expected" ]; then
-      # Pass count dropped below the known baseline — this is a NEW regression
+    if [ "$actual" -le "$known_expected" ]; then
+      # Pass count is at or below the known baseline — this is a NEW regression
       echo "::error title=Cross-contamination regression::Co-run of $file_a + $file_b: expected ${expected} pass (${expected_a}+${expected_b}), got ${actual} pass. Previously known baseline was ${known_expected}. A new mock.module or vi.mock() leak was introduced."
       echo ""
       echo "Test pair: $file_a + $file_b"
@@ -45,9 +45,16 @@ for pair in "${PAIRS[@]}"; do
       tail -20 "$tmp"
       regression=1
     elif [ "$actual" -lt "$expected" ]; then
-      # Below expected but at or above known baseline — known pre-existing issue
+      # Below individual sum but at or above known baseline — known pre-existing issue
       echo "::warning title=Cross-contamination known issue::Co-run of $file_a + $file_b: expected ${expected} pass, got ${actual} pass (known baseline: ${known_expected}). Pre-existing vi.mock() leak — tracked in scripts/check-cross-contamination.sh."
       known=1
+    else
+      # actual >= expected but exit_code != 0 — unexpected failure
+      echo "::error title=Cross-contamination regression::Co-run of $file_a + $file_b exited with code ${exit_code} despite ${actual} >= ${expected} expected passes. Unexpected test failure or process error introduced."
+      echo ""
+      echo "Tail of output:"
+      tail -20 "$tmp"
+      regression=1
     fi
   fi
   rm -f "$tmp"

@@ -359,7 +359,7 @@ const mockDir = path.resolve('/safe/dir');
 const linkedResolved = path.resolve(mockDir, 'linked.ts');
 const outsideResolved = path.resolve('/outside/linked.ts');
 
-// mockRealpathSync is a vi.fn() (vitest compat) — see mocking patterns above
+// mockRealpathSync is a mock() function (bun:test) — see mocking patterns above
 mockRealpathSync.mockImplementation((inputPath: string) => {
   if (inputPath === mockDir) return mockDir;
   if (inputPath === linkedResolved) return outsideResolved;

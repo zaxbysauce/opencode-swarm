@@ -80,10 +80,13 @@ default stdio behavior:
 
 **Key differences from the canonical spawn pattern:**
 
-1. **`proc.kill()` in `finally` (line 69)**: Not applicable to callback-form `execFile`.
-   The function does not return a `ChildProcess` reference. Instead, the `timeout`
-   option triggers internal `SIGTERM` when exceeded. The callback is invoked only
-   after the process exits — no zombie risk.
+1. **`proc.kill()` in `finally` (line 69)**: **Applicable to callback-form `execFile`.**
+   The function returns a `ChildProcess` reference (matching the canonical spawn
+   pattern per Node.js docs). The child reference enables `kill()` before that
+   point for timeout safety, and failing to call `proc.kill()` in `finally` can
+   leave orphaned children when combined with an outer `withTimeout`. The
+   `timeout` option triggers internal `SIGTERM`, but is not a substitute for
+   explicit kill in `finally` — always kill the child in `finally`.
 
 2. **`stdin: 'ignore'` (line 66)**: Technically default-safe for callback `execFile`
    (stdin is piped, not inherited). However, always add `stdio: ['ignore', 'pipe', 'pipe']`
