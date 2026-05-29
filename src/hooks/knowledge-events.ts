@@ -24,8 +24,12 @@ import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile } from 'node:fs/promises';
 import * as path from 'node:path';
+import lockfile from 'proper-lockfile';
 import { warn } from '../utils/logger.js';
-import type { KnowledgeApplicationRecord } from './knowledge-types.js';
+import type {
+	KnowledgeApplicationRecord,
+	RetrievalOutcome,
+} from './knowledge-types.js';
 
 // ============================================================================
 // Event schema
@@ -146,6 +150,11 @@ export function resolveKnowledgeEventsPath(directory: string): string {
 	return path.join(directory, '.swarm', 'knowledge-events.jsonl');
 }
 
+/** Returns `.swarm/knowledge-application.jsonl` for legacy v2 audit records. */
+export function resolveLegacyApplicationLogPath(directory: string): string {
+	return path.join(directory, '.swarm', 'knowledge-application.jsonl');
+}
+
 // ============================================================================
 // ID / timestamp helpers
 // ============================================================================
@@ -186,8 +195,17 @@ export async function appendKnowledgeEvent(
 ): Promise<KnowledgeEvent> {
 	const populated = withDefaults(event);
 	const filePath = resolveKnowledgeEventsPath(directory);
-	await mkdir(path.dirname(filePath), { recursive: true });
-	await appendFile(filePath, `${JSON.stringify(populated)}\n`, 'utf-8');
+	const dirPath = path.dirname(filePath);
+	await mkdir(dirPath, { recursive: true });
+	let release: (() => Promise<void>) | undefined;
+	try {
+		release = await lockfile.lock(dirPath, {
+			retries: { retries: 20, minTimeout: 10, maxTimeout: 100 },
+		});
+		await appendFile(filePath, `${JSON.stringify(populated)}\n`, 'utf-8');
+	} finally {
+		if (release) await release().catch(() => {});
+	}
 	return populated;
 }
 
@@ -232,6 +250,34 @@ export async function readKnowledgeEvents(
 		if (!trimmed) continue;
 		try {
 			out.push(JSON.parse(trimmed) as KnowledgeEvent);
+		} catch {
+			warn(
+				`[knowledge-events] Skipping corrupted JSONL line in ${filePath}: ${trimmed.slice(
+					0,
+					80,
+				)}`,
+			);
+		}
+	}
+	return out;
+}
+
+/**
+ * Read legacy knowledge-application audit records. Corrupt lines are skipped so
+ * stale telemetry cannot break search, promotion, or manual recall.
+ */
+export async function readLegacyApplicationRecords(
+	directory: string,
+): Promise<KnowledgeApplicationRecord[]> {
+	const filePath = resolveLegacyApplicationLogPath(directory);
+	if (!existsSync(filePath)) return [];
+	const content = await readFile(filePath, 'utf-8');
+	const out: KnowledgeApplicationRecord[] = [];
+	for (const line of content.split('\n')) {
+		const trimmed = line.trim();
+		if (!trimmed) continue;
+		try {
+			out.push(JSON.parse(trimmed) as KnowledgeApplicationRecord);
 		} catch {
 			warn(
 				`[knowledge-events] Skipping corrupted JSONL line in ${filePath}: ${trimmed.slice(
@@ -305,10 +351,9 @@ function maxIso(current: string | undefined, candidate: string): string {
  * and has no event-log counterpart; the event-sourced equivalents come from the
  * separate `knowledge_receipt` tool. So the race-free rule is:
  *
- *   - legacy `shown`: folded ONLY when the event log contains no `retrieved`
- *     event (i.e. a pure pre-migration install). Once any `retrieved` event
- *     exists, `shown_count` is derived from events alone, eliminating the
- *     timestamp-race double-count.
+ *   - legacy `shown`: folded only for entries that do not have a `retrieved`
+ *     event. This preserves pre-migration history for untouched entries while
+ *     avoiding a double-count for entries dual-written by the injector.
  *   - legacy non-`shown` verbs: always folded (no event counterpart, so no
  *     double count), preserving pre-migration history.
  *
@@ -322,13 +367,13 @@ export function recomputeCounters(
 	legacyRecords: KnowledgeApplicationRecord[] = [],
 ): Map<string, CounterRollup> {
 	const map = new Map<string, CounterRollup>();
-
-	const hasRetrievedEvent = events.some((e) => e.type === 'retrieved');
+	const retrievedIds = new Set<string>();
 
 	for (const e of events) {
 		switch (e.type) {
 			case 'retrieved': {
 				for (const id of e.result_ids) {
+					retrievedIds.add(id);
 					get(map, id).shown_count += 1;
 				}
 				break;
@@ -365,14 +410,14 @@ export function recomputeCounters(
 		}
 	}
 
-	// Fold legacy records. `shown` is folded only when the event log has no
-	// `retrieved` event (otherwise events are authoritative for shown_count);
+	// Fold legacy records. `shown` is folded per entry only when that entry has
+	// no `retrieved` event (otherwise events are authoritative for shown_count);
 	// every other verb is folded unconditionally (no event-log counterpart).
 	for (const rec of legacyRecords) {
 		const r = get(map, rec.knowledgeId);
 		switch (rec.result) {
 			case 'shown':
-				if (!hasRetrievedEvent) r.shown_count += 1;
+				if (!retrievedIds.has(rec.knowledgeId)) r.shown_count += 1;
 				break;
 			case 'acknowledged':
 				r.acknowledged_count += 1;
@@ -394,6 +439,47 @@ export function recomputeCounters(
 	return map;
 }
 
+/**
+ * Fail-open rollup reader for hot paths. Search and promotion use this instead
+ * of stale persisted counters so `knowledge_receipt` feedback affects ranking
+ * and safety gates immediately.
+ */
+export async function readKnowledgeCounterRollups(
+	directory: string,
+): Promise<Map<string, CounterRollup>> {
+	try {
+		const [events, legacyRecords] = await Promise.all([
+			readKnowledgeEvents(directory),
+			readLegacyApplicationRecords(directory),
+		]);
+		return recomputeCounters(events, legacyRecords);
+	} catch (err) {
+		warn(
+			`[knowledge-events] readKnowledgeCounterRollups failed: ${
+				err instanceof Error ? err.message : String(err)
+			}`,
+		);
+		return new Map();
+	}
+}
+
+/** Merge event-derived rollups over stored outcome counters for scoring only. */
+export function effectiveRetrievalOutcomes(
+	stored: RetrievalOutcome | undefined,
+	rollup: CounterRollup | undefined,
+): RetrievalOutcome {
+	const base = stored ?? {
+		applied_count: 0,
+		succeeded_after_count: 0,
+		failed_after_count: 0,
+	};
+	if (!rollup) return base;
+	return {
+		...base,
+		...rollup,
+	};
+}
+
 // ============================================================================
 // DI seam
 // ============================================================================
@@ -403,6 +489,9 @@ export const _internals: {
 	appendKnowledgeEvent: typeof appendKnowledgeEvent;
 	recordKnowledgeEvent: typeof recordKnowledgeEvent;
 	readKnowledgeEvents: typeof readKnowledgeEvents;
+	readLegacyApplicationRecords: typeof readLegacyApplicationRecords;
+	readKnowledgeCounterRollups: typeof readKnowledgeCounterRollups;
+	effectiveRetrievalOutcomes: typeof effectiveRetrievalOutcomes;
 	recomputeCounters: typeof recomputeCounters;
 	newTraceId: typeof newTraceId;
 	newEventId: typeof newEventId;
@@ -411,6 +500,9 @@ export const _internals: {
 	appendKnowledgeEvent,
 	recordKnowledgeEvent,
 	readKnowledgeEvents,
+	readLegacyApplicationRecords,
+	readKnowledgeCounterRollups,
+	effectiveRetrievalOutcomes,
 	recomputeCounters,
 	newTraceId,
 	newEventId,

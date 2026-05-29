@@ -1,6 +1,10 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 
 import {
+	effectiveRetrievalOutcomes,
+	readKnowledgeCounterRollups,
+} from './knowledge-events.js';
+import {
 	appendKnowledge,
 	appendRejectedLesson,
 	appendRetractionRecord,
@@ -436,6 +440,7 @@ export async function runAutoPromotion(
 	const knowledgePath = resolveSwarmKnowledgePath(directory);
 	const entries =
 		(await readKnowledge<SwarmKnowledgeEntry>(knowledgePath)) ?? [];
+	const counterRollups = await readKnowledgeCounterRollups(directory);
 
 	let changed = false;
 
@@ -447,7 +452,12 @@ export async function runAutoPromotion(
 		// auto-promotion regardless of phase confirmations or age. Entries with no
 		// outcome history (signal 0) are unaffected, preserving prior behavior.
 		if (
-			computeOutcomeSignal(entry.retrieval_outcomes) <= OUTCOME_PROMOTION_BLOCK
+			computeOutcomeSignal(
+				effectiveRetrievalOutcomes(
+					entry.retrieval_outcomes,
+					counterRollups.get(entry.id),
+				),
+			) <= OUTCOME_PROMOTION_BLOCK
 		) {
 			continue;
 		}

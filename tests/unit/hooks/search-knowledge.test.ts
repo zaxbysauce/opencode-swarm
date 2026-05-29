@@ -1,9 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
-import { mkdirSync, rmSync } from 'node:fs';
+import { mkdtempSync, realpathSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { KnowledgeConfigSchema } from '../../../src/config/schema';
 import {
+	appendKnowledgeEvent,
 	type RetrievedEvent,
 	readKnowledgeEvents,
 } from '../../../src/hooks/knowledge-events';
@@ -49,11 +50,7 @@ describe('searchKnowledge (unified retrieval)', () => {
 	let kp: string;
 	let prevXdg: string | undefined;
 	beforeEach(() => {
-		dir = join(
-			tmpdir(),
-			`swarm-search-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-		);
-		mkdirSync(dir, { recursive: true });
+		dir = realpathSync(mkdtempSync(join(tmpdir(), 'swarm-search-')));
 		kp = resolveSwarmKnowledgePath(dir);
 		prevXdg = process.env.XDG_DATA_HOME;
 		process.env.XDG_DATA_HOME = join(dir, 'xdg');
@@ -159,6 +156,71 @@ describe('searchKnowledge (unified retrieval)', () => {
 		expect(positiveScore).toBeDefined();
 		expect(negativeScore).toBeDefined();
 		expect(positiveScore as number).toBeGreaterThan(negativeScore as number);
+	});
+
+	it('uses event-derived receipt counters instead of stale stored counters when ranking', async () => {
+		await appendKnowledge(
+			kp,
+			makeEntry({
+				id: 'positive',
+				lesson:
+					'focused regression tests validate knowledge receipt feedback before closure',
+				confidence: 0.9,
+				created_at: '2024-01-01T00:00:00.000Z',
+				updated_at: '2024-01-01T00:00:00.000Z',
+			}),
+		);
+		await appendKnowledge(
+			kp,
+			makeEntry({
+				id: 'negative',
+				lesson:
+					'knowledge bug closure should run focused regression suites before handoff',
+				confidence: 0.9,
+				created_at: '2024-02-01T00:00:00.000Z',
+				updated_at: '2024-02-01T00:00:00.000Z',
+			}),
+		);
+
+		for (let i = 0; i < 8; i++) {
+			await appendKnowledgeEvent(dir, {
+				type: 'applied',
+				trace_id: `tp-${i}`,
+				knowledge_id: 'positive',
+				session_id: 's',
+				agent: 'architect',
+			});
+		}
+		for (let i = 0; i < 7; i++) {
+			await appendKnowledgeEvent(dir, {
+				type: 'ignored',
+				trace_id: `tn-${i}`,
+				knowledge_id: 'negative',
+				session_id: 's',
+				agent: 'architect',
+			});
+		}
+
+		const { results } = await searchKnowledge({
+			directory: dir,
+			config,
+			query: 'focused regression tests knowledge bugs',
+			mode: 'manual',
+			tier: 'swarm',
+			maxResults: 2,
+			applyScopeFilter: false,
+			applyRoleScope: false,
+			emitEvent: false,
+		});
+
+		expect(results.map((r) => r.id).slice(0, 2)).toEqual([
+			'positive',
+			'negative',
+		]);
+		expect(
+			results.find((r) => r.id === 'positive')?.retrieval_outcomes
+				.applied_explicit_count,
+		).toBe(8);
 	});
 
 	it('filters archived and quarantined entries', async () => {

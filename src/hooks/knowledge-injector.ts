@@ -21,6 +21,7 @@ import {
 	filterHighConfidenceKnowledge,
 	recordKnowledgeShown,
 } from './knowledge-application.js';
+import { recordKnowledgeEvent } from './knowledge-events.js';
 import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type {
@@ -43,6 +44,11 @@ import { readSwarmFileAsync, safeHook } from './utils.js';
  */
 const INJECTION_SENTINEL = '\u200c[[KNOWLEDGE-INJECTED]]';
 
+interface KnowledgeBlock {
+	text: string;
+	ids: string[];
+}
+
 /**
  * Builds a compact knowledge block from ranked entries, respecting a character budget.
  * Returns the formatted block string, or null if entries is empty.
@@ -59,12 +65,12 @@ function buildKnowledgeBlock(
 	charBudget: number,
 	cfg: KnowledgeConfig,
 	currentProject?: string,
-): string | null {
+): KnowledgeBlock | null {
 	if (entries.length === 0) return null;
 
 	const maxDisplayChars = cfg.max_lesson_display_chars ?? 120;
 
-	const lines: string[] = entries.map((entry) => {
+	const records = entries.map((entry) => {
 		const tier = entry.tier === 'hive' ? '[H]' : '[S]';
 		const confirmedBy = entry.confirmed_by?.length ?? 0;
 		const confirm =
@@ -85,19 +91,24 @@ function buildKnowledgeBlock(
 				? ` (from: ${sanitizeLessonForContext(rawSource)})`
 				: '';
 
-		return `${tier} ${lessonText}${source}${confirm}`;
+		return {
+			id: entry.id,
+			line: `${tier} ${lessonText}${source}${confirm}`,
+		};
 	});
 
 	const header = '\ud83d\udcda Lessons:\n';
 
 	// Trim whole entries from end if block exceeds charBudget
-	let block = `${header}\n${lines.join('\n')}`;
-	while (block.length > charBudget && lines.length > 0) {
-		lines.pop();
-		block = `${header}\n${lines.join('\n')}`;
+	let block = `${header}\n${records.map((r) => r.line).join('\n')}`;
+	while (block.length > charBudget && records.length > 0) {
+		records.pop();
+		block = `${header}\n${records.map((r) => r.line).join('\n')}`;
 	}
 
-	return lines.length > 0 ? block : null;
+	return records.length > 0
+		? { text: block, ids: records.map((r) => r.id) }
+		: null;
 }
 
 /**
@@ -109,11 +120,10 @@ function buildDirectiveBlock(
 	entries: RankedEntry[],
 	charBudget: number,
 	cfg: KnowledgeConfig,
-): string | null {
+): KnowledgeBlock | null {
 	if (entries.length === 0) return null;
 	const maxDisplay = cfg.max_lesson_display_chars ?? 120;
-	const lines: string[] = [];
-	lines.push('<swarm_knowledge_directives>');
+	const records: Array<{ id: string; lines: string[] }> = [];
 	for (const e of entries) {
 		const trigger =
 			e.triggers && e.triggers.length > 0
@@ -140,34 +150,32 @@ function buildDirectiveBlock(
 		const priority = e.directive_priority ?? 'medium';
 		const lesson = sanitizeLessonForContext(e.lesson).slice(0, maxDisplay);
 		// Each directive is one record. Keep YAML-ish for parser-friendliness.
-		lines.push(`- id: ${e.id}`);
-		lines.push(`  confidence: ${Number(e.confidence).toFixed(2)}`);
-		lines.push(`  priority: ${priority}`);
-		lines.push(`  lesson: ${lesson}`);
+		const lines = [
+			`- id: ${e.id}`,
+			`  confidence: ${Number(e.confidence).toFixed(2)}`,
+			`  priority: ${priority}`,
+			`  lesson: ${lesson}`,
+		];
 		if (trigger) lines.push(`  trigger: ${trigger}`);
 		if (required) lines.push(`  required: ${required}`);
 		if (forbidden) lines.push(`  forbidden: ${forbidden}`);
 		if (skillRef) lines.push(`  skill: ${skillRef}`);
 		if (verification) lines.push(`  verification: ${verification}`);
+		records.push({ id: e.id, lines });
 	}
-	lines.push('</swarm_knowledge_directives>');
-	let block = lines.join('\n');
-	while (block.length > charBudget && lines.length > 3) {
-		// Pop the last directive record (find the last '- id:' line)
-		let lastIdx = -1;
-		for (let i = lines.length - 2; i >= 0; i--) {
-			if (lines[i].startsWith('- id:')) {
-				lastIdx = i;
-				break;
-			}
-		}
-		if (lastIdx < 0) break;
-		lines.splice(lastIdx, lines.length - 1 - lastIdx);
-		block = lines.join('\n');
+	const render = () =>
+		[
+			'<swarm_knowledge_directives>',
+			...records.flatMap((r) => r.lines),
+			'</swarm_knowledge_directives>',
+		].join('\n');
+	let block = render();
+	while (block.length > charBudget && records.length > 0) {
+		records.pop();
+		block = render();
 	}
-	// If we trimmed everything to header+footer, return null.
-	if (lines.length <= 2) return null;
-	return block;
+	if (records.length === 0) return null;
+	return { text: block, ids: records.map((r) => r.id) };
 }
 
 /** Sanitizes lesson text to prevent prompt injection into LLM context. */
@@ -199,14 +207,14 @@ function isOrchestratorAgent(agentName: string): boolean {
 function injectKnowledgeMessage(
 	output: { messages?: MessageWithParts[] },
 	text: string,
-): void {
-	if (!output.messages) return;
+): boolean {
+	if (!output.messages) return false;
 
 	// Idempotency guard: skip if already injected in this transform
 	const alreadyInjected = output.messages.some((m) =>
 		m.parts?.some((p) => p.text?.includes(INJECTION_SENTINEL)),
 	);
-	if (alreadyInjected) return;
+	if (alreadyInjected) return false;
 
 	// Insert just before the last user message (recency position).
 	// Avoids the "lost in the middle" attention dead zone that mid-array injection creates.
@@ -224,6 +232,7 @@ function injectKnowledgeMessage(
 	};
 
 	output.messages.splice(insertIdx, 0, knowledgeMessage);
+	return true;
 }
 
 // ============================================================================
@@ -356,19 +365,18 @@ export function createKnowledgeInjectorHook(
 			};
 
 			// Retrieve action-aware ranked entries (uses triggers/applies_to/priority).
-			const search = await searchKnowledge({
+			const search = await _internals.searchKnowledge({
 				directory,
 				config,
 				context: retrievalCtx,
 				mode: 'auto_injection',
 				agent: 'architect',
 				sessionId: systemMsg?.info?.sessionID,
+				emitEvent: false,
 			});
 			const entries = search.results;
 			// Filter to high-confidence entries only (confidence >= 0.8)
 			const filteredEntries = filterHighConfidenceKnowledge(entries);
-			// Track which IDs we showed so application-tracking can split shown from applied.
-			cachedShownIds = filteredEntries.map((e) => e.id);
 
 			// Build drift/briefing preamble into a LOCAL variable so cachedInjectionText
 			// is never mutated before we know whether entries exist. This prevents the
@@ -456,14 +464,14 @@ export function createKnowledgeInjectorHook(
 
 			// 1a. Actionable directives (highest priority — architect must acknowledge).
 			if (directiveBlock) {
-				parts.push(directiveBlock);
-				remaining -= directiveBlock.length;
+				parts.push(directiveBlock.text);
+				remaining -= directiveBlock.text.length;
 			}
 
 			// 1b. Legacy lesson block (informational).
 			if (lessonBlock) {
-				parts.push(lessonBlock);
-				remaining -= lessonBlock.length;
+				parts.push(lessonBlock.text);
+				remaining -= lessonBlock.text.length;
 			}
 
 			// 2. Run memory
@@ -508,17 +516,24 @@ export function createKnowledgeInjectorHook(
 			}
 
 			cachedInjectionText = parts.join('\n\n');
-			injectKnowledgeMessage(output, cachedInjectionText);
+			cachedShownIds = Array.from(
+				new Set([...(directiveBlock?.ids ?? []), ...(lessonBlock?.ids ?? [])]),
+			);
+			const didInject = injectKnowledgeMessage(output, cachedInjectionText);
+			if (!didInject) return;
 
 			// v2: Populate in-memory currentCriticalShownIds so the toolBefore
 			// enforcement gate can read O(1) without re-scanning JSONL.
 			// Keyed by sessionID — the gate consults this exact key.
 			const sessionID = systemMsg?.info?.sessionID;
 			if (sessionID) {
+				const shownIdSet = new Set(cachedShownIds);
 				const criticalIds = filteredEntries
 					.filter(
 						(e) =>
-							e.directive_priority === 'critical' && e.status !== 'archived',
+							shownIdSet.has(e.id) &&
+							e.directive_priority === 'critical' &&
+							e.status !== 'archived',
 					)
 					.map((e) => e.id);
 				if (criticalIds.length > 0) {
@@ -537,16 +552,49 @@ export function createKnowledgeInjectorHook(
 			// This is fire-and-forget; failures must never propagate.
 			if (cachedShownIds.length > 0) {
 				const phaseLabel = `Phase ${currentPhase}`;
-				recordKnowledgeShown(directory, cachedShownIds, {
-					phase: phaseLabel,
-					tool: retrievalCtx.currentTool,
-					action: retrievalCtx.currentAction,
-					targetAgent: retrievalCtx.targetAgent,
-					taskId: retrievalCtx.taskId,
-				}).catch(() => {
-					// swallow — non-critical telemetry
+				const scoreById = new Map(entries.map((e) => [e.id, e.finalScore]));
+				const ranks: Record<string, number> = {};
+				const scores: Record<string, number> = {};
+				cachedShownIds.forEach((id, idx) => {
+					ranks[id] = idx + 1;
+					scores[id] = scoreById.get(id) ?? 0;
 				});
+				await _internals.recordKnowledgeEvent(directory, {
+					type: 'retrieved',
+					trace_id: search.trace_id,
+					session_id: systemMsg?.info?.sessionID ?? 'unknown',
+					phase: retrievalCtx.currentPhase,
+					task_id: retrievalCtx.taskId,
+					agent: 'architect',
+					query:
+						retrievalCtx.lastUserMessage ?? retrievalCtx.currentPhase ?? '',
+					retrieval_mode: 'auto_injection',
+					result_ids: cachedShownIds,
+					ranks,
+					scores,
+				});
+				_internals
+					.recordKnowledgeShown(directory, cachedShownIds, {
+						phase: phaseLabel,
+						tool: retrievalCtx.currentTool,
+						action: retrievalCtx.currentAction,
+						targetAgent: retrievalCtx.targetAgent,
+						taskId: retrievalCtx.taskId,
+					})
+					.catch(() => {
+						// swallow — non-critical telemetry
+					});
 			}
 		},
 	);
 }
+
+export const _internals: {
+	searchKnowledge: typeof searchKnowledge;
+	recordKnowledgeEvent: typeof recordKnowledgeEvent;
+	recordKnowledgeShown: typeof recordKnowledgeShown;
+} = {
+	searchKnowledge,
+	recordKnowledgeEvent,
+	recordKnowledgeShown,
+};

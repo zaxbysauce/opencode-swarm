@@ -23,8 +23,10 @@
 
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import {
+	effectiveRetrievalOutcomes,
 	newTraceId,
 	type RetrievalEventMode,
+	readKnowledgeCounterRollups,
 	recordKnowledgeEvent,
 } from './knowledge-events.js';
 import {
@@ -169,6 +171,7 @@ export async function searchKnowledge(
 				skipScopeFilter: !applyScopeFilter,
 			},
 		);
+		const counterRollups = await readKnowledgeCounterRollups(directory);
 
 		// Tier post-filter (hive-only) and quarantined exclusion. readMergedKnowledge
 		// already excludes archived; quarantined entries must also be hidden.
@@ -214,6 +217,10 @@ export async function searchKnowledge(
 			__critical: boolean;
 		};
 		const scored: Scored[] = candidates.map((entry) => {
+			const retrievalOutcomes = effectiveRetrievalOutcomes(
+				entry.retrieval_outcomes,
+				counterRollups.get(entry.id),
+			);
 			// Text signal (Jaccard query ↔ entry text). 0 when no query.
 			const textScore = queryBigrams
 				? jaccardBigram(queryBigrams, wordBigrams(normalize(entryText(entry))))
@@ -236,7 +243,7 @@ export async function searchKnowledge(
 			// Event-sourced track record: applied/succeeded entries rise, ignored/
 			// contradicted ones sink. 0 (neutral) when the entry has no outcome history.
 			const outcomeBoost =
-				computeOutcomeSignal(entry.retrieval_outcomes) * OUTCOME_RANK_WEIGHT;
+				computeOutcomeSignal(retrievalOutcomes) * OUTCOME_RANK_WEIGHT;
 
 			const finalScore = Math.min(
 				1,
@@ -256,7 +263,12 @@ export async function searchKnowledge(
 				entry.directive_priority === 'critical' &&
 				(ds.triggerHit || ds.actionHit || ds.agentHit);
 
-			return { ...entry, finalScore, __critical: isCritical };
+			return {
+				...entry,
+				retrieval_outcomes: retrievalOutcomes,
+				finalScore,
+				__critical: isCritical,
+			};
 		});
 
 		// Step 7: rerank — critical+matching first (force-include), then by score
