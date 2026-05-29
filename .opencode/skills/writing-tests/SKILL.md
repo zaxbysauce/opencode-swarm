@@ -332,6 +332,69 @@ Some test files use top-level `mock.module` that must persist across all tests i
 
 - `src/__tests__/preflight-phase.test.ts` — mocks `plan/manager` and `preflight-service`
 
+## Cross-Platform Test Patterns
+
+Tests run on all three CI platforms (ubuntu, macos, windows). Path and filesystem behavior
+differs between them. Follow these patterns to prevent platform-specific failures:
+
+### Mock keys with filesystem paths
+
+**Never hardcode Unix-format paths as mock keys.** On Windows, `path.resolve('/dir', 'file')`
+produces drive-letter-prefixed paths like `D:\dir\file`, not `/dir/file`. A mock that checks
+for `/dir/file` will silently never match, causing the test to behave differently on Windows.
+
+**Use `path.resolve()` to construct mock keys the same way the source code does:**
+
+```typescript
+// ❌ WRONG — fails on Windows (mock expects '/safe/dir/linked.ts',
+//    but path.resolve('/safe/dir', 'linked.ts') = 'D:\safe\dir\linked.ts')
+mockRealpathSync.mockImplementation((inputPath: string) => {
+  if (inputPath === '/safe/dir') return '/safe/dir';
+  if (inputPath === '/safe/dir/linked.ts') return '/outside/linked.ts';
+  return inputPath;
+});
+
+// ✅ CORRECT — path.resolve produces matching keys on all platforms
+const mockDir = path.resolve('/safe/dir');
+const linkedResolved = path.resolve(mockDir, 'linked.ts');
+const outsideResolved = path.resolve('/outside/linked.ts');
+
+// mockRealpathSync is a vi.fn() (vitest compat) — see mocking patterns above
+mockRealpathSync.mockImplementation((inputPath: string) => {
+  if (inputPath === mockDir) return mockDir;
+  if (inputPath === linkedResolved) return outsideResolved;
+  return inputPath;
+});
+```
+
+### Symlink behavior differences
+
+- On Windows, `fs.symlinkSync` for directories creates **junctions** by default, which
+  resolve differently than POSIX symlinks. Junction creation may require administrator
+  elevation on older Node.js versions.
+- `fs.realpathSync` on a broken symlink throws `ENOENT` on POSIX but may throw
+  `EINVAL` on Windows, depending on symlink type.
+- Use `test.skipIf(process.platform === 'win32')` for tests that directly manipulate
+  filesystem symlinks, unless the test's purpose is explicitly to verify cross-platform
+  symlink behavior.
+
+### Temporary directory patterns
+
+- Use `os.tmpdir()` + `path.join()` for temp paths. **Never** hardcode `/tmp` or `C:\`.
+- Wrap `mkdtempSync` in `realpathSync` if the result is `chdir`'d on macOS (temp
+  dirs are often symlinked to `/private/var/...`).
+- Clean up temp dirs in `afterEach` or `afterAll` using the `rm` utility with
+  `{ force: true, recursive: true }`.
+
+### Line ending normalization
+
+Git on Windows converts LF to CRLF by default. Tests that compare file contents
+byte-by-byte against expected strings must normalize line endings:
+
+```typescript
+const actual = readFileSync(path, 'utf-8').replace(/\r\n/g, '\n');
+```
+
 ## CI Pipeline Structure
 
 The CI runs on three platforms (ubuntu, macos, windows). Tests are split into sequential steps within each platform's job.
@@ -469,6 +532,9 @@ Use this pattern for:
 - **Do not spawn `cat /dev/zero`, `yes`, or other infinite-output commands.** Use `sleep 30` for "blocking command" tests.
 
 ## Cross-Platform Requirements
+
+> **See also**: [Cross-Platform Test Patterns](#cross-platform-test-patterns) above for detailed
+> guidance on mock keys, symlink behavior, temp directories, and line endings.
 
 All tests must pass on Linux, macOS, and Windows unless explicitly gated with:
 ```typescript
