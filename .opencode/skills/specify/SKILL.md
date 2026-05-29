@@ -28,7 +28,7 @@ Activates when: user asks to "specify", "define requirements", "write a spec", o
    - Success criteria numbered SC-001, SC-002… — measurable and technology-agnostic
    - Key entities if data is involved (no schema or field definitions — entity names only)
    - Edge cases and known failure modes
-   - `[NEEDS CLARIFICATION]` markers (max 3) for items where uncertainty could change scope, security, or core behavior; prefer informed defaults over asking
+    - `[NEEDS CLARIFICATION]` markers for items where uncertainty could change scope, security, or core behavior, BUT ONLY after running the clarification funnel: (1) inventory all material uncertainties without numeric cap, (2) classify each as self_resolved/critic_resolved/research_needed/user_decision/deferred_nonblocking — **overconfidence guard:** if the default is not directly supported by user request, spec, or recorded context, classify as `user_decision` rather than `self_resolved`, (3) consult critic_sounding_board with candidate items — critic responds per SoundingBoardVerdict: UNNECESSARY→DROP, RESOLVE→RESOLVE, REPHRASE→REPHRASE, APPROVED→ASK_USER — **always-surface protection:** always-surface categories must not receive UNNECESSARY/DROP; override to APPROVED/ASK_USER, (4) record all resolved items as explicit assumptions in the spec, (5) use markers only for items that survive the funnel (ASK_USER or unresolved after critic consultation). Decision packet format: grouped by category, recommended defaults, blocking vs optional markers, impact of accepting default. Prefer informed defaults over asking
 5. Write the spec to `.swarm/spec.md`.
 5b. **QA GATE SELECTION (dialogue only).**
 Ask the user which QA gates to enable for this plan before suggesting the next step.
