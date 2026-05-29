@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.46.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.45.0...v7.46.0) (2026-05-29)
+
+
+### Features
+
+* **sandbox:** add native Windows sandbox runner (AppContainer + restricted token) ([#1068](https://github.com/zaxbysauce/opencode-swarm/issues/1068)) ([e40fd8e](https://github.com/zaxbysauce/opencode-swarm/commit/e40fd8e0525e2ba0b3e1d32b33336291df8a8b06))
+
 ## [7.45.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.44.1...v7.45.0) (2026-05-28)
 
 
