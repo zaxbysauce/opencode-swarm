@@ -278,3 +278,16 @@ TRACEABILITY CHECK (run after plan is written, when spec.md exists):
 - Every task MUST reference its source FR-### in the description or acceptance field → tasks with no FR = potential gold-plating, flag to critic
 - Report: "TRACEABILITY: <N> FRs mapped, <M> unmapped FRs (gap), <K> tasks with no FR mapping (gold-plating risk)"
 - If no spec.md: skip this check silently.
+
+### Transition to CRITIC-GATE
+
+After the QA gate selection has been persisted via `set_qa_gates` and the TRACEABILITY CHECK is complete:
+
+1. If `critic_pre_plan` is enabled (default: ON): the plan MUST be reviewed by the critic before any implementation begins.
+2. Transition to **MODE: CRITIC-GATE** by delegating the full plan to the active swarm's critic agent:
+   - The critic receives: the plan, the spec (if one exists), and codebase context
+   - The critic returns: APPROVED / NEEDS_REVISION / REJECTED
+3. Wait for the critic's verdict before proceeding to MODE: EXECUTE.
+4. If the critic approves: proceed to MODE: EXECUTE for implementation.
+5. If the critic requests revision (NEEDS_REVISION): revise the plan and re-submit to the critic (max 2 cycles).
+6. If the critic rejects after 2 cycles: escalate to the user with a full explanation.

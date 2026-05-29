@@ -35,7 +35,15 @@ const MODE_SKILLS = [
 	],
 	['ISSUE_INGEST', 'issue-ingest', ['Phase 1: INTAKE', 'Phase 4: TRANSITION']],
 	['PLAN', 'plan', ['SPEC GATE', 'POST-SAVE_PLAN']],
-	['CRITIC-GATE', 'critic-gate', ['HARD STOP', 'CRITIC-GATE TRIGGER']],
+	[
+		'CRITIC-GATE',
+		'critic-gate',
+		[
+			'HARD STOP',
+			'CRITIC-GATE TRIGGER',
+			"Delegate plan to the active swarm's critic agent",
+		],
+	],
 	[
 		'EXECUTE',
 		'execute',
