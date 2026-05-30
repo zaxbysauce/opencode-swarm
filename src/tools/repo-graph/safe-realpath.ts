@@ -3,7 +3,7 @@ import { realpathSync } from 'node:fs';
 export function safeRealpathSync(
 	targetPath: string,
 	fallback: string,
-	resolver: (target: string) => string = realpathSync,
+	resolver: (targetPath: string) => string = realpathSync,
 ): string | null {
 	try {
 		return resolver(targetPath);

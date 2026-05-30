@@ -257,7 +257,9 @@ export async function saveGraph(
 	const normalizedWorkspace = path.normalize(workspace);
 	const realWorkspace = safeRealpathSync(workspace, normalizedWorkspace);
 	if (realWorkspace === null) {
-		throw new Error(`Unable to resolve workspace real path: ${workspace}`);
+		throw new Error(
+			`Workspace realpath security check failed (non-ENOENT): ${workspace}`,
+		);
 	}
 
 	const normalizedGraphRoot = path.normalize(graph.workspaceRoot);
@@ -267,7 +269,7 @@ export async function saveGraph(
 	);
 	if (realGraphRoot === null) {
 		throw new Error(
-			`Unable to resolve graph workspaceRoot real path: ${graph.workspaceRoot}`,
+			`Graph workspaceRoot realpath security check failed (non-ENOENT): ${graph.workspaceRoot}`,
 		);
 	}
 

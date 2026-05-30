@@ -33,4 +33,18 @@ describe('safeRealpathSync', () => {
 		});
 		expect(eloop).toBeNull();
 	});
+
+	test('returns null when resolver throws non-Error values', () => {
+		const nonError = safeRealpathSync('/workspace/value.ts', '/fallback', () => {
+			throw 'failure';
+		});
+		expect(nonError).toBeNull();
+	});
+
+	test('returns null when Error lacks errno code', () => {
+		const withoutCode = safeRealpathSync('/workspace/error.ts', '/fallback', () => {
+			throw new Error('unknown');
+		});
+		expect(withoutCode).toBeNull();
+	});
 });
