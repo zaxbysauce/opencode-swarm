@@ -3,10 +3,10 @@ import { realpathSync } from 'node:fs';
 export function safeRealpathSync(
 	targetPath: string,
 	fallback: string,
-	resolver: (targetPath: string) => string = realpathSync,
+	realpathResolver: (targetPath: string) => string = realpathSync,
 ): string | null {
 	try {
-		return resolver(targetPath);
+		return realpathResolver(targetPath);
 	} catch (error) {
 		if (
 			error instanceof Error &&

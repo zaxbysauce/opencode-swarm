@@ -36,6 +36,7 @@ describe('safeRealpathSync', () => {
 
 	test('returns null when resolver throws non-Error values', () => {
 		const nonError = safeRealpathSync('/workspace/value.ts', '/fallback', () => {
+			// Intentionally throw non-Error to verify defensive handling.
 			throw 'failure';
 		});
 		expect(nonError).toBeNull();
