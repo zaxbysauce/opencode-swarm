@@ -72,9 +72,7 @@ describe('writeProjectConfigIfNew', () => {
 		Bun.sleepSync(50);
 		writeProjectConfigIfNew(dir);
 
-		expect(fs.statSync(configPath(dir)).mtimeMs).toBeGreaterThanOrEqual(
-			mtimeBefore,
-		);
+		expect(fs.statSync(configPath(dir)).mtimeMs).toBe(mtimeBefore);
 		expect(fs.readFileSync(configPath(dir), 'utf-8')).toBe(sentinel);
 	});
 
@@ -106,7 +104,7 @@ describe('writeProjectConfigIfNew', () => {
 			// Inline copy of writeProjectConfigIfNew (uses patched fs via require)
 			const path = require('node:path');
 			const STARTER_CONTENT = '{}\\n';
-			function writeProjectConfigIfNew(directory) {
+			function writeProjectConfigIfNew(directory, _quiet) {
 				try {
 					const opencodeDir = path.join(directory, '.opencode');
 					const dest = path.join(opencodeDir, 'opencode-swarm.json');
@@ -150,7 +148,7 @@ describe('writeProjectConfigIfNew', () => {
 			};
 			const path = require('node:path');
 			const STARTER_CONTENT = '{}\\n';
-			function writeProjectConfigIfNew(directory) {
+			function writeProjectConfigIfNew(directory, _quiet) {
 				try {
 					const opencodeDir = path.join(directory, '.opencode');
 					const dest = path.join(opencodeDir, 'opencode-swarm.json');
