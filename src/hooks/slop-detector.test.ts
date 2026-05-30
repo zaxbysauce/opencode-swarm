@@ -588,4 +588,42 @@ describe('slop-detector', () => {
 		// No duplicate_utility finding expected
 		expect(injectSystemMessageCalls.length).toBe(0);
 	});
+
+	it('detects cross-file collision — export in file A conflicts with existing export in file B', async () => {
+		// Set up file B in src/utils with a known export
+		mkdirSync(join(projectDir, 'src', 'utils'), { recursive: true });
+		writeFileSync(
+			join(projectDir, 'src', 'utils', 'stringUtils.ts'),
+			'export function truncateString(s: string, max: number): string { return s.slice(0, max); }\n',
+		);
+
+		// Set up a different target file in src/hooks (file A)
+		mkdirSync(join(projectDir, 'src', 'hooks'), { recursive: true });
+		const targetFile = join(projectDir, 'src', 'hooks', 'useFormatting.ts');
+		writeFileSync(targetFile, '// placeholder\n');
+
+		const hook = createSlopDetectorHook(
+			config,
+			projectDir,
+			injectSystemMessage,
+		);
+
+		// Diff that adds the same export name that already exists in stringUtils.ts
+		const content = `+export function truncateString(str: string, limit: number): string {\n+  return str.substring(0, limit);\n+}\n`;
+
+		await hook.toolAfter(
+			{ tool: 'edit', sessionID: 's-dup4' },
+			{
+				args: {
+					filePath: targetFile,
+					newString: content,
+				},
+			},
+		);
+
+		// Should fire — truncateString already exists in a different utility file
+		expect(injectSystemMessageCalls.length).toBe(1);
+		expect(injectSystemMessageCalls[0][1]).toContain('duplicate_utility');
+		expect(injectSystemMessageCalls[0][1]).toContain('truncateString');
+	});
 });

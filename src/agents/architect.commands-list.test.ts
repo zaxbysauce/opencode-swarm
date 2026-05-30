@@ -133,8 +133,19 @@ describe('buildSlashCommandsList (via createArchitectAgent)', () => {
 		);
 	});
 
-	it('contains REUSE_RE_VERIFICATION required field note in Stage B', () => {
-		expect(prompt).toContain('REUSE_RE_VERIFICATION field');
+	it('enforces REUSE_RE_VERIFICATION must not be SKIPPED when EXPORTS_ADDED is non-empty', () => {
+		// Validate the Stage B enforcement: if coder EXPORTS_ADDED was non-empty,
+		// REUSE_RE_VERIFICATION must be VERIFIED or DUPLICATION_DETECTED (not SKIPPED)
+		expect(prompt).toContain('EXPORTS_ADDED was non-empty');
+		expect(prompt).toContain('VERIFIED or DUPLICATION_DETECTED');
+		expect(prompt).toContain('not SKIPPED');
+	});
+
+	it('enforces REUSE_RE_VERIFICATION must be SKIPPED when EXPORTS_ADDED is none', () => {
+		// Validate the Stage B enforcement: if coder EXPORTS_ADDED was "none",
+		// REUSE_RE_VERIFICATION must be SKIPPED
+		expect(prompt).toContain('EXPORTS_ADDED was "none"');
+		expect(prompt).toContain('REUSE_RE_VERIFICATION must be SKIPPED');
 	});
 
 	it('knowledge parent command appears before subcommands', () => {

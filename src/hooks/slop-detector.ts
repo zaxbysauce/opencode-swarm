@@ -16,6 +16,13 @@ const WRITE_EDIT_TOOLS = new Set([
 	'create_file',
 ]);
 
+/**
+ * Regex that matches new export declarations in a unified diff (+lines).
+ * Shared by checkDeadExports and checkDuplicateUtility so updates apply to both.
+ */
+const NEW_EXPORT_RE =
+	/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm;
+
 interface SlopFinding {
 	type:
 		| 'abstraction_bloat'
@@ -133,9 +140,7 @@ function checkDeadExports(
 	const hasPackageJson = fs.existsSync(path.join(projectDir, 'package.json'));
 	if (!hasPackageJson) return null;
 
-	const exportMatches = content.matchAll(
-		/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm,
-	);
+	const exportMatches = content.matchAll(NEW_EXPORT_RE);
 	const newExports: string[] = [];
 	for (const match of exportMatches) {
 		if (match[1]) newExports.push(match[1]);
@@ -263,9 +268,7 @@ function checkDuplicateUtility(
 	targetFile?: string,
 ): SlopFinding | null {
 	// Parse new export names using the same regex as checkDeadExports
-	const exportMatches = content.matchAll(
-		/^\+(?:export)\s+(?:function|class|const|type|interface)\s+(\w{3,})/gm,
-	);
+	const exportMatches = content.matchAll(NEW_EXPORT_RE);
 	const newExports: string[] = [];
 	for (const match of exportMatches) {
 		if (match[1]) newExports.push(match[1]);
