@@ -12,6 +12,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import { KnowledgeConfigSchema } from '../../../src/config/schema';
 import { runAutoPromotion } from '../../../src/hooks/knowledge-curator';
+import { appendKnowledgeEvent } from '../../../src/hooks/knowledge-events';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -110,6 +111,25 @@ describe('runAutoPromotion outcome gate', () => {
 		expect(result.get('bad')?.status).toBe('candidate');
 		// Neutral record promotes as before — proves the gate is outcome-specific.
 		expect(result.get('good')?.status).toBe('established');
+	});
+
+	test('blocks promotion using event-derived receipt counters when stored counters are stale', async () => {
+		const kp = resolveSwarmKnowledgePath(tempDir);
+		await rewriteKnowledge(kp, [entry('event-bad', 'candidate')]);
+		for (let i = 0; i < 8; i++) {
+			await appendKnowledgeEvent(tempDir, {
+				type: 'contradicted',
+				trace_id: `t-${i}`,
+				knowledge_id: 'event-bad',
+				session_id: 's',
+				agent: 'architect',
+			});
+		}
+
+		await runAutoPromotion(tempDir, config);
+
+		const after = await readKnowledge<SwarmKnowledgeEntry>(kp);
+		expect(after.find((e) => e.id === 'event-bad')?.status).toBe('candidate');
 	});
 
 	test('blocks established->promoted promotion for a clearly negative track record', async () => {

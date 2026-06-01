@@ -19,7 +19,7 @@
  *   `directory` argument injected by `createSwarmTool` / hook constructors — never
  *   from the process working directory.
  */
-import type { KnowledgeApplicationRecord } from './knowledge-types.js';
+import type { KnowledgeApplicationRecord, RetrievalOutcome } from './knowledge-types.js';
 /** Current event-log record schema version. Bump when the on-disk shape changes. */
 export declare const KNOWLEDGE_EVENT_SCHEMA_VERSION = 1;
 /**
@@ -112,6 +112,8 @@ export type KnowledgeEventInput = KnowledgeEvent extends infer T ? T extends Kno
 export declare const RECEIPT_EVENT_TYPES: ReadonlySet<string>;
 /** Returns `.swarm/knowledge-events.jsonl` for the given project directory. */
 export declare function resolveKnowledgeEventsPath(directory: string): string;
+/** Returns `.swarm/knowledge-application.jsonl` for legacy v2 audit records. */
+export declare function resolveLegacyApplicationLogPath(directory: string): string;
 /** Generate a fresh trace id. One per retrieval; receipts reference it. */
 export declare function newTraceId(): string;
 /** Generate a fresh event id. Unique per appended event. */
@@ -135,6 +137,11 @@ export declare function recordKnowledgeEvent(directory: string, event: Knowledge
  * `readKnowledge` in knowledge-store.ts.
  */
 export declare function readKnowledgeEvents(directory: string): Promise<KnowledgeEvent[]>;
+/**
+ * Read legacy knowledge-application audit records. Corrupt lines are skipped so
+ * stale telemetry cannot break search, promotion, or manual recall.
+ */
+export declare function readLegacyApplicationRecords(directory: string): Promise<KnowledgeApplicationRecord[]>;
 /**
  * Derived per-entry counters. This is the rollup shape recomputed from the
  * event log; it maps onto the v2 `RetrievalOutcome` counter fields plus the v3
@@ -182,11 +189,22 @@ export interface CounterRollup {
  * @param legacyRecords Optional legacy application records (any order).
  */
 export declare function recomputeCounters(events: KnowledgeEvent[], legacyRecords?: KnowledgeApplicationRecord[]): Map<string, CounterRollup>;
+/**
+ * Fail-open rollup reader for hot paths. Search and promotion use this instead
+ * of stale persisted counters so `knowledge_receipt` feedback affects ranking
+ * and safety gates immediately.
+ */
+export declare function readKnowledgeCounterRollups(directory: string): Promise<Map<string, CounterRollup>>;
+/** Merge event-derived rollups over stored outcome counters for scoring only. */
+export declare function effectiveRetrievalOutcomes(stored: RetrievalOutcome | undefined, rollup: CounterRollup | undefined): RetrievalOutcome;
 export declare const _internals: {
     resolveKnowledgeEventsPath: typeof resolveKnowledgeEventsPath;
     appendKnowledgeEvent: typeof appendKnowledgeEvent;
     recordKnowledgeEvent: typeof recordKnowledgeEvent;
     readKnowledgeEvents: typeof readKnowledgeEvents;
+    readLegacyApplicationRecords: typeof readLegacyApplicationRecords;
+    readKnowledgeCounterRollups: typeof readKnowledgeCounterRollups;
+    effectiveRetrievalOutcomes: typeof effectiveRetrievalOutcomes;
     recomputeCounters: typeof recomputeCounters;
     newTraceId: typeof newTraceId;
     newEventId: typeof newEventId;
