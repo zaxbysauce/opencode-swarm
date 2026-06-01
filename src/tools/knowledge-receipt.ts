@@ -180,7 +180,16 @@ export const knowledge_receipt: ReturnType<typeof createSwarmTool> =
 					ctx as Parameters<typeof knowledge_add.execute>[1],
 				);
 				try {
-					newLessonResults.push(JSON.parse(raw));
+					const output =
+						typeof raw === 'string'
+							? raw
+							: typeof raw === 'object' &&
+									raw !== null &&
+									'output' in raw &&
+									typeof (raw as { output?: unknown }).output === 'string'
+								? (raw as { output: string }).output
+								: '';
+					newLessonResults.push(JSON.parse(output));
 				} catch {
 					newLessonResults.push({ success: false });
 				}

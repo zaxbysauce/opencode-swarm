@@ -5,7 +5,10 @@
  * compaction. Skips for non-architect agents. Appends rejected-pattern warnings
  * to prevent re-learning loops.
  */
+import { recordKnowledgeShown } from './knowledge-application.js';
+import { recordKnowledgeEvent } from './knowledge-events.js';
 import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
+import { searchKnowledge } from './search-knowledge.js';
 /**
  * Creates a knowledge injection hook that injects relevant knowledge into the
  * architect's message context at phase start. Supports caching for re-injection
@@ -19,3 +22,8 @@ import type { KnowledgeConfig, MessageWithParts } from './knowledge-types.js';
 export declare function createKnowledgeInjectorHook(directory: string, config: KnowledgeConfig): (input: Record<string, never>, output: {
     messages?: MessageWithParts[];
 }) => Promise<void>;
+export declare const _internals: {
+    searchKnowledge: typeof searchKnowledge;
+    recordKnowledgeEvent: typeof recordKnowledgeEvent;
+    recordKnowledgeShown: typeof recordKnowledgeShown;
+};
