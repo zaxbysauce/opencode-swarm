@@ -6,7 +6,7 @@
  * cache. Symlink resolution guards against workspace-escape attacks.
  */
 
-import { constants, existsSync, realpathSync } from 'node:fs';
+import { constants, existsSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../../hooks/utils';
@@ -19,6 +19,7 @@ import {
 	isDirty,
 	setCachedGraph,
 } from './cache';
+import { safeRealpathSync } from './safe-realpath';
 import type { RepoGraph } from './types';
 import {
 	createEmptyGraph,
@@ -30,6 +31,18 @@ import {
 	validateGraphNode,
 	validateWorkspace,
 } from './validation';
+
+// ============ DI Seam for Testability ============
+
+/**
+ * Internal function references for testability.
+ * Replace _internals.safeRealpathSync in tests to mock symlink resolution.
+ */
+export const _internals: {
+	safeRealpathSync: typeof safeRealpathSync;
+} = {
+	safeRealpathSync,
+} as const;
 
 // ============ Constants ============
 
@@ -254,19 +267,25 @@ export async function saveGraph(
 	// This prevents a TOCTOU attack where a graph saved for one workspace could
 	// be swapped with a graph from another workspace.
 	const normalizedWorkspace = path.normalize(workspace);
-	let realWorkspace: string;
-	try {
-		realWorkspace = realpathSync(workspace);
-	} catch {
-		realWorkspace = normalizedWorkspace;
+	const realWorkspace = _internals.safeRealpathSync(
+		workspace,
+		normalizedWorkspace,
+	);
+	if (realWorkspace === null) {
+		throw new Error(
+			`Workspace realpath security check failed (non-ENOENT): ${workspace}`,
+		);
 	}
 
 	const normalizedGraphRoot = path.normalize(graph.workspaceRoot);
-	let realGraphRoot: string;
-	try {
-		realGraphRoot = realpathSync(graph.workspaceRoot);
-	} catch {
-		realGraphRoot = normalizedGraphRoot;
+	const realGraphRoot = _internals.safeRealpathSync(
+		graph.workspaceRoot,
+		normalizedGraphRoot,
+	);
+	if (realGraphRoot === null) {
+		throw new Error(
+			`Graph workspaceRoot realpath security check failed (non-ENOENT): ${graph.workspaceRoot}`,
+		);
 	}
 
 	if (path.normalize(realWorkspace) !== path.normalize(realGraphRoot)) {

@@ -16,6 +16,7 @@
  * updates after the initial scan completes.
  */
 import { type RepoGraph } from '../tools/repo-graph';
+import { safeRealpathSync } from '../tools/repo-graph/safe-realpath';
 export interface RepoGraphBuilderHook {
     init(): Promise<void>;
     toolAfter(input: {
@@ -40,5 +41,6 @@ export interface RepoGraphDeps {
     updateGraphForFiles: (workspace: string, files: string[], options?: {
         forceRebuild?: boolean;
     }) => Promise<RepoGraph>;
+    safeRealpathSync?: typeof safeRealpathSync;
 }
 export declare function createRepoGraphBuilderHook(workspaceRoot: string, deps?: Partial<RepoGraphDeps>): RepoGraphBuilderHook;

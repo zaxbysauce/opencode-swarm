@@ -5,7 +5,15 @@
  * writes. Reads validate schema and content before updating the in-memory
  * cache. Symlink resolution guards against workspace-escape attacks.
  */
+import { safeRealpathSync } from './safe-realpath';
 import type { RepoGraph } from './types';
+/**
+ * Internal function references for testability.
+ * Replace _internals.safeRealpathSync in tests to mock symlink resolution.
+ */
+export declare const _internals: {
+    safeRealpathSync: typeof safeRealpathSync;
+};
 /**
  * Get the validated path for the repo-graph.json file.
  * Resolves symlinks via realpath before validation to prevent

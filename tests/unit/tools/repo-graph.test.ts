@@ -23,6 +23,7 @@ import {
 	loadOrCreateGraph,
 	markDirty,
 	type RepoGraph,
+	resolveModuleSpecifier,
 	saveGraph,
 	setCachedGraph,
 	upsertNode,
@@ -30,6 +31,8 @@ import {
 	validateGraphNode,
 	validateWorkspace,
 } from '../../../src/tools/repo-graph';
+import { _internals as builderInternals } from '../../../src/tools/repo-graph/builder';
+import { _internals as storageInternals } from '../../../src/tools/repo-graph/storage';
 
 describe('validateWorkspace', () => {
 	test('rejects empty string', () => {
@@ -1189,5 +1192,90 @@ describe('control character safety in buildWorkspaceGraph', () => {
 		);
 		// New context info must also appear
 		expect(() => validateGraphNode(node)).toThrow('/abs/foo.ts');
+	});
+});
+
+describe('resolveModuleSpecifier with safeRealpathSync returning null', () => {
+	let originalSafeRealpathSync: typeof builderInternals.safeRealpathSync;
+
+	beforeEach(() => {
+		originalSafeRealpathSync = builderInternals.safeRealpathSync;
+		builderInternals.safeRealpathSync = () => null;
+	});
+
+	afterEach(() => {
+		builderInternals.safeRealpathSync = originalSafeRealpathSync;
+	});
+
+	test('returns null when safeRealpathSync returns null', () => {
+		const result = resolveModuleSpecifier(
+			'/workspace',
+			'/workspace/src/file.ts',
+			'./utils',
+		);
+		expect(result).toBeNull();
+	});
+});
+
+describe('saveGraph with safeRealpathSync returning null', () => {
+	let originalSafeRealpathSync: typeof storageInternals.safeRealpathSync;
+
+	beforeEach(() => {
+		originalSafeRealpathSync = storageInternals.safeRealpathSync;
+		storageInternals.safeRealpathSync = () => null;
+	});
+
+	afterEach(() => {
+		storageInternals.safeRealpathSync = originalSafeRealpathSync;
+	});
+
+	test('throws error when safeRealpathSync returns null', async () => {
+		const workspace = '/test-workspace';
+		const graph = createEmptyGraph(workspace);
+		await expect(saveGraph(workspace, graph)).rejects.toThrow(
+			'realpath security check failed',
+		);
+	});
+});
+
+describe('loadOrCreateGraph with safeRealpathSync returning null', () => {
+	let originalSafeRealpathSync: typeof storageInternals.safeRealpathSync;
+	let tempDir: string;
+	let originalCwd: string;
+	const workspaceName = 'loc-graph-null';
+
+	beforeEach(async () => {
+		originalSafeRealpathSync = storageInternals.safeRealpathSync;
+		storageInternals.safeRealpathSync = () => null;
+
+		tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-loc-test-'),
+		);
+		originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+	});
+
+	afterEach(async () => {
+		process.chdir(originalCwd);
+		clearCache(workspaceName);
+		storageInternals.safeRealpathSync = originalSafeRealpathSync;
+		try {
+			await fs.promises.rm(tempDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors
+		}
+	});
+
+	test('propagates saveGraph error when safeRealpathSync returns null', async () => {
+		// Ensure the .swarm directory exists so loadGraph can check for graph file
+		// but loadGraph returns null (no graph file), then saveGraph is called
+		await fs.promises.mkdir(path.join(workspaceName, '.swarm'), {
+			recursive: true,
+		});
+
+		await expect(loadOrCreateGraph(workspaceName)).rejects.toThrow(
+			'realpath security check failed',
+		);
 	});
 });
