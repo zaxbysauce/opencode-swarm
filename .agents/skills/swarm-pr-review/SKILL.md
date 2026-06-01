@@ -171,6 +171,7 @@ The context pack must include, when available:
 - Pull in relevant `.swarm/evidence/`, `.swarm/state`, `.swarm/knowledge`, or hive/project knowledge entries when present.
 - Historical knowledge may guide candidate generation but cannot confirm a finding by itself.
 - Mark stale, quarantined, or cross-project knowledge as advisory until independently verified in this repo.
+- **CI built-artifact checks (dist-check, lockfile diff, bundle-size, etc.) compare against the merge commit, not the PR branch head. The merge commit includes base-branch changes (version bumps, lockfile updates) that may not be in the PR branch, causing false-positive drift signals. When investigating a CI failure on a built artifact, verify the finding against the actual PR branch head artifacts before reporting as PR-introduced. If the drift is only a version mismatch or a lockfile staleness that rebuilding resolves, note in the deterministics signal log that it is a branch-hygiene artifact, not a PR-introduced issue.**
 
 ---
 
@@ -289,14 +290,15 @@ Every explorer must inspect or explicitly mark unavailable:
 5. the nearest relevant test or missing-test location,
 6. deterministic signal entries mapped to its files/symbols,
 7. relevant Swarm knowledge/evidence entries, if present.
+8. **whether the candidate issue is introduced by this PR or pre-existing** — check whether the specific line(s) flagged in the candidate were added or modified by this PR (using `git blame` or `git log -p <file>`). If the lines predate the PR, mark `pr_introduced: NO`. If they were added by this PR, mark `pr_introduced: YES`. If the origin cannot be determined (e.g., the issue is behavioral, not line-specific), mark `pr_introduced: UNKNOWN`. This rule also applies to micro-lane agents.
 
 Explorer output format:
 
 ```text
-[CANDIDATE] | candidate_id | lane | severity | category | file:line | claim | evidence_summary | impact_context | confidence: LOW/MEDIUM/HIGH
+[CANDIDATE] | candidate_id | lane | severity | category | file:line | claim | evidence_summary | impact_context | confidence: LOW/MEDIUM/HIGH | pr_introduced: YES/NO/UNKNOWN
 ```
 
-Explorers must not use `CONFIRMED`, `DISPROVED`, or `PRE_EXISTING`.
+Explorers must not use `CONFIRMED`, `DISPROVED`, or `PRE_EXISTING` as verdict labels. However, `pr_introduced: NO` is a **factual classification of origin**, not a verdict — it records whether the flagging code was added by this PR, not whether the finding is actionable. This is permitted and distinct from the banned verdict labels.
 
 ---
 
@@ -335,7 +337,7 @@ Each micro-lane receives:
 Micro-lane output format:
 
 ```text
-[CANDIDATE] | candidate_id | micro_lane | severity | category | file:line | claim | invariant_violated | evidence_summary | confidence
+[CANDIDATE] | candidate_id | micro_lane | severity | category | file:line | claim | invariant_violated | evidence_summary | confidence | pr_introduced: YES/NO/UNKNOWN
 ```
 
 ---
@@ -855,7 +857,9 @@ You must inspect or mark unavailable:
 7. Swarm artifacts/knowledge.
 
 Return:
-[CANDIDATE] | candidate_id | lane | severity | category | file:line | claim | evidence_summary | impact_context | confidence
+[CANDIDATE] | candidate_id | lane | severity | category | file:line | claim | evidence_summary | impact_context | confidence | pr_introduced: YES/NO/UNKNOWN
+
+`pr_introduced` is a factual classification of origin (line added/modified by this PR?), not a verdict. Check using `git blame` or `git log -p <file>` on the flagged lines. Mark `YES` if the code was added by this PR, `NO` if it predates the PR, `UNKNOWN` if origin cannot be determined.
 ```
 
 Do not let speed degrade validation quality.
