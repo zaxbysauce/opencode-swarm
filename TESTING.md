@@ -76,7 +76,7 @@ import { execFileSync } from 'node:child_process';
 | Step | Directories | Isolation |
 |------|-------------|----------|
 | 1a | hooks (mock.module files — 15 files) | Per-file isolation (dedicated step) |
-| 1b | hooks (remaining groups) | Batch per-group |
+| 1b | hooks (remaining groups) | Per-file loop per group |
 | 2 | cli | Batch |
 | 3 | commands, config | Batch |
 | 4 | tools | Per-file loop |
