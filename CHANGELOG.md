@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.46.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.46.1...v7.46.2) (2026-06-01)
+
+
+### Bug Fixes
+
+* **knowledge:** close event feedback loop for issue 1067 ([#1081](https://github.com/zaxbysauce/opencode-swarm/issues/1081)) ([a322ce3](https://github.com/zaxbysauce/opencode-swarm/commit/a322ce39ff3e1e43a44ac225b53a4ac356f18f78))
+
 ## [7.46.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.46.0...v7.46.1) (2026-05-29)
 
 
