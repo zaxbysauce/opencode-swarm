@@ -105,6 +105,28 @@ describe('knowledge-events: append + read', () => {
 		expect(events.map((e) => e.type)).toEqual(['retrieved', 'applied']);
 	});
 
+	it('serializes concurrent appends under the .swarm directory lock', async () => {
+		await Promise.all(
+			Array.from({ length: 20 }, (_, i) =>
+				appendKnowledgeEvent(dir, {
+					type: 'applied',
+					trace_id: 't',
+					knowledge_id: `k${i}`,
+					session_id: 's',
+					agent: 'coder',
+				}),
+			),
+		);
+
+		const events = await readKnowledgeEvents(dir);
+		expect(events).toHaveLength(20);
+		expect(
+			new Set(
+				events.filter((e) => e.type === 'applied').map((e) => e.knowledge_id),
+			).size,
+		).toBe(20);
+	});
+
 	it('skips corrupted JSONL lines without throwing', async () => {
 		const filePath = resolveKnowledgeEventsPath(dir);
 		mkdirSync(join(dir, '.swarm'), { recursive: true });
@@ -395,7 +417,7 @@ describe('knowledge-events: legacy folding', () => {
 		expect(r?.applied_explicit_count).toBe(1);
 	});
 
-	it('folds legacy shown only when no retrieved event exists (race-free)', () => {
+	it('folds legacy shown per entry when no retrieved event exists for that id', () => {
 		const retrieved: KnowledgeEvent = {
 			type: 'retrieved',
 			event_id: 'e1',
@@ -417,6 +439,16 @@ describe('knowledge-events: legacy folding', () => {
 			[legacy('shown', '2024-06-01T00:00:00.001Z')],
 		);
 		expect(withEvent.get('k1')?.shown_count).toBe(1);
+
+		const mixedEntries = recomputeCounters(
+			[retrieved],
+			[
+				legacy('shown', '2024-06-01T00:00:00.001Z', 'k1'),
+				legacy('shown', '2024-06-01T00:00:00.001Z', 'k2'),
+			],
+		);
+		expect(mixedEntries.get('k1')?.shown_count).toBe(1);
+		expect(mixedEntries.get('k2')?.shown_count).toBe(1);
 
 		// With no retrieved event (pure pre-migration), the legacy 'shown' counts.
 		const noEvent = recomputeCounters(

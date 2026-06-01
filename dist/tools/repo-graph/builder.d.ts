@@ -10,7 +10,17 @@
  * Also exports upsertNode, addEdge, and resolveModuleSpecifier which are
  * used by both the builder and the incremental updater.
  */
+import { safeRealpathSync } from './safe-realpath';
 import type { BuildWorkspaceGraphOptions, GraphEdge, GraphNode, RepoGraph } from './types';
+/**
+ * _internals DI seam for safeRealpathSync.
+ * Defaults to the real implementation. Tests can override this to inject
+ * mock behavior without calling mock.module(...) which leaks across test files
+ * in Bun's shared test-runner process.
+ */
+export declare const _internals: {
+    safeRealpathSync: typeof safeRealpathSync;
+};
 /**
  * Add or update a node in the graph.
  * @param graph - The graph to modify

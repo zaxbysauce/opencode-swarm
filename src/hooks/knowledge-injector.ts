@@ -21,6 +21,7 @@ import {
 	filterHighConfidenceKnowledge,
 	recordKnowledgeShown,
 } from './knowledge-application.js';
+import { recordKnowledgeEvent } from './knowledge-events.js';
 import type { ProjectContext, RankedEntry } from './knowledge-reader.js';
 import { readRejectedLessons } from './knowledge-store.js';
 import type {
@@ -42,6 +43,7 @@ import { readSwarmFileAsync, safeHook } from './utils.js';
  * (📖, U+1F4DA) which was fragile across system encodings.
  */
 const INJECTION_SENTINEL = '\u200c[[KNOWLEDGE-INJECTED]]';
+const defaultSearchKnowledge = searchKnowledge;
 
 /**
  * Builds a compact knowledge block from ranked entries, respecting a character budget.
@@ -356,13 +358,18 @@ export function createKnowledgeInjectorHook(
 			};
 
 			// Retrieve action-aware ranked entries (uses triggers/applies_to/priority).
-			const search = await searchKnowledge({
+			const searchFn =
+				_internals.searchKnowledge === defaultSearchKnowledge
+					? searchKnowledge
+					: _internals.searchKnowledge;
+			const search = await searchFn({
 				directory,
 				config,
 				context: retrievalCtx,
 				mode: 'auto_injection',
 				agent: 'architect',
 				sessionId: systemMsg?.info?.sessionID,
+				emitEvent: false,
 			});
 			const entries = search.results;
 			// Filter to high-confidence entries only (confidence >= 0.8)
@@ -537,16 +544,49 @@ export function createKnowledgeInjectorHook(
 			// This is fire-and-forget; failures must never propagate.
 			if (cachedShownIds.length > 0) {
 				const phaseLabel = `Phase ${currentPhase}`;
-				recordKnowledgeShown(directory, cachedShownIds, {
-					phase: phaseLabel,
-					tool: retrievalCtx.currentTool,
-					action: retrievalCtx.currentAction,
-					targetAgent: retrievalCtx.targetAgent,
-					taskId: retrievalCtx.taskId,
-				}).catch(() => {
-					// swallow — non-critical telemetry
+				const scoreById = new Map(entries.map((e) => [e.id, e.finalScore]));
+				const ranks: Record<string, number> = {};
+				const scores: Record<string, number> = {};
+				cachedShownIds.forEach((id, idx) => {
+					ranks[id] = idx + 1;
+					scores[id] = scoreById.get(id) ?? 0;
 				});
+				await _internals.recordKnowledgeEvent(directory, {
+					type: 'retrieved',
+					trace_id: search.trace_id,
+					session_id: systemMsg?.info?.sessionID ?? 'unknown',
+					phase: retrievalCtx.currentPhase,
+					task_id: retrievalCtx.taskId,
+					agent: 'architect',
+					query:
+						retrievalCtx.lastUserMessage ?? retrievalCtx.currentPhase ?? '',
+					retrieval_mode: 'auto_injection',
+					result_ids: cachedShownIds,
+					ranks,
+					scores,
+				});
+				_internals
+					.recordKnowledgeShown(directory, cachedShownIds, {
+						phase: phaseLabel,
+						tool: retrievalCtx.currentTool,
+						action: retrievalCtx.currentAction,
+						targetAgent: retrievalCtx.targetAgent,
+						taskId: retrievalCtx.taskId,
+					})
+					.catch(() => {
+						// swallow — non-critical telemetry
+					});
 			}
 		},
 	);
 }
+
+export const _internals: {
+	searchKnowledge: typeof searchKnowledge;
+	recordKnowledgeEvent: typeof recordKnowledgeEvent;
+	recordKnowledgeShown: typeof recordKnowledgeShown;
+} = {
+	searchKnowledge,
+	recordKnowledgeEvent,
+	recordKnowledgeShown,
+};

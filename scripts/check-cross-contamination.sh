@@ -19,6 +19,7 @@ PAIRS=(
 
 regression=0
 known=0
+coverage_warn=0
 tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
 
 for pair in "${PAIRS[@]}"; do
@@ -59,6 +60,144 @@ for pair in "${PAIRS[@]}"; do
   fi
   rm -f "$tmp"
 done
+
+# ─── CHECK 1: Mock module list completeness ─────────────────────────────────
+# Files in tests/unit/hooks/ that use mock.module() but are NOT in the CI
+# isolation step list indicate incomplete migration coverage.
+isolation_basenames=(
+  "knowledge-injector.adversarial.test.ts"
+  "knowledge-curator.test.ts"
+  "knowledge-curator-evidence-curation.test.ts"
+  "knowledge-curator-ttl.test.ts"
+  "knowledge-curator.adversarial.test.ts"
+  "knowledge-curator-output.test.ts"
+  "full-auto-intercept.test.ts"
+  "full-auto-intercept.adversarial.test.ts"
+  "full-auto-intercept.dispatch.test.ts"
+  "utils.test.ts"
+  "system-enhancer-coder-context.test.ts"
+  "model-limits-log-reclassification.test.ts"
+  "model-limits-adversarial.test.ts"
+  "log-level-reclassification.test.ts"
+  "context-budget-log-reclassification.test.ts"
+)
+
+while IFS= read -r mock_file; do
+  basename="${mock_file##*/}"
+  found=0
+  for iso in "${isolation_basenames[@]}"; do
+    if [ "$basename" = "$iso" ]; then
+      found=1
+      break
+    fi
+  done
+  if [ "$found" -eq 0 ]; then
+    echo "::warning title=Mock module not in isolation list::$mock_file uses mock.module() but is not in the CI isolation step file list. Add it to ci.yml isolation step or refactor to use _internals DI seam."
+    coverage_warn=1
+  fi
+done < <(grep -rl 'mock\.module(' tests/unit/hooks/ 2>/dev/null || true)
+
+# ─── CHECK 2: Hook test file coverage ────────────────────────────────────────
+# Every *.test.ts in tests/unit/hooks/ must be covered by a CI step glob or
+# the isolation list. Unmatched files are advisory (::notice).
+
+# Step globs (basename patterns that map to CI step coverage)
+step_globs=(
+  "adversarial-detect*"
+  "advisory*"
+  "agent-activity*"
+  "co-change*"
+  "compaction*"
+  "context-budget*"
+  "context-scoring*"
+  "curator*"
+  "curator-*"
+  "dark-matter*"
+  "delegation*"
+  "delegation-*"
+  "destructive-command*"
+  "extractors*"
+  "full-auto-*"
+  "gate-tracking*"
+  "guardrails*"
+  "hive*"
+  "hook-composition*"
+  "interpreter-gating*"
+  "knowledge-application*"
+  "knowledge-contextual-retrieval*"
+  "knowledge-curator*"
+  "knowledge-curator-*"
+  "knowledge-events*"
+  "knowledge-injector*"
+  "knowledge-migrator*"
+  "knowledge-quarantine*"
+  "knowledge-reader*"
+  "knowledge-registration*"
+  "knowledge-schema-v2*"
+  "knowledge-store*"
+  "knowledge-types*"
+  "knowledge-validator*"
+  "message*"
+  "mode-detection*"
+  "model-limits*"
+  "phase-complete*"
+  "phase-monitor*"
+  "pipeline*"
+  "plan-cursor*"
+  "repo-graph*"
+  "review-receipt*"
+  "search-knowledge*"
+  "self-coding*"
+  "skill-*"
+  "spec-drift*"
+  "steering*"
+  "system-enhancer*"
+  "system-enhancer-budget*"
+  "system-enhancer-lean*"
+  "system-enhancer-load-evidence*"
+  "system-enhancer-v*"
+  "system-message*"
+  "telemetry*"
+  "tool-summarizer*"
+  "trajectory*"
+  "utils*"
+  "write-lstat*"
+)
+
+matches_glob() {
+  local file="$1"
+  local basename="${file##*/}"
+  for glob in "${step_globs[@]}"; do
+    if [[ "$basename" == $glob ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+in_isolation_list() {
+  local file="$1"
+  local basename="${file##*/}"
+  for iso in "${isolation_basenames[@]}"; do
+    if [ "$basename" = "$iso" ]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+while IFS= read -r test_file; do
+  if matches_glob "$test_file" || in_isolation_list "$test_file"; then
+    continue
+  fi
+  echo "::notice title=Hook test file not in CI coverage::$test_file is not covered by any named CI step glob or the isolation list. Consider adding it to an appropriate CI step or the isolation list."
+  coverage_warn=1
+done < <(find tests/unit/hooks/ -maxdepth 1 -name '*.test.ts' -type f 2>/dev/null || true)
+
+if [ "$coverage_warn" -gt 0 ]; then
+  echo ""
+  echo "Audit checks completed with warnings (non-blocking)."
+fi
 
 if [ "$regression" -gt 0 ]; then
   echo ""

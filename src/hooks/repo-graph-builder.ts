@@ -16,7 +16,6 @@
  * updates after the initial scan completes.
  */
 
-import { realpathSync } from 'node:fs';
 import * as path from 'node:path';
 import { WRITE_TOOL_NAMES } from '../config/constants';
 import {
@@ -25,6 +24,7 @@ import {
 	saveGraph,
 	updateGraphForFiles,
 } from '../tools/repo-graph';
+import { safeRealpathSync } from '../tools/repo-graph/safe-realpath';
 import * as logger from '../utils/logger';
 import { yieldToEventLoop } from '../utils/timeout';
 
@@ -56,6 +56,7 @@ export interface RepoGraphDeps {
 		files: string[],
 		options?: { forceRebuild?: boolean },
 	) => Promise<RepoGraph>;
+	safeRealpathSync?: typeof safeRealpathSync;
 }
 
 const SUPPORTED_EXTENSIONS = [
@@ -107,6 +108,7 @@ export function createRepoGraphBuilderHook(
 		deps?.buildWorkspaceGraph ?? buildWorkspaceGraphAsync;
 	const _saveGraph = deps?.saveGraph ?? saveGraph;
 	const _updateGraphForFiles = deps?.updateGraphForFiles ?? updateGraphForFiles;
+	const _safeRealpathSync = deps?.safeRealpathSync ?? safeRealpathSync;
 
 	let initStarted = false;
 	let initPromise: Promise<void> = Promise.resolve();
@@ -180,36 +182,17 @@ export function createRepoGraphBuilderHook(
 			// real path is still within the workspace boundary. This prevents
 			// symlink-based workspace escape attacks (mirrors the approach used
 			// in resolveModuleSpecifier in repo-graph.ts).
-			let realFilePath: string;
-			try {
-				realFilePath = realpathSync(absoluteFilePath);
-			} catch (error) {
-				// Only fall back to unresolved path for ENOENT (file doesn't exist yet).
-				// Reject all other errors (EACCES, ELOOP, etc.) to prevent symlink-based
-				// workspace escape attacks.
-				if (
-					!(error instanceof Error) ||
-					(error as NodeJS.ErrnoException).code !== 'ENOENT'
-				) {
-					return; // Reject path - security boundary check failed
-				}
-				realFilePath = absoluteFilePath;
+			const realFilePath = _safeRealpathSync(
+				absoluteFilePath,
+				absoluteFilePath,
+			);
+			if (realFilePath === null) {
+				return;
 			}
 
-			let realWorkspace: string;
-			try {
-				realWorkspace = realpathSync(workspaceRoot);
-			} catch (error) {
-				// Only fall back to unresolved path for ENOENT.
-				// Reject all other errors (EACCES, ELOOP, etc.) to prevent symlink-based
-				// workspace escape attacks.
-				if (
-					!(error instanceof Error) ||
-					(error as NodeJS.ErrnoException).code !== 'ENOENT'
-				) {
-					return; // Reject path - security boundary check failed
-				}
-				realWorkspace = workspaceRoot;
+			const realWorkspace = _safeRealpathSync(workspaceRoot, workspaceRoot);
+			if (realWorkspace === null) {
+				return;
 			}
 
 			const normalizedAbsolute = realFilePath.replace(/\\/g, '/');
