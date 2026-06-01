@@ -20,6 +20,7 @@ import * as logger from '../../utils/logger';
 import { containsControlChars } from '../../utils/path-security';
 import { yieldToEventLoop } from '../../utils/timeout';
 import { extractPythonSymbols, extractTSSymbols } from '../symbols';
+import { safeRealpathSync } from './safe-realpath';
 import type {
 	BuildWorkspaceGraphOptions,
 	GraphEdge,
@@ -31,12 +32,23 @@ import {
 	normalizeGraphPath,
 	updateGraphMetadata,
 } from './types';
-import { safeRealpathSync } from './safe-realpath';
 import {
 	validateGraphEdge,
 	validateGraphNode,
 	validateWorkspace,
 } from './validation';
+
+/**
+ * _internals DI seam for safeRealpathSync.
+ * Defaults to the real implementation. Tests can override this to inject
+ * mock behavior without calling mock.module(...) which leaks across test files
+ * in Bun's shared test-runner process.
+ */
+export const _internals: {
+	safeRealpathSync: typeof safeRealpathSync;
+} = {
+	safeRealpathSync,
+} as const;
 
 // ============ Constants ============
 
@@ -180,14 +192,17 @@ export function resolveModuleSpecifier(
 			// SECURITY: Resolve symlinks to get the real path, then verify the
 			// real path is still within the workspace boundary. This prevents
 			// symlink-based workspace escape attacks.
-			const initialRealResolved = safeRealpathSync(resolved, resolved);
+			const initialRealResolved = _internals.safeRealpathSync(
+				resolved,
+				resolved,
+			);
 			if (initialRealResolved === null) {
 				return null;
 			}
 			let realResolved = initialRealResolved;
 
 			// Get the realpath of the workspace root to compare consistently
-			const realRoot = safeRealpathSync(
+			const realRoot = _internals.safeRealpathSync(
 				workspaceRoot,
 				path.normalize(workspaceRoot),
 			);
@@ -219,7 +234,7 @@ export function resolveModuleSpecifier(
 				}
 				if (found) {
 					// Re-resolve symlinks for the found file
-					const foundRealPath = safeRealpathSync(found, found);
+					const foundRealPath = _internals.safeRealpathSync(found, found);
 					if (foundRealPath === null) {
 						return null;
 					}

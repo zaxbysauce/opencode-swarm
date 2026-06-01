@@ -10,20 +10,28 @@ describe('safeRealpathSync', () => {
 	});
 
 	test('returns fallback on ENOENT', () => {
-		const resolved = safeRealpathSync('/workspace/missing.ts', '/fallback', () => {
-			const error = new Error('missing') as NodeJS.ErrnoException;
-			error.code = 'ENOENT';
-			throw error;
-		});
+		const resolved = safeRealpathSync(
+			'/workspace/missing.ts',
+			'/fallback',
+			() => {
+				const error = new Error('missing') as NodeJS.ErrnoException;
+				error.code = 'ENOENT';
+				throw error;
+			},
+		);
 		expect(resolved).toBe('/fallback');
 	});
 
 	test('returns null on non-ENOENT errno errors', () => {
-		const eacces = safeRealpathSync('/workspace/blocked.ts', '/fallback', () => {
-			const error = new Error('denied') as NodeJS.ErrnoException;
-			error.code = 'EACCES';
-			throw error;
-		});
+		const eacces = safeRealpathSync(
+			'/workspace/blocked.ts',
+			'/fallback',
+			() => {
+				const error = new Error('denied') as NodeJS.ErrnoException;
+				error.code = 'EACCES';
+				throw error;
+			},
+		);
 		expect(eacces).toBeNull();
 
 		const eloop = safeRealpathSync('/workspace/loop.ts', '/fallback', () => {
@@ -35,17 +43,25 @@ describe('safeRealpathSync', () => {
 	});
 
 	test('returns null when resolver throws non-Error values', () => {
-		const nonError = safeRealpathSync('/workspace/value.ts', '/fallback', () => {
-			// Intentionally throw non-Error to verify defensive handling.
-			throw 'failure';
-		});
+		const nonError = safeRealpathSync(
+			'/workspace/value.ts',
+			'/fallback',
+			() => {
+				// Intentionally throw non-Error to verify defensive handling.
+				throw 'failure';
+			},
+		);
 		expect(nonError).toBeNull();
 	});
 
 	test('returns null when Error lacks errno code', () => {
-		const withoutCode = safeRealpathSync('/workspace/error.ts', '/fallback', () => {
-			throw new Error('unknown');
-		});
+		const withoutCode = safeRealpathSync(
+			'/workspace/error.ts',
+			'/fallback',
+			() => {
+				throw new Error('unknown');
+			},
+		);
 		expect(withoutCode).toBeNull();
 	});
 });

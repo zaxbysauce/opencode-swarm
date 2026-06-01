@@ -56,6 +56,7 @@ export interface RepoGraphDeps {
 		files: string[],
 		options?: { forceRebuild?: boolean },
 	) => Promise<RepoGraph>;
+	safeRealpathSync?: typeof safeRealpathSync;
 }
 
 const SUPPORTED_EXTENSIONS = [
@@ -107,6 +108,7 @@ export function createRepoGraphBuilderHook(
 		deps?.buildWorkspaceGraph ?? buildWorkspaceGraphAsync;
 	const _saveGraph = deps?.saveGraph ?? saveGraph;
 	const _updateGraphForFiles = deps?.updateGraphForFiles ?? updateGraphForFiles;
+	const _safeRealpathSync = deps?.safeRealpathSync ?? safeRealpathSync;
 
 	let initStarted = false;
 	let initPromise: Promise<void> = Promise.resolve();
@@ -180,7 +182,7 @@ export function createRepoGraphBuilderHook(
 			// real path is still within the workspace boundary. This prevents
 			// symlink-based workspace escape attacks (mirrors the approach used
 			// in resolveModuleSpecifier in repo-graph.ts).
-			const realFilePath = safeRealpathSync(
+			const realFilePath = _safeRealpathSync(
 				absoluteFilePath,
 				absoluteFilePath,
 			);
@@ -188,7 +190,7 @@ export function createRepoGraphBuilderHook(
 				return;
 			}
 
-			const realWorkspace = safeRealpathSync(workspaceRoot, workspaceRoot);
+			const realWorkspace = _safeRealpathSync(workspaceRoot, workspaceRoot);
 			if (realWorkspace === null) {
 				return;
 			}

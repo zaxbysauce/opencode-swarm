@@ -19,18 +19,30 @@ import {
 	isDirty,
 	setCachedGraph,
 } from './cache';
+import { safeRealpathSync } from './safe-realpath';
 import type { RepoGraph } from './types';
 import {
 	createEmptyGraph,
 	REPO_GRAPH_FILENAME,
 	updateGraphMetadata,
 } from './types';
-import { safeRealpathSync } from './safe-realpath';
 import {
 	validateGraphEdge,
 	validateGraphNode,
 	validateWorkspace,
 } from './validation';
+
+// ============ DI Seam for Testability ============
+
+/**
+ * Internal function references for testability.
+ * Replace _internals.safeRealpathSync in tests to mock symlink resolution.
+ */
+export const _internals: {
+	safeRealpathSync: typeof safeRealpathSync;
+} = {
+	safeRealpathSync,
+} as const;
 
 // ============ Constants ============
 
@@ -255,7 +267,10 @@ export async function saveGraph(
 	// This prevents a TOCTOU attack where a graph saved for one workspace could
 	// be swapped with a graph from another workspace.
 	const normalizedWorkspace = path.normalize(workspace);
-	const realWorkspace = safeRealpathSync(workspace, normalizedWorkspace);
+	const realWorkspace = _internals.safeRealpathSync(
+		workspace,
+		normalizedWorkspace,
+	);
 	if (realWorkspace === null) {
 		throw new Error(
 			`Workspace realpath security check failed (non-ENOENT): ${workspace}`,
@@ -263,7 +278,7 @@ export async function saveGraph(
 	}
 
 	const normalizedGraphRoot = path.normalize(graph.workspaceRoot);
-	const realGraphRoot = safeRealpathSync(
+	const realGraphRoot = _internals.safeRealpathSync(
 		graph.workspaceRoot,
 		normalizedGraphRoot,
 	);
