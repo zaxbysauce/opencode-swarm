@@ -674,6 +674,27 @@ describe('workspace boundary validation', () => {
 		expect(mockUpdateGraphForFiles).not.toHaveBeenCalled();
 	});
 
+	test('toolAfter skips update when safeRealpathSync returns null', async () => {
+		const hook = createRepoGraphBuilderHook(workspaceRoot, {
+			buildWorkspaceGraph: mockBuildWorkspaceGraph,
+			saveGraph: mockSaveGraph,
+			updateGraphForFiles: mockUpdateGraphForFiles,
+			safeRealpathSync: () => null, // mock returns null
+		});
+
+		// Create a file inside workspace
+		const filePath = path.join(workspaceRoot, 'src', 'index.ts');
+		fs.mkdirSync(path.dirname(filePath), { recursive: true });
+		fs.writeFileSync(filePath, 'export const x = 1;');
+
+		await hook.toolAfter(
+			{ tool: 'write', sessionID: 'test', args: { file_path: filePath } },
+			{ output: undefined },
+		);
+
+		expect(mockUpdateGraphForFiles).not.toHaveBeenCalled();
+	});
+
 	test('symlink pointing outside workspace is rejected via realpathSync', async () => {
 		// Skip on platforms where symlinks are not reliably supported in tmpdir
 		if (process.platform === 'win32') return;
