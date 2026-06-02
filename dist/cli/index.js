@@ -40268,8 +40268,9 @@ var init_deep_dive = __esm(() => {
 // src/commands/design-docs.ts
 function sanitizeDescription(raw) {
   const collapsed = raw.replace(/\s+/g, " ").trim();
-  const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
-  const normalized = stripped.replace(/\s+/g, " ").trim();
+  const stripped1 = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, "");
+  const stripped2 = stripped1.replace(/\[\s*MODE\s*:.*$/gi, "");
+  const normalized = stripped2.replace(/\s+/g, " ").trim();
   if (normalized.length <= MAX_DESC_LEN)
     return normalized;
   return `${normalized.slice(0, MAX_DESC_LEN)}\u2026`;

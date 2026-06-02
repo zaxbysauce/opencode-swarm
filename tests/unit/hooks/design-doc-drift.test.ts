@@ -172,4 +172,18 @@ describe('runDesignDocDriftCheck', () => {
 		const report = await runDesignDocDriftCheck(dir, 12, 'docs');
 		expect(report!.verdict).toBe('NO_DOCS');
 	});
+
+	it('treats malformed traceability.json as absent (NO_DOCS, never throws)', async () => {
+		scaffold(dir);
+		write(path.join(dir, 'src', 'foo.ts'), 'x', NEW);
+		// Syntactically invalid JSON — the parse must fail silently.
+		write(
+			path.join(dir, 'docs', 'reference', 'traceability.json'),
+			'{invalid json: [}',
+			DOC,
+		);
+		const report = await runDesignDocDriftCheck(dir, 13, 'docs');
+		// Registry is treated as absent → NO_DOCS, not a crash or DOC_STALE.
+		expect(report!.verdict).toBe('NO_DOCS');
+	});
 });

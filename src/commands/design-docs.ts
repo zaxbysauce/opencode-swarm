@@ -28,8 +28,14 @@ Flags:
 
 function sanitizeDescription(raw: string): string {
 	const collapsed = raw.replace(/\s+/g, ' ').trim();
-	const stripped = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, '');
-	const normalized = stripped.replace(/\s+/g, ' ').trim();
+	// Strip complete [MODE: ...] blocks (have a closing bracket).
+	const stripped1 = collapsed.replace(/\[\s*MODE\s*:[^\]]*\]/gi, '');
+	// Strip any remaining incomplete [MODE: prefix (no closing bracket).
+	// Without this, "abc [MODE: EXECUTE" would survive the first pass and be
+	// interpolated into the header where the architect's mode parser could
+	// pick it up as a second routing signal (privilege confusion).
+	const stripped2 = stripped1.replace(/\[\s*MODE\s*:.*$/gi, '');
+	const normalized = stripped2.replace(/\s+/g, ' ').trim();
 	if (normalized.length <= MAX_DESC_LEN) return normalized;
 	return `${normalized.slice(0, MAX_DESC_LEN)}…`;
 }
