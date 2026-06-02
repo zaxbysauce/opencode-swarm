@@ -46,6 +46,7 @@ src/git/branch
 # --- src/hooks ---
 src/hooks/curator
 src/hooks/curator-drift
+src/hooks/design-doc-drift
 src/hooks/extractors
 src/hooks/hive-promoter
 src/hooks/knowledge-curator
