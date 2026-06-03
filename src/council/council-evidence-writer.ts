@@ -17,6 +17,7 @@
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
+import { z } from 'zod';
 import {
 	atomicWriteFile,
 	taskEvidencePath,
@@ -32,6 +33,7 @@ const EVIDENCE_DIR = '.swarm/evidence';
 const VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 const COUNCIL_GATE_NAME = 'council';
 const COUNCIL_AGENT_ID = 'architect';
+const ExistingEvidenceSchema = z.record(z.string(), z.unknown());
 
 /**
  * Dependency-injection seam for testing. Tests can temporarily replace
@@ -108,10 +110,10 @@ export async function writeCouncilEvidence(
 			const existingRoot: Record<string, unknown> = Object.create(null);
 			if (existsSync(filePath)) {
 				try {
-					const parsed = JSON.parse(readFileSync(filePath, 'utf-8'));
-					if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
-						safeAssignOwnProps(existingRoot, parsed as Record<string, unknown>);
-					}
+					const parsed = ExistingEvidenceSchema.parse(
+						JSON.parse(readFileSync(filePath, 'utf-8')),
+					);
+					safeAssignOwnProps(existingRoot, parsed);
 					// Arrays, nulls, or corrupt JSON all fall through to a fresh start.
 				} catch {
 					// Corrupted evidence file — start fresh rather than crashing.

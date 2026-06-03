@@ -7,6 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { ZodError, z } from 'zod';
 
 import type { PluginConfig } from '../config';
 import type { Phase, Plan, Task } from '../config/plan-schema';
@@ -39,6 +40,29 @@ import { isStrictTaskId } from '../validation/task-id';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
+
+const EvidenceTaskIdPlanSchema = z
+	.object({
+		phases: z
+			.array(
+				z
+					.object({
+						tasks: z
+							.array(
+								z
+									.object({
+										id: z.string(),
+										status: z.string().optional(),
+									})
+									.passthrough(),
+							)
+							.optional(),
+					})
+					.passthrough(),
+			)
+			.optional(),
+	})
+	.passthrough();
 
 /**
  * v6.33.1 CRIT-1: Fallback map for declared coder scope by taskId.
@@ -582,7 +606,7 @@ async function getEvidenceTaskId(
 
 		// Read and parse the plan file
 		const planContent = await fs.promises.readFile(resolvedPlanPath, 'utf-8');
-		const plan = JSON.parse(planContent);
+		const plan = EvidenceTaskIdPlanSchema.parse(JSON.parse(planContent));
 
 		// Only expected: missing phases array or malformed structure - return null quietly
 		if (!plan || !Array.isArray(plan.phases)) {
@@ -599,6 +623,12 @@ async function getEvidenceTaskId(
 			}
 		}
 	} catch (err) {
+		if (err instanceof ZodError) {
+			logger.warn(
+				'[delegation-gate] getEvidenceTaskId ignored invalid .swarm/plan.json schema',
+			);
+			return null;
+		}
 		// v6.33.7: Never re-throw from getEvidenceTaskId.
 		// Previously, unexpected errors (EPERM, EBUSY, etc.) were re-thrown,
 		// which propagated out of the evidence try-catch (since this call was
