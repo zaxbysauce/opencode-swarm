@@ -571,6 +571,7 @@ async function getEvidenceTaskId(
 	session: AgentSessionState,
 	directory: string,
 ): Promise<string | null> {
+	let resolvedPlanPath: string | undefined;
 	// Primary: currentTaskId or lastCoderDelegationTaskId
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
@@ -592,7 +593,7 @@ async function getEvidenceTaskId(
 		// Resolve both paths to normalize and check for path traversal
 		const resolvedDirectory = path.resolve(directory);
 		const planPath = path.join(resolvedDirectory, '.swarm', 'plan.json');
-		const resolvedPlanPath = path.resolve(planPath);
+		resolvedPlanPath = path.resolve(planPath);
 
 		// Security check: ensure resolved plan path is within the working directory
 		// This prevents path traversal attacks (e.g., ../../etc/plan.json)
@@ -624,8 +625,12 @@ async function getEvidenceTaskId(
 		}
 	} catch (err) {
 		if (err instanceof ZodError) {
+			const issueSummary = err.issues
+				.slice(0, 3)
+				.map((issue) => issue.message)
+				.join('; ');
 			logger.warn(
-				'[delegation-gate] getEvidenceTaskId ignored invalid .swarm/plan.json schema',
+				`[delegation-gate] getEvidenceTaskId ignored invalid plan schema at ${resolvedPlanPath ?? 'unknown path'}: ${issueSummary}`,
 			);
 			return null;
 		}

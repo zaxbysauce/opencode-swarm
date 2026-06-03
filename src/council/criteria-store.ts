@@ -50,9 +50,7 @@ export function readCriteria(
 	const filePath = join(workingDir, COUNCIL_DIR, `${safeId(taskId)}.json`);
 	if (!existsSync(filePath)) return null;
 	try {
-		return CouncilCriteriaSchema.parse(
-			JSON.parse(readFileSync(filePath, 'utf-8')),
-		) as CouncilCriteria;
+		return CouncilCriteriaSchema.parse(JSON.parse(readFileSync(filePath, 'utf-8')));
 	} catch {
 		return null;
 	}

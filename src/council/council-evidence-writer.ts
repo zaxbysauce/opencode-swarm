@@ -33,7 +33,7 @@ const EVIDENCE_DIR = '.swarm/evidence';
 const VALID_TASK_ID = /^\d+\.\d+(\.\d+)*$/;
 const COUNCIL_GATE_NAME = 'council';
 const COUNCIL_AGENT_ID = 'architect';
-const ExistingEvidenceSchema = z.record(z.string(), z.unknown());
+const EvidenceFileSchema = z.record(z.string(), z.unknown());
 
 /**
  * Dependency-injection seam for testing. Tests can temporarily replace
@@ -110,7 +110,7 @@ export async function writeCouncilEvidence(
 			const existingRoot: Record<string, unknown> = Object.create(null);
 			if (existsSync(filePath)) {
 				try {
-					const parsed = ExistingEvidenceSchema.parse(
+					const parsed = EvidenceFileSchema.parse(
 						JSON.parse(readFileSync(filePath, 'utf-8')),
 					);
 					safeAssignOwnProps(existingRoot, parsed);

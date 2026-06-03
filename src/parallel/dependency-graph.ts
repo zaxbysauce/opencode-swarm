@@ -1,5 +1,5 @@
 import * as fs from 'node:fs';
-import { z } from 'zod';
+import { ZodError, z } from 'zod';
 
 export interface TaskNode {
 	id: string;
@@ -60,9 +60,15 @@ export function parseDependencyGraph(planPath: string): DependencyGraph {
 			JSON.parse(fs.readFileSync(planPath, 'utf-8')),
 		);
 	} catch (error) {
+		const detail =
+			error instanceof ZodError
+				? `schema validation failed: ${error.message}`
+				: error instanceof Error
+					? error.message
+					: String(error);
 		console.error(
 			`[dependency-graph] Failed to parse ${planPath}:`,
-			error instanceof Error ? error.message : String(error),
+			detail,
 		);
 		return { tasks, phases, roots: [], leaves: [] };
 	}
