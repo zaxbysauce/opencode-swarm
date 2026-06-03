@@ -28,6 +28,10 @@ describe('createArchitectAgent — designer gate (ui_review)', () => {
 			);
 		});
 
+		it('excludes the designer delegation example block (TASK: Design specification)', () => {
+			expect(prompt).not.toContain('TASK: Design specification');
+		});
+
 		it('excludes designer from knowledge directive delegation list', () => {
 			expect(prompt).not.toContain(', or designer');
 		});
@@ -144,16 +148,34 @@ describe('createArchitectAgent — designer gate (ui_review)', () => {
 			createArchitectAgent('test-model', customPrompt, undefined, undefined, undefined, {
 				enabled: true,
 			});
-			expect(warnSpy).not.toHaveBeenCalledWith(
-				expect.stringContaining('Custom architect prompt may still contain designer references'),
-			);
+			expect(warnSpy).not.toHaveBeenCalled();
 			warnSpy.mockRestore();
 		});
 
 		it('does NOT emit console.warn when default prompt is used and ui_review is disabled (stripping succeeds)', () => {
 			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
 			createArchitectAgent('test-model');
-			expect(warnSpy).not.toHaveBeenCalledWith(
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('does NOT emit console.warn for bare "designer" noun (no @ prefix) in custom prompt', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const customPrompt = 'The human is a UX designer who will review output.';
+			createArchitectAgent('test-model', customPrompt, undefined, undefined, undefined, {
+				enabled: false,
+			});
+			expect(warnSpy).not.toHaveBeenCalled();
+			warnSpy.mockRestore();
+		});
+
+		it('emits console.warn for @Designer (capital D) in custom prompt when ui_review is disabled', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const customPrompt = 'Delegate UI tasks to @Designer agent.';
+			createArchitectAgent('test-model', customPrompt, undefined, undefined, undefined, {
+				enabled: false,
+			});
+			expect(warnSpy).toHaveBeenCalledWith(
 				expect.stringContaining('Custom architect prompt may still contain designer references'),
 			);
 			warnSpy.mockRestore();

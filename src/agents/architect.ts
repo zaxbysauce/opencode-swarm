@@ -1606,7 +1606,7 @@ export function createArchitectAgent(
 				'',
 			)
 			// Remove designer from knowledge-directive delegation list (issue #653 gap 1)
-			?.replace(', or designer', '')
+			?.replace(/, or designer/g, '')
 			// Remove from SKILL AGENT TARGET RENDERING section (issue #653 gap 2)
 			?.replace(
 				"- the active swarm's designer agent = @{{AGENT_PREFIX}}designer\n",
@@ -1615,10 +1615,11 @@ export function createArchitectAgent(
 
 		// Warn if custom prompt wording prevented stripping (issue #653).
 		// All designer occurrences in the default ARCHITECT_PROMPT are removed by the
-		// replacements above. If `designer` still appears, the caller supplied a custom
-		// prompt whose wording does not match the target strings — likely an unregistered-
-		// agent dispatch waiting to fail at runtime.
-		if (prompt?.includes('designer')) {
+		// replacements above. A remaining @designer (or @{{AGENT_PREFIX}}designer) ref
+		// after stripping means the caller supplied a custom prompt that our replacements
+		// could not fully sanitize — an unregistered-agent dispatch waiting to fail at runtime.
+		// Bare "designer" nouns (e.g. "the human is a UX designer") are intentionally excluded.
+		if (/@(?:\{\{AGENT_PREFIX\}\})?designer/i.test(prompt ?? '')) {
 			console.warn(
 				'[swarm] WARNING: Custom architect prompt may still contain designer references after stripping. ' +
 					'Verify your custom prompt does not reference @designer when ui_review is disabled.',
