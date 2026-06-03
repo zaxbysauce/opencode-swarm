@@ -368,6 +368,9 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	// The fix is twofold: (a) `init()` itself yields before doing any work
 	// and uses an async chunked walker; (b) we still dispatch the call via
 	// `queueMicrotask` and bound it with an unref'd 30s watchdog.
+	// Ensure .swarm/ exists before repo graph init tries to save the first graph.
+	initTelemetry(ctx.directory);
+
 	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
 	queueMicrotask(() => {
 		const watchdog = setTimeout(() => {
@@ -415,10 +418,8 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		});
 	});
 
-	// Side tasks moved AFTER the repo-graph dispatch so the deferred init
-	// is queued first. Each is small and scoped to `<ctx.directory>/.swarm/`
+	// Side tasks are small and scoped to `<ctx.directory>/.swarm/`
 	// or `<ctx.directory>/.opencode/`, so none risks a home-tree scan.
-	initTelemetry(ctx.directory);
 	writeSwarmConfigExampleIfNew(ctx.directory);
 	writeProjectConfigIfNew(ctx.directory, config.quiet);
 	// Background staleness check against npm. Detached, never blocks init,
