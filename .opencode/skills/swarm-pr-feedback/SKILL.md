@@ -121,6 +121,23 @@ or compatibility policy, mark the item `NEEDS_USER_DECISION` and ask.
 - For generated output or dist failures, inspect the failing log before rebuilding
   and commit regenerated files only when the PR touches the source surface.
 
+### Independent critic after CRITICAL/HIGH fixes (mandatory)
+
+After implementing any fix for a CRITICAL or HIGH severity finding, dispatch an
+independent critic subagent before pushing. The critic reads only the changed lines
+and challenges:
+
+- Does the fix address the root cause, or only the symptom?
+- Does the fix introduce a new issue at the same location?
+- Is there a test or coverage gap left by the fix?
+- Is the fix over-engineered or under-scoped relative to the finding?
+
+The critic prompt must instruct the subagent to assume the fix is **wrong until
+code evidence proves otherwise**. One-line fixes (typo, heading level, string
+constant) are exempt. Fix clusters that touch shared state, test infrastructure,
+or cross-file contracts always require critic review regardless of individual
+finding severity.
+
 ## Validation
 
 Run targeted validation for every changed surface:

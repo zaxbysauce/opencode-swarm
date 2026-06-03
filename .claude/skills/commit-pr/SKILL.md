@@ -143,12 +143,13 @@ git diff --exit-code -- dist/
 
 ### Tier 1 - quality
 
-Run both linter AND formatter — e.g., `bunx biome check --write .` or equivalent — because CI quality gates reject code that passes tests but fails style validation.
-
 ```bash
 bun run typecheck
-bunx biome ci .
+bunx biome check --write .   # auto-fix formatting and lint violations in-place
+bunx biome ci .              # confirm CI gate is clean after write
 ```
+
+CI runs `bunx biome ci .` (read-only, no writes). If `biome ci` fails locally with format errors, `biome check --write .` applies the fixes in-place. Always run both: write first, confirm the CI gate clean before committing. Skipping the write step and only running `biome ci` will fail CI on any formatting violation without giving you a recovery path.
 
 ### Tier 2 - unit tests
 
