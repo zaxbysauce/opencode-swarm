@@ -854,6 +854,7 @@ for (let i = 0; i < writes; i++) {
 
 			const runWriter = (writerId: number): Promise<void> =>
 				new Promise((resolve, reject) => {
+					let settled = false;
 					const child = spawn(
 						process.execPath,
 						[
@@ -863,6 +864,8 @@ for (let i = 0; i < writes; i++) {
 							String(writesPerWriter),
 						],
 						{
+							cwd: tempDir,
+							timeout: 10_000,
 							stdio: ['ignore', 'pipe', 'pipe'],
 						},
 					);
@@ -870,11 +873,27 @@ for (let i = 0; i < writes; i++) {
 					child.stderr.on('data', (chunk) => {
 						stderr += String(chunk);
 					});
-					child.on('error', reject);
+					child.on('error', (error) => {
+						if (settled) return;
+						settled = true;
+						try {
+							child.kill();
+						} catch {
+							// ignore
+						}
+						reject(error);
+					});
 					child.on('exit', (code) => {
+						if (settled) return;
+						settled = true;
 						if (code === 0) {
 							resolve();
 							return;
+						}
+						try {
+							child.kill();
+						} catch {
+							// ignore
 						}
 						reject(
 							new Error(

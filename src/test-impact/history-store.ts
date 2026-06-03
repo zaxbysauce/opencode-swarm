@@ -23,7 +23,6 @@ const MAX_CHANGED_FILES = 50;
 const HISTORY_WRITE_LOCK_TIMEOUT_MS = 5_000;
 const HISTORY_WRITE_LOCK_STALE_MS = 60_000;
 const HISTORY_WRITE_LOCK_BACKOFF_MS = 10;
-const LOCK_WAIT_BUFFER = new Int32Array(new SharedArrayBuffer(4));
 
 function getHistoryPath(workingDir?: string): string {
 	if (!workingDir) {
@@ -409,7 +408,7 @@ function withHistoryWriteLock<T>(historyPath: string, fn: () => T): T {
 			const remainingMs = Math.max(0, deadline - Date.now());
 			const sleepMs = Math.min(HISTORY_WRITE_LOCK_BACKOFF_MS, remainingMs);
 			if (sleepMs > 0) {
-				Atomics.wait(LOCK_WAIT_BUFFER, 0, 0, sleepMs);
+				sleepSync(sleepMs);
 			}
 		}
 	}
@@ -421,6 +420,13 @@ function withHistoryWriteLock<T>(historyPath: string, fn: () => T): T {
 			fs.rmSync(lockPath, { recursive: true, force: true });
 		} catch {
 			// Best-effort cleanup. Stale lock handling retries acquisition on next write.
+		}
+	}
+
+	function sleepSync(ms: number): void {
+		const until = Date.now() + ms;
+		while (Date.now() < until) {
+			// Intentional short, bounded busy wait for synchronous lock retries.
 		}
 	}
 }
