@@ -1615,11 +1615,12 @@ export function createArchitectAgent(
 
 		// Warn if custom prompt wording prevented stripping (issue #653).
 		// All designer occurrences in the default ARCHITECT_PROMPT are removed by the
-		// replacements above. A remaining @designer (or @{{AGENT_PREFIX}}designer) ref
-		// after stripping means the caller supplied a custom prompt that our replacements
-		// could not fully sanitize — an unregistered-agent dispatch waiting to fail at runtime.
+		// replacements above. A remaining @designer, @{{AGENT_PREFIX}}designer, or bare
+		// {{AGENT_PREFIX}}designer ref after stripping means the caller supplied a custom
+		// prompt that our replacements could not fully sanitize — an unregistered-agent
+		// dispatch waiting to fail at runtime.
 		// Bare "designer" nouns (e.g. "the human is a UX designer") are intentionally excluded.
-		if (/@(?:\{\{AGENT_PREFIX\}\})?designer/i.test(prompt ?? '')) {
+		if (/(?:@(?:\{\{AGENT_PREFIX\}\})?designer\b|\{\{AGENT_PREFIX\}\}designer\b)/i.test(prompt ?? '')) {
 			console.warn(
 				'[swarm] WARNING: Custom architect prompt may still contain designer references after stripping. ' +
 					'Verify your custom prompt does not reference @designer when ui_review is disabled.',

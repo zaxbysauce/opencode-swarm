@@ -180,5 +180,17 @@ describe('createArchitectAgent — designer gate (ui_review)', () => {
 			);
 			warnSpy.mockRestore();
 		});
+
+		it('emits console.warn for {{AGENT_PREFIX}}designer (no @ prefix) in custom prompt', () => {
+			const warnSpy = spyOn(console, 'warn').mockImplementation(() => {});
+			const customPrompt = 'You can delegate UI tasks to {{AGENT_PREFIX}}designer for scaffolding.';
+			createArchitectAgent('test-model', customPrompt, undefined, undefined, undefined, {
+				enabled: false,
+			});
+			expect(warnSpy).toHaveBeenCalledWith(
+				expect.stringContaining('Custom architect prompt may still contain designer references'),
+			);
+			warnSpy.mockRestore();
+		});
 	});
 });
