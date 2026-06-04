@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.50.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.0...v7.50.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **test-impact:** add pass-rate variance to flaky scoring ([#1108](https://github.com/zaxbysauce/opencode-swarm/issues/1108)) ([a2cc05e](https://github.com/zaxbysauce/opencode-swarm/commit/a2cc05ea570dbf22013e664cc633d3d2279f8e0c))
+
 ## [7.50.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.49.1...v7.50.0) (2026-06-04)
 
 
