@@ -43,8 +43,8 @@ export declare function createScopeGuardHook(config: Partial<ScopeGuardConfig>, 
 export declare function isFileInScope(filePath: string, scopeEntries: string[], directory?: string): boolean;
 /**
  * Sanitize a raw file path string to prevent log injection and null-byte attacks.
- * Strips control characters (NUL, CR, LF, TAB, BS, FF, VT), ESC (ANSI escape prefix),
- * and remaining ANSI CSI sequences.
+ * Strips C0 control characters (NUL, CR, LF, TAB, BS, FF, VT), ESC (ANSI escape prefix),
+ * C1 control characters (0x80-0x9F), and remaining ANSI CSI sequences.
  *
  * Null bytes are removed rather than replaced because Node.js `path.resolve()`
  * throws `ERR_INVALID_ARG_VALUE` on `\0`, which would bypass the intended

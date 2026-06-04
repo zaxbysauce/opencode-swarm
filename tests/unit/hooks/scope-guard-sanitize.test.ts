@@ -156,4 +156,50 @@ describe('sanitizePath — C0 control character hardening', () => {
 		// 32 C0 + 1 DEL = 33 underscores
 		expect(result).toBe('_'.repeat(33));
 	});
+
+	describe('C1 control characters (0x80-0x9F)', () => {
+		const C1_BOUNDARIES: Array<{ name: string; code: number }> = [
+			{ name: 'PAD', code: 0x80 },
+			{ name: 'BPH', code: 0x83 },
+			{ name: 'NEL', code: 0x85 },
+			{ name: 'SSA', code: 0x88 },
+			{ name: 'ESA', code: 0x89 },
+			{ name: 'HTS', code: 0x88 },
+			{ name: 'DCS', code: 0x90 },
+			{ name: 'ST', code: 0x9c },
+			{ name: 'OSC', code: 0x9d },
+			{ name: 'PM', code: 0x9e },
+			{ name: 'APC', code: 0x9f },
+		];
+
+		test.each(
+			C1_BOUNDARIES,
+		)('C1 control $name (0x${code.toString(16).padStart(2, "0")}) → replaced with _', ({
+			code,
+		}) => {
+			const input = `prefix${charStr(code)}suffix`;
+			expect(sanitizePath(input)).toBe('prefix_suffix');
+		});
+
+		test('All C1 controls (0x80-0x9F) replaced with _ in bulk', () => {
+			let input = 'prefix';
+			for (let code = 0x80; code <= 0x9f; code++) {
+				input += charStr(code);
+			}
+			input += 'suffix';
+			// 32 C1 chars replaced with 32 underscores
+			expect(sanitizePath(input)).toBe(`prefix${'_'.repeat(32)}suffix`);
+		});
+
+		test('Regular characters above 0x9F are preserved', () => {
+			// 0xA0 (NBSP), 0xFF (ÿ), and multi-byte Unicode should all pass through
+			const input = `prefix${charStr(0xa0)}mid${charStr(0xff)}end`;
+			expect(sanitizePath(input)).toBe(input);
+		});
+
+		test('CJK characters (above 0x9F) are preserved', () => {
+			const input = '/home/用户/项目/文件.ts';
+			expect(sanitizePath(input)).toBe('/home/用户/项目/文件.ts');
+		});
+	});
 });

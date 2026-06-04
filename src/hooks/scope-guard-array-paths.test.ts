@@ -297,6 +297,87 @@ describe('scope-guard array-path parameter handling', () => {
 	});
 
 	// ─────────────────────────────────────────────────────────────
+	// Scenario 8: Empty array bypass — hasArrayKeys prevents early return
+	// ─────────────────────────────────────────────────────────────
+	describe('Scenario 8: Empty array bypass protection (F-001)', () => {
+		it('8a. Empty files[] does not bypass scope check for co-present single-path arg', async () => {
+			ensureAgentSession(SESSION_ID, 'coder');
+			const session = swarmState.agentSessions.get(SESSION_ID)!;
+			session.declaredCoderScope = ['/workspace/src/hooks'];
+
+			const hook = createScopeGuardHook(
+				{ enabled: true },
+				WORKSPACE_DIR,
+				() => {},
+			);
+
+			// Empty files[] + out-of-scope single path — should still detect violation
+			await expect(async () => {
+				await hook.toolBefore(
+					{ tool: 'apply_patch', sessionID: SESSION_ID, callID: 'call-1' },
+					{
+						args: {
+							files: [],
+							path: '/workspace/src/tools/out.ts',
+						},
+					},
+				);
+			}).toThrow(/SCOPE VIOLATION.*src\/tools\/out\.ts/);
+		});
+
+		it('8b. Empty files[] alone does not throw but does not bypass guard', async () => {
+			ensureAgentSession(SESSION_ID, 'coder');
+			const session = swarmState.agentSessions.get(SESSION_ID)!;
+			session.declaredCoderScope = ['/workspace/src/hooks'];
+
+			let advisoryCalled = false;
+			const hook = createScopeGuardHook(
+				{ enabled: true },
+				WORKSPACE_DIR,
+				() => {
+					advisoryCalled = true;
+				},
+			);
+
+			// Empty files[] with declared scope — should not throw (no paths to check)
+			// but should NOT silently bypass the guard (early return at line 118)
+			await expect(async () => {
+				await hook.toolBefore(
+					{ tool: 'apply_patch', sessionID: SESSION_ID, callID: 'call-1' },
+					{ args: { files: [] } },
+				);
+			}).not.toThrow();
+
+			// Verify no false violation was raised (field may exist as false from init)
+			expect(session.scopeViolationDetected).not.toBe(true);
+		});
+
+		it('8c. Empty paths[] does not bypass scope check for co-present single-path arg', async () => {
+			ensureAgentSession(SESSION_ID, 'coder');
+			const session = swarmState.agentSessions.get(SESSION_ID)!;
+			session.declaredCoderScope = ['/workspace/src/hooks'];
+
+			const hook = createScopeGuardHook(
+				{ enabled: true },
+				WORKSPACE_DIR,
+				() => {},
+			);
+
+			await expect(async () => {
+				await hook.toolBefore(
+					{ tool: 'apply_patch', sessionID: SESSION_ID, callID: 'call-1' },
+					{
+						args: {
+							paths: [],
+							filePath: '/workspace/src/tools/out.ts',
+						},
+					},
+				);
+			}).toThrow(/SCOPE VIOLATION.*src\/tools\/out\.ts/);
+		});
+	});
+
+	// ─────────────────────────────────────────────────────────────
 	// Scenario 5: Non-string elements in arrays are skipped
 	// ─────────────────────────────────────────────────────────────
 	describe('Scenario 5: Non-string elements in arrays are skipped', () => {

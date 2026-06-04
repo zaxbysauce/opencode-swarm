@@ -103,10 +103,12 @@ export function createScopeGuardHook(
 			}
 
 			// Collect array paths from all supported array keys
+			let hasArrayKeys = false;
 			const arrayPathKeys = ['files', 'paths', 'targetFiles'];
 			for (const key of arrayPathKeys) {
 				const val = argsObj?.[key];
 				if (Array.isArray(val)) {
+					hasArrayKeys = true;
 					for (const item of val) {
 						if (typeof item === 'string' && item) {
 							candidatePaths.push(item);
@@ -115,7 +117,7 @@ export function createScopeGuardHook(
 				}
 			}
 
-			if (candidatePaths.length === 0) return; // Can't determine path — allow
+			if (candidatePaths.length === 0 && !hasArrayKeys) return; // Can't determine path — allow
 
 			// Validate every collected path
 			for (const rawPath of candidatePaths) {
@@ -167,8 +169,8 @@ export function isFileInScope(
 
 /**
  * Sanitize a raw file path string to prevent log injection and null-byte attacks.
- * Strips control characters (NUL, CR, LF, TAB, BS, FF, VT), ESC (ANSI escape prefix),
- * and remaining ANSI CSI sequences.
+ * Strips C0 control characters (NUL, CR, LF, TAB, BS, FF, VT), ESC (ANSI escape prefix),
+ * C1 control characters (0x80-0x9F), and remaining ANSI CSI sequences.
  *
  * Null bytes are removed rather than replaced because Node.js `path.resolve()`
  * throws `ERR_INVALID_ARG_VALUE` on `\0`, which would bypass the intended
@@ -184,8 +186,8 @@ function sanitizePath(raw: string): string {
 	let result = '';
 	for (let i = 0; i < raw.length; i++) {
 		const c = raw.charCodeAt(i);
-		// Replace C0 controls (0x00-0x1F) and DEL (0x7F) with underscore
-		if (c <= 0x1f || c === 0x7f) {
+		// Replace C0 controls (0x00-0x1F), DEL (0x7F), and C1 controls (0x80-0x9F) with underscore
+		if (c <= 0x1f || c === 0x7f || (c >= 0x80 && c <= 0x9f)) {
 			result += '_';
 			continue;
 		}
