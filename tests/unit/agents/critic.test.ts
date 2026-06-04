@@ -560,7 +560,8 @@ describe('critic.ts prompt overhaul', () => {
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('baseline integrity confirmed');
 		});
 
-		test('PHASE_DRIFT_VERIFIER: branch 3 → drift_detected true (approved_plan defined) + compare + ## BASELINE DRIFT', () => {
+		test('PHASE_DRIFT_VERIFIER: branch 3 → drift_detected true (approved_plan defined) + CRITICAL finding + compare + ## BASELINE DRIFT', () => {
+			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('CRITICAL finding');
 			const hasCompare =
 				PHASE_DRIFT_VERIFIER_PROMPT.includes('Compare `approved_plan` vs `current_plan`') ||
 				PHASE_DRIFT_VERIFIER_PROMPT.includes('compare `approved_plan` vs `current_plan`');
