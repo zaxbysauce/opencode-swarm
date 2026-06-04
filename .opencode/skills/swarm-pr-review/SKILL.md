@@ -109,9 +109,10 @@ If scope cannot be determined, review the narrowest safe scope available and sta
 
 Before launching explorers (Phase 3), confirm the PR branch refs are available:
 - If `head_ref` is a remote branch that is not checked out locally, fetch it via `git fetch origin <head_ref>`
-- Explicitly pass the commit range (`base_ref..head_ref`) in every explorer delegation so explorers read from the correct revision
+- **Check out the head branch locally.** Explorer agents read files from the working tree, not from git history — passing the commit range in the delegation prompt is not sufficient because `Read` / `Glob` / `Grep` tools operate on the filesystem. Without a checkout, explorers silently read the base branch's version of changed files and produce invalid candidates. **Before checking out, verify the working tree is clean (`git status --porcelain`). If uncommitted changes exist, stash them or abort the checkout to prevent data loss.**
+- Explicitly pass the commit range (`base_ref..head_ref`) in every explorer delegation so explorers have the revision context for `git show` commands if they need to inspect specific versions.
 
-If refs cannot be fetched, state the limitation in the context pack.
+If refs cannot be fetched or checked out, state the limitation in the context pack.
 
 ---
 
