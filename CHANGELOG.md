@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.50.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.1...v7.50.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* **test-impact:** harden appendTestRun against concurrent writers ([#1109](https://github.com/zaxbysauce/opencode-swarm/issues/1109)) ([bbc6bc3](https://github.com/zaxbysauce/opencode-swarm/commit/bbc6bc3ba51c5a38afa8603cd5312c74c7595925))
+
 ## [7.50.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.0...v7.50.1) (2026-06-04)
 
 
