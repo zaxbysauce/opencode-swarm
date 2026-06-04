@@ -1,4 +1,4 @@
-﻿import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import {
 	existsSync,
 	mkdtempSync,
@@ -20,10 +20,6 @@ function createTempDir(): string {
 // Helper: create a test file with given content
 function createFile(dir: string, relativePath: string, content: string): void {
 	const fullPath = path.join(dir, relativePath);
-	const parent = path.dirname(fullPath);
-	if (!existsSync(parent)) {
-		// mkdirSync recursively creates parent dirs
-	}
 	writeFileSync(fullPath, content, 'utf-8');
 }
 

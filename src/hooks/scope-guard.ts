@@ -169,12 +169,12 @@ export function isFileInScope(
 
 /**
  * Sanitize a raw file path string to prevent log injection and null-byte attacks.
- * Strips C0 control characters (NUL, CR, LF, TAB, BS, FF, VT), ESC (ANSI escape prefix),
- * C1 control characters (0x80-0x9F), and remaining ANSI CSI sequences.
+ * Replaces C0 control characters (0x00-0x1F), DEL (0x7F), C1 control characters
+ * (0x80-0x9F), and strips remaining ANSI CSI sequences.
  *
- * Null bytes are removed rather than replaced because Node.js `path.resolve()`
- * throws `ERR_INVALID_ARG_VALUE` on `\0`, which would bypass the intended
- * SCOPE VIOLATION error path with a raw TypeError.
+ * All matched control characters are replaced with underscores rather than removed,
+ * so that the resulting string can still be passed to `path.resolve()` without
+ * triggering `ERR_INVALID_ARG_VALUE` on embedded null bytes.
  *
  * Extracted from the original inline sanitization in the scope guard
  * to support reuse across single-path and multi-path code paths.
@@ -188,11 +188,6 @@ function sanitizePath(raw: string): string {
 		const c = raw.charCodeAt(i);
 		// Replace C0 controls (0x00-0x1F), DEL (0x7F), and C1 controls (0x80-0x9F) with underscore
 		if (c <= 0x1f || c === 0x7f || (c >= 0x80 && c <= 0x9f)) {
-			result += '_';
-			continue;
-		}
-		// ESC (0x1B) requires split/join to avoid regex control-char rule
-		if (c === 0x1b) {
 			result += '_';
 			continue;
 		}
