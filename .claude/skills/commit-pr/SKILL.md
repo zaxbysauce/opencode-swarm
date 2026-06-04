@@ -12,6 +12,28 @@ effort: medium
 
 Follow every step in order. Do not skip steps.
 
+## Environment note — tool availability
+
+This skill was originally written for desktop Claude Code (Windows) with `gh`
+CLI and PowerShell. In the **remote execution / GitHub MCP** environment, use
+the equivalent MCP tools instead:
+
+| Desktop / `gh` CLI | Remote MCP equivalent |
+|---|---|
+| `gh pr create ...` | `mcp__github__create_pull_request` |
+| `gh pr edit <n> --title` | `mcp__github__update_pull_request` with `title` |
+| `gh pr checks <n>` | `mcp__github__pull_request_read` method `get_check_runs` |
+| `gh pr view <n> --json statusCheckRollup` | `mcp__github__pull_request_read` method `get` |
+| `gh run view <run-id> --json ...` | `mcp__github__actions_get` method `get_workflow_run` |
+| `gh run list --branch <branch>` | `mcp__github__actions_list` method `list_workflow_runs` |
+| `gh run rerun <run-id> --failed` | `mcp__github__actions_run_trigger` (if available) |
+| `gh run cancel <run-id>` | Not directly available — force-pushing new commits supersedes stale runs via GitHub's concurrency model |
+| `gh issue comment <n> ...` | `mcp__github__add_issue_comment` |
+
+> MCP tool names are injected by the runtime harness and not guaranteed stable
+> across environments. Use `ToolSearch` to verify availability before calling
+> any `mcp__github__*` tool for the first time in a session.
+
 ## Step -1 - Mandatory invariant audit
 
 Before any build, test, push, or PR action, read:
@@ -322,7 +344,7 @@ If a PR already exists for the branch:
 1. do not open a second PR
 2. inspect unresolved PR feedback surfaces before updating or readying the PR: review threads/comments, requested-changes reviews, CI/check failures, mergeability/conflicts, and whether check data belongs to the current head SHA
 3. use `../swarm-pr-feedback/SKILL.md` when feedback needs fixes before closeout
-4. update the existing PR body when summary, invariant evidence, test counts, caveats, or pre-existing failure notes changed
+4. update the existing PR body when summary, invariant evidence, test counts, caveats, or pre-existing failure notes changed; if a follow-up commit changes which invariants are touched (e.g., a dist-check fix adds `dist/` changes to a PR that originally had none), refresh the `## Invariant audit` for every newly-touched invariant — do not leave an audit entry that says "not touched" when a follow-up commit touched it
 5. keep the PR draft while follow-up edits are still expected or required checks are still pending
 6. mark the PR ready only after the body is current and required remote checks are green, unless the user explicitly wants it ready earlier
 7. after any follow-up push or force-push, verify the PR head matches the expected commit and that reported checks belong to the current `headRefOid`:

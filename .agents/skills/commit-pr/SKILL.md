@@ -50,6 +50,10 @@ If the branch already has a PR:
   mergeability/conflicts, and whether check data belongs to the current head SHA
 - update the existing PR body instead of creating a new PR
 - refresh `## Summary`, `## Invariant audit`, and `## Test plan` when validation counts, caveats, or evidence changed
+- if a follow-up commit changes which invariants are touched (e.g., a dist-check
+  fix adds `dist/` changes to a PR that originally had none), update every
+  affected `## Invariant audit` line — never leave an entry saying "not touched"
+  when a later commit touched it
 - verify the PR still points at the pushed branch head after any force-push
 - use `$swarm-pr-feedback` when feedback needs fixes before closeout
 
