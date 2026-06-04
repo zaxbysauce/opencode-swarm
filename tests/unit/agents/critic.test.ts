@@ -525,8 +525,12 @@ describe('critic.ts prompt overhaul', () => {
 		test('branch 3: drift_detected true (approved_plan defined) → CRITICAL finding + compare + ## BASELINE DRIFT', () => {
 			expect(PLAN_CRITIC_PROMPT).toContain('CRITICAL finding');
 			const hasCompare =
-				PLAN_CRITIC_PROMPT.includes('Compare `approved_plan` vs `current_plan`') ||
-				PLAN_CRITIC_PROMPT.includes('compare `approved_plan` vs `current_plan`');
+				PLAN_CRITIC_PROMPT.includes(
+					'Compare `approved_plan` vs `current_plan`',
+				) ||
+				PLAN_CRITIC_PROMPT.includes(
+					'compare `approved_plan` vs `current_plan`',
+				);
 			expect(hasCompare).toBe(true);
 			expect(PLAN_CRITIC_PROMPT).toContain('## BASELINE DRIFT');
 		});
@@ -557,26 +561,36 @@ describe('critic.ts prompt overhaul', () => {
 		});
 
 		test('PHASE_DRIFT_VERIFIER: branch 2 → drift_detected false + baseline integrity confirmed', () => {
-			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('baseline integrity confirmed');
+			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain(
+				'baseline integrity confirmed',
+			);
 		});
 
 		test('PHASE_DRIFT_VERIFIER: branch 3 → drift_detected true (approved_plan defined) + CRITICAL finding + compare + ## BASELINE DRIFT', () => {
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('CRITICAL finding');
 			const hasCompare =
-				PHASE_DRIFT_VERIFIER_PROMPT.includes('Compare `approved_plan` vs `current_plan`') ||
-				PHASE_DRIFT_VERIFIER_PROMPT.includes('compare `approved_plan` vs `current_plan`');
+				PHASE_DRIFT_VERIFIER_PROMPT.includes(
+					'Compare `approved_plan` vs `current_plan`',
+				) ||
+				PHASE_DRIFT_VERIFIER_PROMPT.includes(
+					'compare `approved_plan` vs `current_plan`',
+				);
 			expect(hasCompare).toBe(true);
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('## BASELINE DRIFT');
 		});
 
 		test('PHASE_DRIFT_VERIFIER: branch 3b → approved_plan undefined + tampering + current_plan_error', () => {
-			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('approved_plan` is undefined');
+			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain(
+				'approved_plan` is undefined',
+			);
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('current_plan_error');
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('tampering detected');
 		});
 
 		test('PHASE_DRIFT_VERIFIER: branch 4 → drift_detected unknown + warning + proceed', () => {
-			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('drift_detected: "unknown"');
+			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain(
+				'drift_detected: "unknown"',
+			);
 			expect(PHASE_DRIFT_VERIFIER_PROMPT).toContain('warning');
 		});
 	});
