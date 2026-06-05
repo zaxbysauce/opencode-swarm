@@ -22,8 +22,8 @@ export declare const MAX_LIST_ITEMS = 5;
 /** Verdict vocabulary — mirrors the phase-council gate (APPROVE | CONCERNS | REJECT). */
 export declare const SupervisorVerdictSchema: z.ZodEnum<{
     APPROVE: "APPROVE";
-    REJECT: "REJECT";
     CONCERNS: "CONCERNS";
+    REJECT: "REJECT";
 }>;
 export type SupervisorVerdict = z.infer<typeof SupervisorVerdictSchema>;
 /** Count whitespace-delimited words in a string. */
@@ -120,8 +120,8 @@ export declare const ArchitectureSupervisorReportSchema: z.ZodObject<{
     phase: z.ZodNumber;
     verdict: z.ZodEnum<{
         APPROVE: "APPROVE";
-        REJECT: "REJECT";
         CONCERNS: "CONCERNS";
+        REJECT: "REJECT";
     }>;
     findings: z.ZodDefault<z.ZodArray<z.ZodObject<{
         severity: z.ZodEnum<{

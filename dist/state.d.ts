@@ -7,6 +7,7 @@
  * and delegation chains.
  */
 import type { OpencodeClient } from '@opencode-ai/sdk';
+import type { CouncilAgent } from './council/types';
 import { type QaGates } from './db/qa-gate-profile.js';
 import { type EnvironmentProfile } from './environment/profile.js';
 import type { EscalationTracker } from './prm/escalation.js';
@@ -124,6 +125,11 @@ export interface AgentSessionState {
          */
         quorumSize: number;
     }>;
+    /**
+     * Per-(task,round) required council members for the next submission attempt.
+     * Key format: `${taskId}:${roundNumber}`.
+     */
+    pendingCouncilRequirements?: Map<string, Set<CouncilAgent>>;
     /** Last gate outcome for deliberation preamble injection */
     lastGateOutcome: {
         gate: string;
