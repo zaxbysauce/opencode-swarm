@@ -49,6 +49,19 @@ describe('criteria-store round-trip', () => {
 		expect(readCriteria(tempDir, 'bad.task')).toBeNull();
 	});
 
+	test('schema-invalid criteria file returns null without crashing', () => {
+		mkdirSync(join(tempDir, '.swarm/council'), { recursive: true });
+		writeFileSync(
+			join(tempDir, '.swarm/council/bad_schema.json'),
+			JSON.stringify({
+				taskId: 'bad.schema',
+				criteria: { id: 'C1' },
+				declaredAt: new Date().toISOString(),
+			}),
+		);
+		expect(readCriteria(tempDir, 'bad.schema')).toBeNull();
+	});
+
 	test('path traversal characters in taskId are sanitized', () => {
 		// Ensure malicious taskId cannot escape the .swarm/council directory.
 		const traversalId = '../../../etc/passwd';

@@ -52,7 +52,7 @@ var package_default;
 var init_package = __esm(() => {
   package_default = {
     name: "opencode-swarm",
-    version: "7.50.2",
+    version: "7.50.3",
     description: "Architect-centric agentic swarm plugin for OpenCode - hub-and-spoke orchestration with SME consultation, code generation, and QA review",
     main: "dist/index.js",
     types: "dist/index.d.ts",
@@ -21701,8 +21701,9 @@ var init_guardrails = __esm(() => {
 function clearPendingCoderScope() {
   pendingCoderScopeByTaskId.clear();
 }
-var pendingCoderScopeByTaskId, ACTIVE_PARALLEL_TASK_STATES;
+var EvidenceTaskIdPlanSchema, pendingCoderScopeByTaskId, ACTIVE_PARALLEL_TASK_STATES;
 var init_delegation_gate = __esm(() => {
+  init_zod();
   init_schema();
   init_manager();
   init_state();
@@ -21712,6 +21713,14 @@ var init_delegation_gate = __esm(() => {
   init_guardrails();
   init_normalize_tool_name();
   init_utils2();
+  EvidenceTaskIdPlanSchema = exports_external.object({
+    phases: exports_external.array(exports_external.object({
+      tasks: exports_external.array(exports_external.object({
+        id: exports_external.string(),
+        status: exports_external.string().optional()
+      }).passthrough()).optional()
+    }).passthrough()).optional()
+  }).passthrough();
   pendingCoderScopeByTaskId = new Map;
   ACTIVE_PARALLEL_TASK_STATES = new Set([
     "coder_delegated",
