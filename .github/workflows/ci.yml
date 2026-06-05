@@ -3,6 +3,11 @@ name: CI
 on:
   pull_request:
     branches: ["**"]
+  # Required checks must also run for merge-queue merge groups, otherwise queued
+  # PRs never receive their required check runs and the queue cannot merge them
+  # (see issue #1046). Keep `pull_request` for early per-PR feedback.
+  merge_group:
+    types: [checks_requested]
 
 # Serialize CI runs for the same branch/PR to prevent double-run dist-check
 # interference. Old runs are NOT cancelled because cancelling leaves stale

@@ -421,6 +421,23 @@ validating, then wait for the current-head checks to complete.
 If you edit the PR body after checks are green, expect PR Standards / title
 checks to rerun. Re-check before claiming final green or merge-readiness.
 
+### Merge queue (current-base validation)
+
+When `main` has a GitHub **merge queue** enabled, do not rebase or force-push a PR
+*solely because `main` advanced*. Once required checks and review are green, add the
+PR to the merge queue; GitHub re-runs the required workflows against the queued
+change on top of the latest `main` (and any earlier queued PRs) before merging, so
+manual "freshness" rebases are unnecessary.
+
+Still rebase/force-push when there is a **real** reason: a genuine merge conflict,
+a stale review thread that depends on current SHAs, or a correctness issue that only
+appears against current `main`. The queue handles up-to-date validation; it does not
+resolve conflicts for you.
+
+Required workflows trigger on both `pull_request` and `merge_group`. PR-only checks
+(title/body validation) no-op to success on `merge_group` because the PR already
+satisfied them before being queued.
+
 ## Step 8 - Cancelled jobs and skipped dependents
 
 If a required GitHub Actions job is `cancelled` and downstream jobs are `skipped`:
