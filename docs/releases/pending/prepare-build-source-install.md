@@ -37,11 +37,15 @@ installs are unchanged.
   `fs.rmSync`, `copy-grammars`, `bun build`, `tsc`) contains no OS-specific commands;
   it is exercised on ubuntu/macOS/windows by the existing `unit`/`package-check`/
   `smoke` CI matrices.
-- CI installs (`bun install --frozen-lockfile`) now also build `dist/` via `prepare`.
-  It is left unguarded on purpose so that git-reference installs inside any consumer's
-  CI still produce a working bundle.
-- `prepare` also runs during `npm pack`/`npm publish` (npm runs it even with
-  `--ignore-scripts`), so its build progress is printed to stdout ahead of
-  `npm pack --json`. `scripts/package-smoke.mjs` therefore extracts the JSON array
-  from the combined output rather than assuming stdout is pure JSON; this keeps the
-  `package-check` CI job and the publish job's artifact validation working.
+- CI installs (`bun install --frozen-lockfile`) in this repo build `dist/` via
+  `prepare`. Lifecycle scripts run for a package's own install and for npm
+  git-reference installs; Bun does not run them for dependencies unless the consumer
+  lists the package in `trustedDependencies`, so a Bun consumer adding this as a git
+  dependency must trust it (or run `bun run build`). Registry installs need none of
+  this — the tarball already contains `dist/`.
+- `prepare` also runs during `npm pack`/`npm publish` when lifecycle scripts are
+  enabled, so its build progress can be printed to stdout ahead of the
+  `npm pack --json` payload. `scripts/package-smoke.mjs` therefore extracts the JSON
+  array from the combined output rather than assuming stdout is pure JSON; this is
+  robust whether or not `prepare` emits build noise, keeping the `package-check` CI
+  job and the publish job's artifact validation working across npm versions.
