@@ -19,8 +19,10 @@ Guidance updated so agents stop rebasing solely for freshness:
 
 - `.claude/skills/commit-pr/SKILL.md` gained a "Merge queue (current-base
   validation)" note in Step 7.
-- `.claude/skills/swarm-pr-feedback/SKILL.md` notes that a green PR should be queued
-  rather than force-pushed merely because `main` advanced.
+- The `swarm-pr-feedback` skill notes that a green PR should be queued rather than
+  force-pushed merely because `main` advanced. The guidance lives in the canonical
+  `.opencode/skills/swarm-pr-feedback/SKILL.md` (reached by both the `.claude` and
+  `.agents` adapters) so Claude and Codex agents get it identically.
 
 ## Why
 
