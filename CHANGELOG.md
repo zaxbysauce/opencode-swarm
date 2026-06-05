@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.50.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.3...v7.50.4) (2026-06-05)
+
+
+### Bug Fixes
+
+* **validation:** harden sibling JSON readers with Zod schema parsing ([#1111](https://github.com/zaxbysauce/opencode-swarm/issues/1111)) ([e1d7299](https://github.com/zaxbysauce/opencode-swarm/commit/e1d7299f9a4a23d5c6ad3c2e3cb33c0675bf3cd1))
+
 ## [7.50.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.2...v7.50.3) (2026-06-05)
 
 
