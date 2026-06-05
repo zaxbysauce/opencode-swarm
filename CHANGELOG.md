@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.51.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.1...v7.51.2) (2026-06-05)
+
+
+### Bug Fixes
+
+* **build:** build dist on source installs via prepare script ([9133fe6](https://github.com/zaxbysauce/opencode-swarm/commit/9133fe6a25918b9dbcd2cd06676b78a253b4b9d5))
+* **package-smoke:** tolerate prepare build output in npm pack --json ([d878f3f](https://github.com/zaxbysauce/opencode-swarm/commit/d878f3ff083e9e68f0e1111af988e8063d6fb05a))
+
 ## [7.51.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.0...v7.51.1) (2026-06-05)
 
 
