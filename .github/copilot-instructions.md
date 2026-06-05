@@ -2,15 +2,17 @@
 
 These instructions apply to Copilot coding agents, Copilot custom agents, and any AI agent assigned to a GitHub issue in this repository.
 
-Before committing, pushing, opening a pull request, updating a pull request body, marking a pull request ready, or claiming CI/merge readiness, you MUST load and follow, in order:
+Before committing, pushing, opening a pull request, updating a pull request body, marking a pull request ready, or claiming CI/merge readiness, you MUST load and follow these, in precedence order (highest authority first):
 
-1. `.github/skills/commit-pr/SKILL.md`
-2. `.agents/skills/commit-pr/SKILL.md`
-3. `.claude/skills/commit-pr/SKILL.md`
-4. `AGENTS.md`
-5. `docs/engineering-invariants.md`
+1. `AGENTS.md`
+2. `docs/engineering-invariants.md`
+3. `.claude/skills/commit-pr/SKILL.md` — the single source of truth for publication
+4. `.agents/skills/commit-pr/SKILL.md` — execution adapter (routes to #3)
+5. `.github/skills/commit-pr/SKILL.md` — Copilot discovery shim (routes to #3)
 
 The `commit-pr` skill is the only approved publication workflow.
+
+> The requirements summarized below are a high-visibility **mirror** of `.claude/skills/commit-pr/SKILL.md` and are **subordinate** to it. If anything here ever differs from that skill, the skill wins — update this file to match rather than following the stale copy.
 
 Do not run `git push`, `gh pr create`, `gh pr edit`, or `gh pr ready` until the `commit-pr` checklist is satisfied.
 

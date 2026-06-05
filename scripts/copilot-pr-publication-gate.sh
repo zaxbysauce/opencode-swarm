@@ -22,10 +22,11 @@ set -euo pipefail
 
 payload="$(cat || true)"
 
-# Only gate payloads that try to publish or update a pull request. The
-# token boundaries (non-alphanumeric before `gh` and after the subcommand)
-# avoid false positives like "enough pr edits remain".
-if ! grep -Eiq '(^|[^[:alnum:]])gh[[:space:]]+pr[[:space:]]+(create|edit|ready)([^[:alnum:]]|$)' <<<"$payload"; then
+# Only gate payloads that try to publish or update a pull request. `new` is
+# included as a common alias of `create`. The token boundaries (non-alphanumeric
+# before `gh` and after the subcommand) avoid false positives like
+# "enough pr edits remain".
+if ! grep -Eiq '(^|[^[:alnum:]])gh[[:space:]]+pr[[:space:]]+(create|new|edit|ready)([^[:alnum:]]|$)' <<<"$payload"; then
   exit 0
 fi
 

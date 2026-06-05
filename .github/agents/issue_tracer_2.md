@@ -139,11 +139,11 @@ If you find a refuting case, return to localization or resolution and fix it, th
 
 When the issue is fixed and a PR will be opened or updated, stop using this file's generic PR template below and switch to the repository's single publication protocol.
 
-You MUST load and follow, in order:
+You MUST load and follow these, in precedence order (highest authority first):
 
-- `.github/skills/commit-pr/SKILL.md`
-- `.agents/skills/commit-pr/SKILL.md`
-- `.claude/skills/commit-pr/SKILL.md` (the single source of truth)
+1. `.claude/skills/commit-pr/SKILL.md` — the single source of truth
+2. `.agents/skills/commit-pr/SKILL.md` — execution adapter (routes to #1)
+3. `.github/skills/commit-pr/SKILL.md` — Copilot discovery shim (routes to #1)
 
 The `commit-pr` skill is authoritative for:
 

@@ -110,14 +110,12 @@ Scan every file you review against ALL of the following categories:
 
 ### Step 1 — Discovery
 
-Run these commands first to build a map of the codebase before writing a single finding:
+This agent is **read-only** (tools: `read`, `search`) and must never run shell, build, or test commands. Use the `search` tool (glob + grep) — not a terminal — to build a map of the codebase before writing a single finding:
 
-```
-find . -type f -name "*.py" -o -name "*.ts" -o -name "*.js" -o -name "*.go" | sort
-find . -type f -name "test_*" -o -name "*.test.*" -o -name "*.spec.*" | sort
-grep -rn "pass$|\.\.\.$|raise NotImplementedError|TODO|FIXME" --include="*.py" .
-grep -rn "throw new Error|\/\/ TODO|\/\/ FIXME" --include="*.ts" --include="*.js" .
-```
+- glob source files: `**/*.{py,ts,js,go}`
+- glob test files: `**/{test_*,*.test.*,*.spec.*}`
+- grep for stubs (Python): `pass$|\.\.\.$|raise NotImplementedError|TODO|FIXME`
+- grep for stubs (TS/JS): `throw new Error|// TODO|// FIXME`
 
 ### Step 2 — Deep File Analysis
 

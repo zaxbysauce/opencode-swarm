@@ -30,8 +30,9 @@ Do not commit, push, run `gh pr create`, `gh pr edit`, or `gh pr ready`, edit a 
 body, mark a PR ready, or claim CI/merge readiness until the canonical `commit-pr`
 checklist is satisfied.
 
-The required PR title, PR body (`Closes #`, `## Summary`, `## Invariant audit`,
-`## Test plan`), invariant audit, release fragment, validation suite, issue comment,
+The required PR title, PR body sections (`## Summary`, `## Invariant audit`,
+`## Test plan`, plus `Closes #<issue-number>` as the first line *when the PR resolves
+an issue*), invariant audit, release fragment, validation suite, issue comment,
 draft/ready behavior, and CI closeout rules all come from
 [`../../../.claude/skills/commit-pr/SKILL.md`](../../../.claude/skills/commit-pr/SKILL.md).
 The `pr-standards` CI check and the `pr-publication-gate` hook enforce this contract;

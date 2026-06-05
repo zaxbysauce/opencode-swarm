@@ -183,9 +183,9 @@ Before you commit, push, update a PR body, mark a PR ready, or claim CI/merge
 readiness, you MUST load and follow the repository's single publication protocol,
 in order:
 
-- `.github/skills/commit-pr/SKILL.md`
-- `.agents/skills/commit-pr/SKILL.md`
-- `.claude/skills/commit-pr/SKILL.md` (the single source of truth)
+1. `.claude/skills/commit-pr/SKILL.md` — the single source of truth
+2. `.agents/skills/commit-pr/SKILL.md` — execution adapter (routes to #1)
+3. `.github/skills/commit-pr/SKILL.md` — Copilot discovery shim (routes to #1)
 
 `commit-pr` is authoritative for commit/PR titles, PR body sections
 (`## Summary`, `## Invariant audit`, `## Test plan`), release fragments, invariant
