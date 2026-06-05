@@ -315,6 +315,51 @@ describe('submit_phase_council_verdicts — evidence file write', () => {
 			rmSync(tempDir, { recursive: true, force: true });
 		}
 	});
+
+	test('REJECT verdict: evidence file is written with verdict=REJECT', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-reject-evidence-'));
+		try {
+			writeConfig(tempDir, { enabled: true, vetoPriority: true });
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			// Provide quorum (3) with one member REJECT — vetoPriority=true means REJECT wins.
+			const rejectVerdicts = [
+				makeVerdict('critic', 'REJECT'),
+				makeVerdict('reviewer'),
+				makeVerdict('sme'),
+			];
+			// Write mutation-gate evidence to prevent mutation_gap from inflating requiredFixes
+			writeMutationGateEvidence(tempDir, 7, 'pass');
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 7,
+					swarmId: 'test',
+					phaseSummary: 'Phase 7 summary.',
+					verdicts: rejectVerdicts,
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.overallVerdict).toBe('REJECT');
+
+			// Evidence file must exist and contain verdict='REJECT'
+			const evidencePath = join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				'7',
+				'phase-council.json',
+			);
+			expect(existsSync(evidencePath)).toBe(true);
+			const evidence = JSON.parse(readFileSync(evidencePath, 'utf-8'));
+			expect(evidence.entries[0].verdict).toBe('REJECT');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe('submit_phase_council_verdicts — args validation', () => {

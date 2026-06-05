@@ -22,6 +22,7 @@ import {
 	hasActiveLeanTurbo,
 	hasActiveTurboMode,
 	hasBothStageBCompletions,
+	recordStageBCompletion,
 	startAgentSession,
 	swarmState,
 } from '../state';
@@ -689,6 +690,16 @@ export function recoverTaskStateFromDelegations(
 			} catch {
 				/* non-fatal */
 			}
+		}
+
+		// Record Stage B completions in the parallel barrier so delegation-gate
+		// and recovery share consistent barrier state. This mirrors the recording
+		// done in delegation-gate.ts and prevents duplicate advancement attempts.
+		if (hasReviewer) {
+			recordStageBCompletion(session, taskId, 'reviewer');
+		}
+		if (hasTestEngineer) {
+			recordStageBCompletion(session, taskId, 'test_engineer');
 		}
 
 		// Advance coder_delegated/pre_check_passed → reviewer_run
