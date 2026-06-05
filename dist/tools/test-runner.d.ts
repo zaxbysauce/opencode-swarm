@@ -25,6 +25,7 @@ export interface TestRunnerArgs {
     coverage?: boolean;
     timeout_ms?: number;
     allow_full_suite?: boolean;
+    bail?: boolean;
 }
 export type RegressionOutcome = 'pass' | 'skip' | 'regression' | 'scope_exceeded' | 'error';
 export interface TestTotals {
@@ -83,7 +84,7 @@ export declare function detectTestFrameworkViaDispatch(cwd: string): Promise<Tes
  * Returns null on framework=`none` or when dispatch fails — callers (the
  * test-runner) then surface "no test command available".
  */
-export declare function buildTestCommandViaDispatch(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, baseDir: string): Promise<string[] | null>;
+export declare function buildTestCommandViaDispatch(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, baseDir: string, bail: boolean): Promise<string[] | null>;
 /**
  * Parse test output via the LanguageBackend dispatch path. Calls
  * `backend.parseTestOutput` for the directory's resolved backend and
@@ -127,7 +128,7 @@ export declare function isLanguageSpecificTestFile(basename: string): boolean;
  * Exported for unit tests.
  */
 export declare function getTestFilesFromConvention(sourceFiles: string[], workingDir?: string): string[];
-export declare function runTests(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, timeout_ms: number, cwd: string): Promise<TestResult>;
+export declare function runTests(framework: TestFramework, scope: 'all' | 'convention' | 'graph' | 'impact', files: string[], coverage: boolean, timeout_ms: number, cwd: string, bail: boolean): Promise<TestResult>;
 declare function selectHistoryForAnalysis(history: ReturnType<typeof getAllHistory>): TestRunRecord[];
 export declare const test_runner: ReturnType<typeof tool>;
 export declare const _internals: {
