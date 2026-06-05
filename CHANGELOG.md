@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.50.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.2...v7.50.3) (2026-06-05)
+
+
+### Bug Fixes
+
+* **gate-evidence:** harden evidence writes against symlink path escape ([#1110](https://github.com/zaxbysauce/opencode-swarm/issues/1110)) ([27159e2](https://github.com/zaxbysauce/opencode-swarm/commit/27159e218e02149bd69b9290521269b61352bce4))
+
 ## [7.50.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.1...v7.50.2) (2026-06-04)
 
 
