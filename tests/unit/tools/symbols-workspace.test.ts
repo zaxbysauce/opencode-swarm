@@ -150,7 +150,10 @@ export const betaConst = 2;
 `,
 			);
 
-			const result = await symbols.execute({ workspace: true, name: 'alpha' }, {} as any);
+			const result = await symbols.execute(
+				{ workspace: true, name: 'alpha' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should use workspace search
@@ -173,7 +176,10 @@ export const Handler = 'value';
 			);
 
 			// name="handle" (case-sensitive) should match only symbols containing "handle" exactly
-			const result = await symbols.execute({ workspace: true, name: 'handle' }, {} as any);
+			const result = await symbols.execute(
+				{ workspace: true, name: 'handle' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should match "handleRequest" and "handleResponse" (case-sensitive: Handler != handle)
@@ -193,7 +199,10 @@ export function foo(): void {}
 `,
 			);
 
-			const result = await symbols.execute({ workspace: true, name: 'nonexistent' }, {} as any);
+			const result = await symbols.execute(
+				{ workspace: true, name: 'nonexistent' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			expect(parsed.fileCount).toBe(0);
@@ -213,7 +222,10 @@ export const onClick = 'button';
 `,
 			);
 
-			const result = await symbols.execute({ workspace: true, name: 'Click' }, {} as any);
+			const result = await symbols.execute(
+				{ workspace: true, name: 'Click' },
+				{} as any,
+			);
 			const parsed = parseResult(result);
 
 			// Should match "onClickHandler" and "onClick" (case-sensitive, so "clickHandler" doesn't match)
