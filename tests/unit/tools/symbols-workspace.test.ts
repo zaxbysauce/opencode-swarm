@@ -130,9 +130,9 @@ export type MyType = string | number;
 		});
 	});
 
-	// ============ VERIFY 2: name without file triggers workspace search ============
-	describe('VERIFY 2: name without file triggers workspace search', () => {
-		it('should search workspace when name is provided without file', async () => {
+	// ============ VERIFY 2: name filtering in workspace mode ============
+	describe('VERIFY 2: name filtering in workspace mode', () => {
+		it('should search workspace when name is provided with workspace=true', async () => {
 			createTestFile(
 				tempDir,
 				'alpha.ts',
@@ -150,7 +150,7 @@ export const betaConst = 2;
 `,
 			);
 
-			const result = await symbols.execute({ name: 'alpha' }, {} as any);
+			const result = await symbols.execute({ workspace: true, name: 'alpha' }, {} as any);
 			const parsed = parseResult(result);
 
 			// Should use workspace search
@@ -173,7 +173,7 @@ export const Handler = 'value';
 			);
 
 			// name="handle" (case-sensitive) should match only symbols containing "handle" exactly
-			const result = await symbols.execute({ name: 'handle' }, {} as any);
+			const result = await symbols.execute({ workspace: true, name: 'handle' }, {} as any);
 			const parsed = parseResult(result);
 
 			// Should match "handleRequest" and "handleResponse" (case-sensitive: Handler != handle)
@@ -193,7 +193,7 @@ export function foo(): void {}
 `,
 			);
 
-			const result = await symbols.execute({ name: 'nonexistent' }, {} as any);
+			const result = await symbols.execute({ workspace: true, name: 'nonexistent' }, {} as any);
 			const parsed = parseResult(result);
 
 			expect(parsed.fileCount).toBe(0);
@@ -213,7 +213,7 @@ export const onClick = 'button';
 `,
 			);
 
-			const result = await symbols.execute({ name: 'Click' }, {} as any);
+			const result = await symbols.execute({ workspace: true, name: 'Click' }, {} as any);
 			const parsed = parseResult(result);
 
 			// Should match "onClickHandler" and "onClick" (case-sensitive, so "clickHandler" doesn't match)
@@ -371,7 +371,7 @@ export function foo(): void {}
 			// Note: With 205 files and 200 scan cap, we get 200 scanned
 			expect(parsed.scannedFileCount).toBe(200);
 			expect(parsed.totalSymbols).toBe(0);
-			expect(parsed.truncated).toBe(false);
+			expect(parsed.truncated).toBe(true); // File scan cap was hit (200 files scanned)
 		});
 	});
 
@@ -423,7 +423,7 @@ export function foo(): void {}
 			const parsed = parseResult(result);
 
 			// We scanned 200 files (cap) but found 0 matching symbols
-			expect(parsed.truncated).toBe(false); // No symbol cap hit, just no matches
+			expect(parsed.truncated).toBe(true); // File scan cap was hit
 			expect(parsed.scannedFileCount).toBe(200);
 			expect(parsed.totalSymbols).toBe(0);
 		});

@@ -17,4 +17,4 @@ Issue #1107 (tool auto-registration via single manifest) was the catalyst for a 
 
 ## Migration
 
-No migration required. All changes are additive or internal. Existing tool signatures are unchanged.
+No migration required. All changes are additive or internal. Existing tool signatures retain full backward compatibility — new parameters are additive and optional.

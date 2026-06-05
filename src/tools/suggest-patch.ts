@@ -382,8 +382,10 @@ function generateHunk(
 		0,
 		removalLines.length > 0 ? removalEndIdx + 1 - contextAfterStartInFile : 0,
 	);
-	const effectiveContextAfterCount =
-		contextMatch.matchedAfter.length - overlapSkipCount;
+	const effectiveContextAfterCount = Math.max(
+		0,
+		contextMatch.matchedAfter.length - overlapSkipCount,
+	);
 
 	// Build the hunk body
 	// oldStart is 1-indexed, counting from contextBefore start
@@ -860,6 +862,11 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 
 				const unifiedParts: string[] = [];
 				for (const [file, entries] of fileGroups) {
+					// Sort entries by start line to ensure hunks are in order
+					entries.sort(
+						(a, b) =>
+							a.contextMatch.startLineIndex - b.contextMatch.startLineIndex,
+					);
 					const entryFullPath = path.resolve(directory, file);
 					let entryContent: string;
 					try {

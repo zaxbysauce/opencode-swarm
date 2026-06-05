@@ -15,10 +15,7 @@
  * by the integration tests in test-runner.test.ts that spawn actual test commands.
  */
 
-import { afterEach, describe, expect, test } from 'bun:test';
-import * as fs from 'node:fs';
-import * as os from 'node:os';
-import * as path from 'node:path';
+import { describe, expect, test } from 'bun:test';
 
 const testRunnerModule = await import('../../../src/tools/test-runner');
 const { test_runner } = testRunnerModule;

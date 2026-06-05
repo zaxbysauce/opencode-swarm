@@ -502,6 +502,9 @@ function searchWorkspaceSymbols(
 	const files: WorkspaceFileSummary[] = [];
 	let scannedCount = 0;
 	let truncated = false;
+	if (sourceFiles.length >= MAX_WORKSPACE_SCANNED_FILES) {
+		truncated = true;
+	}
 	let totalSymbols = 0;
 
 	for (const relFile of sourceFiles) {
@@ -514,7 +517,7 @@ function searchWorkspaceSymbols(
 		scannedCount++;
 		let syms: SymbolInfo[];
 
-		const ext = path.extname(relFile);
+		const ext = path.extname(relFile).toLowerCase();
 		switch (ext) {
 			case '.ts':
 			case '.tsx':
@@ -615,10 +618,12 @@ export const symbols: ToolDefinition = createSwarmTool({
 		let name: string | undefined;
 		try {
 			const obj = args as Record<string, unknown>;
-			file = obj.file !== undefined ? String(obj.file) : undefined;
+			file =
+				obj.file != null && typeof obj.file === 'string' ? obj.file : undefined;
 			exportedOnly = obj.exported_only === true;
 			workspace = obj.workspace === true;
-			name = obj.name !== undefined ? String(obj.name) : undefined;
+			name =
+				obj.name != null && typeof obj.name === 'string' ? obj.name : undefined;
 		} catch {
 			return JSON.stringify(
 				{
@@ -634,7 +639,7 @@ export const symbols: ToolDefinition = createSwarmTool({
 		const cwd = directory;
 
 		// --- Workspace mode ---
-		if (workspace || (name && !file)) {
+		if (workspace) {
 			return JSON.stringify(
 				searchWorkspaceSymbols(cwd, name, exportedOnly),
 				null,

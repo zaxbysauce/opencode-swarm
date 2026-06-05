@@ -1110,7 +1110,7 @@ function buildTestCommand(
 				VITEST_JSON_OUTPUT_RELATIVE_PATH,
 			];
 			if (coverage) args.push('--coverage');
-			if (bail) args.push('--bail');
+			if (bail) args.push('--bail=1');
 			if (scope !== 'all' && files.length > 0) {
 				args.push(...files);
 			}

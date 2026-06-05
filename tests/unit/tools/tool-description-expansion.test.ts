@@ -3,7 +3,7 @@
  * Ensures the 7 specified tools have descriptions >= 40 characters
  * with actionable detail (not generic words).
  */
-import { describe, expect, test } from 'bun:test';
+import { beforeAll, describe, expect, test } from 'bun:test';
 import { TOOL_METADATA } from '../../../src/tools/tool-metadata';
 
 const TARGET_TOOLS = [
@@ -18,17 +18,27 @@ const TARGET_TOOLS = [
 
 const MIN_LENGTH = 40;
 
+let metadata: typeof TOOL_METADATA;
+
+beforeAll(() => {
+	const entries = Object.entries(TOOL_METADATA);
+	if (entries.length === 0) {
+		throw new Error('TOOL_METADATA is empty — tool registration may be broken');
+	}
+	metadata = Object.fromEntries(entries) as typeof TOOL_METADATA;
+});
+
 describe('Task 1.6 — tool description expansion', () => {
 	for (const toolName of TARGET_TOOLS) {
 		test(`${toolName}: description length >= ${MIN_LENGTH} chars`, () => {
-			const meta = TOOL_METADATA[toolName];
+			const meta = metadata[toolName];
 			expect(meta).toBeDefined();
 			expect(typeof meta.description).toBe('string');
 			expect(meta.description.length).toBeGreaterThanOrEqual(MIN_LENGTH);
 		});
 
 		test(`${toolName}: description contains actionable detail`, () => {
-			const desc = TOOL_METADATA[toolName].description;
+			const desc = metadata[toolName].description;
 			// Descriptions should have multiple words (not just "check X" style)
 			expect(desc.split(' ').length).toBeGreaterThan(5);
 			// Should not be generic/template-like
@@ -38,7 +48,7 @@ describe('Task 1.6 — tool description expansion', () => {
 		});
 
 		test(`${toolName}: agents array is present and non-empty`, () => {
-			const meta = TOOL_METADATA[toolName];
+			const meta = metadata[toolName];
 			expect(Array.isArray(meta.agents)).toBe(true);
 			expect(meta.agents.length).toBeGreaterThan(0);
 		});
@@ -48,7 +58,7 @@ describe('Task 1.6 — tool description expansion', () => {
 	// Other tools may have shorter descriptions — that is out of scope for this task.
 
 	test('TOOL_METADATA structure unchanged (has description and agents)', () => {
-		for (const [name, meta] of Object.entries(TOOL_METADATA)) {
+		for (const [name, meta] of Object.entries(metadata)) {
 			expect(meta).toHaveProperty('description');
 			expect(meta).toHaveProperty('agents');
 			expect(typeof meta.description).toBe('string');

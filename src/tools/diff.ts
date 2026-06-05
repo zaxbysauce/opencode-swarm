@@ -228,7 +228,8 @@ export const diff: ReturnType<typeof createSwarmTool> = createSwarmTool({
 						if (hasContractChanges) break;
 					}
 				} catch {
-					// Contract detection failed — default to false (conservative).
+					// Contract detection failed — fail closed to avoid hiding real contract changes.
+					hasContractChanges = true;
 				}
 				const result: DiffResult = {
 					files,

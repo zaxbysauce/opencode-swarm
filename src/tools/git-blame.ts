@@ -177,7 +177,7 @@ function parsePorcelainBlame(
 ): RawBlameEntry[] {
 	const entries: RawBlameEntry[] = [];
 	const outputLines = output.split('\n');
-	const cappedLines = outputLines.slice(0, linesCap * 4);
+	const cappedLines = outputLines.slice(0, linesCap * 8);
 
 	const commitCache = new Map<string, CommitMetadata>();
 
@@ -255,7 +255,7 @@ function parsePorcelainBlame(
 		}
 	}
 
-	return entries;
+	return entries.slice(0, linesCap);
 }
 
 // ============ Tool Definition ============
@@ -430,7 +430,18 @@ export const git_blame: ReturnType<typeof tool> = createSwarmTool({
 			stdio: ['ignore', 'pipe', 'pipe'],
 		});
 
+		// Check for timeout FIRST (ETIMEDOUT is on result.error, not result.signal)
 		if (result.error) {
+			const isTimeout =
+				'code' in result.error && result.error.code === 'ETIMEDOUT';
+			if (isTimeout) {
+				return JSON.stringify({
+					error: 'git blame timed out',
+					file,
+					lineCount: 0,
+					lines: [],
+				} satisfies GitBlameError);
+			}
 			const message =
 				result.error instanceof Error
 					? result.error.message
@@ -483,7 +494,7 @@ export const git_blame: ReturnType<typeof tool> = createSwarmTool({
 			} satisfies GitBlameError);
 		}
 
-		// Handle timeout
+		// Secondary timeout check via signal (spawnSync may also set SIGTERM on kill)
 		if (result.signal === 'SIGTERM' || result.signal === 'SIGKILL') {
 			return JSON.stringify({
 				error: 'git blame timed out',
