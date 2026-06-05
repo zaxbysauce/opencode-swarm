@@ -163,6 +163,8 @@ describe('delegation-gate council wiring (Stage B suppression + APPROVE fast-pat
 			);
 
 			expect(getTaskState(session, '1.1')).toBe('tests_run');
+			// Council is disabled — no verdict should be recorded.
+			expect(session.taskCouncilApproved?.get('1.1')).toBeUndefined();
 		});
 	});
 

@@ -1073,6 +1073,12 @@ export function advanceTaskState(
 	}
 
 	session.taskWorkflowStates.set(taskId, newState);
+	// Clear Stage B completion bits when a task reaches 'complete' so that
+	// any future retry/restart cycle starts the barrier fresh and does not
+	// fire prematurely from stale completion data.
+	if (newState === 'complete') {
+		session.stageBCompletion?.delete(taskId);
+	}
 	if (options?.emitTelemetry !== false) {
 		telemetry.taskStateChanged(
 			options?.telemetrySessionId ?? session.agentName,
@@ -1081,6 +1087,58 @@ export function advanceTaskState(
 			current,
 		);
 	}
+}
+
+/**
+ * Returns true iff calling `advanceTaskState(session, taskId, newState)` would
+ * succeed without throwing. Use this predicate to guard call sites that cannot
+ * catch `INVALID_TASK_STATE_TRANSITION` as a control-flow mechanism.
+ *
+ * Does NOT perform side effects or emit telemetry.
+ *
+ * @param session - The agent session state
+ * @param taskId - The task identifier
+ * @param newState - The requested new state
+ * @param councilConfig - Optional council quorum config (required when newState='complete')
+ */
+export function canAdvanceTaskState(
+	session: AgentSessionState,
+	taskId: string,
+	newState: TaskWorkflowState,
+	councilConfig?: { minimumMembers?: number; requireAllMembers?: boolean },
+): boolean {
+	if (!isValidTaskId(taskId)) return false;
+	if (!session || !(session.taskWorkflowStates instanceof Map)) return false;
+
+	const STATE_ORDER: TaskWorkflowState[] = [
+		'idle',
+		'coder_delegated',
+		'pre_check_passed',
+		'reviewer_run',
+		'tests_run',
+		'complete',
+	];
+
+	const current = session.taskWorkflowStates.get(taskId) ?? 'idle';
+	const currentIndex = STATE_ORDER.indexOf(current);
+	const newIndex = STATE_ORDER.indexOf(newState);
+
+	if (newIndex <= currentIndex) return false;
+
+	if (newState === 'complete' && current !== 'tests_run') {
+		const councilEntry = session.taskCouncilApproved?.get(taskId);
+		const effectiveMinimum = councilConfig?.requireAllMembers
+			? 5
+			: (councilConfig?.minimumMembers ?? 3);
+		const councilApproved =
+			councilEntry?.verdict === 'APPROVE' &&
+			(councilEntry.quorumSize ?? 0) >= effectiveMinimum;
+		const pastPreCheck =
+			currentIndex >= STATE_ORDER.indexOf('pre_check_passed');
+		if (!councilApproved || !pastPreCheck) return false;
+	}
+
+	return true;
 }
 
 /**
