@@ -122,9 +122,17 @@ export function validatePackageFiles(files, expectedGrammarFiles) {
 }
 
 function parsePackOutput(stdout) {
+	// `npm pack --json` runs the `prepare` lifecycle first, which builds and prints
+	// progress to stdout (npm runs prepare even with --ignore-scripts), so the JSON
+	// payload is preceded by build noise. The payload is a single JSON array and the
+	// build output contains no brackets, so slice from the first '[' to the last ']'
+	// to isolate it.
+	const start = stdout.indexOf('[');
+	const end = stdout.lastIndexOf(']');
+	const jsonText = start >= 0 && end > start ? stdout.slice(start, end + 1) : stdout;
 	let parsed;
 	try {
-		parsed = JSON.parse(stdout);
+		parsed = JSON.parse(jsonText);
 	} catch (error) {
 		throw new Error(
 			`Failed to parse npm pack --json output: ${

@@ -5,9 +5,12 @@
 Added a `prepare` lifecycle script (`"prepare": "bun run build"`) to `package.json`
 so that `dist/` is built automatically whenever the package is installed **from
 source** — a local checkout (`bun install` / `npm install`) or a git/GitHub
-reference (`npm i github:zaxbysauce/opencode-swarm`). Documented in `contributing.md`
-that loading the plugin from a checkout requires a build, and that `bun install`
-now performs it.
+reference (`npm i github:zaxbysauce/opencode-swarm`). The now-redundant
+`prepublishOnly` build hook was removed (`prepare` already builds before
+`pack`/`publish`). `scripts/package-smoke.mjs` was hardened to tolerate the build
+output that `npm pack` now prints ahead of its `--json` payload. Documented in
+`contributing.md` that loading the plugin from a checkout requires a build, and that
+`bun install` now performs it.
 
 ## Why
 
@@ -34,7 +37,11 @@ installs are unchanged.
   `fs.rmSync`, `copy-grammars`, `bun build`, `tsc`) contains no OS-specific commands;
   it is exercised on ubuntu/macOS/windows by the existing `unit`/`package-check`/
   `smoke` CI matrices.
-- CI installs (`bun install --frozen-lockfile`) now also build `dist/` via `prepare`;
-  this is intentional and idempotent (jobs that need `dist/` already built it
-  explicitly). It is left unguarded on purpose so that git-reference installs inside
-  any consumer's CI still produce a working bundle.
+- CI installs (`bun install --frozen-lockfile`) now also build `dist/` via `prepare`.
+  It is left unguarded on purpose so that git-reference installs inside any consumer's
+  CI still produce a working bundle.
+- `prepare` also runs during `npm pack`/`npm publish` (npm runs it even with
+  `--ignore-scripts`), so its build progress is printed to stdout ahead of
+  `npm pack --json`. `scripts/package-smoke.mjs` therefore extracts the JSON array
+  from the combined output rather than assuming stdout is pure JSON; this keeps the
+  `package-check` CI job and the publish job's artifact validation working.
