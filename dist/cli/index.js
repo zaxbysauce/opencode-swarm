@@ -16499,7 +16499,7 @@ var init_tool_metadata = __esm(() => {
       agents: ["architect", "reviewer", "critic_oversight"]
     },
     syntax_check: {
-      description: "syntax validation",
+      description: "check syntax of source files using tree-sitter parsers across multiple languages, returning per-file errors",
       agents: ["architect", "coder", "test_engineer"]
     },
     placeholder_scan: {
@@ -16507,7 +16507,7 @@ var init_tool_metadata = __esm(() => {
       agents: ["architect", "reviewer"]
     },
     imports: {
-      description: "dependency audit",
+      description: "find all consumers that import from a given file \u2014 use before refactoring shared modules to avoid breaking unseen dependents",
       agents: [
         "architect",
         "sme",
@@ -16525,11 +16525,11 @@ var init_tool_metadata = __esm(() => {
       ]
     },
     lint: {
-      description: "code quality",
+      description: "run project linter in check or fix mode; supports biome, eslint, ruff, clippy, and more, returns structured results",
       agents: ["architect", "reviewer", "coder"]
     },
     secretscan: {
-      description: "secret detection",
+      description: "scan for secrets (API keys, tokens, passwords) via regex and entropy; returns redacted previews, excludes common dirs",
       agents: ["architect", "reviewer", "critic_oversight"]
     },
     sast_scan: {
@@ -16537,7 +16537,7 @@ var init_tool_metadata = __esm(() => {
       agents: ["architect", "reviewer", "critic_oversight"]
     },
     build_check: {
-      description: "build verification",
+      description: "discover and run build, typecheck, and test commands for various project ecosystems in the working directory",
       agents: ["architect", "coder", "test_engineer"]
     },
     pre_check_batch: {
@@ -16549,7 +16549,7 @@ var init_tool_metadata = __esm(() => {
       agents: ["architect"]
     },
     symbols: {
-      description: "code symbol search",
+      description: "extract exported symbols (functions, classes, interfaces, types) from source files; supports TypeScript, JavaScript, and Python",
       agents: [
         "architect",
         "sme",
@@ -16620,7 +16620,7 @@ var init_tool_metadata = __esm(() => {
       agents: ["architect"]
     },
     checkpoint: {
-      description: "state snapshots",
+      description: "create named git checkpoints for save, restore, and delete \u2014 use before risky operations to enable rollback",
       agents: ["architect"]
     },
     pkg_audit: {
@@ -16663,6 +16663,10 @@ var init_tool_metadata = __esm(() => {
         "critic_oversight",
         "explorer"
       ]
+    },
+    git_blame: {
+      description: "per-line git blame metadata: sha, author, date, summary for each line in a file",
+      agents: ["reviewer", "explorer", "architect"]
     },
     gitingest: {
       description: "fetch a GitHub repository full content via gitingest.com",
@@ -51215,11 +51219,14 @@ async function defaultSelectTestFramework(profile, dir) {
 function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}) {
   const scope = opts.scope ?? "all";
   const coverage = opts.coverage ?? false;
+  const bail = opts.bail ?? false;
   switch (framework) {
     case "bun": {
       const args = ["bun", "test"];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
@@ -51235,6 +51242,8 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       ];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
@@ -51243,12 +51252,16 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       const args = ["npx", "jest", "--json"];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
     }
     case "mocha": {
       const args = ["npx", "mocha"];
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
@@ -51258,6 +51271,8 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       const args = isWindows ? ["python", "-m", "pytest"] : ["python3", "-m", "pytest"];
       if (coverage)
         args.push("--cov=.", "--cov-report=term-missing");
+      if (bail)
+        args.push("-x");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
@@ -51311,6 +51326,8 @@ function defaultBuildTestCommand(profile, framework, files, dir = ".", opts = {}
       return isCommandAvailable("flutter") ? ["flutter", "test", ...files] : ["dart", "test", ...files];
     case "rspec": {
       const args = isCommandAvailable("bundle") ? ["bundle", "exec", "rspec"] : ["rspec"];
+      if (bail)
+        args.push("--fail-fast");
       if (scope !== "all" && files.length > 0)
         args.push(...files);
       return args;
@@ -53285,6 +53302,10 @@ function validateArgs2(args) {
     if (typeof obj.coverage !== "boolean")
       return false;
   }
+  if (obj.bail !== undefined) {
+    if (typeof obj.bail !== "boolean")
+      return false;
+  }
   if (obj.timeout_ms !== undefined) {
     if (typeof obj.timeout_ms !== "number")
       return false;
@@ -53360,7 +53381,7 @@ async function detectTestFrameworkViaDispatch(cwd) {
     return "none";
   }
 }
-async function buildTestCommandViaDispatch(framework, scope, files, coverage, baseDir) {
+async function buildTestCommandViaDispatch(framework, scope, files, coverage, baseDir, bail) {
   if (framework === "none")
     return null;
   try {
@@ -53369,7 +53390,8 @@ async function buildTestCommandViaDispatch(framework, scope, files, coverage, ba
     if (backend?.buildTestCommand) {
       const cmd = backend.buildTestCommand(framework, files, baseDir, {
         scope,
-        coverage
+        coverage,
+        bail
       });
       if (cmd)
         return cmd;
@@ -53738,12 +53760,14 @@ function getTargetedExecutionUnsupportedReason(framework) {
       return null;
   }
 }
-function buildTestCommand2(framework, scope, files, coverage, baseDir) {
+function buildTestCommand2(framework, scope, files, coverage, baseDir, bail) {
   switch (framework) {
     case "bun": {
       const args = ["bun", "test"];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -53760,6 +53784,8 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       ];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail=1");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -53769,6 +53795,8 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       const args = ["npx", "jest", "--json"];
       if (coverage)
         args.push("--coverage");
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -53776,6 +53804,8 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
     }
     case "mocha": {
       const args = ["npx", "mocha"];
+      if (bail)
+        args.push("--bail");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -53786,6 +53816,8 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       const args = isWindows ? ["python", "-m", "pytest"] : ["python3", "-m", "pytest"];
       if (coverage)
         args.push("--cov=.", "--cov-report=term-missing");
+      if (bail)
+        args.push("-x");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -53842,6 +53874,8 @@ function buildTestCommand2(framework, scope, files, coverage, baseDir) {
       return isCommandAvailable("flutter") ? ["flutter", "test", ...files] : ["dart", "test", ...files];
     case "rspec": {
       const args = isCommandAvailable("bundle") ? ["bundle", "exec", "rspec"] : ["rspec"];
+      if (bail)
+        args.push("--fail-fast");
       if (scope !== "all" && files.length > 0) {
         args.push(...files);
       }
@@ -54227,7 +54261,7 @@ async function readBoundedStream(stream, maxBytes) {
   }
   return { text: decoder.decode(combined), truncated };
 }
-async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
+async function runTests(framework, scope, files, coverage, timeout_ms, cwd, bail) {
   if (scope !== "all" && files.length > 0) {
     const unsupportedReason = getTargetedExecutionUnsupportedReason(framework);
     if (unsupportedReason) {
@@ -54242,7 +54276,7 @@ async function runTests(framework, scope, files, coverage, timeout_ms, cwd) {
     }
   }
   const useDispatchBuild = process.env.SWARM_LANG_BACKEND !== "legacy";
-  const command = useDispatchBuild ? await buildTestCommandViaDispatch(framework, scope, files, coverage, cwd) ?? buildTestCommand2(framework, scope, files, coverage, cwd) : buildTestCommand2(framework, scope, files, coverage, cwd);
+  const command = useDispatchBuild ? await buildTestCommandViaDispatch(framework, scope, files, coverage, cwd, bail) ?? buildTestCommand2(framework, scope, files, coverage, cwd, bail) : buildTestCommand2(framework, scope, files, coverage, cwd, bail);
   if (!command) {
     return {
       success: false,
@@ -54590,6 +54624,7 @@ var init_test_runner = __esm(() => {
       scope: exports_external.enum(["all", "convention", "graph", "impact"]).optional().describe('Test scope: "all" runs full suite, "convention" accepts direct test files or maps source files to tests by naming, "graph" finds related tests via imports from source files, "impact" finds tests covering changed source files via test-impact analysis'),
       files: exports_external.array(exports_external.string()).optional().describe('Specific files to test. For "convention", pass source files or direct test files. For "graph" and "impact", pass source files only.'),
       coverage: exports_external.boolean().optional().describe("Enable coverage reporting if supported"),
+      bail: exports_external.boolean().optional().describe("Stop running tests after the first failure. Default false. Note: coverage may be incomplete when bail=true with coverage=true."),
       timeout_ms: exports_external.number().optional().describe("Timeout in milliseconds (default 60000, max 300000)"),
       allow_full_suite: exports_external.boolean().optional().describe('Explicit opt-in for scope "all". Required because full-suite output can destabilize SSE streaming.'),
       working_directory: exports_external.string().optional().describe("Explicit project root directory. When provided, tests run relative to this path instead of the plugin context directory. Use this when CWD differs from the actual project root.")
@@ -54690,6 +54725,7 @@ var init_test_runner = __esm(() => {
       }
       const _files = args.files || [];
       const coverage = args.coverage || false;
+      const bail = args.bail || false;
       const timeout_ms = Math.min(args.timeout_ms || DEFAULT_TIMEOUT_MS, MAX_TIMEOUT_MS);
       const useDispatch = process.env.SWARM_LANG_BACKEND !== "legacy";
       let framework;
@@ -54928,7 +54964,7 @@ var init_test_runner = __esm(() => {
         };
         return JSON.stringify(errorResult, null, 2);
       }
-      const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir);
+      const result = await runTests(framework, effectiveScope, testFiles, coverage, timeout_ms, workingDir, bail);
       recordAndAnalyzeResults(result, testFiles, workingDir, _files.length > 0 ? _files : undefined, result.testCases);
       let historyReport;
       if (!result.success && result.totals && result.totals.failed > 0) {
@@ -54943,6 +54979,9 @@ var init_test_runner = __esm(() => {
       }
       if (graphFallbackReason && result.message) {
         result.message = `${result.message} (${graphFallbackReason})`;
+      }
+      if (bail && coverage && result.message) {
+        result.message = `${result.message} (coverage may be incomplete: bail=true stopped early)`;
       }
       return JSON.stringify(result, null, 2);
     }
@@ -55148,7 +55187,7 @@ async function runLintCheck(dir, linter, timeoutMs) {
 async function runTestsCheck(_dir, scope, timeoutMs) {
   const startTime = Date.now();
   try {
-    const result = await runTests("none", scope, [], false, timeoutMs, _dir);
+    const result = await runTests("none", scope, [], false, timeoutMs, _dir, false);
     if (!result.success) {
       return {
         type: "tests",
