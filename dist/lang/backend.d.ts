@@ -91,6 +91,7 @@ export type TestScope = 'all' | 'convention' | 'graph' | 'impact';
 export interface BuildTestCommandOpts {
     scope?: TestScope;
     coverage?: boolean;
+    bail?: boolean;
 }
 /**
  * Selected web/UI framework for a project (PROJECT_FRAMEWORK template

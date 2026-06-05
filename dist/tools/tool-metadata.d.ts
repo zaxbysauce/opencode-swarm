@@ -143,6 +143,10 @@ export declare const TOOL_METADATA: {
         description: string;
         agents: ("docs" | "explorer" | "sme" | "critic" | "critic_oversight" | "architect" | "docs_design" | "critic_sounding_board" | "critic_drift_verifier" | "critic_hallucination_verifier")[];
     };
+    git_blame: {
+        description: string;
+        agents: ("reviewer" | "explorer" | "architect")[];
+    };
     gitingest: {
         description: string;
         agents: ("docs" | "explorer" | "architect")[];

@@ -33,5 +33,6 @@ export interface ChangeDescription {
 export interface SuggestPatchArgs {
     targetFiles: string[];
     changes: ChangeDescription[];
+    format?: 'json' | 'unified';
 }
 export declare const suggestPatch: ToolDefinition;

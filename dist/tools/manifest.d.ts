@@ -53,6 +53,7 @@ export declare const TOOL_MANIFEST: {
     mutation_test: () => ToolDefinition;
     generate_mutants: () => ToolDefinition;
     detect_domains: () => ToolDefinition;
+    git_blame: () => ToolDefinition;
     gitingest: () => ToolDefinition;
     retrieve_summary: () => ToolDefinition;
     extract_code_blocks: () => ToolDefinition;
