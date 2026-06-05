@@ -1,5 +1,40 @@
 # Changelog
 
+## [7.50.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.3...v7.50.4) (2026-06-05)
+
+
+### Bug Fixes
+
+* **validation:** harden sibling JSON readers with Zod schema parsing ([#1111](https://github.com/zaxbysauce/opencode-swarm/issues/1111)) ([e1d7299](https://github.com/zaxbysauce/opencode-swarm/commit/e1d7299f9a4a23d5c6ad3c2e3cb33c0675bf3cd1))
+
+## [7.50.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.2...v7.50.3) (2026-06-05)
+
+
+### Bug Fixes
+
+* **gate-evidence:** harden evidence writes against symlink path escape ([#1110](https://github.com/zaxbysauce/opencode-swarm/issues/1110)) ([27159e2](https://github.com/zaxbysauce/opencode-swarm/commit/27159e218e02149bd69b9290521269b61352bce4))
+
+## [7.50.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.1...v7.50.2) (2026-06-04)
+
+
+### Bug Fixes
+
+* **test-impact:** harden appendTestRun against concurrent writers ([#1109](https://github.com/zaxbysauce/opencode-swarm/issues/1109)) ([bbc6bc3](https://github.com/zaxbysauce/opencode-swarm/commit/bbc6bc3ba51c5a38afa8603cd5312c74c7595925))
+
+## [7.50.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.50.0...v7.50.1) (2026-06-04)
+
+
+### Bug Fixes
+
+* **test-impact:** add pass-rate variance to flaky scoring ([#1108](https://github.com/zaxbysauce/opencode-swarm/issues/1108)) ([a2cc05e](https://github.com/zaxbysauce/opencode-swarm/commit/a2cc05ea570dbf22013e664cc633d3d2279f8e0c))
+
+## [7.50.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.49.1...v7.50.0) (2026-06-04)
+
+
+### Features
+
+* **tools:** add native apply_patch tool with scope-guard array-aware path extraction ([#1116](https://github.com/zaxbysauce/opencode-swarm/issues/1116)) ([09a3a3f](https://github.com/zaxbysauce/opencode-swarm/commit/09a3a3f179581447944666dbd457c7ff76cbb05e))
+
 ## [7.49.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.49.0...v7.49.1) (2026-06-04)
 
 

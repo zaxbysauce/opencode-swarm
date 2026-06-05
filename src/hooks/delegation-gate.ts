@@ -7,6 +7,7 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { ZodError, z } from 'zod';
 
 import type { PluginConfig } from '../config';
 import type { Phase, Plan, Task } from '../config/plan-schema';
@@ -39,6 +40,29 @@ import { isStrictTaskId } from '../validation/task-id';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
+
+const EvidenceTaskIdPlanSchema = z
+	.object({
+		phases: z
+			.array(
+				z
+					.object({
+						tasks: z
+							.array(
+								z
+									.object({
+										id: z.string(),
+										status: z.string().optional(),
+									})
+									.passthrough(),
+							)
+							.optional(),
+					})
+					.passthrough(),
+			)
+			.optional(),
+	})
+	.passthrough();
 
 /**
  * v6.33.1 CRIT-1: Fallback map for declared coder scope by taskId.
@@ -547,6 +571,7 @@ async function getEvidenceTaskId(
 	session: AgentSessionState,
 	directory: string,
 ): Promise<string | null> {
+	let resolvedPlanPath: string | undefined;
 	// Primary: currentTaskId or lastCoderDelegationTaskId
 	const primary = session.currentTaskId ?? session.lastCoderDelegationTaskId;
 	if (primary) return primary;
@@ -568,7 +593,7 @@ async function getEvidenceTaskId(
 		// Resolve both paths to normalize and check for path traversal
 		const resolvedDirectory = path.resolve(directory);
 		const planPath = path.join(resolvedDirectory, '.swarm', 'plan.json');
-		const resolvedPlanPath = path.resolve(planPath);
+		resolvedPlanPath = path.resolve(planPath);
 
 		// Security check: ensure resolved plan path is within the working directory
 		// This prevents path traversal attacks (e.g., ../../etc/plan.json)
@@ -582,7 +607,7 @@ async function getEvidenceTaskId(
 
 		// Read and parse the plan file
 		const planContent = await fs.promises.readFile(resolvedPlanPath, 'utf-8');
-		const plan = JSON.parse(planContent);
+		const plan = EvidenceTaskIdPlanSchema.parse(JSON.parse(planContent));
 
 		// Only expected: missing phases array or malformed structure - return null quietly
 		if (!plan || !Array.isArray(plan.phases)) {
@@ -599,6 +624,16 @@ async function getEvidenceTaskId(
 			}
 		}
 	} catch (err) {
+		if (err instanceof ZodError) {
+			const issueSummary = err.issues
+				.slice(0, 3)
+				.map((issue) => issue.message)
+				.join('; ');
+			logger.warn(
+				`[delegation-gate] getEvidenceTaskId ignored invalid plan schema at ${resolvedPlanPath ?? 'unknown path'}: ${issueSummary}`,
+			);
+			return null;
+		}
 		// v6.33.7: Never re-throw from getEvidenceTaskId.
 		// Previously, unexpected errors (EPERM, EBUSY, etc.) were re-thrown,
 		// which propagated out of the evidence try-catch (since this call was
