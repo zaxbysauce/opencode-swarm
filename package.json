@@ -48,7 +48,8 @@
 		"dev": "bun run build && opencode",
 		"package:smoke": "node scripts/package-smoke.mjs",
 		"prepare": "bun run build",
-		"repro:704": "node scripts/repro-704.mjs"
+		"repro:704": "node scripts/repro-704.mjs",
+		"repro:1144": "bun scripts/repro-1144.mjs"
 	},
 	"dependencies": {
 		"@opencode-ai/plugin": "^1.1.53",
