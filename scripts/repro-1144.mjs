@@ -37,8 +37,24 @@ const { buildWorkspaceGraphAsync } = await import(
 // time(4N) must stay well under this multiple of time(N).
 // Linear ~4x; quadratic ~16x. 8x is a generous, machine-robust ceiling.
 const SUBQUADRATIC_RATIO_CAP = 8;
-const SMALL = Number(process.argv[2] ?? 1000);
-const LARGE = Number(process.argv[3] ?? SMALL * 4);
+
+/** Parse a CLI size arg, enforcing a positive integer so generated modules and
+ *  the scaling check stay valid (a NaN/0/negative would produce empty
+ *  workspaces and a meaningless ratio). */
+function parseSize(raw, fallback) {
+	if (raw === undefined) return fallback;
+	const n = Number(raw);
+	if (!Number.isInteger(n) || n <= 0) {
+		console.error(
+			`[repro-1144] invalid size "${raw}": expected a positive integer (file count).`,
+		);
+		process.exit(2);
+	}
+	return n;
+}
+
+const SMALL = parseSize(process.argv[2], 1000);
+const LARGE = parseSize(process.argv[3], SMALL * 4);
 
 function makeWorkspace(fileCount) {
 	const dir = mkdtempSync(join(tmpdir(), `opencode-swarm-1144-${fileCount}-`));
