@@ -143,6 +143,55 @@ export function addEdge(graph: RepoGraph, edge: GraphEdge): void {
 	}
 }
 
+// ---------------------------------------------------------------------------
+// Bulk-insert helpers for full-workspace construction (issue #1144).
+//
+// The exported upsertNode/addEdge above recompute graph.metadata
+// (Object.keys(graph.nodes).length — O(nodes)) on EVERY insert, and addEdge
+// scans all existing edges (O(edges)) to dedup. Calling them once per file and
+// once per edge inside the build loops makes full-workspace construction
+// O(N^2): on large repos this saturates the single-threaded event loop and
+// stalls plugin startup for tens of seconds.
+//
+// These helpers insert in O(1): nodes go straight into the map, edges are
+// deduped against a caller-owned Set, and metadata is computed ONCE after the
+// loop (both build functions already do this). Output is byte-identical to the
+// upsertNode/addEdge path — same validation, same node key + last-write-wins,
+// same (source, target, importSpecifier) dedup, same push order. The exported
+// helpers are intentionally left unchanged for incremental callers that mutate
+// a small number of files, where the per-call cost is negligible.
+
+/**
+ * Build a collision-proof dedup key for an edge. Uses a NUL (U+0000) separator:
+ * file paths and import specifiers can never contain NUL (parseFileImports
+ * strips it and path-security rejects control chars), so distinct edges can
+ * never alias even when paths/specifiers contain spaces. `importType` is
+ * intentionally excluded, matching addEdge's `(source, target, importSpecifier)`
+ * dedup predicate.
+ */
+function buildLoopEdgeKey(edge: GraphEdge): string {
+	return `${edge.source}\u0000${edge.target}\u0000${edge.importSpecifier}`;
+}
+
+/** O(1) node insert mirroring upsertNode, minus the per-call metadata recompute. */
+function appendNodeFast(graph: RepoGraph, node: GraphNode): void {
+	validateGraphNode(node);
+	graph.nodes[normalizeGraphPath(node.filePath)] = node;
+}
+
+/** O(1) deduped edge insert mirroring addEdge, minus the per-call metadata recompute. */
+function appendEdgeFast(
+	graph: RepoGraph,
+	edge: GraphEdge,
+	seenEdgeKeys: Set<string>,
+): void {
+	validateGraphEdge(edge);
+	const key = buildLoopEdgeKey(edge);
+	if (seenEdgeKeys.has(key)) return;
+	seenEdgeKeys.add(key);
+	graph.edges.push(edge);
+}
+
 // ============ Path Resolution ============
 
 /**
@@ -841,7 +890,11 @@ export function buildWorkspaceGraph(
 		);
 	}
 
-	// Process each file to extract nodes and edges
+	// Process each file to extract nodes and edges. Edge dedup is tracked in a
+	// loop-local Set (O(1)) instead of addEdge's O(edges) linear scan, and nodes
+	// go straight in via appendNodeFast — metadata is computed once below. This
+	// keeps construction O(N) on large repos (issue #1144).
+	const seenEdges = new Set<string>();
 	for (const filePath of sourceFiles) {
 		let content: string;
 		let fileStats: fsSync.Stats;
@@ -900,7 +953,7 @@ export function buildWorkspaceGraph(
 			mtime: fileStats.mtime.toISOString(),
 		};
 
-		upsertNode(graph, node);
+		appendNodeFast(graph, node);
 
 		// Sort imports deterministically by specifier for stable edge ordering
 		const sortedImports = [...parsedImports].sort((a, b) =>
@@ -921,7 +974,7 @@ export function buildWorkspaceGraph(
 					importSpecifier: parsed.specifier,
 					importType: parsed.importType,
 				};
-				addEdge(graph, edge);
+				appendEdgeFast(graph, edge, seenEdges);
 			}
 		}
 	}
@@ -1004,13 +1057,18 @@ export async function buildWorkspaceGraphAsync(
 		);
 	}
 
+	// Edge dedup tracked in a loop-local Set (O(1)); nodes inserted via
+	// appendNodeFast — metadata is computed once below. Keeps construction O(N)
+	// on large repos so the deferred startup scan no longer stalls the event
+	// loop for tens of seconds (issue #1144).
+	const seenEdges = new Set<string>();
 	let processedSinceYield = 0;
 	for (const filePath of sourceFiles) {
 		const result = scanFile(filePath, absoluteRoot, maxFileSize);
 		if (result.node) {
-			upsertNode(graph, result.node);
+			appendNodeFast(graph, result.node);
 			for (const edge of result.edges) {
-				addEdge(graph, edge);
+				appendEdgeFast(graph, edge, seenEdges);
 			}
 			stats.filesScanned++;
 		} else {
