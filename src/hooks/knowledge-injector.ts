@@ -392,7 +392,10 @@ export function createKnowledgeInjectorHook(
 				);
 				if (briefingContent) {
 					// Sanitize and truncate to stay within token budget (same 500 char limit as drift)
-					const truncatedBriefing = sanitizeContextText(briefingContent).slice(0, 500);
+					const truncatedBriefing = sanitizeContextText(briefingContent).slice(
+						0,
+						500,
+					);
 					freshPreamble = freshPreamble
 						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${freshPreamble}`
 						: `<curator_briefing>${truncatedBriefing}</curator_briefing>`;

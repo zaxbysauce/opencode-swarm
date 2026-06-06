@@ -11,7 +11,7 @@
  * - BiDi override characters used for visual spoofing
  * - Triple-backtick sequences used to break out of code blocks
  * - `system:` / `SYSTEM:` prefix lines that mimic system-prompt directives
- * - XML-style `<system>`, `<tool_call>` tags used for structured prompt injection
+ * - XML-style `<system>`, `<tool_call>` tags and all `</tag>` closing tags used for structured prompt injection
  */
 
 /**
@@ -41,5 +41,6 @@ export function sanitizeContextText(text: string): string {
 		.replace(/<system\b[^>]*>/gi, '[BLOCKED-TAG]') // Block <system ...> open tags
 		.replace(/<\/system>/gi, '[/BLOCKED-TAG]') // Block </system> close tags
 		.replace(/<tool_call\b[^>]*>/gi, '[BLOCKED-TOOL]') // Block <tool_call ...> open tags
-		.replace(/<\/tool_call>/gi, '[/BLOCKED-TOOL]'); // Block </tool_call> close tags
+		.replace(/<\/tool_call>/gi, '[/BLOCKED-TOOL]') // Block </tool_call> close tags
+		.replace(/<\/\w+>/g, '[/BLOCKED-TAG]'); // Block all closing XML tags
 }
