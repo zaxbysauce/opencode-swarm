@@ -650,6 +650,9 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		// registered because reviewer / critic / sme base agents are disabled.
 		// A user who enables the General Council expects all three council roles to
 		// participate; a silently reduced council can produce misleading results.
+		// The threshold 3 and the three isAgentDisabled checks below are intentionally
+		// hardcoded: the General Council is a fixed three-role construct by design.
+		// If a new council role is ever added, update all four values together.
 		if (councilAgentsCreated < 3) {
 			const missing: string[] = [];
 			if (isAgentDisabled('reviewer', swarmAgents, swarmPrefix))
