@@ -334,7 +334,11 @@ describe('submit_council_verdicts — quorum guard', () => {
 			);
 			const firstParsed = JSON.parse(first);
 			expect(firstParsed.reason).toBe('insufficient_quorum');
-			expect(firstParsed.membersAbsent).toEqual(['reviewer', 'sme', 'explorer']);
+			expect(firstParsed.membersAbsent).toEqual([
+				'reviewer',
+				'sme',
+				'explorer',
+			]);
 
 			const retry = await submit_council_verdicts.execute(
 				{
@@ -432,8 +436,40 @@ describe('submit_council_verdicts — quorum guard', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.reason).toBe('stale_verdict_detected');
+			expect(parsed.staleVerdicts).toEqual([{ agent: 'sme', verdictRound: 1 }]);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('rejects stale verdicts when verdictRound is omitted at round > 1', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'submit-stale-omitted-round-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			const { submit_council_verdicts } = await import(
+				'../../../src/tools/convene-council'
+			);
+			const result = await submit_council_verdicts.execute(
+				{
+					taskId: '3.2',
+					swarmId: 'swarm-1',
+					roundNumber: 2,
+					verdicts: [
+						makeVerdict('critic', 'APPROVE'),
+						makeVerdict('reviewer', 'APPROVE'),
+						makeVerdict('sme', 'CONCERNS'),
+					],
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason).toBe('stale_verdict_detected');
 			expect(parsed.staleVerdicts).toEqual([
-				{ agent: 'sme', verdictRound: 1 },
+				{ agent: 'critic', verdictRound: undefined },
+				{ agent: 'reviewer', verdictRound: undefined },
+				{ agent: 'sme', verdictRound: undefined },
 			]);
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });

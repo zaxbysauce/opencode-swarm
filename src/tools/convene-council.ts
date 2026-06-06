@@ -101,12 +101,7 @@ export const submit_council_verdicts: ReturnType<typeof tool> = createSwarmTool(
 							'explorer',
 						]),
 						verdict: z.enum(['APPROVE', 'CONCERNS', 'REJECT']),
-						verdictRound: z
-							.number()
-							.int()
-							.min(1)
-							.max(10)
-							.optional(),
+						verdictRound: z.number().int().min(1).max(10).optional(),
 						confidence: z.number().min(0).max(1),
 						findings: z.array(
 							z.object({
@@ -261,9 +256,7 @@ export const submit_council_verdicts: ReturnType<typeof tool> = createSwarmTool(
 			const staleVerdicts =
 				input.roundNumber > 1
 					? input.verdicts.filter(
-							(v) =>
-								typeof v.verdictRound === 'number' &&
-								v.verdictRound < input.roundNumber,
+							(v) => (v.verdictRound ?? 1) < input.roundNumber,
 						)
 					: [];
 			if (staleVerdicts.length > 0) {
