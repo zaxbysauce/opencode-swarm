@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.51.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.4...v7.51.5) (2026-06-06)
+
+
+### Bug Fixes
+
+* **council:** add design-invariant comment to hardcoded 3-agent threshold ([e7abefa](https://github.com/zaxbysauce/opencode-swarm/commit/e7abefa3f75ec84cd7e8c9083a26307da076b66a))
+* **council:** docs update, appendPrompt comment, silent-reduction warning ([947dd1e](https://github.com/zaxbysauce/opencode-swarm/commit/947dd1e8ae36754ce43e2dfe48ec475a0fe8e9cf))
+* **council:** remove committed dist/ artifacts and add reduction-warning tests ([4a07b2b](https://github.com/zaxbysauce/opencode-swarm/commit/4a07b2be164fffb6d9338e9399e46e630a052688))
+* **council:** remove stale preset-names mention from no-args note ([bddc9e2](https://github.com/zaxbysauce/opencode-swarm/commit/bddc9e2ddb6e86747b7857b3582150883c2a0c29))
+
 ## [7.51.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.3...v7.51.4) (2026-06-06)
 
 
