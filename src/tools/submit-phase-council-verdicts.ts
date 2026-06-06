@@ -18,6 +18,7 @@ import { resolveWorkingDirectory } from './resolve-working-directory';
 const VerdictSchema = z.object({
 	agent: z.enum(['critic', 'reviewer', 'sme', 'test_engineer', 'explorer']),
 	verdict: z.enum(['APPROVE', 'CONCERNS', 'REJECT']),
+	verdictRound: z.number().int().min(1).max(10).optional(),
 	confidence: z.number().min(0).max(1),
 	findings: z.array(
 		z.object({
@@ -82,6 +83,7 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 							'explorer',
 						]),
 						verdict: z.enum(['APPROVE', 'CONCERNS', 'REJECT']),
+						verdictRound: z.number().int().min(1).max(10).optional(),
 						confidence: z.number().min(0).max(1),
 						findings: z.array(
 							z.object({
@@ -180,6 +182,30 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 						membersVoted,
 						membersAbsent,
 						quorumRequired: effectiveMinimum,
+					},
+					null,
+					2,
+				);
+			}
+
+			const staleVerdicts =
+				(input.roundNumber ?? 1) > 1
+					? input.verdicts.filter(
+							(v) => (v.verdictRound ?? 1) < (input.roundNumber ?? 1),
+						)
+					: [];
+			if (staleVerdicts.length > 0) {
+				return JSON.stringify(
+					{
+						success: false,
+						reason: 'stale_verdict_detected',
+						message:
+							`Round ${input.roundNumber ?? 1} requires fresh verdicts. ` +
+							'One or more submitted verdicts are from an older round.',
+						staleVerdicts: staleVerdicts.map((v) => ({
+							agent: v.agent,
+							verdictRound: v.verdictRound,
+						})),
 					},
 					null,
 					2,

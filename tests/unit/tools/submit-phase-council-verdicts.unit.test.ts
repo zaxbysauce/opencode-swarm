@@ -57,9 +57,11 @@ const writeMalformedMutationGateEvidence = (
 const makeVerdict = (
 	agent: string,
 	verdict: 'APPROVE' | 'CONCERNS' | 'REJECT' = 'APPROVE',
+	verdictRound?: number,
 ): Record<string, unknown> => ({
 	agent,
 	verdict,
+	...(verdictRound !== undefined ? { verdictRound } : {}),
 	confidence: 0.9,
 	findings: [],
 	criteriaAssessed: [],
@@ -556,6 +558,74 @@ describe('submit_phase_council_verdicts — mutation_gap emission', () => {
 			expect(parsed.success).toBe(true);
 			expect(parsed.mutationGapEmitted).toBe(true);
 			expect(parsed.unifiedFeedbackMd).toContain('mutation_gap');
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+});
+
+describe('submit_phase_council_verdicts — stale verdict detection', () => {
+	test('roundNumber:2 with omitted verdictRound returns stale_verdict_detected', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-stale-omitted-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 1,
+					swarmId: 'test',
+					phaseSummary: 'Phase 1.',
+					roundNumber: 2,
+					verdicts: [
+						makeVerdict('critic'),
+						makeVerdict('reviewer'),
+						makeVerdict('sme'),
+					],
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason).toBe('stale_verdict_detected');
+			expect(parsed.staleVerdicts).toEqual([
+				{ agent: 'critic', verdictRound: undefined },
+				{ agent: 'reviewer', verdictRound: undefined },
+				{ agent: 'sme', verdictRound: undefined },
+			]);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('roundNumber:2 with explicit verdictRound:1 returns stale_verdict_detected', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'spcv-stale-explicit-'));
+		try {
+			writeConfig(tempDir, { enabled: true });
+			const { submit_phase_council_verdicts } = await import(
+				'../../../src/tools/submit-phase-council-verdicts'
+			);
+			const result = await submit_phase_council_verdicts.execute(
+				{
+					phaseNumber: 1,
+					swarmId: 'test',
+					phaseSummary: 'Phase 1.',
+					roundNumber: 2,
+					verdicts: [
+						makeVerdict('critic', 'APPROVE', 2),
+						makeVerdict('reviewer', 'APPROVE', 2),
+						makeVerdict('sme', 'CONCERNS', 1),
+					],
+					working_directory: tempDir,
+				},
+				{ directory: tempDir },
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(false);
+			expect(parsed.reason).toBe('stale_verdict_detected');
+			expect(parsed.staleVerdicts).toEqual([{ agent: 'sme', verdictRound: 1 }]);
 		} finally {
 			rmSync(tempDir, { recursive: true, force: true });
 		}

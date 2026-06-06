@@ -128,7 +128,9 @@ describe('Architect prompt — Work Complete Council workflow block', () => {
 		});
 
 		it('requires re-dispatch of all absent members after insufficient_quorum', () => {
-			expect(prompt).toMatch(/dispatch ALL absent members.*single parallel batch/i);
+			expect(prompt).toMatch(
+				/dispatch ALL absent members.*single parallel batch/i,
+			);
 		});
 
 		it('requires prior-round dissenters to be re-dispatched', () => {
