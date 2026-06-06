@@ -16,7 +16,7 @@
  * shared test-runner process).
  *
  * All functions accept an explicit `directory` parameter (Invariant 4).
- * No `process.cwd()` usage. Never throws — wraps everything in try/catch.
+  * Uses injected directory parameter instead of cwd. Never throws — wraps everything in try/catch.
  * No `bun:` imports — Node-ESM-loadable (Invariant 2).
  */
 
