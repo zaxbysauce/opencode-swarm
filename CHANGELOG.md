@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.51.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.3...v7.51.4) (2026-06-06)
+
+
+### Bug Fixes
+
+* follow-up items from PR [#640](https://github.com/zaxbysauce/opencode-swarm/issues/640) and [#641](https://github.com/zaxbysauce/opencode-swarm/issues/641) reviews ([427cc00](https://github.com/zaxbysauce/opencode-swarm/commit/427cc0011470be531398e673dddc16cdbd545e3d))
+* use consistent import path for utils warn in knowledge-add.ts ([797aeb5](https://github.com/zaxbysauce/opencode-swarm/commit/797aeb5e191eee52860f4e40abac839dcb6ce4f9))
+
 ## [7.51.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.2...v7.51.3) (2026-06-06)
 
 
