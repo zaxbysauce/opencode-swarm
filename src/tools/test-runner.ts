@@ -359,29 +359,31 @@ function detectMinitest(cwd: string): boolean {
  * pre-Phase-3 behavior for languages whose tests the legacy path
  * couldn't detect either.
  */
-const DISPATCH_FRAMEWORK_MAP: Record<string, TestFramework> = {
-	'bun:test': 'bun',
+export const DISPATCH_FRAMEWORK_MAP: Record<string, TestFramework> = {
+	// Identity mappings — profile framework names unified with the union
+	// (DD-C026). The remaining non-identity entries are genuine aliases where
+	// several profile names collapse to one union framework.
 	bun: 'bun',
 	vitest: 'vitest',
 	jest: 'jest',
 	mocha: 'mocha',
 	pytest: 'pytest',
-	'cargo test': 'cargo',
 	cargo: 'cargo',
 	pester: 'pester',
-	'go test': 'go-test',
-	'maven-test': 'maven',
-	'gradle-test': 'gradle',
-	'gradle-test-groovy': 'gradle',
-	'gradle-kts': 'gradle',
-	'dotnet test': 'dotnet-test',
+	'go-test': 'go-test',
+	maven: 'maven',
+	gradle: 'gradle',
+	'dotnet-test': 'dotnet-test',
 	ctest: 'ctest',
-	'swift test': 'swift-test',
+	'swift-test': 'swift-test',
+	'dart-test': 'dart-test',
+	rspec: 'rspec',
+	minitest: 'minitest',
+	// Genuine aliases (many profile names → one union framework).
+	'bun:test': 'bun',
 	'xcodebuild-test': 'swift-test',
 	'flutter test': 'dart-test',
 	'dart test': 'dart-test',
-	rspec: 'rspec',
-	minitest: 'minitest',
 };
 
 export async function detectTestFrameworkViaDispatch(

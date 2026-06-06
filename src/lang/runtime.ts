@@ -1,3 +1,4 @@
+import { existsSync, statSync } from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { Parser as ParserType } from 'web-tree-sitter';
@@ -5,14 +6,38 @@ import type { Parser as ParserType } from 'web-tree-sitter';
 // TreeSitterParser is imported to use Language.load()
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { Language, Parser as TreeSitterParser } from 'web-tree-sitter';
+import { withTimeout } from '../utils/timeout';
 
 // Re-export Parser type for consumers
 export type Parser = ParserType;
 
 /**
- * Parser cache to avoid reloading grammars multiple times per session
+ * Parser cache to avoid reloading grammars multiple times per session.
+ *
+ * Callers share a single `Parser` instance per language. This is safe in the
+ * single-threaded JS runtime: the only mutation of a cached parser is the
+ * one-time `setLanguage` during load (serialized by `inflightLoads` below),
+ * and `Parser.parse()` plus the subsequent tree walk run synchronously to
+ * completion with no intervening `await`, so two callers cannot interleave on
+ * the same instance even under `Promise.all`. (Same single-thread reasoning
+ * that makes a separate-parser-per-call rewrite unnecessary here.)
  */
 export const parserCache = new Map<string, ParserType>();
+
+/**
+ * In-flight grammar loads keyed by normalized language id. Concurrent callers
+ * (e.g. the parallel syntax-check loop) share the single load promise instead
+ * of each spawning a redundant `Language.load` for the same WASM file. Entries
+ * are removed once the load settles; the resolved parser lives in `parserCache`.
+ */
+const inflightLoads = new Map<string, Promise<ParserType>>();
+
+/**
+ * Upper bound on a single WASM grammar load (AGENTS.md invariant 1 — bounded
+ * init-path work). A corrupted grammar file must not be able to hang the
+ * awaiter indefinitely.
+ */
+const GRAMMAR_LOAD_TIMEOUT_MS = 10_000;
 
 /**
  * Track which languages have been initialized to avoid re-init
@@ -173,40 +198,59 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 		return parserCache.get(normalizedId)!;
 	}
 
-	// Initialize tree-sitter WASM runtime
-	await initTreeSitter();
+	// Coalesce concurrent loads of the same grammar onto one promise.
+	const existing = inflightLoads.get(normalizedId);
+	if (existing) return existing;
 
-	// Initialize parser
-	const parser = new TreeSitterParser();
+	const loadPromise = (async (): Promise<ParserType> => {
+		// Initialize tree-sitter WASM runtime
+		await initTreeSitter();
 
-	// Get WASM file name and construct path
-	const wasmFileName = getWasmFileName(normalizedId);
-	const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
+		// Initialize parser
+		const parser = new TreeSitterParser();
 
-	// Check if file exists before attempting to load
-	const { existsSync } = await import('node:fs');
-	if (!existsSync(wasmPath)) {
-		throw new Error(
-			`Grammar file not found for ${languageId}: ${wasmPath}\n` +
-				`Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`,
-		);
-	}
+		// Get WASM file name and construct path
+		const wasmFileName = getWasmFileName(normalizedId);
+		const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
 
+		// Check if file exists before attempting to load
+		if (!existsSync(wasmPath)) {
+			throw new Error(
+				`Grammar file not found for ${languageId}: ${wasmPath}\n` +
+					`Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`,
+			);
+		}
+
+		try {
+			// Bound the load so a corrupted WASM file cannot hang indefinitely.
+			const language = await withTimeout(
+				Language.load(wasmPath),
+				GRAMMAR_LOAD_TIMEOUT_MS,
+				new Error(
+					`Timed out after ${GRAMMAR_LOAD_TIMEOUT_MS}ms loading grammar`,
+				),
+			);
+			parser.setLanguage(language);
+		} catch (error) {
+			throw new Error(
+				`Failed to load grammar for ${languageId}: ${error instanceof Error ? error.message : String(error)}\n` +
+					`WASM path: ${wasmPath}`,
+			);
+		}
+
+		// Cache and return
+		parserCache.set(normalizedId, parser);
+		initializedLanguages.add(normalizedId);
+
+		return parser;
+	})();
+
+	inflightLoads.set(normalizedId, loadPromise);
 	try {
-		const language = await Language.load(wasmPath);
-		parser.setLanguage(language);
-	} catch (error) {
-		throw new Error(
-			`Failed to load grammar for ${languageId}: ${error instanceof Error ? error.message : String(error)}\n` +
-				`WASM path: ${wasmPath}`,
-		);
+		return await loadPromise;
+	} finally {
+		inflightLoads.delete(normalizedId);
 	}
-
-	// Cache and return
-	parserCache.set(normalizedId, parser);
-	initializedLanguages.add(normalizedId);
-
-	return parser;
 }
 
 /**
@@ -240,7 +284,6 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
 		const wasmFileName = getWasmFileName(normalizedId);
 		const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
 
-		const { statSync } = await import('node:fs');
 		statSync(wasmPath);
 		return true;
 	} catch {
@@ -253,6 +296,7 @@ export async function isGrammarAvailable(languageId: string): Promise<boolean> {
  */
 export function clearParserCache(): void {
 	parserCache.clear();
+	inflightLoads.clear();
 	initializedLanguages.clear();
 	treeSitterInitPromise = null;
 }

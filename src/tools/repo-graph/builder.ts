@@ -396,8 +396,144 @@ interface ParsedImport {
  * @param content - File content to parse
  * @returns Array of parsed imports with specifier and type
  */
-function parseFileImports(content: string): ParsedImport[] {
+/**
+ * Characters after which a `/` begins a regex literal rather than a division
+ * operator. At these expression-start positions `/` cannot be division, so a
+ * following `/regex/` is a regex literal whose body must be treated opaquely
+ * (it may legally contain `/*`, `//`, quotes, etc.).
+ */
+const REGEX_ALLOWED_AFTER = new Set('(,=:[!&|?{};*+-~^<>%'.split(''));
+
+/**
+ * Strip line (`//…`) and block (`/* … *\/`) comments from JS/TS source while
+ * preserving string, template-literal, and regex-literal contents (DD-C010).
+ * Import specifiers live inside string literals, so strings must be kept
+ * intact; only comment spans are removed. This is a bounded single-pass scanner
+ * — not a full parser (AST parsing in the repo-graph init path would violate
+ * AGENTS.md invariant 1) — and it eliminates the most common source of false
+ * import edges: import-like text inside comments (`// import x from "y"`).
+ *
+ * It is string-aware (a `//` inside `"http://…"` is not a comment) and
+ * regex-aware (a regex literal such as `/[/*]/` must not be mistaken for the
+ * start of a block comment, which would otherwise run to EOF and delete real
+ * imports). Regex-vs-division is disambiguated by the previous significant
+ * character (REGEX_ALLOWED_AFTER).
+ */
+function stripComments(content: string): string {
+	let out = '';
+	let i = 0;
+	const n = content.length;
+	type State =
+		| 'code'
+		| 'single'
+		| 'double'
+		| 'template'
+		| 'line'
+		| 'block'
+		| 'regex';
+	let state: State = 'code';
+	// Last non-whitespace char emitted while in `code` — disambiguates a `/`
+	// that starts a regex literal from a division operator. Empty = start of
+	// input (regex allowed).
+	let prevSignificant = '';
+	// Whether the regex scanner is inside a `[...]` character class, where `/`
+	// is literal and does not close the regex.
+	let regexInClass = false;
+	while (i < n) {
+		const ch = content[i];
+		const next = i + 1 < n ? content[i + 1] : '';
+		switch (state) {
+			case 'code':
+				// `//` and `/*` always start comments — a regex literal can begin
+				// with neither (`//` is an empty regex = comment per the JS grammar;
+				// `/*` cannot start a regex since `*` is an invalid leading quantifier).
+				if (ch === '/' && next === '/') {
+					state = 'line';
+					i += 2;
+				} else if (ch === '/' && next === '*') {
+					state = 'block';
+					i += 2;
+				} else if (ch === '/' && REGEX_ALLOWED_AFTER.has(prevSignificant)) {
+					// Regex literal — consume its body opaquely.
+					state = 'regex';
+					regexInClass = false;
+					out += ch;
+					i += 1;
+				} else {
+					if (ch === "'") state = 'single';
+					else if (ch === '"') state = 'double';
+					else if (ch === '`') state = 'template';
+					out += ch;
+					if (ch.trim() !== '') prevSignificant = ch;
+					i += 1;
+				}
+				break;
+			case 'single':
+			case 'double':
+			case 'template': {
+				const quote = state === 'single' ? "'" : state === 'double' ? '"' : '`';
+				if (ch === '\\') {
+					// Preserve escape sequences verbatim.
+					out += ch + next;
+					i += 2;
+				} else {
+					if (ch === quote) {
+						state = 'code';
+						// A literal is a value: a following `/` is division.
+						prevSignificant = quote;
+					}
+					out += ch;
+					i += 1;
+				}
+				break;
+			}
+			case 'regex':
+				if (ch === '\\') {
+					out += ch + next;
+					i += 2;
+				} else if (ch === '\n') {
+					// Regex literals cannot span lines — bail defensively to code.
+					state = 'code';
+					out += ch;
+					i += 1;
+				} else {
+					if (ch === '[') regexInClass = true;
+					else if (ch === ']') regexInClass = false;
+					else if (ch === '/' && !regexInClass) {
+						state = 'code';
+						prevSignificant = '/'; // after a regex, `/` is division
+					}
+					out += ch;
+					i += 1;
+				}
+				break;
+			case 'line':
+				// Drop comment chars; preserve the newline so line structure (and
+				// downstream regex anchors) are unaffected.
+				if (ch === '\n') {
+					state = 'code';
+					out += ch;
+				}
+				i += 1;
+				break;
+			case 'block':
+				if (ch === '*' && next === '/') {
+					state = 'code';
+					i += 2;
+				} else {
+					// Preserve newlines inside block comments.
+					if (ch === '\n') out += ch;
+					i += 1;
+				}
+				break;
+		}
+	}
+	return out;
+}
+
+function parseFileImports(rawContent: string): ParsedImport[] {
 	const imports: ParsedImport[] = [];
+	const content = stripComments(rawContent);
 
 	// Combined regex matching:
 	// - import { x } from '...' or import { x as y } from '...'
