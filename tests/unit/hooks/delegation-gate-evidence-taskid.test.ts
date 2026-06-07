@@ -138,15 +138,15 @@ describe('resolveDelegatedPlanTaskId — FR-001: derives task ID from delegation
 			expect(result).toBe('21.1');
 		});
 
-		it('multiple TASK: lines — returns first line ID (extractTaskLine has no g flag)', () => {
-			// extractTaskLine uses text.match() without the g flag, so it returns
-			// only the first TASK: occurrence. The second TASK: line is ignored.
+		it('multiple TASK: lines with distinct IDs — fails closed (returns null)', () => {
+			// Both TASK: lines are scanned; both IDs are in the plan → taskLineMatches
+			// has size 2 → fail closed rather than silently picking the first line's ID.
 			const args = {
 				prompt: 'TASK: 1.1 First task\nSome context\nTASK: 1.2 Second task',
 			};
 			const knownPlanTaskIds = new Set(['1.1', '1.2']);
 			const result = resolveDelegatedPlanTaskId(args, knownPlanTaskIds);
-			expect(result).toBe('1.1');
+			expect(result).toBeNull();
 		});
 
 		it('TASK: line ID not in knownPlanTaskIds falls through to seen scan', () => {

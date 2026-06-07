@@ -424,19 +424,23 @@ function resolveDelegatedPlanTaskId(
 
 	// Strong signal: when delegation text includes a TASK: line, prefer IDs from
 	// that line even if other task IDs appear elsewhere in the same prompt.
-	// Fail-closed on ambiguity: multiple distinct IDs on the TASK: line → null
-	// (does NOT fall through to the seen scan; ambiguous TASK: line is treated as
+	// Scans ALL TASK: lines per field (not just the first) so that multiple TASK:
+	// lines with distinct IDs correctly fail closed → null instead of resolving
+	// to the first line's ID via extractTaskLine()'s single-match behavior.
+	// Fail-closed on ambiguity: multiple distinct IDs across all TASK: lines → null
+	// (does NOT fall through to the seen scan; ambiguous TASK: lines are treated as
 	// unresolvable rather than silently selecting the wrong task).
 	const taskLineMatches = new Set<string>();
 	for (const field of candidateTextFields) {
 		if (typeof field !== 'string') continue;
-		const taskLine = extractTaskLine(field);
-		if (!taskLine) continue;
-		for (const m of taskLine.matchAll(/\b(\d+\.\d+(?:\.\d+)*)\b/g)) {
-			const candidate = m[1];
-			if (!isStrictTaskId(candidate)) continue;
-			if (knownPlanTaskIds && !knownPlanTaskIds.has(candidate)) continue;
-			taskLineMatches.add(candidate);
+		for (const taskLineMatch of field.matchAll(/TASK:\s*(.+?)(?:\n|$)/gi)) {
+			const taskLineContent = taskLineMatch[1].trim();
+			for (const m of taskLineContent.matchAll(/\b(\d+\.\d+(?:\.\d+)*)\b/g)) {
+				const candidate = m[1];
+				if (!isStrictTaskId(candidate)) continue;
+				if (knownPlanTaskIds && !knownPlanTaskIds.has(candidate)) continue;
+				taskLineMatches.add(candidate);
+			}
 		}
 	}
 	if (taskLineMatches.size === 1) {

@@ -78,6 +78,8 @@ export interface SerializedAgentSession {
 	stageBCompletion?: Record<string, string[]>;
 	/** Session-scoped concurrency override for max_concurrent_tasks (Issue #761) */
 	maxConcurrencyOverride?: number;
+	/** Pending council member requirements keyed by taskId:roundNumber. Optional for backward compat. */
+	pendingCouncilRequirements?: Record<string, string[]>;
 }
 
 /**
@@ -158,6 +160,14 @@ export function serializeAgentSession(
 		}
 	}
 
+	// Convert pendingCouncilRequirements: Map<string, Set<CouncilAgent>> -> Record<string, string[]>
+	const pendingCouncilRequirements: Record<string, string[]> = {};
+	if (s.pendingCouncilRequirements) {
+		for (const [key, agents] of s.pendingCouncilRequirements) {
+			pendingCouncilRequirements[key] = Array.from(agents);
+		}
+	}
+
 	// Convert windows: Record<string, InvocationWindow> (already serializable)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	const rawWindows = s.windows ?? {};
@@ -220,6 +230,9 @@ export function serializeAgentSession(
 		...(Object.keys(stageBCompletion).length > 0 && { stageBCompletion }),
 		...(s.maxConcurrencyOverride !== undefined && {
 			maxConcurrencyOverride: s.maxConcurrencyOverride,
+		}),
+		...(Object.keys(pendingCouncilRequirements).length > 0 && {
+			pendingCouncilRequirements,
 		}),
 	};
 }

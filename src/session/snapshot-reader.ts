@@ -4,6 +4,7 @@
  */
 
 import { renameSync } from 'node:fs';
+import type { CouncilAgent } from '../council/types';
 import { validateSwarmPath } from '../hooks/utils';
 import type { AgentSessionState, TaskWorkflowState } from '../state';
 import {
@@ -120,6 +121,14 @@ export function deserializeAgentSession(
 		}
 	}
 
+	// Convert pendingCouncilRequirements: Record<string, string[]> -> Map<string, Set<CouncilAgent>>
+	const pendingCouncilRequirements = new Map<string, Set<CouncilAgent>>();
+	if (s.pendingCouncilRequirements) {
+		for (const [key, agents] of Object.entries(s.pendingCouncilRequirements)) {
+			pendingCouncilRequirements.set(key, new Set(agents as CouncilAgent[]));
+		}
+	}
+
 	// Migration: ensure transientRetryCount exists on all windows (v6.86.14)
 	const windows: Record<string, SerializedInvocationWindow> = {};
 	for (const [key, win] of Object.entries(s.windows ?? {})) {
@@ -189,6 +198,7 @@ export function deserializeAgentSession(
 		prmHardStopPending: false,
 		sessionRehydratedAt: s.sessionRehydratedAt ?? 0,
 		stageBCompletion,
+		pendingCouncilRequirements,
 	};
 }
 

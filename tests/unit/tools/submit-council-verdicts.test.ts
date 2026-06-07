@@ -363,6 +363,55 @@ describe('submit_council_verdicts — quorum guard', () => {
 		}
 	});
 
+	test('full re-dispatch after insufficient_quorum succeeds when all members present', async () => {
+		const tempDir = mkdtempSync(join(tmpdir(), 'submit-quorum-full-retry-'));
+		const sessionID = `submit-council-${Date.now()}-full`;
+		try {
+			writeConfig(tempDir, { enabled: true });
+			startAgentSession(sessionID, 'architect', undefined, tempDir);
+			const { submit_council_verdicts } = await import(
+				'../../../src/tools/convene-council'
+			);
+			// First call: only 2 of 5 members → insufficient_quorum
+			const first = await submit_council_verdicts.execute(
+				{
+					taskId: '3.1',
+					swarmId: 'swarm-1',
+					roundNumber: 1,
+					verdicts: [makeVerdict('critic'), makeVerdict('test_engineer')],
+					working_directory: tempDir,
+				},
+				{ directory: tempDir, sessionID },
+			);
+			const firstParsed = JSON.parse(first);
+			expect(firstParsed.reason).toBe('insufficient_quorum');
+
+			// Second call: all 5 members present — not cherry-picked, should succeed
+			const retry = await submit_council_verdicts.execute(
+				{
+					taskId: '3.1',
+					swarmId: 'swarm-1',
+					roundNumber: 1,
+					verdicts: [
+						makeVerdict('critic'),
+						makeVerdict('test_engineer'),
+						makeVerdict('reviewer'),
+						makeVerdict('sme'),
+						makeVerdict('explorer'),
+					],
+					working_directory: tempDir,
+				},
+				{ directory: tempDir, sessionID },
+			);
+			const retryParsed = JSON.parse(retry);
+			expect(retryParsed.success).toBe(true);
+			expect(retryParsed.quorumMet).toBe(true);
+			expect(retryParsed.membersAbsent).toHaveLength(0);
+		} finally {
+			rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	test('round 2 requires prior-round dissenter to re-review', async () => {
 		const tempDir = mkdtempSync(join(tmpdir(), 'submit-dissenter-round2-'));
 		const sessionID = `submit-council-${Date.now()}-b`;
