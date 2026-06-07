@@ -109,6 +109,13 @@ const DIVERGENT_ARCHITECT_MODE_SKILLS: Array<{
 		reason:
 			'.claude is a 6-phase condensed variant; .opencode is the 12-phase full protocol loaded by architect.ts MODE: PR_REVIEW',
 	},
+	{
+		slug: 'swarm-pr-feedback',
+		opencodePath: '.opencode/skills/swarm-pr-feedback/SKILL.md',
+		claudePath: '.claude/skills/swarm-pr-feedback/SKILL.md',
+		reason:
+			'.claude/.agents are thin adapters that delegate to canonical; .opencode is the full protocol loaded by architect.ts MODE: PR_FEEDBACK',
+	},
 ];
 
 describe('architect mode skill mirrors - regression: prevent mirror drift (F-001)', () => {

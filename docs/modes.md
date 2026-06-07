@@ -467,8 +467,12 @@ The lane planner (`src/turbo/lean/planner.ts`) uses five conflict rules: exact-f
 
 ---
 
+## Signal-Triggered Architect Modes (distinct from session modes)
+
+The session/project modes above control *how* the swarm executes a plan. Separately, certain `/swarm` commands put the architect into a one-shot **signal-triggered workflow mode** by emitting a `[MODE: X ...]` activation signal that loads a dedicated skill on demand: `deep-dive` → `DEEP_DIVE`, `pr-review` → `PR_REVIEW`, `pr-feedback` → `PR_FEEDBACK`, `design-docs` → `DESIGN_DOCS`, `council` → `COUNCIL`, `issue` → `ISSUE_INGEST`, plus the spec-workflow modes (`specify`, `brainstorm`, `clarify`). These are not session modes and do not change `execution_mode`. See [Architecture Deep Dive — Signal-Triggered Modes](architecture.md#signal-triggered-modes-on-demand-skills) and the [Commands Reference](commands.md).
+
 ## Related
 
-- [Commands Reference](commands.md) — `/swarm turbo`, `/swarm full-auto`, `/swarm status`
+- [Commands Reference](commands.md) — `/swarm turbo`, `/swarm full-auto`, `/swarm status`, `/swarm pr-review`, `/swarm pr-feedback`
 - [Configuration](configuration.md) — `execution_mode`, `full_auto.*`, `turbo.lean.*`
-- [Architecture Deep Dive](architecture.md) — QA gates, Stage B, Tier 3
+- [Architecture Deep Dive](architecture.md) — QA gates, Stage B, Tier 3, signal-triggered modes

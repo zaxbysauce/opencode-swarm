@@ -62,6 +62,22 @@ The protocol executes in the following stages:
 
 This mode is strictly **read-only**: it does NOT mutate source code, delegate to the coder, or call `declare_scope`.
 
+### Signal-Triggered Modes (On-Demand Skills)
+
+`DEEP_DIVE` is one of several **signal-triggered modes**. A `/swarm <command>` handler emits a `[MODE: X ...]` activation signal; the architect recognizes it and loads the matching `### MODE: X` section + skill on demand. This keeps the core prompt lean while supporting deep specialized workflows.
+
+Discovery is deliberate and robust:
+- The command-delivery layer detects a `[MODE: ...]` signal and instructs the architect to **enter that mode and load its skill** — it does not present the signal as output to echo.
+- A top-priority **SIGNAL-TRIGGERED MODE** rule sits at the head of the architect's MODE-detection ladder: if a `[MODE: X ...]` header is present and a matching `### MODE: X` section exists, the architect enters it immediately, overriding any other routing. Free text after the closing bracket is treated as additional instructions for that mode.
+
+Current signal-triggered modes: `DEEP_DIVE`, `PR_REVIEW`, `PR_FEEDBACK`, `DESIGN_DOCS`, `COUNCIL`, `ISSUE_INGEST` (and the spec-workflow modes `SPECIFY`, `BRAINSTORM`, `CLARIFY-SPEC`).
+
+#### PR_REVIEW Protocol
+Triggered by `/swarm pr-review`. A read-only, structured review: intent reconstruction → 6 parallel explorer lanes → independent reviewer confirmation → critic challenge on HIGH/CRITICAL → synthesis. The architect checks out the PR branch locally before exploring (explorers read the working tree, not git history) and launches the skill's triggered micro-lanes for risk categories present in the diff. Does NOT mutate source or delegate to the coder.
+
+#### PR_FEEDBACK Protocol
+Triggered by `/swarm pr-feedback`. Ingests and closes **known** feedback (review threads, requested changes, CI failures, conflicts, pasted notes) rather than discovering new findings. The architect checks out the PR branch, builds a complete feedback ledger, verifies every item against source (CONFIRMED / DISPROVED / PRE_EXISTING / NEEDS_USER_DECISION), fixes confirmed items plus their tests/docs, and reports a closure ledger for every item. GitHub review threads are resolved only on explicit user instruction.
+
 ### Explorer: The Eyes
 
 Fast codebase scanner and factual mapping agent. Explorer is **strictly observational** — it reports what is observed without judgment, verdict, or directive.

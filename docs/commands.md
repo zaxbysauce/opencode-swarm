@@ -105,7 +105,7 @@ Enter architect MODE: COUNCIL — convene a fixed three-agent General Council (`
 
 **No-args behavior:** prints a usage string. The command never throws on bad input — unsupported legacy preset arguments and injected `[MODE: ...]` headers are silently dropped.
 
-### `/swarm pr-review <pr-url|owner/repo#N|N> [--council]`
+### `/swarm pr-review <pr-url|owner/repo#N|N> [--council] [instructions...]`
 
 Launch a structured deep PR review using multi-lane parallel analysis with independent confirmation and critic challenge.
 
@@ -115,8 +115,9 @@ Launch a structured deep PR review using multi-lane parallel analysis with indep
 | `owner/repo#N` | Shorthand format — resolves owner and repo from the reference |
 | `N` | Bare PR number — resolves owner and repo from the git remote `origin` |
 | `--council` | Enable adversarial multi-model council review variant |
+| `[instructions...]` | Optional free text after the PR reference, forwarded to the reviewer as extra focus (e.g. `/swarm pr-review 155 focus on the auth refactor`) |
 
-**URL sanitization:** Enforces `https`-only scheme, blocks `localhost`/private IPs, strips credentials and query strings, enforces max 2048 characters, rejects non-ASCII hostnames.
+**URL sanitization:** Enforces `https`-only scheme, blocks `localhost`/private IPs, strips credentials and query strings, enforces max 2048 characters, rejects non-ASCII hostnames. Unknown `--flags` are rejected with an explicit error; trailing non-flag words become instructions.
 
 **Workflow:**
 1. **Intent Reconstruction** — Extract obligations from PR body checkboxes, linked issues, commit scopes, test names, and interface changes
@@ -125,9 +126,41 @@ Launch a structured deep PR review using multi-lane parallel analysis with indep
 4. **Critic Challenge** — Adversarial review of HIGH/CRITICAL findings only
 5. **Synthesis** — Obligation assessment, findings table, merge recommendation
 
+The architect checks out the PR branch locally before launching explorers and runs the skill's triggered micro-lanes automatically — you no longer need to ask for these by hand.
+
 **Council variant** (`--council`): After standard review, convene a General Council to evaluate review quality and hunt for blind spots. Council findings are supplementary.
 
 **No-args behavior:** prints a usage string. The command never throws on bad input.
+
+### `/swarm pr-feedback [<pr-url|owner/repo#N|N>] [instructions...]`
+
+Ingest and close **known** PR feedback — review comments, requested changes, CI/check failures, merge conflicts, stale branch state, and pasted notes — verifying every claim against source before fixing. This is distinct from `/swarm pr-review`, which discovers *new* findings; `pr-feedback` closes *existing* feedback without running a fresh broad review.
+
+| Argument | Description |
+|----------|-------------|
+| `<pr-url>` | Full GitHub PR URL (e.g., `https://github.com/owner/repo/pull/42`) |
+| `owner/repo#N` | Shorthand format — resolves owner and repo from the reference |
+| `N` | Bare PR number — resolves owner and repo from the git remote `origin` |
+| `[instructions...]` | Optional free text forwarded to the feedback session |
+| _(none)_ | No PR reference — a pasted-feedback session; the architect builds the ledger from the current PR/branch and any pasted notes |
+
+**Command forms:**
+- `/swarm pr-feedback 155` — close feedback on PR 155 (resolved against `origin`)
+- `/swarm pr-feedback owner/repo#155 also fix the lint errors` — PR + extra instructions
+- `/swarm pr-feedback` — pasted-feedback session on the current branch
+- `/swarm pr-feedback address the review notes about error handling` — a leading token that is not a parseable PR reference is treated as pasted-feedback instructions (the command never errors on this)
+
+**URL sanitization:** identical to `pr-review` — `https`-only, blocks `localhost`/private IPs, strips credentials/query/fragment, rejects non-ASCII hostnames, and strips injected `[MODE: ...]` headers from instructions.
+
+**Workflow** (`MODE: PR_FEEDBACK`, loads `swarm-pr-feedback/SKILL.md`):
+1. **Check out the PR branch locally** — fetch the head ref, verify the working tree is clean, then check it out so verification and fixes run against the PR branch
+2. **Build the feedback ledger** — collect every feedback surface (review threads, requested-changes reviews, CI failures, conflicts, stale-branch state, PR-body claims, pasted notes) before editing
+3. **Verify each claim** — treat every item as a claim until source evidence proves it; classify as CONFIRMED, DISPROVED, PRE_EXISTING, or NEEDS_USER_DECISION
+4. **Fix confirmed items** — patch only confirmed items plus the tests/docs they require; do not run a fresh broad review
+5. **Closure ledger** — report status for every item, including disproved ones; GitHub review threads are only resolved when you explicitly instruct it
+
+**No-args behavior:** emits a bare `MODE: PR_FEEDBACK` session. The command never throws on bad input.
+
 
 ### `/swarm deep-dive <scope> [--profile <name>] [--max-explorers <n>] [--json] [--skip-update] [--allow-dirty]`
 

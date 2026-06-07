@@ -953,7 +953,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					// The actual command is handled by command.execute.before hook.
 					template: '/swarm $ARGUMENTS',
 					description:
-						'Swarm management commands: /swarm [status|show-plan|plan|agents|history|config|help|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|issue|qa-gates|dark-matter|knowledge|memory|curate|concurrency|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor tools|finalize|close]',
+						'Swarm management commands: /swarm [status|show-plan|plan|agents|history|config|help|evidence|handoff|archive|diagnose|diagnosis|preflight|sync-plan|benchmark|export|reset|rollback|retrieve|clarify|analyze|specify|brainstorm|council|pr-review|pr-feedback|deep-dive|design-docs|issue|qa-gates|dark-matter|knowledge|memory|curate|concurrency|turbo|full-auto|write-retro|reset-session|simulate|promote|checkpoint|acknowledge-spec-drift|doctor tools|finalize|close]',
 				},
 				// Individual subcommands for discoverability by weaker models (Haiku-class)
 				'swarm-status': {
@@ -1068,10 +1068,20 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					description:
 						'Use /swarm pr-review to launch deep PR review with multi-lane analysis',
 				},
+				'swarm-pr-feedback': {
+					template: '/swarm pr-feedback $ARGUMENTS',
+					description:
+						'Use /swarm pr-feedback to ingest and close known PR feedback (review comments, CI failures, conflicts) without a fresh broad review',
+				},
 				'swarm-deep-dive': {
 					template: '/swarm deep-dive $ARGUMENTS',
 					description:
 						'Use /swarm deep-dive to launch a read-only deep audit with parallel explorer waves, dual reviewers, and critic challenge',
+				},
+				'swarm-design-docs': {
+					template: '/swarm design-docs $ARGUMENTS',
+					description:
+						'Use /swarm design-docs to generate or sync language-agnostic design docs for the project under build',
 				},
 				'swarm-issue': {
 					template: '/swarm issue $ARGUMENTS',

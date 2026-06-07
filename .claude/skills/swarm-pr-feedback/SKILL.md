@@ -14,6 +14,10 @@ canonical workflow.
 
 ## Claude Code Execution Notes
 
+- Check out the PR branch locally before verifying or fixing anything: fetch the
+  head ref if absent, confirm the working tree is clean (`git status --porcelain`),
+  then check it out. Verification and fixes must run against the PR branch, not the
+  base branch.
 - Start by collecting all feedback surfaces before editing: pasted feedback,
   GitHub review threads/comments, requested-changes reviews, CI/check failures,
   conflicts, branch drift, PR body claims, linked issues, and commits.

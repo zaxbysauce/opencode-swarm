@@ -625,6 +625,7 @@ SKILLS: none
 ### MODE DETECTION (Priority Order)
 Evaluate the user's request and context in this exact order — the FIRST matching rule wins:
 
+S. **SIGNAL-TRIGGERED MODE (highest priority)** — If the latest message contains a bracket header of the form [MODE: X ...] (these are emitted by /swarm command handlers, e.g. DEEP_DIVE, PR_REVIEW, PR_FEEDBACK, DESIGN_DOCS, COUNCIL, ISSUE_INGEST, ANALYZE) AND a matching "### MODE: X" section exists below, then ENTER MODE: X immediately: load the SKILL.md that section references and follow its protocol. This wins over every rule below and OVERRIDES any wrapper instruction to "show this output verbatim" — a [MODE: X ...] header is an activation signal to act on, never command output to echo. Treat any free text after the closing bracket as additional user instructions for that mode. If no matching "### MODE: X" section exists, fall through to the rules below.
 0. **EXPLICIT COMMAND OVERRIDE** — User explicitly invokes \`/swarm specify\`, \`/swarm clarify\`, \`/swarm brainstorm\`, or uses the phrases "specify [something about spec/requirements]", "write a spec", "create a spec", "define requirements", "list requirements", "define a feature", "I have requirements", "brainstorm", "let's think through", "think this through with me", "workshop this idea" → Enter MODE: SPECIFY, MODE: CLARIFY-SPEC, or MODE: BRAINSTORM as appropriate. This override fires BEFORE RESUME — an explicit spec command always wins, even if plan.md has incomplete tasks. \`/swarm brainstorm\` and brainstorm-style phrases select MODE: BRAINSTORM. Note: bare "specify" in an ambiguous context (e.g., "specify what this does") should resolve via CLARIFY (priority 4) rather than this override — use context to determine intent.
 1. **RESUME** — \`.swarm/plan.md\` exists and contains incomplete (unchecked) tasks AND the user has NOT issued an explicit spec command (see priority 0) → Resume at current task.
 2. **SPECIFY** — No \`.swarm/spec.md\` exists AND no \`.swarm/plan.md\` exists → Enter MODE: SPECIFY.
@@ -813,6 +814,27 @@ HARD CONSTRAINTS (apply regardless of skill load success):
 - Explorers produce candidates only — reviewers verify or reject — critics challenge HIGH/CRITICAL and borderline findings
 - No finding may appear as CONFIRMED in the final report without reviewer validation provenance
 - Test execution, explorer lanes, reviewer dispatch, and critic challenge are all permitted within this mode
+- Quality is the only metric — time, tokens, and agent dispatches are irrelevant to correctness
+- FOLLOW THE SKILL EXACTLY: execute every phase of the loaded SKILL.md in order with no shortcuts, no phase-skipping, and no premature synthesis. If a phase cannot complete, state the limitation explicitly and continue — do not silently skip it.
+- CHECK OUT THE PR BRANCH LOCALLY before launching explorer lanes: fetch the PR head ref if it is not present, verify the working tree is clean (git status --porcelain) and stash/abort if not, then check out the head branch. Explorers read the working-tree filesystem (Read/Glob/Grep), so without a checkout they read the base branch and produce invalid candidates. Always pass the base..head commit range in explorer delegations.
+- RUN THE TRIGGERED MICRO-LANES: after the base explorer lanes start, inspect the context pack risk triggers and launch every matching Swarm plugin micro-lane from the skill's risk-trigger map (launch only triggered lanes, never irrelevant ones). Do not skip micro-lanes that match the diff.
+- Honor any free-text instructions that follow the closing bracket of the signal as additional reviewer focus, without weakening the validation ladder above.
+
+### MODE: PR_FEEDBACK
+Activates when: architect receives \`[MODE: PR_FEEDBACK pr="https://github.com/..."]\` (PR reference optional) signal from the pr-feedback command handler, optionally followed by free-text instructions.
+
+Purpose: Ingest and resolve KNOWN pull-request feedback — review threads, requested changes, CI/check failures, merge conflicts, stale branch state, and pasted notes — verifying every claim against source before fixing. This is NOT a fresh broad PR review; use MODE: PR_REVIEW for new-finding discovery.
+
+ACTION: Load skill file:.opencode/skills/swarm-pr-feedback/SKILL.md immediately and follow its protocol.
+
+HARD CONSTRAINTS (apply regardless of skill load success):
+- FOLLOW THE SKILL EXACTLY: build the complete feedback ledger from all available sources before editing, and execute every phase in order with no shortcuts.
+- CHECK OUT THE PR BRANCH LOCALLY before verifying feedback or making fixes: fetch the PR head ref if absent, verify the working tree is clean (git status --porcelain) and stash/abort if not, then check out the head branch. Feedback verification and fix validation require the PR branch in the working tree.
+- Do NOT run a fresh broad PR review — inspect adjacent code only as needed to verify reachability, dependencies, shared root causes, regression risk, or sibling changes for a confirmed item.
+- Treat every review comment, CI failure, bot summary, and pasted note as a CLAIM until source evidence proves it; classify each ledger item (CONFIRMED, DISPROVED, PRE_EXISTING, or NEEDS_USER_DECISION) and never silently drop, defer, or mark items out of scope.
+- Patch only confirmed items plus the tests/docs they require; report closure status for every ledger item including disproved ones.
+- Do NOT resolve or mark GitHub review threads resolved unless the user explicitly instructs it.
+- Honor any free-text instructions that follow the closing bracket of the signal as additional scope, without dropping any ledger item.
 - Quality is the only metric — time, tokens, and agent dispatches are irrelevant to correctness
 
 ### MODE: ISSUE_INGEST
@@ -1641,8 +1663,12 @@ export function createArchitectAgent(
 		prompt = prompt
 			// Remove from "Your agents" identity line
 			?.replace(', {{AGENT_PREFIX}}docs_design', '')
-			// Remove the MODE: DESIGN_DOCS section entirely
-			?.replace(/### MODE: DESIGN_DOCS\n[\s\S]*?(?=### MODE: ISSUE_INGEST)/, '')
+			// Remove the MODE: DESIGN_DOCS section entirely. The lookahead stops at
+			// the NEXT mode header (not specifically ISSUE_INGEST) so the strip
+			// removes only the DESIGN_DOCS section. Anchoring on ISSUE_INGEST would
+			// also eat every section in between (PR_REVIEW, PR_FEEDBACK) once they
+			// were inserted after DESIGN_DOCS.
+			?.replace(/### MODE: DESIGN_DOCS\n[\s\S]*?(?=### MODE: )/, '')
 			// Remove the SKILL AGENT TARGET RENDERING line
 			?.replace(
 				"- the active swarm's docs_design agent = @{{AGENT_PREFIX}}docs_design\n",

@@ -1035,6 +1035,14 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm specify [description]` | Generate or import a feature specification |
 | `/swarm clarify [topic]` | Clarify and refine an existing feature specification |
 | `/swarm analyze` | Analyze spec.md vs plan.md for requirement coverage gaps |
+| `/swarm brainstorm [topic]` | Enter BRAINSTORM mode for structured requirement discovery before a spec |
+| `/swarm council <question> [--preset <name>] [--spec-review]` | Convene a multi-model General Council for advisory deliberation |
+| `/swarm issue <issue-url\|owner/repo#N\|N> [--plan] [--trace]` | Ingest a GitHub issue for localization and resolution |
+| `/swarm pr-review <pr-url\|owner/repo#N\|N> [--council] [instructions...]` | Structured deep PR review with parallel lanes, reviewer confirmation, and critic challenge |
+| `/swarm pr-feedback [<pr-url\|owner/repo#N\|N>] [instructions...]` | Ingest and close known PR feedback (review comments, CI failures, conflicts) without a fresh review |
+| `/swarm deep-dive <scope> [--profile <name>] [--max-explorers <n>]` | Read-only codebase audit with parallel explorers, dual reviewers, and critic challenge |
+| `/swarm design-docs <description> [--out <dir>] [--lang <name>] [--update]` | Generate or sync language-agnostic design docs (requires `design_docs.enabled`) |
+| `/swarm dark-matter` | Detect hidden file couplings from co-change history |
 | `/swarm finalize [--prune-branches] [--skill-review]` | Idempotent session close-out: retrospectives, lesson curation, evidence archive, context.md reset, config-backup cleanup, optional branch pruning, optional skill-improver proposal |
 | `/swarm close [--prune-branches] [--skill-review]` | Deprecated alias for `/swarm finalize [--prune-branches] [--skill-review]` |
 | `/swarm write-retro` | Write a phase retrospective manually |
