@@ -121,7 +121,7 @@ describe('executeWriteFinalCouncilEvidence', () => {
 		expect(new Date(entry.timestamp).toISOString()).toBe(entry.timestamp);
 	});
 
-	test('normalizes rejecting or concern final council verdicts to rejected evidence verdict', async () => {
+	test('normalizes REJECT verdicts to rejected evidence verdict', async () => {
 		const result = await executeWriteFinalCouncilEvidence(
 			{
 				phase: 2,
@@ -145,6 +145,127 @@ describe('executeWriteFinalCouncilEvidence', () => {
 		expect(entry.verdict).toBe('rejected');
 		expect(entry.requiredFixes).toHaveLength(1);
 		expect(entry.allCriteriaMet).toBe(false);
+	});
+
+	test('normalizes advisory CONCERNS verdict to concerns (issue #972)', async () => {
+		// 4 APPROVE + 1 CONCERNS (advisory only, 0 required fixes)
+		const members = [
+			'critic',
+			'reviewer',
+			'sme',
+			'test_engineer',
+			'explorer',
+		] as const;
+		const concernsVerdicts = members.map((agent) =>
+			verdict(agent, {
+				verdict: 'APPROVE',
+				findings: [],
+				criteriaUnmet: [],
+			}),
+		);
+		// Override test_engineer to vote CONCERNS with 2 MEDIUM advisory findings
+		concernsVerdicts[3] = verdict('test_engineer', {
+			verdict: 'CONCERNS',
+			findings: [
+				{
+					severity: 'MEDIUM',
+					category: 'test_gap',
+					location: 'src/example.ts:10',
+					detail: 'Missing edge case coverage.',
+					evidence: 'test_engineer found uncovered path',
+				},
+				{
+					severity: 'MEDIUM',
+					category: 'test_quality',
+					location: 'src/example.ts:20',
+					detail: 'Brittle assertion.',
+					evidence: 'test_engineer found flaky pattern',
+				},
+			],
+			criteriaUnmet: [],
+		});
+
+		const result = await executeWriteFinalCouncilEvidence(
+			{
+				phase: 2,
+				projectSummary: 'Project complete with advisory test concerns.',
+				verdicts: concernsVerdicts,
+			},
+			tempDir,
+		);
+		const parsed = JSON.parse(result);
+
+		expect(parsed.success).toBe(true);
+		expect(parsed.overallVerdict).toBe('CONCERNS');
+		expect(parsed.verdict).toBe('concerns');
+		expect(parsed.requiredFixesCount).toBe(0);
+		expect(parsed.advisoryFindingsCount).toBe(2);
+
+		const content = await fs.promises.readFile(
+			path.join(tempDir, '.swarm', 'evidence', 'final-council.json'),
+			'utf-8',
+		);
+		const entry = JSON.parse(content).entries[0];
+		expect(entry.verdict).toBe('concerns');
+		expect(entry.rawCouncilVerdict).toBe('CONCERNS');
+		expect(entry.requiredFixes).toHaveLength(0);
+		expect(entry.advisoryFindings).toHaveLength(2);
+		expect(entry.allCriteriaMet).toBe(true);
+	});
+
+	test('normalizes mixed REJECT+CONCERNS verdicts to rejected (REJECT wins)', async () => {
+		// One REJECT member with HIGH finding should keep verdict as rejected
+		// even if other members vote CONCERNS.
+		const members = [
+			'critic',
+			'reviewer',
+			'sme',
+			'test_engineer',
+			'explorer',
+		] as const;
+		const mixedVerdicts = members.map((agent) =>
+			verdict(agent, {
+				verdict: 'CONCERNS',
+				findings: [
+					{
+						severity: 'LOW',
+						category: 'naming',
+						location: 'src/example.ts:1',
+						detail: 'Naming style nit.',
+						evidence: 'cosmetic',
+					},
+				],
+			}),
+		);
+		// One member votes REJECT with a HIGH finding
+		mixedVerdicts[0] = verdict('critic', {
+			verdict: 'REJECT',
+			findings: [
+				{
+					severity: 'HIGH',
+					category: 'logic',
+					location: 'src/example.ts:42',
+					detail: 'Project close would ship a runtime bug.',
+					evidence: 'critic found broken path',
+				},
+			],
+			criteriaUnmet: ['project-scope'],
+		});
+
+		const result = await executeWriteFinalCouncilEvidence(
+			{
+				phase: 2,
+				projectSummary: 'Project blocked by critic REJECT.',
+				verdicts: mixedVerdicts,
+			},
+			tempDir,
+		);
+		const parsed = JSON.parse(result);
+
+		expect(parsed.success).toBe(true);
+		expect(parsed.overallVerdict).toBe('REJECT');
+		expect(parsed.verdict).toBe('rejected');
+		expect(parsed.requiredFixesCount).toBe(1);
 	});
 
 	test('rejects invalid phase and missing project summary', async () => {

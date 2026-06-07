@@ -15,7 +15,7 @@ import type { GateContext, GateResult } from './types';
 export async function runFinalCouncilGate(
 	ctx: GateContext,
 ): Promise<GateResult> {
-	const { phase, dir, sessionID, agentsDispatched, safeWarn } = ctx;
+	const { phase, dir, sessionID, pluginConfig, agentsDispatched, safeWarn } = ctx;
 
 	let finalCouncilEnabled = false;
 
@@ -148,9 +148,61 @@ export async function runFinalCouncilGate(
 										};
 									}
 
+									// CONCERNS at the final-council level is advisory-only
+									// when no required fixes exist. The write tool maps the
+									// raw CONCERNS verdict to the lowercased 'concerns' value
+									// (uppercase preserved for forward compat). Treat as
+									// non-blocking by default; finalConcernsAllowComplete
+									// (default true) gates whether CONCERNS is allowed to
+									// complete. See issue #972.
+									if (
+										entry.verdict === 'concerns' ||
+										entry.verdict === 'CONCERNS'
+									) {
+										const finalConcernsAllow =
+											pluginConfig.council?.finalConcernsAllowComplete ?? true;
+
+										const advisoryNotes =
+											Array.isArray(entry.advisoryNotes)
+												? entry.advisoryNotes.filter(
+														(note: unknown): note is string =>
+															typeof note === 'string',
+													)
+												: [];
+										const notesDetail =
+											advisoryNotes.length > 0
+												? `\nAdvisory notes: ${advisoryNotes.join('; ')}`
+												: '';
+										const advisoryFindingsCount = Array.isArray(
+											entry.advisoryFindings,
+										)
+											? entry.advisoryFindings.length
+											: 0;
+
+										if (!finalConcernsAllow) {
+											return {
+												blocked: true,
+												reason: 'FINAL_COUNCIL_CONCERNS',
+												message: `Phase ${phase} (last phase) cannot be completed: final council returned verdict 'CONCERNS' with ${advisoryFindingsCount} advisory finding(s).${notesDetail}`,
+												agentsDispatched,
+												agentsMissing: [],
+												warnings: [],
+											};
+										}
+
+										// Non-blocking concerns: surface as warnings, continue.
+										safeWarn(
+											`[phase_complete] Final council returned CONCERNS for phase ${phase} — proceeding (finalConcernsAllowComplete is enabled, ${advisoryFindingsCount} advisory finding(s))${notesDetail ? ': ' + notesDetail : ''}`,
+											undefined,
+										);
+										// fall through to the final "approved/approved-like" path
+									}
+
 									if (
 										entry.verdict !== 'approved' &&
-										entry.verdict !== 'APPROVED'
+										entry.verdict !== 'APPROVED' &&
+										entry.verdict !== 'concerns' &&
+										entry.verdict !== 'CONCERNS'
 									) {
 										return {
 											blocked: true,

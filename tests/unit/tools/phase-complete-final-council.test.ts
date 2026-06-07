@@ -404,11 +404,57 @@ describe('final_council gate (Gate 6)', () => {
 			expect(parsed.message).toContain('all five required members voted');
 		});
 
-		test('blocks with FINAL_COUNCIL_INVALID_VERDICT when evidence has unrecognized verdict', async () => {
+		test('allows completion when evidence has concerns verdict (issue #972: advisory-only CONCERNS is non-blocking)', async () => {
+			setupLastPhaseOnly(true);
+			writeFinalCouncilEvidence({
+				verdict: 'concerns',
+				summary: 'Minor concerns, all advisory',
+			});
+			const result = await executePhaseComplete(
+				{ phase: 3, summary: 'test', sessionID: SESSION_ID },
+				tempDir,
+				tempDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+		});
+
+		test('allows completion when evidence has CONCERNS (uppercase) verdict (issue #972: forward-compat)', async () => {
 			setupLastPhaseOnly(true);
 			writeFinalCouncilEvidence({
 				verdict: 'CONCERNS',
-				summary: 'Some concerns',
+				summary: 'Minor concerns, all advisory (uppercase)',
+			});
+			const result = await executePhaseComplete(
+				{ phase: 3, summary: 'test', sessionID: SESSION_ID },
+				tempDir,
+				tempDir,
+			);
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.status).toBe('success');
+		});
+
+		test('blocks with FINAL_COUNCIL_CONCERNS when evidence has concerns verdict and finalConcernsAllowComplete is disabled', async () => {
+			setupLastPhaseOnly(true);
+			// Disable the concerns-pass-through at the plugin-config level.
+			mkdirSync(join(tempDir, '.opencode'), { recursive: true });
+			writeFileSync(
+				join(tempDir, '.opencode', 'opencode-swarm.json'),
+				JSON.stringify({
+					phase_complete: {
+						enabled: true,
+						required_agents: [],
+						require_docs: false,
+						policy: 'warn',
+					},
+					council: { finalConcernsAllowComplete: false },
+				}),
+			);
+			writeFinalCouncilEvidence({
+				verdict: 'concerns',
+				summary: 'Concerns that must block when finalConcernsAllowComplete=false',
 			});
 			const result = await executePhaseComplete(
 				{ phase: 3, summary: 'test', sessionID: SESSION_ID },
@@ -418,9 +464,8 @@ describe('final_council gate (Gate 6)', () => {
 			const parsed = JSON.parse(result);
 			expect(parsed.success).toBe(false);
 			expect(parsed.status).toBe('blocked');
-			expect(parsed.reason).toBe('FINAL_COUNCIL_INVALID_VERDICT');
-			expect(parsed.message).toContain('CONCERNS');
-			expect(parsed.message).toContain('unrecognized verdict');
+			expect(parsed.reason).toBe('FINAL_COUNCIL_CONCERNS');
+			expect(parsed.message).toContain("CONCERNS");
 		});
 
 		test('blocks with FINAL_COUNCIL_INVALID_VERDICT when evidence has invalid verdict string', async () => {

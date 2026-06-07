@@ -191,6 +191,8 @@ export interface CouncilConfig {
 	escalateOnMaxRounds?: string;
 	/** Default true — CONCERNS verdict at phase-level council does NOT block completion (advisory). Set false to make CONCERNS block like REJECT. */
 	phaseConcernsAllowComplete: boolean;
+	/** Default true — CONCERNS verdict at the project-scoped final council does NOT block project close (advisory). Set false to make final CONCERNS block like REJECT. */
+	finalConcernsAllowComplete: boolean;
 }
 
 export const COUNCIL_DEFAULTS: CouncilConfig = {
@@ -202,4 +204,5 @@ export const COUNCIL_DEFAULTS: CouncilConfig = {
 	requireAllMembers: false,
 	minimumMembers: 3,
 	phaseConcernsAllowComplete: true,
+	finalConcernsAllowComplete: true,
 };

@@ -65,8 +65,23 @@ export interface WriteFinalCouncilEvidenceArgs {
 	verdicts: CouncilMemberVerdict[];
 }
 
-function normalizeFinalVerdict(verdict: 'APPROVE' | 'CONCERNS' | 'REJECT') {
-	return verdict === 'APPROVE' ? 'approved' : 'rejected';
+function normalizeFinalVerdict(
+	verdict: 'APPROVE' | 'CONCERNS' | 'REJECT',
+): 'approved' | 'concerns' | 'rejected' {
+	switch (verdict) {
+		case 'APPROVE':
+			return 'approved';
+		case 'CONCERNS':
+			// CONCERNS is advisory-only when the overall synthesis lands here:
+			// synthesizeFinalCouncilAdvisory only emits 'CONCERNS' when no member
+			// returned a REJECT verdict, so requiredFixes is always empty.
+			// Map it to a non-blocking 'concerns' verdict so the final-council
+			// gate can surface advisory notes without blocking phase completion.
+			// See issue #972.
+			return 'concerns';
+		case 'REJECT':
+			return 'rejected';
+	}
 }
 
 /**

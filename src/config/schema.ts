@@ -1415,6 +1415,12 @@ export const CouncilConfigSchema = z
 			.describe(
 				'When true, a phase-level council CONCERNS verdict does NOT block phase completion — the advisory notes are logged as warnings and the phase proceeds. When false, CONCERNS blocks like REJECT. Default: true (CONCERNS is advisory).',
 			),
+		finalConcernsAllowComplete: z
+			.boolean()
+			.default(true)
+			.describe(
+				'When true, a project-scoped final council CONCERNS verdict does NOT block project close — the advisory notes are logged as warnings and the final phase proceeds. When false, CONCERNS at the final council blocks like REJECT. Default: true (CONCERNS is advisory). See issue #972.',
+			),
 		// General Council Mode (advisory). Optional — undefined means feature is
 		// not configured. When present and enabled: true, the architect can run
 		// `/swarm council` and the SPECIFY-COUNCIL-REVIEW gate.
