@@ -31,11 +31,13 @@ Minimum configuration to turn it on:
 
 Place the file at one of:
 
-- `.opencode/opencode-swarm.json` — project-scoped (preferred)
-- `~/.config/opencode/opencode-swarm.json` — user-scoped
+- `~/.config/opencode/opencode-swarm.json` - global default for all projects
+- `.opencode/opencode-swarm.json` - project-scoped override
 
-With only `enabled: true` set, all other fields fall back to the defaults
-documented below.
+The loader reads the global file first, then deep-merges the project file on
+top. If a project file is absent, or does not mention a council field, the
+global council config remains active. With only `enabled: true` set, all other
+fields fall back to the defaults documented below.
 
 ## 3. Full config reference
 
@@ -319,14 +321,37 @@ SME consultation.
 
 ### Workflow stages (in plain language)
 
+#### Current-fact grounding policy
+
+General Council is allowed to use model diversity for reasoning, not as a
+replacement for current evidence. For current, latest, today, now,
+state-of-the-art, pricing, release-status, legal/regulatory, financial,
+security, or otherwise time-sensitive questions, the architect must gather
+usable current sources before dispatching council members. If search fails or
+returns no usable current sources, the council stops and reports the failed
+search instead of asking members to answer from training data.
+
+The `web_search` tool applies a deterministic query policy before provider
+dispatch:
+
+- trailing stale cutoff years are removed from current-intent queries, so a
+  generated query such as `latest multi-agent debate research 2025` is searched
+  as `latest multi-agent debate research` when the current year is later;
+- Tavily receives `time_range` for inferred freshness, and Brave receives its
+  equivalent `freshness` parameter;
+- the tool response includes `originalQuery`, normalized `query`,
+  `temporalIntent`, `freshness`, and `removedStaleYears` so the architect can
+  include that audit metadata in the RESEARCH CONTEXT.
+
 1. **Pre-flight.** The architect verifies `council.general.enabled: true` and
    that a search API key is reachable. Stops with a clear user-facing message
    if either is missing.
 2. **Research Phase.** The architect formulates 1–3 targeted `web_search`
    queries and compiles the results into a `RESEARCH CONTEXT` block. If
-   search returns no results or errors, the architect notes this in the
-   dispatch message and proceeds — the council agents can still reason from
-   their training knowledge.
+   search returns no results or errors for a stable, non-current question, the
+   architect notes this in the dispatch message and proceeds with stable
+   background knowledge only. For time-sensitive questions, failed or empty
+   search stops the council before member dispatch.
 3. **Round 1 — parallel independent analysis.** The architect dispatches
    `council_generalist`, `council_skeptic`, and `council_domain_expert` in
    parallel, passing the question, round number, and the full RESEARCH

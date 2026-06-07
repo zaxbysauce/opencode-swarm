@@ -570,7 +570,7 @@ export const COMMAND_REGISTRY = {
 			'Round 2 MAINTAIN/CONCEDE/NUANCE for disagreements). ' +
 			'The architect synthesizes the final answer directly from convene_general_council output. ' +
 			'--spec-review switches to single-pass advisory mode for spec review. ' +
-			'Requires council.general.enabled: true and a search API key in opencode-swarm.json.',
+			'Requires council.general.enabled: true and a search API key in the resolved config: global ~/.config/opencode/opencode-swarm.json, then project .opencode/opencode-swarm.json overrides.',
 		category: 'agent',
 	},
 	'pr-review': {

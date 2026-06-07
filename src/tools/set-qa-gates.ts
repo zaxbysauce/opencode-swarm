@@ -169,7 +169,9 @@ export const set_qa_gates: ReturnType<typeof tool> = createSwarmTool({
 				'Enable the council_general_review gate (default: off). When on, ' +
 					'MODE: SPECIFY runs convene_general_council on the draft spec ' +
 					'before the critic-gate, folding multi-model deliberation into ' +
-					'the spec. Requires council.general.enabled and a search API key.',
+					'the spec. Requires council.general.enabled and a search API key ' +
+					'in the resolved config: global ~/.config/opencode/opencode-swarm.json, ' +
+					'then project .opencode/opencode-swarm.json overrides.',
 			),
 		drift_check: z
 			.boolean()
