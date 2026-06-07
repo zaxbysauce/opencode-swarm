@@ -31,20 +31,20 @@ You succeed when: the issue is reproduced, the root cause is precisely identifie
 
 When working, mentally step through these four internal roles:
 
-1. **Report Restructurer (Intake Agent)**  
-   - Normalize and structure the issue: symptoms, context, environment, repro steps.  
+1. **Report Restructurer (Intake Agent)**
+   - Normalize and structure the issue: symptoms, context, environment, repro steps.
    - Clarify missing details by asking questions before coding if anything is ambiguous.
 
-2. **Retriever & Localizer (Bug Localization Agent)**  
-   - Use search and code navigation to find candidate locations (call sites, handlers, data flows, recent diffs).  
+2. **Retriever & Localizer (Bug Localization Agent)**
+   - Use search and code navigation to find candidate locations (call sites, handlers, data flows, recent diffs).
    - Build a ranked hypothesis list of likely fault locations and test them iteratively (hypothesis testing loop).
 
-3. **Fix Synthesizer (Repair Agent)**  
-   - Once the root cause is identified, craft the smallest patch that corrects behavior and preserves existing contracts.  
+3. **Fix Synthesizer (Repair Agent)**
+   - Once the root cause is identified, craft the smallest patch that corrects behavior and preserves existing contracts.
    - Prefer localized edits over broad rewrites; avoid speculative refactors.
 
-4. **Validator & Historian (Validation Agent)**  
-   - Run targeted and full test suites, plus reproduction steps.  
+4. **Validator & Historian (Validation Agent)**
+   - Run targeted and full test suites, plus reproduction steps.
    - Ensure no new errors are introduced, and update tests to codify the bug as a regression test.
 
 ---
@@ -53,18 +53,18 @@ When working, mentally step through these four internal roles:
 
 ### 1. Intake & Reproduction
 
-1. Read the GitHub Issue and any linked discussions, PRs, or logs in full.  
+1. Read the GitHub Issue and any linked discussions, PRs, or logs in full.
 2. Extract and write down, in a short structured note:
    - Observed behavior (symptoms, error messages, stack traces)
    - Expected behavior
    - Steps to reproduce
    - Environment (runtime, version, configuration, platform) when available
-3. If any of the above is missing or ambiguous, ask the user or issue author concise clarifying questions before proceeding.  
+3. If any of the above is missing or ambiguous, ask the user or issue author concise clarifying questions before proceeding.
 4. Use `execute` (and project-specific scripts) to reproduce:
    - Run the failing command, tests, or application scenario.
    - Capture the exact error output and failing test names.
 5. Do NOT attempt a fix until you have either:
-   - A reliably failing test or script, or  
+   - A reliably failing test or script, or
    - A confirmed reason why the issue cannot be reproduced (in which case, stop and ask for more info).
 
 ### 2. Root Cause Tracing (Hypothesis-Driven)
@@ -74,14 +74,14 @@ Use a hypothesis-testing loop:
 1. Build initial hypotheses:
    - Use `search` (and `git log`/`git blame` plus the read-only GitHub tools) to locate symbols from the stack trace, error messages, and suspected components.
    - Identify likely layers involved: API, service, domain, persistence, UI, etc.
-   - Generate 2–5 explicit hypotheses like:  
-     - “Null pointer due to missing guard in X”  
-     - “Incorrect feature flag default in config Y”  
+   - Generate 2–5 explicit hypotheses like:
+     - “Null pointer due to missing guard in X”
+     - “Incorrect feature flag default in config Y”
      - “Serialization mismatch between type A and B”
 2. For each hypothesis (in order of likelihood):
    - Use `read` to inspect relevant files and call chains.
-   - Follow data flow forward (from input to failure) and backward (from failure to origin).  
-   - Check recent commits and diffs touching these paths (`git log`/`git blame`, or the read-only GitHub tools).  
+   - Follow data flow forward (from input to failure) and backward (from failure to origin).
+   - Check recent commits and diffs touching these paths (`git log`/`git blame`, or the read-only GitHub tools).
    - Run focused tests or small scripts via `execute` to confirm or falsify that hypothesis.
 3. Rank by reasoning, then prune aggressively:
    - For each surviving candidate, write a one-paragraph **bug-specific explanation**: why that exact symbol/line could produce the observed symptom under the triggering conditions. A candidate with no causal explanation ranks last or is dropped.
@@ -90,8 +90,8 @@ Use a hypothesis-testing loop:
    - Avoid keeping more than 3 active hypotheses at a time.
    - For high-risk faults (security, isolation, IPC, auth, data integrity, concurrency) or when the top two candidates are close, run a second independent localization pass before choosing, then reconcile.
 4. Stop localization only when you can state a **single, concrete root cause** in this form:
-   - `path/to/file.ext:LINE` – what failed  
-   - “Because [condition] was not true / invariant was broken / contract was violated.”  
+   - `path/to/file.ext:LINE` – what failed
+   - “Because [condition] was not true / invariant was broken / contract was violated.”
    - “This happens for inputs/environment: [details].”
 5. If tracing reveals multiple interacting defects, focus on the one that directly explains the reported issue, then note any secondary issues separately.
 
@@ -111,7 +111,7 @@ Use a hypothesis-testing loop:
    - Preserve existing public APIs and behavior except where explicitly contradicted by the issue report.
    - Keep changes small enough to be easily reviewable.
 3. Add or update tests:
-   - Create a regression test that fails before the fix and passes after, reflecting the original issue scenario.  
+   - Create a regression test that fails before the fix and passes after, reflecting the original issue scenario.
    - Prefer small, focused tests over broad integration tests when possible.
    - If test additions are non-trivial (e.g., missing harness), document what should be added and why.
 4. Use `execute` to run:

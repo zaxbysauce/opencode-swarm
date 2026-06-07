@@ -18,6 +18,22 @@ Project config:
 
 Project config merges over global config.
 
+## Environment variables
+
+Most behavior is controlled by `opencode-swarm.json`. Environment variables are reserved for credentials, diagnostics, CI bypasses, and advanced backend selection.
+
+| Variable | Used by | Description |
+|---|---|---|
+| `TAVILY_API_KEY` | General Council web search | Tavily credential used when `council.general.searchApiKey` is unset and `searchProvider` is `tavily`. |
+| `BRAVE_SEARCH_API_KEY` | General Council web search | Brave Search credential used when `council.general.searchApiKey` is unset and `searchProvider` is `brave`. |
+| `OPENCODE_SWARM_DEBUG=1` | Debug logger | Enables debug-gated log output. Keep disabled for normal use. |
+| `DEBUG_SWARM=1` | Startup and hook diagnostics | Enables additional startup, hook, and plan-manager diagnostics. Keep disabled unless debugging plugin behavior. |
+| `OPENCODE_SWARM_ID` | Diagnose service | Identifies the active swarm in diagnostic checks; `/swarm diagnose` reports mismatches between this value and local plan state. |
+| `SWARM_LANG_BACKEND=legacy` | `test_runner` | Opts out of the dispatch language backend. Dispatch is the default. |
+| `SWARM_ALLOW_FULL_SUITE=1` | `test_runner` | Allows `scope: "all"` in the tool. Interactive repo validation should still use shell commands from `TESTING.md`. |
+| `SWARM_SKIP_SPEC_GATE=1` | `save_plan` tests/CI | Bypasses the spec gate. Use only for tests or tightly scoped CI fixtures. |
+| `SWARM_SKIP_GATE_SELECTION=1` | `save_plan` tests/CI | Bypasses QA-gate selection validation. Use only for tests or tightly scoped CI fixtures. |
+
 ## Minimal example
 
 ```json

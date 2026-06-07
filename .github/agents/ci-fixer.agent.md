@@ -25,13 +25,14 @@ traces to exact source evidence.
 
 The pipeline has hard `needs:` dependencies. Always work in this order:
 
-```
+```text
 Stage 1  quality          (typecheck + biome lint)
             │
 Stage 2  ├─ unit          (bun run build + bun test, all platforms, needs: quality)
          ├─ package-check (bun run build + npm pack tarball validation, needs: quality)
          ├─ security      (bun test tests/security, needs: quality)
-         └─ php-validation (lang/build tests, needs: quality)
+         ├─ php-validation (lang/build tests, needs: quality)
+         └─ rust-sandbox-runner (Rust sandbox runner build/validation, needs: quality)
             │
 Stage 3  integration      (needs: unit)
             │

@@ -1,6 +1,6 @@
 # Commands Reference
 
-All `/swarm` subcommands available in OpenCode Swarm v6.81.0. The authoritative source is `src/commands/registry.ts`.
+All `/swarm` subcommands available in the current OpenCode Swarm source tree. The authoritative source is `src/commands/registry.ts`; this page explains the user-facing behavior and calls out deprecated aliases.
 
 Commands are grouped by function. Compound commands (e.g., `/swarm config doctor`) resolve the two-word form first, then fall back to the first token.
 
@@ -101,9 +101,9 @@ Enter architect MODE: COUNCIL — convene a fixed three-agent General Council (`
 |------|--------|
 | `--spec-review` | Switch to single-pass advisory mode. Used by the `council_general_review` QA gate during MODE: SPECIFY to fold council input into a draft spec — no Round 2 deliberation. |
 
-**Prerequisites:** `council.general.enabled: true` and a configured search API key (Tavily or Brave) in `opencode-swarm.json`. See [Council guide — General Council Mode](council/README.md#general-council-mode) for setup.
+**Prerequisites:** `council.general.enabled: true` and a configured search API key (Tavily or Brave) in `opencode-swarm.json`. The deprecated `members`, `presets`, `moderator`, and `moderatorModel` fields are accepted for compatibility but ignored at runtime. See [Council guide — General Council Mode](council/README.md#general-council-mode) for setup.
 
-**No-args behavior:** prints a usage string. The command never throws on bad input — injected `[MODE: ...]` headers are silently dropped.
+**No-args behavior:** prints a usage string. The command never throws on bad input — unsupported legacy preset arguments and injected `[MODE: ...]` headers are silently dropped.
 
 ### `/swarm pr-review <pr-url|owner/repo#N|N> [--council]`
 
@@ -243,7 +243,7 @@ Ingest a GitHub issue into the swarm workflow for root-cause localization and re
 
 ### `/swarm sync-plan`
 
-Force `plan.md` regeneration from canonical `plan-ledger.jsonl`. Safe, read-only.
+Force `plan.md` regeneration from the canonical plan ledger when the markdown projection is stale. This can update `.swarm/plan.md`; it does not edit source files.
 
 ### `/swarm preflight`
 
@@ -392,6 +392,10 @@ List expired scratch memories, deleted tombstones, superseded chains, and low-ut
 
 Dry-run compaction for deleted, superseded, and expired scratch memory records. Pass `--confirm` to apply the cleanup. There is no automatic destructive compaction.
 
+### `/swarm memory evaluate`
+
+Run the golden memory recall fixtures. Use `/swarm memory evaluate --json` for a machine-readable report. Custom fixture directories are available through direct CLI execution.
+
 ### `/swarm memory export`
 
 Export current memory records and proposals to `.swarm/memory/export/memories.jsonl` and `.swarm/memory/export/proposals.jsonl`.
@@ -412,13 +416,24 @@ Manually promote a lesson to hive (cross-project) knowledge. Either pass lesson 
 
 Run knowledge curation and review hive promotion candidates. Identifies evergreen lessons for cross-project reuse.
 
+### `/swarm concurrency <set|status|reset>`
+
+Manage the session-scoped runtime concurrency override for plan execution. This requires an active OpenCode session.
+
+```text
+/swarm concurrency set 3
+/swarm concurrency set max
+/swarm concurrency status
+/swarm concurrency reset
+```
+
 ---
 
 ## State and Recovery
 
 ### `/swarm reset --confirm`
 
-DELETE `plan.md`, `context.md`, and `summaries/` from `.swarm/`. Stops background automation and clears in-memory queues. **Requires `--confirm` — without it, shows a warning and a tip to export first.**
+DELETE active swarm state from `.swarm/`, including `plan.md`, `plan.json`, `SWARM_PLAN.*`, `checkpoints.json`, `context.md`, `events.jsonl`, and `summaries/`. Stops background automation and clears in-memory queues. **Requires `--confirm` — without it, shows a warning and a tip to export first.**
 
 ### `/swarm reset-session`
 
@@ -560,7 +575,7 @@ Type `/swarm <subcommand>` in the chat. All commands in this reference work here
 
 ### Standalone CLI
 
-The standalone binary accepts three top-level commands: `install`, `uninstall`, and `run`. To invoke a registry command from the shell, prefix it with `run`:
+The standalone binary accepts four top-level commands: `install`, `update`, `uninstall`, and `run`. To invoke a registry command from the shell, prefix it with `run`:
 
 ```bash
 opencode-swarm run status
