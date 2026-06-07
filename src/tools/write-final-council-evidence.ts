@@ -65,8 +65,17 @@ export interface WriteFinalCouncilEvidenceArgs {
 	verdicts: CouncilMemberVerdict[];
 }
 
-function normalizeFinalVerdict(verdict: 'APPROVE' | 'CONCERNS' | 'REJECT') {
-	return verdict === 'APPROVE' ? 'approved' : 'rejected';
+function normalizeFinalVerdict(
+	verdict: 'APPROVE' | 'CONCERNS' | 'REJECT',
+	requiredFixesCount: number,
+) {
+	if (verdict === 'APPROVE') {
+		return 'approved';
+	}
+	if (verdict === 'REJECT') {
+		return 'rejected';
+	}
+	return requiredFixesCount > 0 ? 'rejected' : 'concerns';
 }
 
 /**
@@ -132,7 +141,10 @@ export async function executeWriteFinalCouncilEvidence(
 
 	const plan = await loadPlan(directory);
 	const planId = plan ? derivePlanId(plan) : 'unknown';
-	const normalizedVerdict = normalizeFinalVerdict(synthesis.overallVerdict);
+	const normalizedVerdict = normalizeFinalVerdict(
+		synthesis.overallVerdict,
+		synthesis.requiredFixes.length,
+	);
 
 	const evidenceEntry = {
 		type: 'final-council',
