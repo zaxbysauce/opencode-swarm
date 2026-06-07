@@ -11,7 +11,7 @@ import { ZodError, z } from 'zod';
 
 import type { PluginConfig } from '../config';
 import type { Phase, Plan, Task } from '../config/plan-schema';
-import { stripKnownSwarmPrefix } from '../config/schema';
+import { isKnownCanonicalRole, stripKnownSwarmPrefix } from '../config/schema';
 import {
 	routeReviewForChanges,
 	shouldParallelizeReview,
@@ -84,6 +84,51 @@ export const pendingCoderScopeByTaskId = new Map<string, string[]>();
  */
 export function clearPendingCoderScope(): void {
 	pendingCoderScopeByTaskId.clear();
+}
+
+/**
+ * Issue #1151: OpenCode v1.16.2 background subagents.
+ *
+ * `Task` with `background=true` (gated upstream by
+ * `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true`) returns a "running" placeholder
+ * immediately and completes later via synthetic parent injection. The delegation gate
+ * treats a `Task` result as completion, so a background swarm delegation would advance
+ * Stage B / record gate evidence before any review/test output exists. Until swarm can
+ * correlate the deferred completion safely (a separate, spike-gated PR), background
+ * swarm delegations are fail-closed-blocked. We do NOT silently coerce `background` to
+ * false — the unsupported capability is surfaced explicitly.
+ */
+export const SWARM_BACKGROUND_TASK_BLOCKED_MESSAGE =
+	'SWARM_BACKGROUND_TASK_BLOCKED: OpenCode background subagents (Task with background=true, ' +
+	'requires OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true) are recognized upstream, but swarm ' +
+	'cannot yet safely consume their deferred completion events — the Task returns a running ' +
+	'placeholder now and completes later via synthetic injection, which would advance swarm gates ' +
+	'before any review/test output exists. Omit `background` (or set background=false) for swarm ' +
+	'delegations until the completion-ingestion PR lands.';
+
+/**
+ * Fail-closed background-flag detector. Treats both the boolean `true` and the
+ * stringified `'true'` as background so a stringified flag cannot bypass the guard.
+ */
+export function isBackgroundTrue(value: unknown): boolean {
+	return value === true || value === 'true';
+}
+
+/**
+ * True when a `Task` tool RESULT looks like an OpenCode background "running"
+ * placeholder (`state: "running"` or `metadata.background === true`). Belt-and-
+ * suspenders for `toolAfter`; never throws.
+ */
+export function outputLooksLikeBackgroundRunning(output: unknown): boolean {
+	if (typeof output !== 'object' || output === null) return false;
+	const o = output as Record<string, unknown>;
+	if (o.state === 'running') return true;
+	const metadata = o.metadata;
+	return (
+		typeof metadata === 'object' &&
+		metadata !== null &&
+		(metadata as Record<string, unknown>).background === true
+	);
 }
 
 /**
@@ -857,6 +902,20 @@ export function createDelegationGateHook(
 
 		const targetAgent = stripKnownSwarmPrefix(subagentType);
 
+		// Issue #1151: fail-closed block for swarm background Task dispatch.
+		// Placed BEFORE the coder-only early return below so reviewer/test_engineer and
+		// every other swarm role are caught — not just coder. Scoped to swarm roles via
+		// isKnownCanonicalRole so unrelated OpenCode Task usage (e.g. the native `general`
+		// agent) is never blocked. This throw propagates through the fail-closed
+		// tool.execute.before chain in src/index.ts (no safeHook wrapper), so OpenCode
+		// rejects the tool before launching the background task.
+		if (
+			isBackgroundTrue(args.background) &&
+			isKnownCanonicalRole(targetAgent)
+		) {
+			throw new Error(SWARM_BACKGROUND_TASK_BLOCKED_MESSAGE);
+		}
+
 		// Review routing: when delegating to reviewer, check if review should be parallelized
 		if (targetAgent === 'reviewer') {
 			try {
@@ -1085,6 +1144,23 @@ export function createDelegationGateHook(
 				| undefined;
 			const subagentType =
 				directArgs?.subagent_type ?? storedArgs?.subagent_type;
+
+			// Issue #1151: defensive belt-and-suspenders for background swarm Task.
+			// Pre-dispatch toolBefore is the primary guard; if a background swarm Task
+			// still reaches here (a "running" placeholder), it must NOT advance Stage B
+			// or record completed gate evidence. Detect background from args (direct or
+			// stored) or from the result shape, scoped to swarm roles. Clean up stored
+			// args so the callID entry does not leak, then bail before any advancement.
+			if (
+				typeof subagentType === 'string' &&
+				isKnownCanonicalRole(stripKnownSwarmPrefix(subagentType)) &&
+				(isBackgroundTrue(directArgs?.background) ||
+					isBackgroundTrue(storedArgs?.background) ||
+					outputLooksLikeBackgroundRunning(_output))
+			) {
+				if (storedArgs !== undefined) deleteStoredInputArgs(input.callID);
+				return;
+			}
 
 			// Track if we detected reviewer and/or test_engineer via stored args
 			let hasReviewer = false;
