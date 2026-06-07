@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.52.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.6...v7.52.0) (2026-06-07)
+
+
+### Features
+
+* **context-map:** add context map and context capsules for agent context reuse ([6f9089d](https://github.com/zaxbysauce/opencode-swarm/commit/6f9089d48c19f9131fbe6a0113b131f0db022230))
+
+
+### Bug Fixes
+
+* address PR review findings F-001, F-002, F-003 ([2af6670](https://github.com/zaxbysauce/opencode-swarm/commit/2af6670f2d7f198ee4f14980476e4ca5f8942d82))
+* **council:** address review findings on quorum and stale verdict detection ([d4815a1](https://github.com/zaxbysauce/opencode-swarm/commit/d4815a1fe3eb7ff4caeffbfaf7608e7b850ed43d))
+* **council:** enforce cross-round quorum integrity requirements ([7ff028a](https://github.com/zaxbysauce/opencode-swarm/commit/7ff028aaf7b437be868a4aacbc561793b1ef1830))
+* reword comment to avoid CI invariant scanner false positive ([d8bb3c2](https://github.com/zaxbysauce/opencode-swarm/commit/d8bb3c25a7eea9779967522f3467d3a1108b7100))
+
 ## [7.51.6](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.5...v7.51.6) (2026-06-06)
 
 
