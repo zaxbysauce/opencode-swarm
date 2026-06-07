@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.54.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.53.0...v7.54.0) (2026-06-07)
+
+
+### Features
+
+* **council:** harden general council grounding ([7036c5d](https://github.com/zaxbysauce/opencode-swarm/commit/7036c5d547ff7f47f4ed8b2d959dbcfa49b69fd3))
+
+
+### Bug Fixes
+
+* **delegation-gate:** fail-closed guard for OpenCode background subagents ([#1151](https://github.com/zaxbysauce/opencode-swarm/issues/1151)) ([197a21a](https://github.com/zaxbysauce/opencode-swarm/commit/197a21ae278e5608fed1cc242c53637b410435f2))
+
 ## [7.53.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.3...v7.53.0) (2026-06-07)
 
 
