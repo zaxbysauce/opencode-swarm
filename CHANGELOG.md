@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.52.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.0...v7.52.1) (2026-06-07)
+
+
+### Bug Fixes
+
+* **delegation-gate:** prioritize TASK-line IDs for evidence task resolution ([bfdee12](https://github.com/zaxbysauce/opencode-swarm/commit/bfdee12018e94673c28f92fb1ecd627b4b0f99b1))
+
 ## [7.52.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.51.6...v7.52.0) (2026-06-07)
 
 
