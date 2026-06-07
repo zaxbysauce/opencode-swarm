@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.52.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.1...v7.52.2) (2026-06-07)
+
+
+### Bug Fixes
+
+* **skill-propagation:** add enforce field to schema and add boundary tests ([8da2214](https://github.com/zaxbysauce/opencode-swarm/commit/8da22142dd19c756e07cd8d9f492c0c460a8b4e1))
+* **skill-propagation:** harden bounded reads, rotation, and config toggle ([bcf941d](https://github.com/zaxbysauce/opencode-swarm/commit/bcf941d78268c294f2a3c78b0fe6973dff0a994b))
+
 ## [7.52.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.0...v7.52.1) (2026-06-07)
 
 
