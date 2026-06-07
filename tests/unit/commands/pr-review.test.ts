@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { handlePrReviewCommand } from '../../../src/commands/pr-review';
 import { _internals } from '../../../src/commands/pr-ref';
+import { handlePrReviewCommand } from '../../../src/commands/pr-review';
 
 let tempDir: string;
 const realExecSync = _internals.execSync;
@@ -285,10 +285,7 @@ describe('handlePrReviewCommand', () => {
 			// for (invariant #3), not process.cwd(). Override the subprocess seam to
 			// return a known remote and assert both the resolution and the cwd.
 			let seenCwd: unknown;
-			_internals.execSync = ((
-				_cmd: string,
-				opts: Record<string, unknown>,
-			) => {
+			_internals.execSync = ((_cmd: string, opts: Record<string, unknown>) => {
 				seenCwd = opts.cwd;
 				return 'https://github.com/acme/widgets.git\n';
 			}) as typeof _internals.execSync;
