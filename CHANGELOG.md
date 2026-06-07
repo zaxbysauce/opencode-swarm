@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.52.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.2...v7.52.3) (2026-06-07)
+
+
+### Bug Fixes
+
+* council-mode follow-up items from PR [#728](https://github.com/zaxbysauce/opencode-swarm/issues/728) review ([6e78e96](https://github.com/zaxbysauce/opencode-swarm/commit/6e78e964db0fff0197ae17141df0234d5e0e2074))
+* **council:** address advisory findings from PR [#1140](https://github.com/zaxbysauce/opencode-swarm/issues/1140) review ([b483241](https://github.com/zaxbysauce/opencode-swarm/commit/b48324160fcfc6d0a275b39c7443e62d2cf6b29a))
+
 ## [7.52.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.52.1...v7.52.2) (2026-06-07)
 
 
