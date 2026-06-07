@@ -52,7 +52,7 @@ async function callToolBefore(
 ): Promise<{ threw: boolean; message: string | null }> {
 	try {
 		await hook.toolBefore(
-			{ tool: 'Task', sessionID, callID: `call-${Math.random()}` },
+			{ tool: 'Task', sessionID, callID: `call-${sessionID}` },
 			{ args },
 		);
 		return { threw: false, message: null };
