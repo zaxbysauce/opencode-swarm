@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.58.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.57.0...v7.58.0) (2026-06-08)
+
+
+### Features
+
+* **sme:** enable external skill research ([f571249](https://github.com/zaxbysauce/opencode-swarm/commit/f5712495667d06fab1e344941e93df3c55024b7a))
+
+
+### Bug Fixes
+
+* **sme:** address external research review feedback ([b2f61f1](https://github.com/zaxbysauce/opencode-swarm/commit/b2f61f1722eb1cd6ab4434aa2a800d7341eb508f))
+
 ## [7.57.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.56.3...v7.57.0) (2026-06-08)
 
 
