@@ -8,7 +8,10 @@
  */
 
 /**
- * MOCK ISOLATION NOTE: This file uses `mock.module('../../../src/hooks/knowledge-store.js')`
+ * MOCK ISOLATION NOTE: This file uses `mock.module('../../../src/hooks/knowledge-store.js')
+ * File-scoped mock.module at import level: mock must persist across all tests so
+ * `afterEach(mock.restore())` is NOT used (would unmock mid-suite). Use --isolate
+ * per AGENTS.md Invariant 7.`
  * which affects the module cache for the entire test process. When running this file
  * together with other knowledge test files (e.g., knowledge-store-transactions.test.ts),
  * use the `--isolate` flag to prevent mock leakage:
