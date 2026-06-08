@@ -8,6 +8,7 @@ import { handleBrainstormCommand } from './brainstorm.js';
 import { handleCheckpointCommand } from './checkpoint.js';
 import { handleClarifyCommand } from './clarify.js';
 import { handleCloseCommand } from './close.js';
+import { handleCodebaseReviewCommand } from './codebase-review.js';
 import { handleConcurrencyCommand } from './concurrency.js';
 import { handleConfigCommand } from './config.js';
 import { handleCouncilCommand } from './council.js';
@@ -606,6 +607,25 @@ export const COMMAND_REGISTRY = {
 		args: '<scope> [--profile standard|security|ux|architecture|full] [--max-explorers 1..8] [--json] [--skip-update] [--allow-dirty]',
 		category: 'agent',
 		aliasOf: 'deep-dive',
+	},
+	'codebase-review': {
+		handler: async (ctx) =>
+			handleCodebaseReviewCommand(ctx.directory, ctx.args),
+		description:
+			'Launch codebase-review-swarm for a quote-grounded full-repo or large-subsystem audit',
+		args: '[scope] [--mode phase0|complete|defect|security|correctness|testing|ui|performance|ai-slop|enhancements|custom] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]',
+		details:
+			'Runs the codebase-review-swarm workflow: Phase 0 inventory, selected-track depth planning, non-diluting review passes, coverage closure, reviewer validation, critic challenge, and .swarm/review-v8 artifacts. The command is side-effect free and emits a MODE signal; the architect workflow must not mutate source files.',
+		category: 'agent',
+	},
+	'codebase review': {
+		handler: async (ctx) =>
+			handleCodebaseReviewCommand(ctx.directory, ctx.args),
+		description:
+			'Alias for /swarm codebase-review - launch codebase-review-swarm',
+		args: '[scope] [--mode phase0|complete|defect|security|correctness|testing|ui|performance|ai-slop|enhancements|custom] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]',
+		category: 'agent',
+		aliasOf: 'codebase-review',
 	},
 	'design-docs': {
 		handler: async (ctx) => handleDesignDocsCommand(ctx.directory, ctx.args),

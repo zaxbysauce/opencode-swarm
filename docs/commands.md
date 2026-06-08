@@ -210,6 +210,43 @@ Read-only codebase audit using parallel explorer waves with independent reviewer
 
 **No-args behavior:** prints a usage string. The command never throws on bad input.
 
+### `/swarm codebase-review [scope] [--mode <name>] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]`
+
+Launch the `codebase-review-swarm` skill for a quote-grounded full-repo or large-subsystem audit. This command is repo-agnostic: it emits a `MODE: CODEBASE_REVIEW` signal in the current project, then the architect loads `.opencode/skills/codebase-review-swarm/SKILL.md`.
+
+| Alias |
+|-------|
+| `/swarm codebase review` |
+
+**Command forms:**
+- `/swarm codebase-review` - run Phase 0 inventory at repository root, then stop for review-mode selection
+- `/swarm codebase-review src/auth --mode security` - run the security-focused review workflow for a subsystem
+- `/swarm codebase review "frontend accessibility" --mode ui --json` - alias form with JSON-compatible report blocks
+- `/swarm codebase-review --mode custom --tracks "security,testing"` - preselect a custom track set
+
+**Workflow:**
+1. **Phase 0 Inventory** - capture repository context, manifests, public surfaces, trust boundaries, tests, UI, AI surfaces, and claims
+2. **Review Mode Gate** - stop for user track selection unless the command already preselected tracks and continuing is explicitly authorized
+3. **Review Depth Plan** - prove selected tracks receive non-diluted depth
+4. **Candidate Generation** - produce quote-grounded candidates only for selected tracks
+5. **Reviewer and Critic Validation** - validate candidates, challenge high-risk findings and enhancements
+6. **Final Report** - write `.swarm/review-v8/runs/<run_id>/review-report.md` after coverage closure and final critic PASS
+
+**Flags:**
+
+| Flag | Default | Description |
+|------|---------|-------------|
+| `--mode <name>` | `phase0` | Review mode: `phase0`, `complete`, `defect`, `security`, `correctness`, `testing`, `ui`, `performance`, `ai-slop`, `enhancements`, or `custom` |
+| `--tracks <list>` | empty | Custom selected tracks or notes for the workflow |
+| `--continue <run-id>` | empty | Continue an existing `.swarm/review-v8` run |
+| `--json` | markdown | Request JSON-compatible report blocks |
+| `--skip-update` | false | Skip the repo update-to-main preflight |
+| `--allow-dirty` | false | Allow review to proceed with a dirty git worktree |
+
+**Note:** This is a read-only review workflow. It may write review artifacts under `.swarm/review-v8/`, but it must not mutate source files, create branches, or delegate to coder.
+
+**No-args behavior:** runs Phase 0 inventory for `repository root` and stops for review-mode selection unless the user already selected tracks.
+
 ### `/swarm design-docs <description> [--out <dir>] [--lang <name>] [--update]`
 
 Generate or sync structured, language-agnostic design docs for the project under build (issue #1080). Delegates to the `docs_design` agent (a role variant of the docs agent) via `MODE: DESIGN_DOCS`.

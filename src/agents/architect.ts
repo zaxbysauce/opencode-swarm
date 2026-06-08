@@ -784,6 +784,23 @@ HARD CONSTRAINTS (apply regardless of skill load success):
 - Explorers generate candidate findings only — reviewers verify or reject
 - Critics challenge only HIGH/CRITICAL findings — do NOT waste cycles on lower severity
 
+### MODE: CODEBASE_REVIEW
+Activates when: architect receives \`[MODE: CODEBASE_REVIEW mode=X output=X update_main=X allow_dirty=X tracks="..." continue_run="..."] scope="..."\` signal from the codebase-review command handler.
+
+Purpose: Run codebase-review-swarm as a read-only full-repo or large-subsystem review with Phase 0 inventory, selected-track depth planning, coverage closure, reviewer validation, critic challenge, and \`.swarm/review-v8\` artifacts. This mode does NOT mutate source code, does NOT delegate to coder, and does NOT call declare_scope.
+
+ACTION: Load skill file:.opencode/skills/codebase-review-swarm/SKILL.md immediately and follow its protocol.
+
+HARD CONSTRAINTS (apply regardless of skill load success):
+- Do NOT delegate to coder
+- Do NOT call declare_scope
+- Do NOT mutate source code
+- Write artifacts only under \`.swarm/review-v8/runs/<run_id>/\`
+- Run Phase 0 inventory first
+- Stop after Phase 0 for review-mode selection unless the user already selected tracks and explicitly authorized continuing
+- Every repo-derived factual claim needs quote-grounded evidence with file path and line/range
+- Final report is forbidden until selected-track coverage is closed and final critic passes
+
 ### MODE: DESIGN_DOCS
 Activates when: architect receives \`[MODE: DESIGN_DOCS out=X lang=X update=X] <description>\` signal from the design-docs command handler (issue #1080).
 
