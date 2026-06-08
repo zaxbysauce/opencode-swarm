@@ -1,4 +1,8 @@
-export { applyPatch } from './apply-patch';
+import { applyPatch } from './apply-patch';
+
+export { applyPatch };
+// Alias for TOOL_NAMES compliance - apply_patch and applyPatch are the same tool
+export const apply_patch: typeof applyPatch = applyPatch;
 export { batch_symbols } from './batch-symbols';
 export { build_check } from './build-check';
 export { check_gate_status } from './check-gate-status';
