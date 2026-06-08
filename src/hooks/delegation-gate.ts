@@ -812,6 +812,17 @@ export function createDelegationGateHook(
 		((config.hooks as Record<string, unknown> | undefined)
 			?.delegation_max_chars as number | undefined) ?? 4000;
 
+	// Issue #1151 PR 2 (Stage A): opt-in background-subagent support. When false (default)
+	// background swarm Task dispatches are fail-closed-blocked (PR 1). When true, they are
+	// allowed and tracked as durable pending records (no gate advancement in Stage A).
+	const backgroundSubagentsEnabled =
+		(config.hooks as Record<string, unknown> | undefined)
+			?.background_subagents === true;
+	const backgroundPendingTimeoutMs =
+		(((config.hooks as Record<string, unknown> | undefined)
+			?.background_pending_timeout_minutes as number | undefined) ?? 30) *
+		60_000;
+
 	if (!enabled) {
 		return {
 			messagesTransform: async (
@@ -909,7 +920,12 @@ export function createDelegationGateHook(
 		// agent) is never blocked. This throw propagates through the fail-closed
 		// tool.execute.before chain in src/index.ts (no safeHook wrapper), so OpenCode
 		// rejects the tool before launching the background task.
+		//
+		// PR 2 Stage A: when background_subagents is opted in, the block is lifted — the
+		// dispatch is allowed and tracked as a durable pending record in toolAfter (still
+		// no gate advancement in Stage A). When disabled (default), PR 1 behavior stands.
 		if (
+			!backgroundSubagentsEnabled &&
 			isBackgroundTrue(args.background) &&
 			isKnownCanonicalRole(targetAgent)
 		) {
@@ -1145,12 +1161,14 @@ export function createDelegationGateHook(
 			const subagentType =
 				directArgs?.subagent_type ?? storedArgs?.subagent_type;
 
-			// Issue #1151: defensive belt-and-suspenders for background swarm Task.
-			// Pre-dispatch toolBefore is the primary guard; if a background swarm Task
-			// still reaches here (a "running" placeholder), it must NOT advance Stage B
-			// or record completed gate evidence. Detect background from args (direct or
-			// stored) or from the result shape, scoped to swarm roles. Clean up stored
-			// args so the callID entry does not leak, then bail before any advancement.
+			// Issue #1151: background swarm Task handling.
+			// A background swarm Task returns a "running" placeholder; it must NEVER advance
+			// Stage B or record completed gate evidence here. Detect background from args
+			// (direct or stored) or from the result shape, scoped to swarm roles.
+			//   - PR 1 (flag OFF): defensive belt-and-suspenders — bail before any advancement.
+			//   - PR 2 Stage A (flag ON): additionally record a DURABLE pending delegation so a
+			//     later (Stage B) trusted completion can be correlated. Still no gate effect.
+			// Either way: clean up stored args so the callID entry does not leak, then bail.
 			if (
 				typeof subagentType === 'string' &&
 				isKnownCanonicalRole(stripKnownSwarmPrefix(subagentType)) &&
@@ -1158,6 +1176,52 @@ export function createDelegationGateHook(
 					isBackgroundTrue(storedArgs?.background) ||
 					outputLooksLikeBackgroundRunning(_output))
 			) {
+				if (backgroundSubagentsEnabled) {
+					try {
+						const { extractDispatchIds } = await import(
+							'../background/task-envelope.js'
+						);
+						const { recordPendingDelegation } = await import(
+							'../background/pending-delegations.js'
+						);
+						const { subagentSessionId, jobId } = extractDispatchIds(_output);
+						if (subagentSessionId) {
+							const mergedArgs = { ...(storedArgs ?? {}), ...directArgs };
+							const evidenceTaskId = await resolveEvidenceTaskId(
+								mergedArgs,
+								session,
+								directory,
+							);
+							await recordPendingDelegation(
+								directory,
+								{
+									correlationId: subagentSessionId,
+									jobId,
+									subagentSessionId,
+									parentSessionId: input.sessionID,
+									callID: input.callID,
+									normalizedAgent: stripKnownSwarmPrefix(subagentType),
+									swarmPrefixedAgent: subagentType,
+									planTaskId: evidenceTaskId,
+									evidenceTaskId,
+								},
+								{ staleTimeoutMs: backgroundPendingTimeoutMs },
+							);
+						} else {
+							// No usable correlation id (no jobId and no parseable dispatch
+							// envelope). Do NOT write an unkeyable/orphan record; the dispatch
+							// already launched upstream, but Stage A has no gate effect so an
+							// untracked background dispatch is safe (it is simply unobservable).
+							logger.warn(
+								'[delegation-gate] background dispatch had no correlation id (no jobId / no envelope) — not tracked',
+							);
+						}
+					} catch (err) {
+						logger.warn(
+							`[delegation-gate] background pending recording failed: ${err instanceof Error ? err.message : String(err)}`,
+						);
+					}
+				}
 				if (storedArgs !== undefined) deleteStoredInputArgs(input.callID);
 				return;
 			}
