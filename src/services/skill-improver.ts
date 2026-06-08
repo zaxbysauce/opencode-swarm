@@ -165,10 +165,7 @@ async function gatherInventory(directory: string): Promise<InventorySnapshot> {
 						continue;
 					}
 					const updatedAtMs = Date.parse(source.updated_at);
-					if (
-						Number.isFinite(updatedAtMs) &&
-						updatedAtMs > generatedAtMs
-					) {
+					if (Number.isFinite(updatedAtMs) && updatedAtMs > generatedAtMs) {
 						reasons.push(`updated_after_generation:${id}`);
 					}
 				}
@@ -242,10 +239,12 @@ TOP MATURE CANDIDATES (first 25):
 ${matureRows || '(none)'}
 
 STALE ACTIVE SKILLS (first 10):
-${inv.staleActiveSkills
-	.slice(0, 10)
-	.map((s) => `- ${s.slug} | ${s.reasons.join(', ')}`)
-	.join('\n') || '(none)'}
+${
+	inv.staleActiveSkills
+		.slice(0, 10)
+		.map((s) => `- ${s.slug} | ${s.reasons.join(', ')}`)
+		.join('\n') || '(none)'
+}
 `;
 }
 

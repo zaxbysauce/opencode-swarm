@@ -83,7 +83,10 @@ async function seedKnowledge(): Promise<void> {
 	);
 }
 
-async function seedGeneratedSkill(slug: string, sourceId: string): Promise<void> {
+async function seedGeneratedSkill(
+	slug: string,
+	sourceId: string,
+): Promise<void> {
 	const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', slug);
 	await mkdir(skillDir, { recursive: true });
 	const skillMd = `---
