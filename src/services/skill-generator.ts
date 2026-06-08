@@ -533,9 +533,7 @@ async function stampSourceEntries(
  * Returns null when the document does not begin with a `---` frontmatter
  * fence or the closing fence is missing.
  */
-export function parseDraftFrontmatter(
-	content: string,
-): {
+export function parseDraftFrontmatter(content: string): {
 	name?: string;
 	status?: string;
 	generatedAt?: string;
