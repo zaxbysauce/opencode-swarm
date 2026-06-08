@@ -1,8 +1,22 @@
-import { describe, expect, it } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
 	CODEBASE_REVIEW_MODES,
 	handleCodebaseReviewCommand,
 } from '../../../src/commands/codebase-review';
+import { executeSwarmCommand } from '../../../src/commands/command-dispatch';
+import { createSafeTestDir } from '../../helpers/safe-test-dir';
+
+function writePackageSkill(
+	packageRoot: string,
+	slug = 'codebase-review-swarm',
+	body = 'bundled skill\n',
+): void {
+	const skillDir = path.join(packageRoot, '.opencode', 'skills', slug);
+	fs.mkdirSync(skillDir, { recursive: true });
+	fs.writeFileSync(path.join(skillDir, 'SKILL.md'), body, 'utf-8');
+}
 
 describe('handleCodebaseReviewCommand', () => {
 	it('no args emits phase0 review for repository root', async () => {
@@ -184,5 +198,76 @@ describe('handleCodebaseReviewCommand', () => {
 		const scope = JSON.parse(result.slice(result.indexOf('scope=') + 6));
 		expect(scope.length).toBe(2003);
 		expect(scope.endsWith('...')).toBe(true);
+	});
+});
+
+describe('codebase-review command dispatch bundled skill sync', () => {
+	let projectDir: string;
+	let packageRoot: string;
+	let cleanupProject: () => void;
+	let cleanupPackage: () => void;
+	let origWarn: typeof console.warn;
+
+	beforeEach(() => {
+		({ dir: projectDir, cleanup: cleanupProject } = createSafeTestDir(
+			'swarm-codebase-review-project-',
+		));
+		({ dir: packageRoot, cleanup: cleanupPackage } = createSafeTestDir(
+			'swarm-codebase-review-package-',
+		));
+		writePackageSkill(packageRoot);
+		writePackageSkill(packageRoot, 'deep-dive', 'deep dive skill\n');
+		origWarn = console.warn;
+		console.warn = () => {};
+	});
+
+	afterEach(() => {
+		console.warn = origWarn;
+		cleanupProject();
+		cleanupPackage();
+	});
+
+	it('materializes the bundled skill before returning the MODE signal', async () => {
+		const result = await executeSwarmCommand({
+			directory: projectDir,
+			agents: {},
+			sessionID: 's1',
+			tokens: ['codebase-review'],
+			packageRoot,
+		});
+
+		expect(result.text).toBe(
+			'[MODE: CODEBASE_REVIEW mode=phase0 output=markdown update_main=true allow_dirty=false tracks="" continue_run=""] scope="repository root"',
+		);
+		expect(
+			fs.readFileSync(
+				path.join(
+					projectDir,
+					'.opencode',
+					'skills',
+					'codebase-review-swarm',
+					'SKILL.md',
+				),
+				'utf-8',
+			),
+		).toBe('bundled skill\n');
+	});
+
+	it('materializes bundled skills for sibling MODE commands', async () => {
+		const result = await executeSwarmCommand({
+			directory: projectDir,
+			agents: {},
+			sessionID: 's1',
+			tokens: ['deep-dive', 'auth'],
+			packageRoot,
+		});
+
+		expect(result.text).toContain('[MODE: DEEP_DIVE');
+		expect(
+			fs.readFileSync(
+				path.join(projectDir, '.opencode', 'skills', 'deep-dive', 'SKILL.md'),
+				'utf-8',
+			),
+		).toBe('deep dive skill\n');
 	});
 });

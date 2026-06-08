@@ -212,7 +212,7 @@ Read-only codebase audit using parallel explorer waves with independent reviewer
 
 ### `/swarm codebase-review [scope] [--mode <name>] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]`
 
-Launch the `codebase-review-swarm` skill for a quote-grounded full-repo or large-subsystem audit. This command is repo-agnostic: it emits a `MODE: CODEBASE_REVIEW` signal in the current project, then the architect loads `.opencode/skills/codebase-review-swarm/SKILL.md`.
+Launch the `codebase-review-swarm` skill for a quote-grounded full-repo or large-subsystem audit. This command is repo-agnostic: the plugin ships the skill package, materializes it into `.opencode/skills/codebase-review-swarm/` when missing, emits a `MODE: CODEBASE_REVIEW` signal in the current project, and then the architect loads `.opencode/skills/codebase-review-swarm/SKILL.md`.
 
 | Alias |
 |-------|

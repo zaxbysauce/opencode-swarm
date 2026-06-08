@@ -10,10 +10,38 @@ const ROOT = path.resolve(fileURLToPath(new URL('..', import.meta.url)));
 const DEFAULT_TIMEOUT_MS = 120_000;
 const MAX_BUFFER_BYTES = 10 * 1024 * 1024;
 
+const REQUIRED_PROJECT_SKILL_SLUGS = [
+	'brainstorm',
+	'specify',
+	'clarify-spec',
+	'resume',
+	'clarify',
+	'discover',
+	'consult',
+	'pre-phase-briefing',
+	'council',
+	'deep-dive',
+	'codebase-review-swarm',
+	'design-docs',
+	'swarm-pr-review',
+	'swarm-pr-feedback',
+	'issue-ingest',
+	'plan',
+	'critic-gate',
+	'execute',
+	'phase-wrap',
+];
+
 const REQUIRED_PACKAGE_FILES = [
 	'dist/index.js',
 	'dist/index.d.ts',
 	'dist/cli/index.js',
+	...REQUIRED_PROJECT_SKILL_SLUGS.map(
+		(slug) => `.opencode/skills/${slug}/SKILL.md`,
+	),
+	'.opencode/skills/codebase-review-swarm/assets/jsonl-schemas.md',
+	'.opencode/skills/codebase-review-swarm/assets/review-report-template.md',
+	'.opencode/skills/codebase-review-swarm/references/review-protocol-v8.2.md',
 	'README.md',
 	'LICENSE',
 	'package.json',
