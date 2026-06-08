@@ -53,6 +53,7 @@ These are invoked as `/swarm <subcommand>`, NOT as bare `/subcommand`:
 - `/swarm pr-review` — review pull request
 - `/swarm pr-feedback` — ingest and close known PR feedback (review comments, CI failures, conflicts)
 - `/swarm deep-dive` — read-only deep codebase audit (parallel explorers, dual reviewers, critic)
+- `/swarm codebase-review` — run codebase-review-swarm
 - `/swarm checkpoint` — checkpoint session state
 - `/swarm close` — close swarm session
 

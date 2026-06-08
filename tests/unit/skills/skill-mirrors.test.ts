@@ -116,6 +116,13 @@ const DIVERGENT_ARCHITECT_MODE_SKILLS: Array<{
 		reason:
 			'.claude/.agents are thin adapters that delegate to canonical; .opencode is the full protocol loaded by architect.ts MODE: PR_FEEDBACK',
 	},
+	{
+		slug: 'codebase-review-swarm',
+		opencodePath: '.opencode/skills/codebase-review-swarm/SKILL.md',
+		claudePath: '.claude/skills/codebase-review-swarm/SKILL.md',
+		reason:
+			'.opencode is the full portable package loaded by architect.ts MODE: CODEBASE_REVIEW; .claude is a thin adapter',
+	},
 ];
 
 describe('architect mode skill mirrors - regression: prevent mirror drift (F-001)', () => {
