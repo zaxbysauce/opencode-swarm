@@ -448,8 +448,8 @@ export const TOOL_METADATA = {
 	},
 	web_search: {
 		description:
-			'External web search (Tavily or Brave) for architect-driven council research. Returns titled results with snippets, URLs, normalized query metadata, temporal intent, freshness, and removed stale years. Config-gated on council.general.enabled in the resolved config: global ~/.config/opencode/opencode-swarm.json, then project .opencode/opencode-swarm.json overrides. Requires a search API key. Used by the architect in MODE: COUNCIL to gather a RESEARCH CONTEXT before dispatching council agents.',
-		agents: ['architect', 'skill_improver'],
+			'External web search (Tavily or Brave) for architect-driven council research, SME domain research, and skill-improver research. Returns titled results with snippets, URLs, normalized query metadata, temporal intent, freshness, and removed stale years. Config-gated on council.general.enabled in the resolved config: global ~/.config/opencode/opencode-swarm.json, then project .opencode/opencode-swarm.json overrides. Requires a search API key. Used by the architect in MODE: COUNCIL to gather a RESEARCH CONTEXT before dispatching council agents and by SME for opt-in external skill/source evaluation.',
+		agents: ['architect', 'sme', 'skill_improver'],
 	},
 	convene_general_council: {
 		description:
