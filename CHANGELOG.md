@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.56.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.55.0...v7.56.0) (2026-06-08)
+
+
+### Features
+
+* add generated skill staleness frontmatter metadata ([a1b79de](https://github.com/zaxbysauce/opencode-swarm/commit/a1b79de739d3d5bf5a7a075ee89fc49e85d05fa7))
+
 ## [7.55.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.54.0...v7.55.0) (2026-06-08)
 
 
