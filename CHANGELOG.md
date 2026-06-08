@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.56.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.56.2...v7.56.3) (2026-06-08)
+
+
+### Bug Fixes
+
+* treat advisory final council concerns as non-blocking ([a4861e0](https://github.com/zaxbysauce/opencode-swarm/commit/a4861e0b4d553701c273f590db7af8593044c858))
+
 ## [7.56.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.56.1...v7.56.2) (2026-06-08)
 
 
