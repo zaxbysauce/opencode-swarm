@@ -264,6 +264,7 @@ export function createSwarmCommandHandler(
 	agents: Record<string, AgentDefinition>,
 	options: {
 		getActiveAgentName?: (sessionID: string) => string | undefined;
+		packageRoot?: string;
 		registeredAgents?: Record<string, { tools?: Record<string, boolean> }>;
 	} = {},
 ): (
@@ -286,6 +287,7 @@ export function createSwarmCommandHandler(
 				sessionID: input.sessionID,
 				tokens: normalized.tokens,
 				activeAgentName: options.getActiveAgentName?.(input.sessionID),
+				packageRoot: options.packageRoot,
 				registeredAgents: options.registeredAgents,
 			}),
 		} as unknown as (typeof output.parts)[number]);
@@ -299,6 +301,7 @@ async function buildSwarmCommandPrompt(args: {
 	sessionID: string;
 	tokens: string[];
 	activeAgentName?: string;
+	packageRoot?: string;
 	registeredAgents?: Record<string, { tools?: Record<string, boolean> }>;
 }): Promise<string> {
 	const {
@@ -307,6 +310,7 @@ async function buildSwarmCommandPrompt(args: {
 		sessionID,
 		tokens,
 		activeAgentName,
+		packageRoot,
 		registeredAgents,
 	} = args;
 	const resolved = _internals.resolveCommand(tokens);
@@ -356,6 +360,7 @@ async function buildSwarmCommandPrompt(args: {
 		agents,
 		sessionID,
 		tokens,
+		packageRoot,
 	});
 
 	return formatCanonicalPromptFallback({

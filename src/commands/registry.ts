@@ -1,4 +1,5 @@
 import type { AgentDefinition } from '../agents/index.js';
+import { syncBundledProjectSkillsIfMissing } from '../config/bundled-skills.js';
 import { handleAcknowledgeSpecDriftCommand } from './acknowledge-spec-drift.js';
 import { handleAgentsCommand } from './agents.js';
 import { handleAnalyzeCommand } from './analyze.js';
@@ -206,6 +207,7 @@ export type CommandContext = {
 	args: string[];
 	sessionID: string;
 	agents: Record<string, AgentDefinition>;
+	packageRoot?: string;
 	/**
 	 * Dispatch path identifier. Issue #890: forensic audit trail for
 	 * commands that need to distinguish "user typed /swarm <cmd>" (chat)
@@ -217,6 +219,16 @@ export type CommandContext = {
 };
 
 export type CommandResult = Promise<string>;
+
+async function handleModeCommandWithBundledSkills(
+	ctx: CommandContext,
+	handler: (directory: string, args: string[]) => string | CommandResult,
+): CommandResult {
+	if (ctx.packageRoot) {
+		syncBundledProjectSkillsIfMissing(ctx.directory, ctx.packageRoot);
+	}
+	return Promise.resolve(handler(ctx.directory, ctx.args));
+}
 
 export type CommandCategory =
 	| 'core'
@@ -536,19 +548,22 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	clarify: {
-		handler: (ctx) => handleClarifyCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleClarifyCommand),
 		description: 'Clarify and refine an existing feature specification',
 		args: '[description-text]',
 		category: 'agent',
 	},
 	specify: {
-		handler: (ctx) => handleSpecifyCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleSpecifyCommand),
 		description: 'Generate or import a feature specification [description]',
 		args: '[description-text]',
 		category: 'agent',
 	},
 	brainstorm: {
-		handler: (ctx) => handleBrainstormCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleBrainstormCommand),
 		description:
 			'Enter architect MODE: BRAINSTORM — structured seven-phase planning workflow [topic]',
 		args: '[topic-text]',
@@ -557,7 +572,8 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	council: {
-		handler: (ctx) => handleCouncilCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleCouncilCommand),
 		description:
 			'Enter architect MODE: COUNCIL — multi-model deliberation [question] [--preset <name>] [--spec-review]',
 		args: '<question> [--preset <name>] [--spec-review]',
@@ -575,7 +591,8 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	'pr-review': {
-		handler: async (ctx) => handlePrReviewCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handlePrReviewCommand),
 		description:
 			'Launch deep PR review with multi-lane analysis [url] [--council]',
 		args: '<pr-url|owner/repo#N|N> [--council]',
@@ -584,7 +601,8 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	'pr-feedback': {
-		handler: async (ctx) => handlePrFeedbackCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handlePrFeedbackCommand),
 		description:
 			'Ingest and close known PR feedback (review comments, CI failures, conflicts) [pr] [instructions]',
 		args: '[url|owner/repo#N|N] [instructions...]',
@@ -593,7 +611,8 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	'deep-dive': {
-		handler: async (ctx) => handleDeepDiveCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleDeepDiveCommand),
 		description:
 			'Launch deep codebase audit with parallel explorer waves, dual reviewers, and critic challenge [scope]',
 		args: '<scope> [--profile standard|security|ux|architecture|full] [--max-explorers 1..8] [--json] [--skip-update] [--allow-dirty]',
@@ -602,25 +621,26 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	'deep dive': {
-		handler: async (ctx) => handleDeepDiveCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleDeepDiveCommand),
 		description: 'Alias for /swarm deep-dive — launch deep codebase audit',
 		args: '<scope> [--profile standard|security|ux|architecture|full] [--max-explorers 1..8] [--json] [--skip-update] [--allow-dirty]',
 		category: 'agent',
 		aliasOf: 'deep-dive',
 	},
 	'codebase-review': {
-		handler: async (ctx) =>
-			handleCodebaseReviewCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleCodebaseReviewCommand),
 		description:
 			'Launch codebase-review-swarm for a quote-grounded full-repo or large-subsystem audit',
 		args: '[scope] [--mode phase0|complete|defect|security|correctness|testing|ui|performance|ai-slop|enhancements|custom] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]',
 		details:
-			'Runs the codebase-review-swarm workflow: Phase 0 inventory, selected-track depth planning, non-diluting review passes, coverage closure, reviewer validation, critic challenge, and .swarm/review-v8 artifacts. The command is side-effect free and emits a MODE signal; the architect workflow must not mutate source files.',
+			'Runs the codebase-review-swarm workflow: Phase 0 inventory, selected-track depth planning, non-diluting review passes, coverage closure, reviewer validation, critic challenge, and .swarm/review-v8 artifacts. Materializes the bundled skill package if missing, then emits a MODE signal; the architect workflow must not mutate source files.',
 		category: 'agent',
 	},
 	'codebase review': {
-		handler: async (ctx) =>
-			handleCodebaseReviewCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleCodebaseReviewCommand),
 		description:
 			'Alias for /swarm codebase-review - launch codebase-review-swarm',
 		args: '[scope] [--mode phase0|complete|defect|security|correctness|testing|ui|performance|ai-slop|enhancements|custom] [--tracks <list>] [--continue <run-id>] [--json] [--skip-update] [--allow-dirty]',
@@ -628,7 +648,8 @@ export const COMMAND_REGISTRY = {
 		aliasOf: 'codebase-review',
 	},
 	'design-docs': {
-		handler: async (ctx) => handleDesignDocsCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleDesignDocsCommand),
 		description:
 			'Generate or sync language-agnostic design docs (domain, technical-spec, behavior-spec, reference/) for the project under build [description]',
 		args: '<description> [--out <dir>] [--lang <name>] [--update]',
@@ -637,14 +658,16 @@ export const COMMAND_REGISTRY = {
 		category: 'agent',
 	},
 	'design docs': {
-		handler: async (ctx) => handleDesignDocsCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleDesignDocsCommand),
 		description: 'Alias for /swarm design-docs — generate or sync design docs',
 		args: '<description> [--out <dir>] [--lang <name>] [--update]',
 		category: 'agent',
 		aliasOf: 'design-docs',
 	},
 	issue: {
-		handler: async (ctx) => handleIssueCommand(ctx.directory, ctx.args),
+		handler: (ctx) =>
+			handleModeCommandWithBundledSkills(ctx, handleIssueCommand),
 		description:
 			'Ingest a GitHub issue into the swarm workflow [url] [--plan] [--trace] [--no-repro]',
 		args: '<issue-url|owner/repo#N|N> [--plan] [--trace] [--no-repro]',

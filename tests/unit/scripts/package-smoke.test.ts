@@ -7,10 +7,38 @@ const expectedGrammars = [
 	'dist/lang/grammars/tree-sitter-typescript.wasm',
 ];
 
+const requiredProjectSkillSlugs = [
+	'brainstorm',
+	'specify',
+	'clarify-spec',
+	'resume',
+	'clarify',
+	'discover',
+	'consult',
+	'pre-phase-briefing',
+	'council',
+	'deep-dive',
+	'codebase-review-swarm',
+	'design-docs',
+	'swarm-pr-review',
+	'swarm-pr-feedback',
+	'issue-ingest',
+	'plan',
+	'critic-gate',
+	'execute',
+	'phase-wrap',
+];
+
 const baseFiles = [
 	'dist/index.js',
 	'dist/index.d.ts',
 	'dist/cli/index.js',
+	...requiredProjectSkillSlugs.map(
+		(slug) => `.opencode/skills/${slug}/SKILL.md`,
+	),
+	'.opencode/skills/codebase-review-swarm/assets/jsonl-schemas.md',
+	'.opencode/skills/codebase-review-swarm/assets/review-report-template.md',
+	'.opencode/skills/codebase-review-swarm/references/review-protocol-v8.2.md',
 	'README.md',
 	'LICENSE',
 	'package.json',
@@ -34,6 +62,20 @@ describe('package-smoke validatePackageFiles', () => {
 		expect(result.ok).toBe(false);
 		expect(result.errors).toContain(
 			'missing required package file: dist/index.d.ts',
+		);
+	});
+
+	test('rejects a package missing a bundled architect mode skill', () => {
+		const result = validatePackageFiles(
+			baseFiles.filter(
+				(file) => file.path !== '.opencode/skills/design-docs/SKILL.md',
+			),
+			expectedGrammars,
+		);
+
+		expect(result.ok).toBe(false);
+		expect(result.errors).toContain(
+			'missing required package file: .opencode/skills/design-docs/SKILL.md',
 		);
 	});
 

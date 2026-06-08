@@ -1,4 +1,5 @@
 import * as path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import type { Plugin } from '@opencode-ai/plugin';
 import packageJson from '../package.json' with { type: 'json' };
 import { type AgentDefinition, createAgents, getAgentConfigs } from './agents';
@@ -128,6 +129,10 @@ import {
 } from './services/warning-buffer.js';
 
 const SWARM_COMMAND_SYSTEM_RULE_TAG = '[opencode-swarm:swarm-command-rule]';
+const PACKAGE_ROOT = path.resolve(
+	path.dirname(fileURLToPath(import.meta.url)),
+	'..',
+);
 
 function createSwarmCommandSystemRuleHook(
 	agentDefinitions: Record<string, AgentDefinition>,
@@ -435,6 +440,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		agentDefinitionMap,
 		{
 			getActiveAgentName: (sessionID) => swarmState.activeAgent.get(sessionID),
+			packageRoot: PACKAGE_ROOT,
 			registeredAgents: agents,
 		},
 	);
