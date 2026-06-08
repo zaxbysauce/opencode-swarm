@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.57.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.56.3...v7.57.0) (2026-06-08)
+
+
+### Features
+
+* **commands:** add codebase review swarm command ([a9a3feb](https://github.com/zaxbysauce/opencode-swarm/commit/a9a3febc04156164f7b62e66c1d3e182665dbd2a))
+* **commands:** add codebase review swarm command ([7c1ccf8](https://github.com/zaxbysauce/opencode-swarm/commit/7c1ccf8be7cf4669e8c97a1438caa9bd6e6fdd7d))
+
+
+### Bug Fixes
+
+* **commands:** address codebase review feedback ([3523a4f](https://github.com/zaxbysauce/opencode-swarm/commit/3523a4f5860aee808472849d5a8e1cad194ce295))
+* **commands:** resolve codebase review PR comments ([2da4c34](https://github.com/zaxbysauce/opencode-swarm/commit/2da4c344c896337324d7dd6e437dcd3b3eb79726))
+
 ## [7.56.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.56.2...v7.56.3) (2026-06-08)
 
 
