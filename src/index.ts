@@ -10,6 +10,7 @@ import {
 	PlanSyncWorker,
 	type PreflightTriggerManager,
 } from './background';
+import { createBackgroundCompletionObserver } from './background/completion-observer.js';
 import {
 	agentHasSwarmCommandTool,
 	createSwarmCommandHandler,
@@ -454,6 +455,16 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		ctx.directory,
 	);
 	const delegationGateHooks = createDelegationGateHook(config, ctx.directory);
+	// Issue #1151 PR 2 (Stage A): read-only observer for the background-subagent
+	// completion signal. No-op unless hooks.background_subagents is opted in.
+	const backgroundCompletionObserver = createBackgroundCompletionObserver({
+		config: {
+			enabled:
+				(config.hooks as Record<string, unknown> | undefined)
+					?.background_subagents === true,
+		},
+		directory: ctx.directory,
+	});
 	const delegationSanitizerHook = createDelegationSanitizerHook(ctx.directory);
 	const memoryLifecycleHooks = createMemoryLifecycleHooks({
 		directory: ctx.directory,
@@ -843,6 +854,12 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 		// Register tools
 		tool: buildPluginToolObject(agentDefinitionMap),
+
+		// Issue #1151 PR 2 (Stage A): observe the background-subagent completion signal.
+		// ADVISORY/observer-only — safeHook-wrapped so it can never block event delivery or
+		// plugin load. No-op unless hooks.background_subagents is opted in.
+		// biome-ignore lint/suspicious/noExplicitAny: Plugin API requires generic hook wrappers
+		event: safeHook(backgroundCompletionObserver.event) as any,
 
 		// Configure OpenCode - merge agents into config
 		config: async (opencodeConfig: Record<string, unknown>) => {

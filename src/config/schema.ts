@@ -181,6 +181,24 @@ export const HooksConfigSchema = z.object({
 	agent_awareness_max_chars: z.number().min(50).max(2000).default(300),
 	delegation_gate: z.boolean().default(true),
 	delegation_max_chars: z.number().min(500).max(20000).default(4000),
+	/**
+	 * Issue #1151 PR 2 (Stage A): opt-in support for OpenCode background subagents.
+	 * When false (default) swarm fail-closed-blocks background swarm `Task` dispatches
+	 * (PR 1 behavior). When true, background swarm dispatches are allowed and tracked as
+	 * durable pending records under `.swarm/background-delegations.jsonl`, and a read-only
+	 * completion observer logs the upstream completion signal — but NO workflow gate is
+	 * advanced from a background completion in Stage A (gate-affecting ingestion is Stage B).
+	 * Requires upstream `OPENCODE_EXPERIMENTAL_BACKGROUND_SUBAGENTS=true` to have any effect.
+	 */
+	background_subagents: z.boolean().default(false),
+	/** Bounded lifetime (minutes) after which a tracked pending background delegation is
+	 *  swept to `stale` so `.swarm/` does not accumulate permanently-running entries. */
+	background_pending_timeout_minutes: z
+		.number()
+		.int()
+		.min(1)
+		.max(1440)
+		.default(30),
 });
 
 export type HooksConfig = z.infer<typeof HooksConfigSchema>;
