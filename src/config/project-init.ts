@@ -19,12 +19,25 @@ export function writeProjectConfigIfNew(
 	try {
 		const opencodeDir = path.join(directory, '.opencode');
 		const dest = path.join(opencodeDir, 'opencode-swarm.json');
+		const normalizePathForCompare = (p: string) => {
+			const normalized = path.resolve(p);
+			return process.platform === 'win32'
+				? normalized.toLowerCase()
+				: normalized;
+		};
 
 		// Defense in depth: refuse to write through a symlinked .opencode directory.
 		// Matches the guard pattern in graph-store.ts.
 		try {
 			const stat = fs.lstatSync(opencodeDir);
 			if (stat.isSymbolicLink()) return;
+			const resolvedDir = fs.realpathSync(opencodeDir);
+			if (
+				normalizePathForCompare(resolvedDir) !==
+				normalizePathForCompare(opencodeDir)
+			) {
+				return;
+			}
 		} catch (err) {
 			if ((err as NodeJS.ErrnoException).code !== 'ENOENT') return;
 			// ENOENT: directory doesn't exist yet — proceed to create it below.
