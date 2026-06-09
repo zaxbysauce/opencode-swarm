@@ -372,4 +372,94 @@ describe('blocking concerns promotion', () => {
 			expect(result.unifiedFeedbackMd).not.toContain('BLOCKING CONCERNS');
 		});
 	});
+
+	describe('edge cases', () => {
+		test('empty verdicts: blockingConcernsCount is 0, verdict is APPROVE', () => {
+			const result = synthesizeCouncilVerdicts(
+				'task-1',
+				'swarm-1',
+				[],
+				null,
+				1,
+				{},
+			);
+
+			expect(result.overallVerdict).toBe('APPROVE');
+			expect(result.blockingConcernsCount).toBe(0);
+			expect(result.emptyVerdictsWarning).toBe(true);
+		});
+
+		test('all members REJECT: blockingConcernsCount is 0 (no CONCERNS members)', () => {
+			const verdicts = [
+				makeVerdict('critic', 'REJECT', [makeFinding('HIGH', 'bug A')]),
+				makeVerdict('reviewer', 'REJECT', [makeFinding('HIGH', 'bug B')]),
+				makeVerdict('sme', 'REJECT', [makeFinding('CRITICAL', 'bug C')]),
+			];
+
+			const result = synthesizePhaseCouncilAdvisory(
+				1,
+				'test phase',
+				verdicts,
+				1,
+				{},
+				tempDir,
+			);
+
+			expect(result.overallVerdict).toBe('REJECT');
+			expect(result.blockingConcernsCount).toBe(0);
+			expect(result.requiredFixes).toHaveLength(3);
+		});
+
+		test('multiple CONCERNS members: all HIGH/CRITICAL promoted', () => {
+			const verdicts = [
+				makeVerdict('critic', 'CONCERNS', [makeFinding('HIGH', 'concern A')]),
+				makeVerdict('reviewer', 'CONCERNS', [
+					makeFinding('CRITICAL', 'concern B'),
+					makeFinding('LOW', 'minor C'),
+				]),
+				makeVerdict('sme', 'APPROVE'),
+			];
+
+			const result = synthesizePhaseCouncilAdvisory(
+				1,
+				'test phase',
+				verdicts,
+				1,
+				{},
+				tempDir,
+			);
+
+			expect(result.overallVerdict).toBe('CONCERNS');
+			expect(result.blockingConcernsCount).toBe(2);
+			expect(result.requiredFixes).toHaveLength(2);
+			expect(result.advisoryFindings.some((f) => f.detail === 'minor C')).toBe(
+				true,
+			);
+		});
+
+		test('vetoPriority:false with REJECT + CONCERNS HIGH: both in requiredFixes', () => {
+			const verdicts = [
+				makeVerdict('critic', 'REJECT', [makeFinding('HIGH', 'veto finding')]),
+				makeVerdict('reviewer', 'CONCERNS', [
+					makeFinding('HIGH', 'concern finding'),
+				]),
+				makeVerdict('sme', 'APPROVE'),
+			];
+
+			const result = synthesizeCouncilVerdicts(
+				'task-1',
+				'swarm-1',
+				verdicts,
+				null,
+				1,
+				{ vetoPriority: false },
+			);
+
+			expect(result.overallVerdict).toBe('CONCERNS');
+			expect(result.blockingConcernsCount).toBe(1);
+			const reqDetails = result.requiredFixes.map((f) => f.detail);
+			expect(reqDetails).toContain('veto finding');
+			expect(reqDetails).toContain('concern finding');
+		});
+	});
 });

@@ -228,6 +228,12 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 				: getPhaseMutationGapFinding(input.phaseNumber, workingDir);
 			if (mutationGapFinding) {
 				addMutationGapFindingToSynthesis(synthesis, mutationGapFinding);
+				if (
+					mutationGapFinding.severity === 'CRITICAL' ||
+					mutationGapFinding.severity === 'HIGH'
+				) {
+					synthesis.blockingConcernsCount++;
+				}
 			}
 
 			// ── Blocking concerns gate ────────────────────────────────────────
