@@ -102,13 +102,24 @@ function rowToProfile(row: QaGateProfileRow): QaGateProfile {
 		parsed = {};
 	}
 	// Backward compat: council_mode used to trigger phase-level council too.
-	// Old profiles with council_mode: true but no phase_council field need
-	// phase_council: true to preserve the old behavior after the gate split.
+	// Old profiles with council_mode: true but no phase_council field are migrated
+	// to phase_council: true (preserving phase-level review) and council_mode: false
+	// (avoiding the new per-task Stage B replacement semantics for legacy users).
 	const raw = parsed as Record<string, unknown>;
 	if (raw.council_mode === true && raw.phase_council === undefined) {
 		parsed.phase_council = true;
+		parsed.council_mode = false;
 	}
-	const gates: QaGates = { ...DEFAULT_QA_GATES, ...parsed };
+	// Filter to known gate keys only — prevents legacy/removed gate fields
+	// (e.g. council_general_review) from leaking into the live gates object.
+	const knownKeys = new Set(Object.keys(DEFAULT_QA_GATES));
+	const filteredParsed: Partial<QaGates> = {};
+	for (const key of Object.keys(parsed) as Array<keyof QaGates>) {
+		if (knownKeys.has(key)) {
+			filteredParsed[key] = parsed[key];
+		}
+	}
+	const gates: QaGates = { ...DEFAULT_QA_GATES, ...filteredParsed };
 	return {
 		id: row.id,
 		plan_id: row.plan_id,
