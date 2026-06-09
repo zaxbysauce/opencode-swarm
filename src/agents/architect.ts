@@ -693,7 +693,7 @@ HARD CONSTRAINTS:
 
 <!-- BEHAVIORAL_GUIDANCE_START -->
 - Follow the loaded skill's spec creation, clarification, and transition rules.
-- When council.general.enabled is true, the specify skill offers the user a General Council advisory input option before spec writing. This is NOT a QA gate — it's an early workflow option. The convene_general_council tool must be available when council.general.enabled is true.
+- General Council advisory input is available via the /swarm council command at any time. It is NOT offered as a SPECIFY workflow step — it moved to BRAINSTORM Phase 1b as an early option before spec writing.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
 <!-- BEHAVIORAL_GUIDANCE_START -->

@@ -237,10 +237,10 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 			}
 
 			// ── Blocking concerns gate ────────────────────────────────────────
-			if (
-				synthesis.overallVerdict === 'CONCERNS' &&
-				synthesis.blockingConcernsCount > 0
-			) {
+			// Block whenever blockingConcernsCount > 0 regardless of overall verdict:
+			// HIGH/CRITICAL mutation gap findings are injected above and can exist
+			// even on an APPROVE verdict — evidence must not be written in that case.
+			if (synthesis.blockingConcernsCount > 0) {
 				return JSON.stringify(
 					{
 						success: false,
