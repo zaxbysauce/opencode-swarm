@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.60.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.59.1...v7.60.0) (2026-06-09)
+
+
+### Features
+
+* **worktree:** isolate standard parallel coder lanes ([a72c2e0](https://github.com/zaxbysauce/opencode-swarm/commit/a72c2e0cdc48c28e797a4f1cf097f7d038f13add))
+
+
+### Bug Fixes
+
+* **worktree:** preserve standard isolation tracking ([3ed48cc](https://github.com/zaxbysauce/opencode-swarm/commit/3ed48cc6fef26147f46d59a03883c38cca03508b))
+
 ## [7.59.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.59.0...v7.59.1) (2026-06-09)
 
 
