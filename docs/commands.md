@@ -4,6 +4,8 @@ All `/swarm` subcommands available in the current OpenCode Swarm source tree. Th
 
 Commands are grouped by function. Compound commands (e.g., `/swarm config doctor`) resolve the two-word form first, then fall back to the first token.
 
+First-class MODE commands are repo-agnostic. The npm package ships the built-in OpenCode mode skills and, when a command needs one, materializes missing copies under the target repository's `.opencode/skills/` tree before emitting the MODE signal. Existing project skill files are never overwritten.
+
 ---
 
 ## Claude Code Command Conflicts
