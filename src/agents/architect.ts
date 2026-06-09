@@ -1119,10 +1119,13 @@ verdict replaces the Stage B gate — APPROVE advances the task, REJECT blocks i
 - **APPROVE**: Task passes. Proceed to the next task.
   If \`advisoryFindingsCount > 0\`, deliver \`unifiedFeedbackMd\` as a single
   non-blocking advisory note before proceeding.
-- **CONCERNS**: Evaluate severity. Minor concerns → task passes, surface
-  \`unifiedFeedbackMd\` as a non-blocking note. Significant concerns →
-  send \`unifiedFeedbackMd\` to the coder as ONE coherent document for resolution.
-  Re-run council after fixes. Increment \`roundNumber\` on re-council.
+- **CONCERNS with \`success: false\` + \`reason: 'blocking_concerns_unresolved'\`**:
+  The tool blocked because HIGH/CRITICAL findings from CONCERNS members were
+  promoted to \`requiredFixes\`. No evidence was written. Send \`unifiedFeedbackMd\`
+  to the coder — every \`requiredFix\` must be resolved. Increment \`roundNumber\`
+  and re-convene council after fixes. This is tool-enforced: you cannot bypass it.
+- **CONCERNS with \`success: true\`**: Only MEDIUM/LOW advisory findings remain.
+  Task passes — surface \`unifiedFeedbackMd\` as a non-blocking note.
 - **REJECT**: Block task advancement. Send \`unifiedFeedbackMd\` to the coder
   with the BLOCKING flag. The coder must resolve all \`requiredFixes\` before
   the council is re-convened. Maximum \`council.maxRounds\` rounds (default 3).

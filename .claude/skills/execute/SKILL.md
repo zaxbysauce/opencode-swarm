@@ -103,7 +103,7 @@ Treating pre_check_batch as a substitute for the active swarm's reviewer agent i
     2. Dispatch all 5 council members (critic, reviewer, sme, test_engineer, explorer) in PARALLEL with task-scoped context.
     3. Collect all 5 verdict objects. Do NOT fabricate or substitute verdicts.
     4. Call `submit_council_verdicts` with the collected verdicts.
-    5. Act on the verdict: APPROVE → task passes. CONCERNS → advisory, task passes. REJECT → return to coder with requiredFixes.
+    5. Act on the verdict: APPROVE → task passes. CONCERNS with `success: false` + `reason: 'blocking_concerns_unresolved'` → HIGH/CRITICAL findings are blocking, no evidence written, return to coder with requiredFixes and re-council after fixes. CONCERNS with `success: true` → only MEDIUM/LOW advisory findings, task passes. REJECT → return to coder with requiredFixes.
 
     When `council_mode` is OFF, the standard Stage B flow (steps 5j-5l: reviewer + test_engineer) runs as normal.
 

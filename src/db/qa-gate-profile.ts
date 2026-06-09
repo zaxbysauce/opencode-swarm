@@ -90,7 +90,14 @@ interface QaGateProfileRow {
 function rowToProfile(row: QaGateProfileRow): QaGateProfile {
 	let parsed: Partial<QaGates> = {};
 	try {
-		parsed = JSON.parse(row.gates) as Partial<QaGates>;
+		const maybeGates = JSON.parse(row.gates);
+		if (
+			maybeGates &&
+			typeof maybeGates === 'object' &&
+			!Array.isArray(maybeGates)
+		) {
+			parsed = maybeGates as Partial<QaGates>;
+		}
 	} catch {
 		parsed = {};
 	}
