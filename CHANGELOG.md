@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.59.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.59.0...v7.59.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* **ci:** add missing mock.module targets to allowlist ([73295c8](https://github.com/zaxbysauce/opencode-swarm/commit/73295c896e7878748006c4b03c2f6545d82c2b68))
+* **ci:** isolate knowledge-reader.test.ts from other hook tests ([b6cd846](https://github.com/zaxbysauce/opencode-swarm/commit/b6cd8463974b6b6255e5e6047782ce061ce78310))
+* **cli:** address PR [#1154](https://github.com/zaxbysauce/opencode-swarm/issues/1154) review follow-ups (docs + test coverage) ([80981b8](https://github.com/zaxbysauce/opencode-swarm/commit/80981b8e84e477f3e607c2fa9ef45ecf18dc4f8c))
+* **knowledge:** chmod case-sensitivity, quarantine filter, vitest→bun:test migration ([#828](https://github.com/zaxbysauce/opencode-swarm/issues/828)) ([c20299b](https://github.com/zaxbysauce/opencode-swarm/commit/c20299b7b8bb3450aaef3b744c00cf33e6c0ac65))
+* **knowledge:** resolve PR [#1170](https://github.com/zaxbysauce/opencode-swarm/issues/1170) review findings and biome CI warnings ([5380597](https://github.com/zaxbysauce/opencode-swarm/commit/53805972e221485835f37e736c9024c73ff3f6da))
+* **tests:** document mock.module isolation exception in knowledge-reader.test.ts ([42afe3f](https://github.com/zaxbysauce/opencode-swarm/commit/42afe3f343d6bf2ae7a215aef610362edb2aacb8))
+* **test:** update candidate-entry test for deny-list semantics ([295aa9d](https://github.com/zaxbysauce/opencode-swarm/commit/295aa9d81b4d308d4235e3494ada067e89bc9c2e))
+
 ## [7.59.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.58.1...v7.59.0) (2026-06-09)
 
 
