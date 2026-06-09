@@ -39,9 +39,6 @@ const REQUIRED_PACKAGE_FILES = [
 	...REQUIRED_PROJECT_SKILL_SLUGS.map(
 		(slug) => `.opencode/skills/${slug}/SKILL.md`,
 	),
-	'.opencode/skills/codebase-review-swarm/assets/jsonl-schemas.md',
-	'.opencode/skills/codebase-review-swarm/assets/review-report-template.md',
-	'.opencode/skills/codebase-review-swarm/references/review-protocol-v8.2.md',
 	'README.md',
 	'LICENSE',
 	'package.json',
@@ -118,8 +115,64 @@ export async function listExpectedGrammarFiles(root = ROOT) {
 		.map((file) => `dist/lang/grammars/${file}`);
 }
 
-export function validatePackageFiles(files, expectedGrammarFiles) {
+async function listPackageFilesRecursive(
+	sourceDir,
+	packageDir,
+	relativeDir = '',
+) {
+	const currentSource = path.join(sourceDir, relativeDir);
+	const entries = await readdir(currentSource, { withFileTypes: true });
+	const files = [];
+
+	for (const entry of entries) {
+		if (entry.isSymbolicLink()) continue;
+
+		const relativeEntry = path.join(relativeDir, entry.name);
+		const packagePath = path.posix.join(
+			packageDir,
+			...relativeEntry.split(path.sep),
+		);
+		if (entry.isDirectory()) {
+			files.push(
+				...(await listPackageFilesRecursive(
+					sourceDir,
+					packageDir,
+					relativeEntry,
+				)),
+			);
+			continue;
+		}
+
+		if (entry.isFile()) files.push(packagePath);
+	}
+
+	return files;
+}
+
+export async function listExpectedProjectSkillFiles(root = ROOT) {
+	const skillsRoot = path.join(root, '.opencode', 'skills');
+	const files = [];
+
+	for (const slug of REQUIRED_PROJECT_SKILL_SLUGS) {
+		const skillDir = path.join(skillsRoot, slug);
+		files.push(
+			...(await listPackageFilesRecursive(
+				skillDir,
+				path.posix.join('.opencode/skills', slug),
+			)),
+		);
+	}
+
+	return files.sort();
+}
+
+export function validatePackageFiles(
+	files,
+	expectedGrammarFiles,
+	expectedProjectSkillFiles,
+) {
 	const paths = new Set(files.map((file) => normalizePackagePath(file.path ?? file)));
+	const expectedSkillPaths = new Set(expectedProjectSkillFiles);
 	const errors = [];
 
 	for (const required of REQUIRED_PACKAGE_FILES) {
@@ -134,11 +187,24 @@ export function validatePackageFiles(files, expectedGrammarFiles) {
 		}
 	}
 
+	for (const skillFile of expectedProjectSkillFiles) {
+		if (!paths.has(skillFile)) {
+			errors.push(`missing bundled skill package file: ${skillFile}`);
+		}
+	}
+
 	for (const packagePath of paths) {
 		for (const prefix of FORBIDDEN_PACKAGE_PREFIXES) {
 			if (packagePath.startsWith(prefix)) {
 				errors.push(`unexpected source-only package file: ${packagePath}`);
 			}
+		}
+
+		if (
+			packagePath.startsWith('.opencode/skills/') &&
+			!expectedSkillPaths.has(packagePath)
+		) {
+			errors.push(`unexpected bundled skill package file: ${packagePath}`);
 		}
 	}
 
@@ -189,9 +255,11 @@ async function main() {
 		const packResult = runCommand(pack.command, pack.args);
 		const packEntry = parsePackOutput(packResult.stdout);
 		const expectedGrammarFiles = await listExpectedGrammarFiles(ROOT);
+		const expectedProjectSkillFiles = await listExpectedProjectSkillFiles(ROOT);
 		const validation = validatePackageFiles(
 			packEntry.files ?? [],
 			expectedGrammarFiles,
+			expectedProjectSkillFiles,
 		);
 
 		if (!validation.ok) {

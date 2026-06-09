@@ -31,6 +31,12 @@ interface CopyState {
 	bytes: number;
 }
 
+interface BundledSkillFile {
+	relativePath: string;
+}
+
+const syncedProjectSkillTargets = new Set<string>();
+
 function isSymbolicLink(p: string): boolean {
 	try {
 		return fs.lstatSync(p).isSymbolicLink();
@@ -48,46 +54,109 @@ function ensureNotSymlinkedDirectory(p: string): boolean {
 	}
 }
 
-function copyBundledDirectoryBounded(
+function getSyncCacheKey(
+	projectDirectory: string,
+	packageRoot: string,
+): string {
+	return `${path.resolve(projectDirectory)}\0${path.resolve(packageRoot)}`;
+}
+
+function collectBundledSkillFilesBounded(
 	sourceDir: string,
-	destDir: string,
 	state: CopyState,
 	relativeDir = '',
-): void {
+): BundledSkillFile[] {
 	const currentSource = path.join(sourceDir, relativeDir);
-	const currentDest = path.join(destDir, relativeDir);
 	const entries = fs.readdirSync(currentSource, { withFileTypes: true });
-
-	fs.mkdirSync(currentDest, { recursive: true });
+	const files: BundledSkillFile[] = [];
 
 	for (const entry of entries) {
 		const relativeEntry = path.join(relativeDir, entry.name);
 		const sourcePath = path.join(sourceDir, relativeEntry);
-		const destPath = path.join(destDir, relativeEntry);
 
 		if (entry.isSymbolicLink() || isSymbolicLink(sourcePath)) continue;
 
 		if (entry.isDirectory()) {
-			copyBundledDirectoryBounded(sourceDir, destDir, state, relativeEntry);
+			files.push(
+				...collectBundledSkillFilesBounded(sourceDir, state, relativeEntry),
+			);
 			continue;
 		}
 
 		if (!entry.isFile()) continue;
 
 		const stat = fs.statSync(sourcePath);
-		state.files += 1;
-		state.bytes += stat.size;
-		if (state.files > MAX_SKILL_FILES || state.bytes > MAX_SKILL_BYTES) {
+		const nextFiles = state.files + 1;
+		const nextBytes = state.bytes + stat.size;
+		if (nextFiles > MAX_SKILL_FILES || nextBytes > MAX_SKILL_BYTES) {
 			throw new Error('bundled skill package exceeds copy bounds');
 		}
+		state.files = nextFiles;
+		state.bytes = nextBytes;
+		files.push({ relativePath: relativeEntry });
+	}
 
-		fs.mkdirSync(path.dirname(destPath), { recursive: true });
+	return files;
+}
+
+function rollbackCopiedFiles(copiedFiles: string[], destDir: string): void {
+	const safeDestDir = path.resolve(destDir);
+	const dirs = new Set<string>();
+	for (const copiedFile of copiedFiles) {
+		const resolvedFile = path.resolve(copiedFile);
+		const relative = path.relative(safeDestDir, resolvedFile);
+		if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+
 		try {
-			fs.copyFileSync(sourcePath, destPath, fs.constants.COPYFILE_EXCL);
-		} catch (err) {
-			if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+			fs.rmSync(resolvedFile, { force: true });
+		} catch {
+			// Best effort cleanup only; the original copy error is more useful.
+		}
+		dirs.add(path.dirname(resolvedFile));
+	}
+
+	for (const dir of [...dirs].sort((a, b) => b.length - a.length)) {
+		const relative = path.relative(safeDestDir, path.resolve(dir));
+		if (relative.startsWith('..') || path.isAbsolute(relative)) continue;
+		try {
+			fs.rmdirSync(dir);
+		} catch {
+			// Directory may contain user files or previously installed skill files.
 		}
 	}
+}
+
+function copyBundledDirectoryBounded(sourceDir: string, destDir: string): void {
+	const files = collectBundledSkillFilesBounded(sourceDir, {
+		files: 0,
+		bytes: 0,
+	});
+	const copiedFiles: string[] = [];
+
+	try {
+		for (const file of files) {
+			const sourcePath = path.join(sourceDir, file.relativePath);
+			const destPath = path.join(destDir, file.relativePath);
+
+			fs.mkdirSync(path.dirname(destPath), { recursive: true });
+			try {
+				fs.copyFileSync(sourcePath, destPath, fs.constants.COPYFILE_EXCL);
+				copiedFiles.push(destPath);
+			} catch (err) {
+				if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err;
+			}
+		}
+	} catch (err) {
+		rollbackCopiedFiles(copiedFiles, destDir);
+		throw err;
+	}
+}
+
+function warnBundledSkillSyncFailure(err: unknown): void {
+	const message = err instanceof Error ? err.message : String(err);
+	console.warn(
+		`[opencode-swarm] Could not install bundled project skills; continuing without sync: ${message}`,
+	);
 }
 
 /**
@@ -104,9 +173,13 @@ export function syncBundledProjectSkillsIfMissing(
 	quiet = false,
 ): void {
 	try {
+		const cacheKey = getSyncCacheKey(projectDirectory, packageRoot);
+		if (syncedProjectSkillTargets.has(cacheKey)) return;
+
 		const sourceRoot = path.join(packageRoot, '.opencode', 'skills');
 		const opencodeDir = path.join(projectDirectory, '.opencode');
 		const skillsDir = path.join(opencodeDir, 'skills');
+		let sawBundledSource = false;
 
 		if (!ensureNotSymlinkedDirectory(opencodeDir)) return;
 		if (!ensureNotSymlinkedDirectory(skillsDir)) return;
@@ -118,17 +191,26 @@ export function syncBundledProjectSkillsIfMissing(
 			const destSkill = path.join(destDir, 'SKILL.md');
 
 			if (!fs.existsSync(sourceSkill)) continue;
+			sawBundledSource = true;
 			if (fs.existsSync(destSkill)) continue;
 			if (!ensureNotSymlinkedDirectory(destDir)) continue;
 
-			copyBundledDirectoryBounded(sourceDir, destDir, { files: 0, bytes: 0 });
+			copyBundledDirectoryBounded(sourceDir, destDir);
 			if (!quiet) {
 				console.warn(
 					`[opencode-swarm] Installed bundled skill .opencode/skills/${slug}/SKILL.md for first-class /swarm command support`,
 				);
 			}
 		}
-	} catch {
+		if (sawBundledSource) syncedProjectSkillTargets.add(cacheKey);
+	} catch (err) {
 		// Non-fatal: plugin init and command registration must remain fail-open.
+		if (!quiet) warnBundledSkillSyncFailure(err);
 	}
 }
+
+export const _test_exports = {
+	collectBundledSkillFilesBounded,
+	getSyncCacheKey,
+	resetBundledProjectSkillSyncCache: () => syncedProjectSkillTargets.clear(),
+};

@@ -1,7 +1,10 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as path from 'node:path';
-import { syncBundledProjectSkillsIfMissing } from '../../../src/config/bundled-skills';
+import {
+	_test_exports,
+	syncBundledProjectSkillsIfMissing,
+} from '../../../src/config/bundled-skills';
 import { createSafeTestDir } from '../../helpers/safe-test-dir';
 
 function writePackageSkill(
@@ -28,6 +31,7 @@ describe('syncBundledProjectSkillsIfMissing', () => {
 	let origWarn: typeof console.warn;
 
 	beforeEach(() => {
+		_test_exports.resetBundledProjectSkillSyncCache();
 		({ dir: projectDir, cleanup: cleanupProject } = createSafeTestDir(
 			'swarm-bundled-skill-project-',
 		));
@@ -122,6 +126,112 @@ describe('syncBundledProjectSkillsIfMissing', () => {
 		expect(() =>
 			syncBundledProjectSkillsIfMissing(projectDir, packageRoot),
 		).not.toThrow();
+		expect(fs.existsSync(projectSkillPath())).toBe(false);
+	});
+
+	test('warns non-fatally when bundled skill sync fails', () => {
+		const destDir = path.join(
+			projectDir,
+			'.opencode',
+			'skills',
+			'codebase-review-swarm',
+		);
+		fs.mkdirSync(destDir, { recursive: true });
+		fs.writeFileSync(path.join(destDir, 'references'), 'not a directory\n');
+
+		expect(() =>
+			syncBundledProjectSkillsIfMissing(projectDir, packageRoot),
+		).not.toThrow();
+		expect(fs.existsSync(projectSkillPath())).toBe(false);
+		expect(
+			warnOutput.some((m) =>
+				m.includes('Could not install bundled project skills'),
+			),
+		).toBe(true);
+	});
+
+	test('suppresses sync failure warning when quiet is true', () => {
+		const destDir = path.join(
+			projectDir,
+			'.opencode',
+			'skills',
+			'codebase-review-swarm',
+		);
+		fs.mkdirSync(destDir, { recursive: true });
+		fs.writeFileSync(path.join(destDir, 'references'), 'not a directory\n');
+
+		syncBundledProjectSkillsIfMissing(projectDir, packageRoot, true);
+
+		expect(fs.existsSync(projectSkillPath())).toBe(false);
+		expect(warnOutput).toEqual([]);
+	});
+
+	test('regression F-001/F-006: does not leave a partial skill when file bounds are exceeded', () => {
+		const skillDir = path.join(
+			packageRoot,
+			'.opencode',
+			'skills',
+			'codebase-review-swarm',
+		);
+		fs.rmSync(skillDir, { recursive: true, force: true });
+		fs.mkdirSync(skillDir, { recursive: true });
+		for (let i = 0; i < 65; i += 1) {
+			fs.writeFileSync(path.join(skillDir, `file-${i}.md`), 'x\n', 'utf-8');
+		}
+		fs.writeFileSync(
+			path.join(skillDir, 'SKILL.md'),
+			'canonical skill\n',
+			'utf-8',
+		);
+
+		syncBundledProjectSkillsIfMissing(projectDir, packageRoot);
+
+		const destDir = path.join(
+			projectDir,
+			'.opencode',
+			'skills',
+			'codebase-review-swarm',
+		);
+		expect(fs.existsSync(projectSkillPath())).toBe(false);
+		expect(fs.existsSync(destDir)).toBe(false);
+		expect(
+			warnOutput.some((m) =>
+				m.includes('bundled skill package exceeds copy bounds'),
+			),
+		).toBe(true);
+	});
+
+	test('regression F-001/F-006: does not leave a partial skill when byte bounds are exceeded', () => {
+		const skillDir = path.join(
+			packageRoot,
+			'.opencode',
+			'skills',
+			'codebase-review-swarm',
+		);
+		fs.rmSync(skillDir, { recursive: true, force: true });
+		fs.mkdirSync(skillDir, { recursive: true });
+		fs.writeFileSync(
+			path.join(skillDir, 'SKILL.md'),
+			'x'.repeat(512_001),
+			'utf-8',
+		);
+
+		syncBundledProjectSkillsIfMissing(projectDir, packageRoot);
+
+		expect(fs.existsSync(projectSkillPath())).toBe(false);
+		expect(
+			warnOutput.some((m) =>
+				m.includes('bundled skill package exceeds copy bounds'),
+			),
+		).toBe(true);
+	});
+
+	test('caches a successful sync for the current process', () => {
+		syncBundledProjectSkillsIfMissing(projectDir, packageRoot);
+		fs.rmSync(projectSkillPath(), { force: true });
+
+		syncBundledProjectSkillsIfMissing(projectDir, packageRoot);
+
 		expect(fs.existsSync(projectSkillPath())).toBe(false);
 	});
 });
