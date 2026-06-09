@@ -20,7 +20,10 @@ import {
 	type EnvironmentProfile,
 } from './environment/profile.js';
 import type { TaskEvidence } from './gate-evidence';
-import { clearPendingCoderScope } from './hooks/delegation-gate.js';
+import {
+	clearPendingCoderScope,
+	resetStandardWorktreeIsolationState,
+} from './hooks/delegation-gate.js';
 import { loadPlanJsonOnly, updateTaskStatus } from './plan/manager.js';
 import { derivePlanId } from './plan/utils.js';
 import type { EscalationTracker } from './prm/escalation.js';
@@ -476,6 +479,7 @@ export function resetSwarmState(): void {
 	// map so a /swarm close + new session with a colliding taskId (e.g. "1.1")
 	// cannot inherit stale scope from the previous swarm.
 	clearPendingCoderScope();
+	resetStandardWorktreeIsolationState();
 	// v6.71+ Clear the council-mode disagreement warn-once memo so tests and
 	// fresh sessions observe consistent first-time warnings.
 	_councilDisagreementWarned.clear();

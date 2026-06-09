@@ -457,13 +457,30 @@ let standardWorktreeMergeQueue: Promise<unknown> = Promise.resolve();
 function rememberStandardWorktreeDispatch(
 	dispatch: StandardWorktreeDispatch,
 ): void {
-	if (standardWorktreeByCallID.size >= MAX_TRACKED_STANDARD_WORKTREE_CALLS) {
-		const oldest = standardWorktreeByCallID.keys().next().value as
-			| string
-			| undefined;
-		if (oldest) standardWorktreeByCallID.delete(oldest);
-	}
 	standardWorktreeByCallID.set(dispatch.callID, dispatch);
+}
+
+function hasStandardWorktreeDispatchCapacity(): boolean {
+	return standardWorktreeByCallID.size < MAX_TRACKED_STANDARD_WORKTREE_CALLS;
+}
+
+function serializeStandardWorktreeDispatches(
+	sessionID: string,
+	message: string,
+): void {
+	rememberStandardWorktreeSerializationSession(sessionID);
+	const session = ensureAgentSession(sessionID);
+	session.maxConcurrencyOverride = 1;
+	session.pendingAdvisoryMessages ??= [];
+	session.pendingAdvisoryMessages.push(
+		`${message} Serializing standard coder dispatches for this session.`,
+	);
+}
+
+export function resetStandardWorktreeIsolationState(): void {
+	standardWorktreeByCallID.clear();
+	standardWorktreeSerializationSessions.clear();
+	standardWorktreeMergeQueue = Promise.resolve();
 }
 
 function rememberStandardWorktreeSerializationSession(sessionID: string): void {
@@ -515,17 +532,20 @@ async function precreateStandardWorktreeSession(args: {
 	const worktreeConfig = resolveWorktreeIsolationConfig(args.config);
 	if (worktreeConfig.policy === 'disabled') return;
 
+	if (!hasStandardWorktreeDispatchCapacity()) {
+		const message =
+			'STANDARD_WORKTREE_TRACKING_CAP_EXCEEDED: too many standard worktree coder dispatches are already awaiting merge-back.';
+		if (worktreeConfig.policy === 'required') throw new Error(message);
+		serializeStandardWorktreeDispatches(args.parentSessionID, message);
+		return;
+	}
+
 	const client = swarmState.opencodeClient;
 	if (!client) {
 		const message =
 			'STANDARD_WORKTREE_ISOLATION_UNAVAILABLE: OpenCode SDK client is unavailable; standard parallel coder work cannot be isolated.';
 		if (worktreeConfig.policy === 'required') throw new Error(message);
-		rememberStandardWorktreeSerializationSession(args.parentSessionID);
-		ensureAgentSession(args.parentSessionID).maxConcurrencyOverride = 1;
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages ??= [];
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages?.push(
-			`${message} Serializing standard coder dispatches for this session.`,
-		);
+		serializeStandardWorktreeDispatches(args.parentSessionID, message);
 		return;
 	}
 
@@ -542,12 +562,7 @@ async function precreateStandardWorktreeSession(args: {
 	if ('error' in provisionResult) {
 		const message = `STANDARD_WORKTREE_PROVISION_FAILED: ${provisionResult.error}`;
 		if (worktreeConfig.policy === 'required') throw new Error(message);
-		rememberStandardWorktreeSerializationSession(args.parentSessionID);
-		ensureAgentSession(args.parentSessionID).maxConcurrencyOverride = 1;
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages ??= [];
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages?.push(
-			`${message}. Serializing standard coder dispatches for this session.`,
-		);
+		serializeStandardWorktreeDispatches(args.parentSessionID, `${message}.`);
 		return;
 	}
 
@@ -569,12 +584,7 @@ async function precreateStandardWorktreeSession(args: {
 				: JSON.stringify(createError ?? 'missing session id');
 		const message = `STANDARD_WORKTREE_SESSION_CREATE_FAILED: ${detail}`;
 		if (worktreeConfig.policy === 'required') throw new Error(message);
-		rememberStandardWorktreeSerializationSession(args.parentSessionID);
-		ensureAgentSession(args.parentSessionID).maxConcurrencyOverride = 1;
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages ??= [];
-		ensureAgentSession(args.parentSessionID).pendingAdvisoryMessages?.push(
-			`${message}. Serializing standard coder dispatches for this session.`,
-		);
+		serializeStandardWorktreeDispatches(args.parentSessionID, `${message}.`);
 		return;
 	}
 
@@ -979,11 +989,7 @@ export const _internals = {
 	removeWorktree,
 	attemptMergeBackFromDirty,
 	postMergeCleanup,
-	resetStandardWorktreeIsolationState: () => {
-		standardWorktreeByCallID.clear();
-		standardWorktreeSerializationSessions.clear();
-		standardWorktreeMergeQueue = Promise.resolve();
-	},
+	resetStandardWorktreeIsolationState,
 };
 
 /**

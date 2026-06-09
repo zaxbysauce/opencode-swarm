@@ -20,7 +20,9 @@ const realRemoveWorktree = _internals.removeWorktree;
 const realAttemptMergeBackFromDirty = _internals.attemptMergeBackFromDirty;
 const realPostMergeCleanup = _internals.postMergeCleanup;
 
-function makeConfig(): PluginConfig {
+function makeConfig(
+	policy: 'auto' | 'required' | 'disabled' = 'required',
+): PluginConfig {
 	return {
 		max_iterations: 5,
 		qa_retry_limit: 3,
@@ -29,7 +31,7 @@ function makeConfig(): PluginConfig {
 			delegation_gate: true,
 		},
 		worktree: {
-			policy: 'required',
+			policy,
 			merge_strategy: 'merge',
 			deps_strategy: 'skip',
 		},
@@ -177,5 +179,143 @@ describe('delegation gate standard worktree isolation', () => {
 		expect(
 			ensureAgentSession('parent-session').pendingAdvisoryMessages ?? [],
 		).toHaveLength(0);
+	});
+
+	test('required policy fails closed when worktree provisioning fails', async () => {
+		const createCalls: unknown[] = [];
+		_internals.provisionWorktree = async () => ({
+			error: 'branch already exists',
+		});
+		swarmState.opencodeClient = {
+			session: {
+				create: async (input: unknown) => {
+					createCalls.push(input);
+					return { data: { id: 'child-session' } };
+				},
+			},
+		} as typeof swarmState.opencodeClient;
+
+		const hook = createDelegationGateHook(makeConfig('required'), tempDir);
+		await expect(
+			hook.toolBefore(
+				{ tool: 'Task', sessionID: 'parent-session', callID: 'call-fail' },
+				{
+					args: {
+						subagent_type: 'coder',
+						description: 'Implement task 1.1',
+						prompt: 'TASK: 1.1 implement the lane work',
+					},
+				},
+			),
+		).rejects.toThrow(/STANDARD_WORKTREE_PROVISION_FAILED/);
+
+		expect(createCalls).toEqual([]);
+	});
+
+	test('auto policy serializes before creating a worktree when dispatch tracking is full', async () => {
+		const provisionCalls: unknown[] = [];
+		const createCalls: unknown[] = [];
+		_internals.provisionWorktree = async (directory, taskId, sessionId) => {
+			provisionCalls.push([directory, taskId, sessionId]);
+			return {
+				worktreePath: path.join(tempDir, '..', `wt-${provisionCalls.length}`),
+				branchName: `swarm/lane/${sessionId}/${taskId}`,
+				purpose: 'lane',
+				id: taskId,
+				sessionId,
+			};
+		};
+		swarmState.opencodeClient = {
+			session: {
+				create: async (input: unknown) => {
+					createCalls.push(input);
+					return { data: { id: `child-session-${createCalls.length}` } };
+				},
+			},
+		} as typeof swarmState.opencodeClient;
+
+		const hook = createDelegationGateHook(makeConfig('auto'), tempDir);
+		for (let i = 0; i < 256; i++) {
+			const args: Record<string, unknown> = {
+				subagent_type: 'coder',
+				description: `Implement task 1.1 attempt ${i}`,
+				prompt: 'TASK: 1.1 implement the lane work',
+			};
+			await hook.toolBefore(
+				{ tool: 'Task', sessionID: 'parent-session', callID: `call-${i}` },
+				{ args },
+			);
+			expect(args.task_id).toBe(`child-session-${i + 1}`);
+		}
+
+		const overflowArgs: Record<string, unknown> = {
+			subagent_type: 'coder',
+			description: 'Implement task 1.1 overflow',
+			prompt: 'TASK: 1.1 implement the lane work',
+		};
+		await hook.toolBefore(
+			{ tool: 'Task', sessionID: 'parent-session', callID: 'call-overflow' },
+			{ args: overflowArgs },
+		);
+
+		expect(overflowArgs.task_id).toBeUndefined();
+		expect(provisionCalls).toHaveLength(256);
+		expect(createCalls).toHaveLength(256);
+		expect(ensureAgentSession('parent-session').maxConcurrencyOverride).toBe(1);
+		expect(
+			ensureAgentSession('parent-session').pendingAdvisoryMessages?.some(
+				(message) =>
+					message.includes('STANDARD_WORKTREE_TRACKING_CAP_EXCEEDED'),
+			),
+		).toBe(true);
+	});
+
+	test('resetSwarmState clears standard worktree serialization state', async () => {
+		const hook = createDelegationGateHook(makeConfig('auto'), tempDir);
+		const args: Record<string, unknown> = {
+			subagent_type: 'coder',
+			description: 'Implement task 1.1',
+			prompt: 'TASK: 1.1 implement the lane work',
+		};
+
+		await hook.toolBefore(
+			{ tool: 'Task', sessionID: 'parent-session', callID: 'call-no-client' },
+			{ args },
+		);
+		await expect(
+			hook.toolBefore(
+				{
+					tool: 'Task',
+					sessionID: 'parent-session',
+					callID: 'call-serialized',
+				},
+				{
+					args: {
+						subagent_type: 'coder',
+						description: 'Implement task 1.1 again',
+						prompt: 'TASK: 1.1 implement the lane work',
+					},
+				},
+			),
+		).rejects.toThrow(/STANDARD_WORKTREE_ISOLATION_SERIALIZED/);
+
+		resetSwarmState();
+
+		await expect(
+			hook.toolBefore(
+				{
+					tool: 'Task',
+					sessionID: 'parent-session',
+					callID: 'call-after-reset',
+				},
+				{
+					args: {
+						subagent_type: 'coder',
+						description: 'Implement task 1.1 after reset',
+						prompt: 'TASK: 1.1 implement the lane work',
+					},
+				},
+			),
+		).resolves.toBeUndefined();
 	});
 });
