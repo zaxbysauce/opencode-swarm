@@ -92,6 +92,24 @@ export async function runArchitectureSupervisorGate(
 		);
 	}
 
+	// Provenance verification (issue #893 follow-up, F-001).
+	// When provenance_verify is enabled in gate mode, reject evidence without valid provenance.
+	if (asConfig?.provenance_verify === true) {
+		const provenance = asEntry.provenance;
+		if (!provenance || (!provenance.agent_name && !provenance.session_id)) {
+			return asBlocked(
+				'ARCH_SUPERVISOR_MISSING_PROVENANCE',
+				`Phase ${phase} cannot be completed: architecture supervisor evidence lacks provenance (agent_name or session_id). Evidence provenance verification is enabled.`,
+			);
+		}
+	} else if (!asEntry.provenance || (!asEntry.provenance.agent_name && !asEntry.provenance.session_id)) {
+		// Advisory warning when provenance is missing and verification is not explicitly enabled
+		safeWarn(
+			`[phase_complete] Architecture supervisor evidence lacks provenance for phase ${phase}. Enable 'provenance_verify' in architectural_supervision config to enforce provenance verification.`,
+			undefined,
+		);
+	}
+
 	// Verdict.
 	const asVerdict = asEntry.verdict;
 	if (asVerdict === 'REJECT') {

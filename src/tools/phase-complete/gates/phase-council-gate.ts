@@ -110,6 +110,15 @@ export async function runPhaseCouncilGate(
 									};
 								}
 
+								// Provenance verification (issue #893 follow-up, F-001)
+								// Advisory warning when provenance is missing
+								if (!entry.provenance || (!entry.provenance.agent_name && !entry.provenance.session_id)) {
+									safeWarn(
+										`[phase_complete] Phase council evidence lacks provenance for phase ${phase}. Evidence should include agent_name or session_id for verification.`,
+										undefined,
+									);
+								}
+
 								if (entry.verdict === 'REJECT' || entry.verdict === 'reject') {
 									const requiredFixes =
 										entry.requiredFixes ?? entry.required_fixes ?? [];
