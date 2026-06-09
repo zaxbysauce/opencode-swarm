@@ -657,7 +657,6 @@ export async function skillPropagationGateBefore(
 	let scored: Array<{ skillPath: string; score: number; usageCount: number }> =
 		[];
 	if (
-		skillsValue &&
 		skillsValue.toLowerCase() !== 'none' &&
 		availableSkills.length > 0
 	) {
@@ -878,7 +877,7 @@ export async function skillPropagationGateBefore(
 		return { blocked: true, reason: blockedMsg, recommendedSkills: undefined };
 	}
 
-	return { blocked: false, reason: warningMsg, recommendedSkills: undefined };
+	return { blocked: false, reason: warningMsg, recommendedSkills: scored };
 }
 
 // ============================================================================
