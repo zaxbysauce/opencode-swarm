@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.58.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.58.0...v7.58.1) (2026-06-09)
+
+
+### Bug Fixes
+
+* **commands:** bundle mode skills for portable commands ([e1e6e0c](https://github.com/zaxbysauce/opencode-swarm/commit/e1e6e0c1ff4266f5811eef1213e873b586530cd7))
+* **commands:** harden bundled skill packaging ([4b729d5](https://github.com/zaxbysauce/opencode-swarm/commit/4b729d55951574795048fef207200b51367259c8))
+
 ## [7.58.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.57.0...v7.58.0) (2026-06-08)
 
 
