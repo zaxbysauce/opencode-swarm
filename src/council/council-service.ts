@@ -145,9 +145,7 @@ function promoteBlockingConcerns(
 	advisoryFindings: CouncilFinding[],
 ): number {
 	const concernsFindings = verdicts
-		.filter(
-			(v) => v.verdict === 'CONCERNS' && !rejectingSet.has(v.agent),
-		)
+		.filter((v) => v.verdict === 'CONCERNS' && !rejectingSet.has(v.agent))
 		.flatMap((v) => v.findings);
 	const blocking = concernsFindings.filter(
 		(f) => f.severity === 'CRITICAL' || f.severity === 'HIGH',
