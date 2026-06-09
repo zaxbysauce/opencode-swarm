@@ -190,13 +190,18 @@ describe('writeProjectConfigIfNew', () => {
 		const target = path.join(dir, 'symlink-target');
 		const opencodeLink = path.join(dir, '.opencode');
 		fs.mkdirSync(target, { recursive: true });
-		fs.symlinkSync(target, opencodeLink);
+		fs.symlinkSync(
+			target,
+			opencodeLink,
+			process.platform === 'win32' ? 'junction' : 'dir',
+		);
 
 		writeProjectConfigIfNew(dir);
 
 		expect(fs.existsSync(path.join(opencodeLink, 'opencode-swarm.json'))).toBe(
 			false,
 		);
+		expect(fs.existsSync(path.join(target, 'opencode-swarm.json'))).toBe(false);
 	});
 
 	// 9. Emits console.warn when quiet=false (default)
