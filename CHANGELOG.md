@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.59.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.58.1...v7.59.0) (2026-06-09)
+
+
+### Features
+
+* **turbo:** git worktree isolation for parallel lean turbo lanes ([2e801f3](https://github.com/zaxbysauce/opencode-swarm/commit/2e801f3bacd6b21306c4166f21c858828a1b200d))
+
+
+### Bug Fixes
+
+* **test:** remove mock.module() from comments to fix CI false positive ([ab19bb8](https://github.com/zaxbysauce/opencode-swarm/commit/ab19bb8b34af8d483b8a7cc43e1aec7a15060c84))
+
 ## [7.58.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.58.0...v7.58.1) (2026-06-09)
 
 
