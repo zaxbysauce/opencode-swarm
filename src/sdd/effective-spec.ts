@@ -65,11 +65,15 @@ function hash(content: string): string {
 }
 
 function readTextBounded(absPath: string): string | null {
-	const stat = fs.lstatSync(absPath);
-	if (!stat.isFile() || stat.size > MAX_SOURCE_BYTES) {
+	try {
+		const stat = fs.lstatSync(absPath);
+		if (!stat.isFile() || stat.size > MAX_SOURCE_BYTES) {
+			return null;
+		}
+		return fs.readFileSync(absPath, 'utf-8');
+	} catch {
 		return null;
 	}
-	return fs.readFileSync(absPath, 'utf-8');
 }
 
 function fileArtifact(root: string, absPath: string): OpenSpecArtifact | null {
