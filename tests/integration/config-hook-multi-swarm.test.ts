@@ -166,7 +166,7 @@ describe('plugin config hook — multi-swarm primary architect injection', () =>
 	// ── auto_select_architect — invariant 11: primary/subagent selection must
 	// include a multi-swarm test per AGENTS.md §11 ───────────────────────────
 
-	test('auto_select_architect: true — disables build/plan, all prefixed architects remain primary', async () => {
+	test('auto_select_architect: true - disables build/plan, all prefixed architects remain primary', async () => {
 		const plugin = await bootPlugin({
 			version_check: false,
 			auto_select_architect: true,
@@ -204,7 +204,7 @@ describe('plugin config hook — multi-swarm primary architect injection', () =>
 		expect(primaries.length, 'at least one non-disabled primary must exist').toBeGreaterThan(0);
 	});
 
-	test('auto_select_architect: "mega_architect" — disables build/plan, promotes target, demotes others', async () => {
+	test('auto_select_architect: "mega_architect" - disables build/plan, promotes target, demotes others', async () => {
 		const plugin = await bootPlugin({
 			version_check: false,
 			auto_select_architect: 'mega_architect',
