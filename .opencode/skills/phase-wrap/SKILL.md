@@ -103,7 +103,7 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    1. Build a PHASE DOSSIER from all completed tasks in this phase, their evidence artifacts, changed-file summaries, and any drift/hallucination/mutation evidence.
    2. Dispatch the full 5-member council (`the active swarm's critic agent`, `the active swarm's reviewer agent`, `the active swarm's sme agent`, `the active swarm's test_engineer agent`, and `the active swarm's explorer agent`) in PARALLEL with phase-scoped context. Each member reviews the entire phase's work holistically and returns a `CouncilMemberVerdict` JSON object.
    3. Collect all 5 verdict objects. Do NOT fabricate or substitute verdicts.
-   4. Act on the verdict: APPROVE → proceed. CONCERNS → advisory (phase may proceed per `phaseConcernsAllowComplete` flag). REJECT → surface required fixes to the user before proceeding.
+   4. Act on the verdict: APPROVE → proceed. CONCERNS with `success: false` + `reason: 'blocking_concerns_unresolved'` → HIGH/CRITICAL findings are blocking, no evidence written, must resolve requiredFixes and re-council. CONCERNS with `success: true` → only MEDIUM/LOW advisory findings, phase may proceed per `phaseConcernsAllowComplete` flag. REJECT → surface required fixes to the user before proceeding.
    Requires council.enabled: true in config.
 
 5.7. **Final Council (conditional on QA gate - last phase only)**: Check whether `final_council` is enabled in the effective QA gate profile (visible via `get_qa_gate_profile`). If disabled, skip silently and proceed to step 6.

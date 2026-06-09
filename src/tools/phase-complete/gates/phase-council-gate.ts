@@ -31,7 +31,10 @@ export async function runPhaseCouncilGate(
 				const overrides = session?.qaGateSessionOverrides ?? {};
 				const effective = getEffectiveGates(profile, overrides);
 
-				if (effective.phase_council === true) {
+				if (
+					effective.phase_council === true &&
+					pluginConfig.council?.enabled === true
+				) {
 					councilModeEnabled = true;
 					const pcPath = path.join(
 						dir,

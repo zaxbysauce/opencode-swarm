@@ -427,7 +427,7 @@ When `phase_council` is enabled in the QA gate profile, a full 5-member council 
 
 2. **Evidence-file attestation.** Council verdicts are synthesized via `synthesizePhaseCouncilAdvisory()`, which writes `.swarm/evidence/{phase}/phase-council.json`. The `phase_complete` tool reads this evidence file and validates verdict, quorum (≥3), timestamp freshness, and phase number before allowing phase completion.
 
-3. **Verdict enforcement.** REJECT verdict blocks phase completion with required fixes. CONCERNS blocks by default (configurable via `config.council.phaseConcernsAllowComplete` — planned feature). APPROVE allows the phase to complete.
+3. **Verdict enforcement.** REJECT verdict blocks phase completion with required fixes. CONCERNS with only MEDIUM/LOW findings is advisory by default (`config.council.phaseConcernsAllowComplete: true`); set to `false` to make all CONCERNS block like REJECT. **However**, HIGH/CRITICAL findings from CONCERNS members are always promoted to `requiredFixes` and block at the tool level regardless of `phaseConcernsAllowComplete` — the tool returns `success: false` with `reason: 'blocking_concerns_unresolved'` and no evidence is written. APPROVE allows the phase to complete.
 
 ### Example Phase Council Flow
 
