@@ -46,6 +46,8 @@ const ArgsSchema = z.object({
 	findings: z.array(FindingSchema).default([]),
 	knowledge_recommendations: z.array(KnowledgeRecommendationSchema).default([]),
 	working_directory: z.string().optional(),
+	provenance_agent_name: z.string().min(1).optional(),
+	provenance_session_id: z.string().min(1).optional(),
 });
 
 export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
@@ -76,8 +78,18 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 				.optional()
 				.describe('Durable lessons proposed by the supervisor.'),
 			working_directory: z.string().optional(),
+			provenance_agent_name: z
+				.string()
+				.min(1)
+				.optional()
+				.describe('Agent name that produced this evidence (optional provenance).'),
+			provenance_session_id: z
+				.string()
+				.min(1)
+				.optional()
+				.describe('Session ID of the agent that produced this evidence (optional provenance).'),
 		},
-		execute: async (rawArgs: unknown, directory: string): Promise<string> => {
+		execute: async (rawArgs: unknown, directory: string, ctx): Promise<string> => {
 			const parsed = ArgsSchema.safeParse(rawArgs);
 			if (!parsed.success) {
 				return JSON.stringify(
@@ -106,6 +118,13 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 				);
 			}
 
+			// Capture provenance from args or context
+			const provenance = (args.provenance_agent_name || args.provenance_session_id) ? {
+				agent_name: args.provenance_agent_name,
+				session_id: args.provenance_session_id,
+				verified_at: new Date().toISOString(),
+			} : undefined;
+
 			const report: ArchitectureSupervisorReport = {
 				schema_version: SUMMARY_SCHEMA_VERSION,
 				phase: args.phase,
@@ -113,6 +132,7 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 				findings: args.findings,
 				knowledge_recommendations: args.knowledge_recommendations,
 				created_at: new Date().toISOString(),
+				...(provenance ? { provenance } : {}),
 			};
 
 			const evidencePath = writeSupervisorReport(dirResult.directory, report);
