@@ -127,17 +127,29 @@ describe('directive predicate runner — adversarial', () => {
 		expect(out.result).toBe('error');
 	});
 
-	it('grep regex beginning with a dash is treated as a pattern, not a flag', async () => {
-		// Without the `--` separator a leading-dash regex would be parsed by
-		// ripgrep as an unknown flag (a "ripgrep error (exit 2)" outcome). With it,
-		// this is a normal search → pass/fail.
-		const out = await runDirectivePredicate('grep:-x:src/**/*.ts', dir);
-		// On hosts where ripgrep is installed, the `--` separator must make `-x` a
-		// pattern, so the predicate completes as pass or fail — never a flag-parse
-		// error. On CI runners without ripgrep on PATH, the predicate degrades
-		// gracefully to a "ripgrep (rg) not found" error; accept that environment
-		// skip but still reject any other (e.g. flag-parse) error.
-		const ranAsPattern = out.result === 'pass' || out.result === 'fail';
+	it('grep regex beginning with dashes is treated as a pattern, not a flag', async () => {
+		// `--zz-not-a-real-flag` is NOT a real ripgrep flag. With the `--`
+		// separator the runner passes it as the search PATTERN — a literal regex
+		// that never matches the fixture (`const a = 1;`) — so the predicate
+		// completes deterministically as `pass` (zero matches). WITHOUT the `--`
+		// separator (the regression this test guards), ripgrep rejects it as an
+		// unrecognized flag and exits 2, surfacing as result:'error' with an
+		// "unrecognized flag" detail that matches NEITHER branch below → the test
+		// FAILS, catching the regression. We deliberately use an unknown flag
+		// rather than a real one like `-x` (which is `--line-regexp`): a valid
+		// flag would not produce an exit-2 error, so it could not discriminate the
+		// missing-`--` regression on this fixture.
+		const out = await runDirectivePredicate(
+			'grep:--zz-not-a-real-flag:src/**/*.ts',
+			dir,
+		);
+		// When ripgrep is present, the dash-prefixed pattern must run as a pattern
+		// and find zero matches → exactly 'pass'. A flag-parse regression would
+		// instead yield result:'error' (exit 2) and fail this assertion.
+		const ranAsPattern = out.result === 'pass';
+		// On CI runners without ripgrep on PATH, the predicate degrades gracefully
+		// to a "ripgrep (rg) not found" error; accept that environment skip, which
+		// is provably distinct from the exit-2 "unrecognized flag" error detail.
 		const rgUnavailable =
 			out.result === 'error' && /not found/i.test(out.detail ?? '');
 		expect(ranAsPattern || rgUnavailable).toBe(true);
