@@ -508,6 +508,11 @@ export async function searchKnowledge(
 				new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
 			);
 		});
+		// Critical+matching directives are pinned ahead of the MMR fill, but they
+		// are NOT exempt from `max`: they are prioritized *within* the top-K cap.
+		// If more critical matches exist than `max`, the lowest-ranked criticals
+		// overflow and compete in the MMR pool below like any other entry. This is
+		// deterministic and intentional — the result cap is a hard bound.
 		const top: Scored[] = [];
 		const seen = new Set<string>();
 		for (const e of scored) {

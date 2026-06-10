@@ -53,11 +53,18 @@ import { readSwarmFileAsync, safeHook } from './utils.js';
 // Module-level state
 // ============================================================================
 
-// Idempotency guard: keyed by sessionID, stores last-seen retro section hash with timestamp
+// Idempotency guard: keyed by sessionID (and by `evidence:<sessionID>:<path>`),
+// stores last-seen retro section hash with timestamp.
 const seenRetroSections = new Map<
 	string,
 	{ value: string; timestamp: number }
 >();
+
+// AGENTS.md §8: module-level state must have an explicit eviction strategy, not
+// only time-based pruning. A burst of distinct sessions inside the 24h window
+// would otherwise grow this map without bound. Cap the entry count and evict the
+// oldest-timestamp entries (LRU-by-recency) once the cap is exceeded.
+const MAX_TRACKED_RETRO_SECTIONS = 500;
 
 /**
  * Prune entries from seenRetroSections that are older than 24 hours.
@@ -69,6 +76,34 @@ function pruneSeenRetroSections(): void {
 			seenRetroSections.delete(key);
 		}
 	}
+}
+
+/**
+ * Bound seenRetroSections to MAX_TRACKED_RETRO_SECTIONS entries, evicting the
+ * oldest-timestamp entries first. Called after every insert so the map can never
+ * exceed the cap regardless of how many distinct sessions appear within the
+ * 24-hour prune window.
+ */
+function capSeenRetroSections(): void {
+	const overflow = seenRetroSections.size - MAX_TRACKED_RETRO_SECTIONS;
+	if (overflow <= 0) return;
+	// Sort keys by ascending timestamp (oldest first) and drop the overflow.
+	const byAge = Array.from(seenRetroSections.entries()).sort(
+		(a, b) => a[1].timestamp - b[1].timestamp,
+	);
+	for (let i = 0; i < overflow; i++) {
+		seenRetroSections.delete(byAge[i][0]);
+	}
+}
+
+/** Record a seen-section hash and enforce the size cap in one step. */
+function recordSeenRetroSection(
+	key: string,
+	value: string,
+	timestamp: number,
+): void {
+	seenRetroSections.set(key, { value, timestamp });
+	capSeenRetroSections();
 }
 
 // ============================================================================
@@ -184,7 +219,7 @@ function checkRetroChanged(sessionID: string, section: string): boolean {
 		return false; // no change
 	}
 
-	seenRetroSections.set(sessionID, { value: hash, timestamp: Date.now() });
+	recordSeenRetroSection(sessionID, hash, Date.now());
 	return true; // changed (or new)
 }
 
@@ -1065,10 +1100,7 @@ export function createKnowledgeCuratorHook(
 			if (lastSeenEvidence?.value === evidenceHash) {
 				return; // no change
 			}
-			seenRetroSections.set(evidenceKey, {
-				value: evidenceHash,
-				timestamp: Date.now(),
-			});
+			recordSeenRetroSection(evidenceKey, evidenceHash, Date.now());
 
 			// Extract project name from evidence data
 			const projectName = (evidenceData.project_name as string) ?? 'unknown';
@@ -1143,9 +1175,17 @@ export const _internals: {
 	curateAndStoreSwarm: typeof curateAndStoreSwarm;
 	runAutoPromotion: typeof runAutoPromotion;
 	createKnowledgeCuratorHook: typeof createKnowledgeCuratorHook;
+	seenRetroSections: typeof seenRetroSections;
+	recordSeenRetroSection: typeof recordSeenRetroSection;
+	capSeenRetroSections: typeof capSeenRetroSections;
+	MAX_TRACKED_RETRO_SECTIONS: number;
 } = {
 	isWriteToEvidenceFile,
 	curateAndStoreSwarm,
 	runAutoPromotion,
 	createKnowledgeCuratorHook,
+	seenRetroSections,
+	recordSeenRetroSection,
+	capSeenRetroSections,
+	MAX_TRACKED_RETRO_SECTIONS,
 };

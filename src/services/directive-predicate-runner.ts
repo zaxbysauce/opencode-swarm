@@ -149,6 +149,10 @@ export async function runArgv(argv: string[], cwd: string): Promise<RunResult> {
 		if (raced === 'timeout') {
 			return { exitCode: null, stdout: '', stderr: '', timedOut: true };
 		}
+		// Each read is independently guarded with `.catch(() => '')`, so a stream
+		// read failure resolves to '' rather than rejecting. Promise.all therefore
+		// cannot reject here, guaranteeing `finished = true` is reached on every
+		// non-timeout path — the `finally` kill only fires on the timeout return.
 		const [stdout, stderr] = await Promise.all([
 			proc.stdout.text().catch(() => ''),
 			proc.stderr.text().catch(() => ''),

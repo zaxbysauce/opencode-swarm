@@ -57,15 +57,18 @@
   insight candidates at phase boundaries using the curator's existing LLM
   budget, deduplicating against the active store before any candidate is
   promoted. *Macro* reflection proposes trajectory motifs (recurring failure
-  themes across phases) as structured proposals in `.swarm/motif-proposals/`.
+  themes across phases) as structured proposals in `.swarm/skills/proposals/`.
   All three cadences are additive and fail-open; no existing curation path is
   blocked if they fail.
 
 - **Retrieval recall upgrades (Change 6).** The `searchKnowledge` core (used
   by both the architect injection path and the new delegate injection path)
-  gains four improvements. (a) **MMR rerank** replaces simple score-sort:
-  `λ=0.7` relevance–diversity tradeoff ensures diverse directives rather than
-  the top-N most similar ones. (b) The `≥0.8` confidence pre-filter is
+  gains four improvements. (a) **MMR rerank** replaces simple score-sort: a
+  `λ=0.5` relevance–diversity tradeoff (config `retrieval.mmr_lambda`, default
+  0.5) ensures diverse directives rather than the top-N most similar ones.
+  Critical+matching directives are prioritized within the top-K result cap (they
+  are pinned ahead of MMR fill but still count toward `max_inject_count`; they
+  are not exempt from the cap). (b) The `≥0.8` confidence pre-filter is
   removed; low-confidence entries can now surface when they are relevant. (c)
   **Cold-start bonus** (+0.08) is awarded to recently-minted entries
   (`applied_count==0 AND age < 3 phases`) so new lessons get a fair shot
