@@ -252,7 +252,7 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 				}
 			}
 
-			// ── Blocking concerns gate ────────────────────────────────────────
+			// ── Blocking concerns gate ────────────────────────────────────────────────────────────
 			// Block whenever blockingConcernsCount > 0 regardless of overall verdict:
 			// HIGH/CRITICAL mutation gap findings are injected above and can exist
 			// even on an APPROVE verdict — evidence must not be written in that case.
@@ -416,7 +416,7 @@ function writePhaseCouncilEvidence(
 	provenance?: {
 		agent_name?: string;
 		session_id?: string;
-		verified_at?: string;
+		captured_at?: string;
 	},
 ): void {
 	const evidenceDir = path.join(

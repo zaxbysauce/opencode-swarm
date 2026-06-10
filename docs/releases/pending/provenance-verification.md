@@ -17,7 +17,7 @@ Hardened architect-relayed evidence tools with verdict provenance verification t
   - `phase-council-gate`: advisory warning when evidence lacks provenance
 
 - **Schema updates**:
-  - New `EvidenceProvenanceSchema` with optional `agent_name`, `session_id`, `verified_at` fields
+  - New `EvidenceProvenanceSchema` with optional `agent_name`, `session_id`, `captured_at` fields
   - `ArchitectureSupervisorReportSchema` now includes optional `provenance` field
   - Sidecar write paths updated to preserve provenance
 
