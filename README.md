@@ -646,7 +646,7 @@ Every candidate passes a 3-gate pipeline before entering quarantine:
 
 | Gate | Name | Description |
 |------|------|-------------|
-| 1 | Prompt Injection Scan | 12 regex patterns detect system instruction injection, role hijacking, and instruction override attempts |
+| 1 | Prompt Injection Scan | 12 regex patterns plus oversized field, invisible character, and suspicious formatting checks detect system instruction injection, role hijacking, and instruction override attempts |
 | 2 | Unsafe Instruction Scan | 25 patterns detect shell commands, file system attacks, network exfiltration, and privilege escalation |
 | 3 | Provenance Integrity | SHA-256 content hash, timestamp validation, URL format checks, and publisher presence validation |
 

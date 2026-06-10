@@ -22,7 +22,7 @@ Seven new tools are available when `external_skills.curation_enabled: true`:
 
 All candidates pass through 3 validation gates:
 
-1. **Prompt injection scan** — 12 regex patterns detect prompt injection attempts
+1. **Prompt injection scan** — 12 regex patterns plus oversized field, invisible character, and suspicious formatting checks detect prompt injection attempts
 2. **Unsafe instruction scan** — 25 patterns detect dangerous shell/system instructions
 3. **Provenance integrity check** — SHA-256 hash verification, timestamp, URL, publisher, and hash cross-check
 
@@ -52,7 +52,7 @@ See `docs/configuration.md` for full config options including sources, TTL, and 
 
 ## Testing
 
-434 tests across 17 test files covering tools, services, config, hooks, adversarial attacks, and lifecycle integration.
+437 tests across 17 test files covering tools, services, config, hooks, adversarial attacks, and lifecycle integration.
 
 ## Files changed
 
