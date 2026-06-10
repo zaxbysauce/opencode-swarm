@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import {
 	appendKnowledge,
+	enforceKnowledgeCap,
 	findNearDuplicate,
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -149,9 +150,13 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 				hive_eligible: false,
 			};
 
-			// Validate lesson if validation_enabled is set in config
+			// Load config for validation and dedup threshold
+			let dedupThreshold = 0.6; // default
 			try {
 				const { config } = loadPluginConfigWithMeta(directory);
+				dedupThreshold = config.knowledge?.dedup_threshold ?? 0.6;
+
+				// Validate lesson if validation_enabled is set in config
 				if (config.knowledge?.validation_enabled !== false) {
 					const validation = validateLesson(lesson, [], {
 						category,
@@ -169,12 +174,12 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 				// Config load failure should not block knowledge storage
 			}
 
-			// Near-duplicate detection
+			// Near-duplicate detection using configured threshold
 			try {
 				const existingEntries = await readKnowledge<SwarmKnowledgeEntry>(
 					resolveSwarmKnowledgePath(directory),
 				);
-				const duplicate = findNearDuplicate(lesson, existingEntries, 0.6);
+				const duplicate = findNearDuplicate(lesson, existingEntries, dedupThreshold);
 				if (duplicate) {
 					return JSON.stringify({
 						success: false,
@@ -193,7 +198,11 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 
 			// Append to knowledge store
 			try {
+				const { config } = loadPluginConfigWithMeta(directory);
 				await appendKnowledge(resolveSwarmKnowledgePath(directory), entry);
+				// Enforce knowledge cap after append using configured max_entries
+				const maxEntries = config.knowledge?.swarm_max_entries ?? 100;
+				await enforceKnowledgeCap(resolveSwarmKnowledgePath(directory), maxEntries);
 			} catch (err) {
 				const message = err instanceof Error ? err.message : 'Unknown error';
 				return JSON.stringify({

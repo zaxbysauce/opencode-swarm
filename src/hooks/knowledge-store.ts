@@ -493,20 +493,20 @@ export async function sweepStaleTodos<T extends KnowledgeEntryBase>(
 	return result;
 }
 
-// Append a RejectedLesson, enforcing a FIFO max-20 cap.
+// Append a RejectedLesson, enforcing a FIFO max cap.
 // The full read-check-write is atomic under a directory lock (transactKnowledge)
 // to prevent concurrent callers from both reading below the cap and both appending,
 // ending up with more than MAX entries or silently losing a lesson (CF-2 TOCTOU fix).
 export async function appendRejectedLesson(
 	directory: string,
 	lesson: RejectedLesson,
+	maxEntries = 20,
 ): Promise<void> {
 	const filePath = resolveSwarmRejectedPath(directory);
-	const MAX = 20;
 	await transactKnowledge<RejectedLesson>(filePath, (existing) => {
 		const updated = [...existing, lesson];
-		if (updated.length > MAX) {
-			return updated.slice(updated.length - MAX);
+		if (updated.length > maxEntries) {
+			return updated.slice(updated.length - maxEntries);
 		}
 		return updated;
 	});
