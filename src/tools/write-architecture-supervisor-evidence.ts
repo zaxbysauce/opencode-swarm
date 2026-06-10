@@ -93,7 +93,7 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 				.optional()
 				.describe('Session ID of the agent that produced this evidence (optional provenance).'),
 		},
-		execute: async (rawArgs: unknown, directory: string, ctx): Promise<string> => {
+		execute: async (rawArgs: unknown, directory: string): Promise<string> => {
 			const parsed = ArgsSchema.safeParse(rawArgs);
 			if (!parsed.success) {
 				return JSON.stringify(
