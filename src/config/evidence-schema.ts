@@ -20,6 +20,9 @@ export const EvidenceTypeSchema = z.enum([
 	'build',
 	'quality_budget',
 	'secretscan',
+	'mutation-gate',
+	'drift-verification',
+	'hallucination-verification',
 ]);
 export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 
@@ -27,6 +30,8 @@ export type EvidenceType = z.infer<typeof EvidenceTypeSchema>;
 export const EvidenceVerdictSchema = z.enum([
 	'pass',
 	'fail',
+	'warn',
+	'skip',
 	'approved',
 	'rejected',
 	'info',
@@ -321,6 +326,58 @@ export const SecretscanEvidenceSchema = BaseEvidenceSchema.extend({
 });
 export type SecretscanEvidence = z.infer<typeof SecretscanEvidenceSchema>;
 
+/**
+ * Gate evidence schemas
+ *
+ * These types cover the three mutation-testing and drift/hallucination gate
+ * workflows. They use a distinct verdict vocabulary (pass/warn/fail/skip for
+ * mutation, approved/rejected for drift and hallucination) and are intentionally
+ * separate from the core BaseEvidenceSchema that drives the coder-review pipeline.
+ *
+ * Note: task_id and agent are optional in gate evidence because gate writers
+ * operate at the phase level and may not have a task-scoped context.
+ */
+
+// Base schema shared by all gate evidence types (relaxed constraints)
+const GateEvidenceBaseSchema = z.object({
+	task_id: z.string().optional(),
+	agent: z.string().optional(),
+	timestamp: z.string().datetime(),
+	summary: z.string().min(1),
+	metadata: z.record(z.string(), z.unknown()).optional(),
+});
+
+// Mutation gate evidence schema
+export const MutationGateEvidenceSchema = GateEvidenceBaseSchema.extend({
+	type: z.literal('mutation-gate'),
+	verdict: z.enum(['pass', 'warn', 'fail', 'skip']),
+	killRate: z.number().min(0).max(1).optional(),
+	adjustedKillRate: z.number().min(0).max(1).optional(),
+	survivedMutants: z.string().optional(),
+});
+export type MutationGateEvidence = z.infer<typeof MutationGateEvidenceSchema>;
+
+// Drift verification evidence schema
+export const DriftVerificationEvidenceSchema = GateEvidenceBaseSchema.extend({
+	type: z.literal('drift-verification'),
+	verdict: z.enum(['approved', 'rejected']),
+	requirementCoverage: z.string().optional(),
+});
+export type DriftVerificationEvidence = z.infer<
+	typeof DriftVerificationEvidenceSchema
+>;
+
+// Hallucination verification evidence schema
+export const HallucinationVerificationEvidenceSchema =
+	GateEvidenceBaseSchema.extend({
+		type: z.literal('hallucination-verification'),
+		verdict: z.enum(['approved', 'rejected']),
+		findings: z.string().optional(),
+	});
+export type HallucinationVerificationEvidence = z.infer<
+	typeof HallucinationVerificationEvidenceSchema
+>;
+
 // Discriminated union of all evidence types
 export const EvidenceSchema = z.discriminatedUnion('type', [
 	ReviewEvidenceSchema,
@@ -336,6 +393,9 @@ export const EvidenceSchema = z.discriminatedUnion('type', [
 	BuildEvidenceSchema,
 	QualityBudgetEvidenceSchema,
 	SecretscanEvidenceSchema,
+	MutationGateEvidenceSchema,
+	DriftVerificationEvidenceSchema,
+	HallucinationVerificationEvidenceSchema,
 ]);
 export type Evidence = z.infer<typeof EvidenceSchema>;
 
