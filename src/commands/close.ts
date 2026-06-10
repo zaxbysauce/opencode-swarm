@@ -282,7 +282,11 @@ export async function handleCloseCommand(
 ): Promise<string> {
 	const swarmDir = path.join(directory, '.swarm');
 	try {
-		if (fsSync.lstatSync(swarmDir).isSymbolicLink()) {
+		const stat = fsSync.lstatSync(swarmDir);
+		// isSymbolicLink() correctly detects both symlinks and Windows junction
+		// points on modern Node/Bun (Node 20+, Bun 1.0+). No additional check
+		// needed — `isReparsePoint()` is not available in the Bun type system.
+		if (stat.isSymbolicLink()) {
 			return `❌ Refused: .swarm/ is a symlink or junction. Refusing to operate on a redirected directory for safety.`;
 		}
 	} catch (err) {
