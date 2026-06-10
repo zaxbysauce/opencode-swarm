@@ -366,7 +366,11 @@ export async function curateAndStoreSwarm(
 					rejected_at: new Date().toISOString(),
 					rejection_layer: result.layer ?? 1,
 				};
-				await appendRejectedLesson(directory, rejectedLesson, config.rejected_max_entries);
+				await appendRejectedLesson(
+					directory,
+					rejectedLesson,
+					config.rejected_max_entries,
+				);
 				rejected++;
 				continue;
 			}
