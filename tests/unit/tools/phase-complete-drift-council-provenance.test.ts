@@ -193,7 +193,7 @@ describe('drift gate - provenance advisory', () => {
 			provenance: {
 				agent_name: 'critic_drift_verifier',
 				session_id: 'sess-123',
-				verified_at: new Date().toISOString(),
+				captured_at: new Date().toISOString(),
 			},
 		});
 		const parsed = await complete();
@@ -231,7 +231,7 @@ describe('phase-council gate - provenance advisory', () => {
 			provenance: {
 				agent_name: 'architect',
 				session_id: 'sess-456',
-				verified_at: new Date().toISOString(),
+				captured_at: new Date().toISOString(),
 			},
 		});
 		const parsed = await complete();
