@@ -119,10 +119,7 @@ export async function runDriftGate(ctx: GateContext): Promise<GateResult> {
 					) {
 						const msg = `Drift verification evidence lacks provenance for phase ${phase}. Evidence should include agent_name or session_id for verification.`;
 						gateWarnings.push(msg);
-						safeWarn(
-							`[phase_complete] ${msg}`,
-							undefined,
-						);
+						safeWarn(`[phase_complete] ${msg}`, undefined);
 					}
 
 					if (entry.verdict === 'approved') {
