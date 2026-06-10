@@ -2,8 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
 import {
-	appendKnowledge,
-	enforceKnowledgeCap,
+	appendKnowledgeWithCapEnforcement,
 	findNearDuplicate,
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -150,71 +149,74 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 				hive_eligible: false,
 			};
 
-			// Load config for validation and dedup threshold
-			let dedupThreshold = 0.6; // default
-			try {
-				const { config } = loadPluginConfigWithMeta(directory);
-				dedupThreshold = config.knowledge?.dedup_threshold ?? 0.6;
+		// Load config for validation and dedup threshold
+		let config;
+		let dedupThreshold = 0.6; // default
+		try {
+			const loaded = loadPluginConfigWithMeta(directory);
+			config = loaded.config;
+			dedupThreshold = config.knowledge?.dedup_threshold ?? 0.6;
 
-				// Validate lesson if validation_enabled is set in config
-				if (config.knowledge?.validation_enabled !== false) {
-					const validation = validateLesson(lesson, [], {
-						category,
-						scope,
-						confidence: 0.5,
-					});
-					if (!validation.valid) {
-						return JSON.stringify({
-							success: false,
-							error: `Validation failed: ${validation.reason}`,
-						});
-					}
-				}
-			} catch {
-				// Config load failure should not block knowledge storage
-			}
-
-			// Near-duplicate detection using configured threshold
-			try {
-				const existingEntries = await readKnowledge<SwarmKnowledgeEntry>(
-					resolveSwarmKnowledgePath(directory),
-				);
-				const duplicate = findNearDuplicate(lesson, existingEntries, dedupThreshold);
-				if (duplicate) {
+			// Validate lesson if validation_enabled is set in config
+			if (config.knowledge?.validation_enabled !== false) {
+				const validation = validateLesson(lesson, [], {
+					category,
+					scope,
+					confidence: 0.5,
+				});
+				if (!validation.valid) {
 					return JSON.stringify({
 						success: false,
-						id: duplicate.id,
-						message: 'near-duplicate of existing entry',
+						error: `Validation failed: ${validation.reason}`,
 					});
 				}
-			} catch (err) {
-				// Read failure should not block knowledge storage, but log a warning
-				// so silent dedup bypass doesn't accumulate near-duplicates unnoticed.
-				warn(
-					'knowledge_add: dedup check failed — skipping near-duplicate detection',
-					err,
-				);
 			}
+		} catch {
+			// Config load failure should not block knowledge storage
+		}
 
-			// Append to knowledge store
-			try {
-				const { config } = loadPluginConfigWithMeta(directory);
-				await appendKnowledge(resolveSwarmKnowledgePath(directory), entry);
-				// Enforce knowledge cap after append using configured max_entries
-				const maxEntries = config.knowledge?.swarm_max_entries ?? 100;
-				await enforceKnowledgeCap(resolveSwarmKnowledgePath(directory), maxEntries);
-			} catch (err) {
-				const message = err instanceof Error ? err.message : 'Unknown error';
+		// Near-duplicate detection using configured threshold
+		try {
+			const existingEntries = await readKnowledge<SwarmKnowledgeEntry>(
+				resolveSwarmKnowledgePath(directory),
+			);
+			const duplicate = findNearDuplicate(lesson, existingEntries, dedupThreshold);
+			if (duplicate) {
 				return JSON.stringify({
 					success: false,
-					error: message,
+					id: duplicate.id,
+					message: 'near-duplicate of existing entry',
 				});
 			}
+		} catch (err) {
+			// Read failure should not block knowledge storage, but log a warning
+			// so silent dedup bypass doesn't accumulate near-duplicates unnoticed.
+			warn(
+				'knowledge_add: dedup check failed — skipping near-duplicate detection',
+				err,
+			);
+		}
 
+		// Append to knowledge store with atomic cap enforcement
+		try {
+			const maxEntries = config?.knowledge?.swarm_max_entries ?? 100;
+			await appendKnowledgeWithCapEnforcement(
+				resolveSwarmKnowledgePath(directory),
+				entry,
+				maxEntries,
+			);
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Unknown error';
 			return JSON.stringify({
-				success: true,
-				id: entry.id,
-				category,
+				success: false,
+				error: message,
 			});
+		}
+
+		return JSON.stringify({
+			success: true,
+			id: entry.id,
+			category,
+		});
 		},
 	});

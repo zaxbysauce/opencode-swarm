@@ -380,6 +380,27 @@ export async function transactKnowledge<T>(
 	);
 }
 
+// Append a knowledge entry and enforce the cap in a single atomic transaction.
+// This prevents the race condition where entry is appended but cap enforcement fails.
+// Returns true if entry was appended and cap enforced, false if entry was not appended
+// (e.g., would exceed cap even as a single entry - should not happen with normal configs).
+export async function appendKnowledgeWithCapEnforcement<T>(
+	filePath: string,
+	entry: T,
+	maxEntries: number,
+): Promise<boolean> {
+	return transactKnowledge<T>(filePath, (entries) => {
+		// Add the new entry
+		const updated = [...entries, entry as T];
+
+		// Enforce the cap if needed
+		if (updated.length > maxEntries) {
+			return updated.slice(updated.length - maxEntries);
+		}
+		return updated;
+	});
+}
+
 // Enforce a FIFO max-entries cap on a JSONL file.
 // If the file exceeds `maxEntries`, the oldest entries are dropped.
 // No-op when the file has fewer entries than the cap.
