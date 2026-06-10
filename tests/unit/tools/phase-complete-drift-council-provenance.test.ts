@@ -96,7 +96,11 @@ function writeSpecMd() {
 
 function writeDriftEvidence(opts: {
 	verdict: string;
-	provenance?: { agent_name?: string; session_id?: string; verified_at?: string };
+	provenance?: {
+		agent_name?: string;
+		session_id?: string;
+		verified_at?: string;
+	};
 }) {
 	const evidencePath = join(tempDir, '.swarm', 'evidence', '1');
 	mkdirSync(evidencePath, { recursive: true });
@@ -125,7 +129,11 @@ function writeDriftEvidence(opts: {
 function writeCouncilEvidence(opts: {
 	verdict: string;
 	quorumSize?: number;
-	provenance?: { agent_name?: string; session_id?: string; verified_at?: string };
+	provenance?: {
+		agent_name?: string;
+		session_id?: string;
+		verified_at?: string;
+	};
 }) {
 	const evidencePath = join(tempDir, '.swarm', 'evidence', '1');
 	mkdirSync(evidencePath, { recursive: true });
