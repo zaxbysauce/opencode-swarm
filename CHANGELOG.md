@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.63.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.62.1...v7.63.0) (2026-06-10)
+
+
+### Features
+
+* **knowledge:** swarm learning system — directives, enforcement, reflection, retrieval (Changes 1–6) ([#1209](https://github.com/zaxbysauce/opencode-swarm/issues/1209)) ([00216d3](https://github.com/zaxbysauce/opencode-swarm/commit/00216d33e8c5aa8dd884663721d61e12ce176403))
+
 ## [7.62.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.62.0...v7.62.1) (2026-06-10)
 
 
