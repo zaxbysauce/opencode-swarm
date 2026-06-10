@@ -118,7 +118,22 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 		expect(args).toEqual(['test', 'src/foo.test.ts', 'src/bar.test.ts']);
 	});
 
-	test('testFiles appended after existing args in testCommand', async () => {
+	test('testFiles with flag-like entries are filtered out', async () => {
+		await executeMutation(
+			makePatch(),
+			['bun', 'test'],
+			['-flag', 'src/foo.test.ts', '--another-flag'],
+			tempDir,
+		);
+
+		const testCall = mockSpawnSync.mock.calls.find(
+			([cmd]) => cmd !== 'git',
+		);
+		expect(testCall).toBeDefined();
+		const [, args] = testCall!;
+		// Flag-like entries starting with '-' should be filtered out
+		expect(args).toEqual(['test', 'src/foo.test.ts']);
+	});
 		// e.g. ["bun", "test", "--bail"] + ["foo.test.ts"] = ["test", "--bail", "foo.test.ts"]
 		await executeMutation(
 			makePatch(),

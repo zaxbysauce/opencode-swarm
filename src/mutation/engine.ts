@@ -204,10 +204,13 @@ export async function executeMutation(
 
 		let testPassed = false;
 		try {
-			// Append specific test files when provided for scoped test execution
+			// Append specific test files when provided for scoped test execution.
+			// Filter out any entries that look like flags (start with '-') to prevent
+			// test file paths from being misinterpreted as command-line options.
+			const safeTestFiles = testFiles.filter((f) => !f.startsWith('-'));
 			const testArgs =
-				testFiles.length > 0
-					? [...testCommand.slice(1), ...testFiles]
+				safeTestFiles.length > 0
+					? [...testCommand.slice(1), ...safeTestFiles]
 					: testCommand.slice(1);
 			const spawnResult = _internals.spawnSync(
 				testCommand[0],

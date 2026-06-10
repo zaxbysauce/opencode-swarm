@@ -334,8 +334,13 @@ export type SecretscanEvidence = z.infer<typeof SecretscanEvidenceSchema>;
  * mutation, approved/rejected for drift and hallucination) and are intentionally
  * separate from the core BaseEvidenceSchema that drives the coder-review pipeline.
  *
- * Note: task_id and agent are optional in gate evidence because gate writers
- * operate at the phase level and may not have a task-scoped context.
+ * Architectural distinction from BaseEvidenceSchema:
+ * - BaseEvidenceSchema is task-scoped (task_id and agent are required), reflecting
+ *   evidence produced by individual agents working on a specific task.
+ * - GateEvidenceBaseSchema is phase-scoped: task_id and agent are optional because
+ *   gate writers (write_mutation_evidence, write_drift_evidence,
+ *   write_hallucination_evidence) operate at the phase level and are invoked by
+ *   the architect, not scoped to a single task.
  */
 
 // Base schema shared by all gate evidence types (relaxed constraints)
@@ -353,6 +358,11 @@ export const MutationGateEvidenceSchema = GateEvidenceBaseSchema.extend({
 	verdict: z.enum(['pass', 'warn', 'fail', 'skip']),
 	killRate: z.number().min(0).max(1).optional(),
 	adjustedKillRate: z.number().min(0).max(1).optional(),
+	/**
+	 * Optional JSON-serialised list of survived mutant IDs (stored as a string
+	 * because evidence bundles are JSON and arrays of arbitrary size are not
+	 * bounded by the schema). Parse with JSON.parse() when needed.
+	 */
 	survivedMutants: z.string().optional(),
 });
 export type MutationGateEvidence = z.infer<typeof MutationGateEvidenceSchema>;
