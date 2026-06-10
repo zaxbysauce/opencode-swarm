@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.62.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.62.0...v7.62.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **cli:** resolve 20 advisory findings from final council review (issue [#1167](https://github.com/zaxbysauce/opencode-swarm/issues/1167)) ([#1205](https://github.com/zaxbysauce/opencode-swarm/issues/1205)) ([6240ba7](https://github.com/zaxbysauce/opencode-swarm/commit/6240ba71accbc059c304168b2af027d8892ce326))
+
 ## [7.62.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.61.0...v7.62.0) (2026-06-10)
 
 
