@@ -1,6 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
+import type { PluginConfig } from '../config/schema.js';
 import {
 	appendKnowledgeWithCapEnforcement,
 	findNearDuplicate,
@@ -150,7 +151,7 @@ export const knowledge_add: ReturnType<typeof createSwarmTool> =
 			};
 
 		// Load config for validation and dedup threshold
-		let config;
+		let config: PluginConfig | undefined;
 		let dedupThreshold = 0.6; // default
 		try {
 			const loaded = loadPluginConfigWithMeta(directory);

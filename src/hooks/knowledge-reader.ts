@@ -461,28 +461,21 @@ export async function readMergedKnowledge(
 		// Tier boost: hive entries get slight advantage, using config weights
 		// For same-project entries, use same_project_weight; for cross-project, use cross_project_weight
 		let tierBoost = 0;
-		if (entry.tier === 'hive') {
+		let isSameProject = false;
+		if (entry.tier === 'hive' && 'source_project' in entry) {
 			const hiveEntry = entry as unknown as HiveKnowledgeEntry;
-			const isSameProject =
-				context?.projectName && hiveEntry.source_project === context.projectName;
+			isSameProject =
+				!!(context?.projectName && hiveEntry.source_project === context.projectName);
 			// Use configured weights to compute tier boost
 			// same_project_weight boosts same-project entries, cross_project_weight for others
 			// Map weights (1.0=full, 0.5=half) to tier boost range
-			if (isSameProject) {
-				tierBoost = (config.same_project_weight - 1.0) * DEFAULT_HIVE_TIER_BOOST;
-			} else {
-				tierBoost = (config.cross_project_weight - 1.0) * DEFAULT_HIVE_TIER_BOOST;
-			}
+			const weight = isSameProject ? config.same_project_weight : config.cross_project_weight;
+			tierBoost = (weight - 1.0) * DEFAULT_HIVE_TIER_BOOST;
 		}
 
 		// Same project penalty: slightly reduce score for same-project hive entries
-		const isSameProjectSource =
-			context?.projectName &&
-			entry.tier === 'hive' &&
-			'source_project' in entry &&
-			(entry as unknown as { source_project: string }).source_project ===
-				context.projectName;
-		const sameProjectPenalty = isSameProjectSource ? DEFAULT_SAME_PROJECT_PENALTY : 0;
+		// (reuse isSameProject check computed above)
+		const sameProjectPenalty = isSameProject ? DEFAULT_SAME_PROJECT_PENALTY : 0;
 
 		// Weighted final score
 		const finalScore =
