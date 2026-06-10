@@ -52,7 +52,7 @@ See `docs/configuration.md` for full config options including sources, TTL, and 
 
 ## Testing
 
-437 tests across 17 test files covering tools, services, config, hooks, adversarial attacks, and lifecycle integration.
+510 tests across 17 test files covering tools, services, config, hooks, adversarial attacks, and lifecycle integration.
 
 ## Files changed
 

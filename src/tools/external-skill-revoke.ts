@@ -8,6 +8,7 @@
  * Uses an `_internals` DI seam for testability — no `mock.module` leakage.
  */
 
+import { unlink as fsUnlink } from 'node:fs/promises';
 import * as path from 'node:path';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader.js';
@@ -29,9 +30,8 @@ export const _internals = {
 	},
 	getTimestamp: (): string => new Date().toISOString(),
 	retireSkillFile: async (filePath: string): Promise<boolean> => {
-		const { unlink } = await import('node:fs/promises');
 		try {
-			await unlink(filePath);
+			await fsUnlink(filePath);
 			return true;
 		} catch (err: unknown) {
 			const error = err as NodeJS.ErrnoException;

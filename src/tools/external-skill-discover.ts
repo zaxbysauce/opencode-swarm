@@ -264,10 +264,10 @@ export const external_skill_discover: ReturnType<typeof createSwarmTool> =
 
 			try {
 				const existing = await store.list();
-				if (existing.length >= config.max_candidates_per_discovery) {
+				if (existing.length >= config.max_candidates) {
 					return JSON.stringify({
 						success: false,
-						error: `Rate limit exceeded: ${existing.length} candidates already exist (max_candidates_per_discovery: ${config.max_candidates_per_discovery})`,
+						error: `Store capacity reached: ${existing.length} candidates (max_candidates: ${config.max_candidates})`,
 					});
 				}
 			} catch (err) {

@@ -326,9 +326,9 @@ describe('external_skill_discover', () => {
 	// -------------------------------------------------------------------------
 	// Test 8: Rate limit exceeded
 	// -------------------------------------------------------------------------
-	test('rate limit exceeded → error returned', async () => {
-		// Set limit to 1 and pre-populate the store with one candidate
-		await writeTestConfig(tmpDir, { max_candidates_per_discovery: 1 });
+	test('store capacity reached → error returned', async () => {
+		// Set max_candidates to 1 and pre-populate the store with one candidate
+		await writeTestConfig(tmpDir, { max_candidates: 1 });
 
 		_internals.uuid = () => '33333333-3333-4333-a333-333333333333';
 		setDeterministicOverrides('d', '2026-01-01T00:00:00.000Z');
@@ -362,7 +362,7 @@ describe('external_skill_discover', () => {
 		);
 
 		expect(result.success).toBe(false);
-		expect(result.error).toContain('Rate limit exceeded');
+		expect(result.error).toContain('Store capacity reached');
 	});
 
 	// -------------------------------------------------------------------------

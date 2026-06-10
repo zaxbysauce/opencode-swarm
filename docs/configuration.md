@@ -499,7 +499,7 @@ Opt-in pipeline for discovering, quarantining, evaluating, and promoting externa
 | `ttl_days` | number | `90` | Candidate TTL in days before automatic eviction (1–3650) |
 | `evaluation_enabled` | boolean | `false` | Enable SME evaluation workflow for candidates |
 | `sources` | array | `[]` | Discovery source configurations (see DiscoverySource schema) |
-| `max_candidates_per_discovery` | number | `50` | Max candidates per discovery run (1–1000) |
+| `max_candidates_per_discovery` | number | `50` | Reserved for future batch discovery mode. Single-candidate discovery uses `max_candidates` as the store capacity check (1–1000) |
 | `max_concurrent_fetches` | number | `5` | Max concurrent source fetches (1–20) |
 | `fetch_timeout_ms` | number | `30000` | Per-fetch timeout in milliseconds (1000–300000) |
 
