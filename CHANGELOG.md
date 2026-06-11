@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.66.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.3...v7.66.0) (2026-06-11)
+
+
+### Features
+
+* **commands:** configurable auto-proceed through phase boundaries ([4c818f0](https://github.com/zaxbysauce/opencode-swarm/commit/4c818f0432ab142d18ce6c7aeaca059db2578d19)), closes [#1230](https://github.com/zaxbysauce/opencode-swarm/issues/1230)
+
+
+### Bug Fixes
+
+* **auto-proceed:** add defense-in-depth architect guard in banner injection ([02bc4d0](https://github.com/zaxbysauce/opencode-swarm/commit/02bc4d00a9ef9a56160ffbdcd25940aa26aa1c2a))
+* **auto-proceed:** address bot PR review findings ([709781b](https://github.com/zaxbysauce/opencode-swarm/commit/709781b85bdc13b29e87af57b9518e6a693d6a35))
+* **auto-proceed:** align banner format with phase-wrap skill documentation ([c3df305](https://github.com/zaxbysauce/opencode-swarm/commit/c3df305f0664d1d8fa8c85f141d3d9bc694b955d))
+* **auto-proceed:** include emoji in dynamic banner line for consistency ([4903dfb](https://github.com/zaxbysauce/opencode-swarm/commit/4903dfb1990d2c3751eb0b355ead0b41308553a6))
+
 ## [7.65.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.2...v7.65.3) (2026-06-11)
 
 
