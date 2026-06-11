@@ -133,3 +133,16 @@ export const HIGH_CONFLICTS: Set<string> = new Set(
 export const CONFLICT_MAP = new Map<string, CommandConflict>(
 	CLAUDE_CODE_CONFLICTS.map((c) => [c.swarmCommand, c]),
 );
+
+/**
+ * CC_COMMAND_MAP — maps CC command names (without leading /) to their CommandConflict entry.
+ * Used by cc-command-intercept hook to look up conflicts by the bare CC command name.
+ * E.g., 'plan' → CommandConflict for /plan, 'reset' → CommandConflict for /reset and /clear
+ */
+export const CC_COMMAND_MAP = new Map<string, CommandConflict>();
+
+// Initialize CC_COMMAND_MAP: extract command name from ccCommand (e.g., '/plan' → 'plan')
+for (const conflict of CLAUDE_CODE_CONFLICTS) {
+	const ccCommandName = conflict.ccCommand.replace(/^\//, '').toLowerCase();
+	CC_COMMAND_MAP.set(ccCommandName, conflict);
+}
