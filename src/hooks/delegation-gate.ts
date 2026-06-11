@@ -568,11 +568,36 @@ async function buildParallelExecutionGuidance(
 
 	const profile = plan.execution_profile;
 	const enabled = profile?.parallelization_enabled === true;
-	const maxConcurrent = profile?.max_concurrent_tasks ?? 1;
+	const maxConcurrent = profile?.max_concurrent_tasks ?? 10;
 	// Check for session-scoped concurrency override (Issue #761)
 	// Override only applies in standard mode — Lean Turbo short-circuits above.
-	const effectiveMaxConcurrent =
+	let effectiveMaxConcurrent =
 		session?.maxConcurrencyOverride ?? maxConcurrent;
+
+	// Adaptive backoff on errors: detect failures and reduce concurrency
+	const allTasks = plan.phases.flatMap((phase) => phase.tasks);
+	const blockedTasks = allTasks.filter((task) => task.status === 'blocked');
+	const totalTasks = allTasks.length;
+
+	if (totalTasks > 0 && blockedTasks.length > 0) {
+		const failureRate = blockedTasks.length / totalTasks;
+		// If failure rate exceeds 20%, reduce concurrency by 50%
+		const FAILURE_RATE_THRESHOLD = 0.2;
+		const BACKOFF_MULTIPLIER = 0.5;
+
+		if (failureRate > FAILURE_RATE_THRESHOLD) {
+			const newConcurrency = Math.max(
+				1,
+				Math.floor(effectiveMaxConcurrent * BACKOFF_MULTIPLIER),
+			);
+			if (newConcurrency < effectiveMaxConcurrent) {
+				// Auto-reduce the effective concurrency due to high failure rate
+				effectiveMaxConcurrent = newConcurrency;
+				session.maxConcurrencyOverride = newConcurrency;
+			}
+		}
+	}
+
 	if (!enabled || effectiveMaxConcurrent <= 1) return null;
 
 	if (hasActiveLeanTurbo(sessionID)) {
@@ -588,7 +613,6 @@ async function buildParallelExecutionGuidance(
 	const tasks = currentPhase.tasks;
 	if (tasks.length === 0) return null;
 
-	const allTasks = plan.phases.flatMap((phase) => phase.tasks);
 	const completed = new Set<string>();
 	for (const task of allTasks) {
 		const taskId = task.id;
@@ -626,7 +650,12 @@ async function buildParallelExecutionGuidance(
 		return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${effectiveMaxConcurrent}; no dependency-ready pending tasks are available for a new coder slot. Continue the current task/gate.`;
 	}
 
-	return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${effectiveMaxConcurrent}; ${occupied.size} slot(s) occupied. Eligible now: ${eligible.join(', ')}. [NEXT] dispatch up to ${availableSlots} eligible coder task(s) before waiting; preserve ONE task per coder call and call declare_scope for each task.`;
+	const failureWarning =
+		blockedTasks.length > 0
+			? ` (${blockedTasks.length} blocked task(s) detected — concurrency auto-reduced due to failures)`
+			: '';
+
+	return `[PARALLEL EXECUTION PROFILE] parallelization_enabled=true max_concurrent_tasks=${effectiveMaxConcurrent}; ${occupied.size} slot(s) occupied. Eligible now: ${eligible.join(', ')}. [NEXT] dispatch up to ${availableSlots} eligible coder task(s) before waiting; preserve ONE task per coder call and call declare_scope for each task.${failureWarning}`;
 }
 
 function isParallelGuidancePhaseComplete(phase: Phase): boolean {
