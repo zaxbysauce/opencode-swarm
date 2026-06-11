@@ -85,6 +85,11 @@ const { detectArchitectMode, createSystemEnhancerHook } = await import(
 	'../../src/hooks/system-enhancer'
 );
 
+// Restore mocks after all tests in this file to prevent cross-test contamination
+afterEach(() => {
+	mock.restore();
+});
+
 describe('co_change_analyzer registration', () => {
 	describe('TOOL_NAMES registration', () => {
 		test('co_change_analyzer appears in TOOL_NAMES', () => {
