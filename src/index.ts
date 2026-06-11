@@ -107,7 +107,7 @@ import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import { initTelemetry, telemetry } from './telemetry';
 import { buildPluginToolObject } from './tools/plugin-registration';
-import { log } from './utils';
+import { log, warn } from './utils';
 import {
 	ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS,
 	ensureSwarmGitExcluded,
@@ -493,38 +493,39 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 	// SECURITY AUDIT: Emit explicit warning when guardrails are disabled via user config
 	// This is a security-relevant action that requires explicit acknowledgment
-	// INTENTIONALLY NOT gated behind config.quiet — security warnings must always be visible
+	// Warnings are emitted via debug logger only (OPENCODE_SWARM_DEBUG=1) to prevent
+	// TUI corruption. Users can enable debug mode to see the full warning.
 	if (loadedFromFile && guardrailsConfig.enabled === false) {
-		console.warn('');
-		console.warn(
+		warn('');
+		warn(
 			'══════════════════════════════════════════════════════════════',
 		);
-		console.warn(
+		warn(
 			'[opencode-swarm] 🔴 SECURITY WARNING: GUARDRAILS ARE DISABLED',
 		);
-		console.warn(
+		warn(
 			'══════════════════════════════════════════════════════════════',
 		);
-		console.warn(
+		warn(
 			'Guardrails have been explicitly disabled in user configuration.',
 		);
-		console.warn('This disables safety measures including:');
-		console.warn('  - Tool call limits');
-		console.warn('  - Duration limits');
-		console.warn('  - Repetition detection');
-		console.warn('  - Error rate limits');
-		console.warn('  - Idle timeouts');
-		console.warn('');
-		console.warn(
+		warn('This disables safety measures including:');
+		warn('  - Tool call limits');
+		warn('  - Duration limits');
+		warn('  - Repetition detection');
+		warn('  - Error rate limits');
+		warn('  - Idle timeouts');
+		warn('');
+		warn(
 			'Only disable guardrails if you fully understand the security implications.',
 		);
-		console.warn(
+		warn(
 			'To re-enable guardrails, set "guardrails.enabled" to true in your config.',
 		);
-		console.warn(
+		warn(
 			'══════════════════════════════════════════════════════════════',
 		);
-		console.warn('');
+		warn('');
 	}
 
 	const delegationHandler = createDelegationTrackerHook(
