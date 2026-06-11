@@ -6,6 +6,7 @@
  * token estimation for swarm-related operations.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SwarmError, warn } from '../utils';
 import { bunFile } from '../utils/bun-compat';
@@ -23,7 +24,8 @@ export const _internals: {
 	composeHandlers: typeof composeHandlers;
 	validateSwarmPath: typeof validateSwarmPath;
 	readSwarmFileAsync: typeof readSwarmFileAsync;
-} = { safeHook, composeHandlers, validateSwarmPath, readSwarmFileAsync };
+	fs: { realpathSync: typeof fs.realpathSync };
+} = { safeHook, composeHandlers, validateSwarmPath, readSwarmFileAsync, fs: { realpathSync: fs.realpathSync } };
 
 export function safeHook<I, O>(
 	fn: (input: I, output: O) => Promise<void>,
@@ -148,7 +150,7 @@ export function validateSwarmPath(directory: string, filename: string): string {
 	const baseDir = path.normalize(path.resolve(directory, '.swarm'));
 	const resolved = path.normalize(path.resolve(baseDir, filename));
 
-	// Check that the resolved path is within the .swarm directory
+	// Check that the resolved path is within the .swarm directory (string-based check)
 	if (process.platform === 'win32') {
 		// On Windows, do case-insensitive comparison
 		if (
@@ -160,6 +162,52 @@ export function validateSwarmPath(directory: string, filename: string): string {
 		// On other platforms, do case-sensitive comparison
 		if (!resolved.startsWith(baseDir + path.sep)) {
 			throw new Error('Invalid filename: path escapes .swarm directory');
+		}
+	}
+
+	// ── Symlink containment check ────────────────────────────────────────
+	// Use realpathSync to detect and reject symlinks that would escape .swarm.
+	// This prevents a pre-created symlink pointing outside .swarm from bypassing
+	// the string-based containment check above.
+	let realPath: string;
+	let realBaseDir: string;
+
+	try {
+		realBaseDir = _internals.fs.realpathSync(baseDir);
+	} catch {
+		// If .swarm doesn't exist yet (can happen during initial write), 
+		// use the string-normalized baseDir for comparison.
+		realBaseDir = baseDir;
+	}
+
+	try {
+		realPath = _internals.fs.realpathSync(resolved);
+	} catch (err) {
+		// If the target file doesn't exist yet (common for write operations),
+		// resolve the parent directory and check that instead.
+		try {
+			const parentDir = path.dirname(resolved);
+			const realParent = _internals.fs.realpathSync(parentDir);
+			realPath = path.join(realParent, path.basename(resolved));
+		} catch {
+			// If parent also doesn't exist, use the normalized path.
+			// This is safe because we've already done string-based containment checks.
+			realPath = resolved;
+		}
+	}
+
+	// Final containment check using canonical paths
+	if (process.platform === 'win32') {
+		// On Windows, do case-insensitive comparison
+		if (
+			!realPath.toLowerCase().startsWith((realBaseDir + path.sep).toLowerCase())
+		) {
+			throw new Error('Invalid filename: path escapes .swarm directory (symlink detected)');
+		}
+	} else {
+		// On other platforms, do case-sensitive comparison
+		if (!realPath.startsWith(realBaseDir + path.sep)) {
+			throw new Error('Invalid filename: path escapes .swarm directory (symlink detected)');
 		}
 	}
 

@@ -457,7 +457,8 @@ export const TOOL_METADATA = {
 		agents: ['architect'],
 	},
 	write_final_council_evidence: {
-		description: 'write final council evidence for project completion',
+		description:
+			'Write final council evidence to persist project-scoped council verdicts. This is not General Council mode and does not use convene_general_council. PREREQUISITE: dispatch critic, reviewer, sme, test_engineer, and explorer as project-scoped Agent tasks, collect their CouncilMemberVerdict JSON, then call this tool to synthesize and persist .swarm/evidence/final-council.json. Blocks phase_complete when final_council is enabled and verdict is REJECTED or evidence is missing.',
 		agents: ['architect'],
 	},
 	skill_generate: {
