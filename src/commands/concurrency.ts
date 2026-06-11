@@ -6,8 +6,8 @@ import { getAgentSession } from '../state';
  */
 const PRESETS: Record<string, number> = {
 	min: 1,
-	medium: 3,
-	max: 8,
+	medium: 8,
+	max: 16,
 };
 
 const MIN_CONCURRENCY = 1;
