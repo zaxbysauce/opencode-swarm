@@ -229,11 +229,11 @@ describe('Diagnose output with deferred warnings', () => {
 		const warningBuffer = await import(
 			'../../../src/services/warning-buffer.js'
 		);
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 
-		// Add some warnings
-		warningBuffer.deferredWarnings.push('Test warning 1');
-		warningBuffer.deferredWarnings.push('Test warning 2');
+		// Add some warnings using the public API
+		warningBuffer.addDeferredWarning('Test warning 1');
+		warningBuffer.addDeferredWarning('Test warning 2');
 
 		const { getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -249,7 +249,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck.detail).toContain('2 warning(s) deferred');
 
 		// Cleanup
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 	});
 
 	it('does not include Deferred Warnings check when buffer is empty', async () => {
@@ -257,7 +257,7 @@ describe('Diagnose output with deferred warnings', () => {
 		const warningBuffer = await import(
 			'../../../src/services/warning-buffer.js'
 		);
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 
 		const { getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -271,7 +271,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck).toBeUndefined();
 
 		// Cleanup
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 	});
 
 	it('reports correct warning count in Deferred Warnings check', async () => {
@@ -279,11 +279,11 @@ describe('Diagnose output with deferred warnings', () => {
 		const warningBuffer = await import(
 			'../../../src/services/warning-buffer.js'
 		);
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 
-		// Add exactly 5 warnings
+		// Add exactly 5 warnings using the public API
 		for (let i = 0; i < 5; i++) {
-			warningBuffer.deferredWarnings.push(`Warning ${i + 1}`);
+			warningBuffer.addDeferredWarning(`Warning ${i + 1}`);
 		}
 
 		const { getDiagnoseData } = await import(
@@ -299,7 +299,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(deferredCheck.detail).toContain('5 warning(s) deferred');
 
 		// Cleanup
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 	});
 
 	it('formatDiagnoseMarkdown includes Deferred Warnings section when present', async () => {
@@ -307,10 +307,10 @@ describe('Diagnose output with deferred warnings', () => {
 		const warningBuffer = await import(
 			'../../../src/services/warning-buffer.js'
 		);
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 
-		warningBuffer.deferredWarnings.push('Warning A');
-		warningBuffer.deferredWarnings.push('Warning B');
+		warningBuffer.addDeferredWarning('Warning A');
+		warningBuffer.addDeferredWarning('Warning B');
 
 		const { formatDiagnoseMarkdown, getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -324,7 +324,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(markdown).toContain('- Warning B');
 
 		// Cleanup
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 	});
 
 	it('formatDiagnoseMarkdown omits Deferred Warnings section when empty', async () => {
@@ -332,7 +332,7 @@ describe('Diagnose output with deferred warnings', () => {
 		const warningBuffer = await import(
 			'../../../src/services/warning-buffer.js'
 		);
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 
 		const { formatDiagnoseMarkdown, getDiagnoseData } = await import(
 			'../../../src/services/diagnose-service.js'
@@ -344,7 +344,7 @@ describe('Diagnose output with deferred warnings', () => {
 		expect(markdown).not.toContain('## Deferred Warnings');
 
 		// Cleanup
-		warningBuffer.deferredWarnings.length = 0;
+		warningBuffer.clearDeferredWarnings();
 	});
 });
 
