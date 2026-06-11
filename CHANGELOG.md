@@ -1,5 +1,14 @@
 # Changelog
 
+## [7.65.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.1...v7.65.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* collapse multi-line existsSync call to satisfy Biome formatter ([09e6eba](https://github.com/zaxbysauce/opencode-swarm/commit/09e6eba294f58a64db9ebe3c1b2577cbcef7230f))
+* **config:** resolve realpathSync false-positive and complete isSubagent test coverage ([b178966](https://github.com/zaxbysauce/opencode-swarm/commit/b1789660dae9a0df6f8cf70f0ee11d0670e8a95c))
+* **sast:** harden semgrep stderr cap, byte-length, glob dir filter, and test coverage ([ea7c6b3](https://github.com/zaxbysauce/opencode-swarm/commit/ea7c6b38a2631c05f571d97df768d9d6033f14bd))
+
 ## [7.65.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.0...v7.65.1) (2026-06-11)
 
 
