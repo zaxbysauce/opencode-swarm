@@ -12,6 +12,7 @@
  */
 
 import { execSync } from 'node:child_process';
+import { parseGitRemoteUrl } from './pr-ref';
 
 const MAX_URL_LEN = 2048;
 
@@ -268,38 +269,6 @@ function detectGitRemote(): string | null {
 	} catch {
 		return null;
 	}
-}
-
-/**
- * Parse owner/repo from a git remote URL.
- * Supports HTTPS (https://github.com/owner/repo.git) and SSH (git@github.com:owner/repo.git).
- */
-function parseGitRemoteUrl(
-	remoteUrl: string,
-): { owner: string; repo: string } | null {
-	// HTTPS format: https://github.com/owner/repo.git
-	const httpsMatch = remoteUrl.match(
-		/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
-	);
-	if (httpsMatch) {
-		return {
-			owner: httpsMatch[1],
-			repo: httpsMatch[2].replace(/\.git$/, ''),
-		};
-	}
-
-	// SSH format: git@github.com:owner/repo.git
-	const sshMatch = remoteUrl.match(
-		/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i,
-	);
-	if (sshMatch) {
-		return {
-			owner: sshMatch[1],
-			repo: sshMatch[2].replace(/\.git$/, ''),
-		};
-	}
-
-	return null;
 }
 
 export function handleIssueCommand(_directory: string, args: string[]): string {

@@ -302,6 +302,31 @@ describe('handleIssueCommand', () => {
 			expect(result).toContain('test-repo');
 			expect(result).toContain('100');
 		});
+
+		// Regression for DD-C014 (deep-dive audit, issue #1235):
+		// `parseGitRemoteUrl` previously returned null for proxy remotes and
+		// GitHub Enterprise hostnames, causing bare-number issue resolution to
+		// silently fail with a misleading "Could not parse issue reference" error
+		// for users on those remote shapes.
+		test('Bare number with proxy remote (path-style) resolves owner/repo', () => {
+			execSyncMock.mockImplementation(
+				() => 'http://proxy.example.com/git/owner/repo.git',
+			);
+			const result = handleIssueCommand('/test', ['77']);
+			expect(result).toContain(
+				'issue="https://github.com/owner/repo/issues/77"',
+			);
+		});
+
+		test('Bare number with GitHub Enterprise host (path-style) resolves owner/repo', () => {
+			execSyncMock.mockImplementation(
+				() => 'https://github.acme.com/owner/repo.git',
+			);
+			const result = handleIssueCommand('/test', ['88']);
+			expect(result).toContain(
+				'issue="https://github.com/owner/repo/issues/88"',
+			);
+		});
 	});
 
 	// =============================================================================
