@@ -138,7 +138,10 @@ async function handlePrEvent(
 		config.auto_pr_feedback &&
 		AUTO_PR_FEEDBACK_EVENTS.has(event.type) &&
 		payload.prUrl
-			? `[MODE: PR_FEEDBACK pr="${payload.prUrl}"]`
+			? (() => {
+					const safePrUrl = String(payload.prUrl).replace(/["\]]/g, '');
+					return `[MODE: PR_FEEDBACK pr="${safePrUrl}"]`;
+				})()
 			: null;
 
 	// Deliver to each subscribed session
@@ -153,14 +156,13 @@ async function handlePrEvent(
 
 		session.pendingAdvisoryMessages ??= [];
 		// Dedup: skip if the advisory for this PR+event type was already delivered.
-		// The advisory body always starts with the dedupToken, so checking the first
-		// message (the advisory we just pushed, if any) is sufficient to detect a
-		// duplicate — no need to scan every message in the array.
+		// The advisory body always starts with the dedupToken, so scanning all
+		// pending messages detects duplicates regardless of interleaving order.
 		const dedupToken = `[pr-monitor:${event.type}:${payload.repoFullName}#${payload.prNumber}]`;
-		if (
-			session.pendingAdvisoryMessages.length > 0 &&
-			session.pendingAdvisoryMessages[0].includes(dedupToken)
-		) {
+		const isDuplicate = session.pendingAdvisoryMessages.some((msg) =>
+			msg.includes(dedupToken),
+		);
+		if (isDuplicate) {
 			continue;
 		}
 		session.pendingAdvisoryMessages.push(message);

@@ -314,7 +314,7 @@ GitHub PR subscription and background polling infrastructure (FR-001). When enab
 | `poll_interval_seconds` | number | `60` | Seconds between poll cycles (30–300) |
 | `max_subscriptions` | number | `20` | Maximum concurrent PR subscriptions (1–100) |
 | `max_prs_per_cycle` | number | `5` | Maximum PRs polled per cycle (1–20) |
-| `max_concurrent_gh_processes` | number | `3` | Maximum concurrent `gh` CLI processes (1–10) |
+| `max_concurrent_pr_polls` | number | `3` | Maximum concurrent PR polls (1–10) |
 | `poll_timeout_ms` | number | `30000` | Per-poll timeout in milliseconds (5000–120000) |
 | `failure_threshold` | number | `5` | Consecutive failures before circuit breaker trips (1–20) |
 | `cooldown_seconds` | number | `30` | Circuit breaker cooldown in seconds (5–600) |
@@ -325,6 +325,7 @@ GitHub PR subscription and background polling infrastructure (FR-001). When enab
 | `notify_ci_failure` | boolean | `true` | Emit notification on CI failure |
 | `notify_new_comments` | boolean | `true` | Emit notification on new comments |
 | `notify_merge_conflict` | boolean | `true` | Emit notification on merge conflict detection |
+| `auto_pr_feedback` | boolean | `false` | When enabled, injects `[MODE: PR_FEEDBACK pr="URL"]` signal on CI failure and merge conflict events |
 
 **Example** — enable PR Monitor with defaults:
 
@@ -344,7 +345,7 @@ GitHub PR subscription and background polling infrastructure (FR-001). When enab
     "enabled": true,
     "poll_interval_seconds": 30,
     "max_subscriptions": 50,
-    "max_concurrent_gh_processes": 5,
+    "max_concurrent_pr_polls": 5,
     "failure_threshold": 3,
     "auto_unsubscribe_on_merge": true
   }

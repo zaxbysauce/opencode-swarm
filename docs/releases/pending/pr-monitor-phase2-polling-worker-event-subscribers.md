@@ -12,7 +12,7 @@ New ~850-line `PrMonitorWorker` class with bounded, fail-open lifecycle (start/s
 - **Four async gh wrappers** called per PR per cycle: `getPRStatus`, `getPRComments`, `getMergeState`, `getPRReviewState`
 - **Per-subscription circuit breaker** — tracks `errorCount`, `suspendedUntil`, and `cooldownLevel`; exponential backoff with configurable ceiling
 - **Cooperative timeout cancellation** — `CancellationToken` with 6 guard points (before each gh call, before state merge, before event emission, before snapshot write, before unsubscribe check, before next cycle)
-- **Bounded concurrency** — `max_concurrent_gh_processes` limits simultaneous gh spawns; `max_prs_per_cycle` caps PRs polled per tick
+- **Bounded concurrency** — `max_concurrent_pr_polls` limits simultaneous gh spawns; `max_prs_per_cycle` caps PRs polled per tick
 - **Stale subscription sweep** — `sweepStale()` runs each cycle, removing merged/closed PRs regardless of event state
 
 ### New Async gh Wrapper (`src/git/pr.ts`)

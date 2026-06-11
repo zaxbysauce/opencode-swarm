@@ -79,7 +79,7 @@ export async function handlePrSubscribeCommand(
 		const config = _internals.loadPluginConfig(directory);
 		const prMonitorConfig = config.pr_monitor;
 
-		await subscribe(directory, {
+		await _internals.subscribe(directory, {
 			sessionID,
 			prNumber: prInfo.number,
 			repoFullName,
@@ -107,4 +107,5 @@ export async function handlePrSubscribeCommand(
 
 export const _internals = {
 	loadPluginConfig,
+	subscribe,
 };

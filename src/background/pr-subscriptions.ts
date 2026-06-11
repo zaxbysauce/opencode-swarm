@@ -99,8 +99,16 @@ const RecordSchema = z
 		correlationId: z.string().min(1),
 		sessionID: z.string().min(1),
 		prNumber: z.number().int().positive(),
-		repoFullName: z.string().min(1),
-		prUrl: z.string().min(1),
+		repoFullName: z
+			.string()
+			.regex(/^[^/]+\/[^/]+$/, 'Must be owner/repo format'),
+		prUrl: z
+			.string()
+			.min(1)
+			.regex(
+				/^https:\/\/github\.com\/[^/]+\/[^/]+\/pull\/\d+$/,
+				'Must be a valid GitHub PR URL',
+			),
 		headRefOid: z.string().optional(),
 		lastCheckedAt: z.number(),
 		lastCommentId: z.string().optional(),

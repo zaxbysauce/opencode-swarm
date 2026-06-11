@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as realPrSubscriptions from '../../../src/background/pr-subscriptions.js';
 import { _internals as prRefInternals } from '../../../src/commands/pr-ref';
 import {
 	handlePrSubscribeCommand,
@@ -10,14 +9,9 @@ import {
 } from '../../../src/commands/pr-subscribe';
 
 // ---------------------------------------------------------------------------
-// Mock subscribe via mock.module — replaces the module-level export
+// Mock subscribe via _internals DI seam — no mock.module needed
 // ---------------------------------------------------------------------------
 const mockSubscribe = mock(() => Promise.resolve({}));
-
-mock.module('../../../src/background/pr-subscriptions.js', () => ({
-	...realPrSubscriptions,
-	subscribe: mockSubscribe,
-}));
 
 // ---------------------------------------------------------------------------
 // Temp directory for git-remote resolution tests
@@ -36,6 +30,8 @@ beforeEach(() => {
 			max_subscriptions: 20,
 		},
 	})) as typeof prSubscribeInternals.loadPluginConfig;
+	// Mock subscribe via DI seam
+	prSubscribeInternals.subscribe = mockSubscribe;
 	// Reset per-test state for the execSync seam used by bare-number resolution.
 	prRefInternals.execSync = (cmd: string, opts: Record<string, unknown>) => {
 		if (cmd === 'git remote get-url origin') {
@@ -51,6 +47,7 @@ afterEach(() => {
 	// Restore internals
 	prSubscribeInternals.loadPluginConfig =
 		savedPrSubscribeInternals.loadPluginConfig;
+	prSubscribeInternals.subscribe = savedPrSubscribeInternals.subscribe;
 });
 
 // ---------------------------------------------------------------------------
@@ -307,6 +304,7 @@ describe('pr-subscribe adversarial security tests', () => {
 				max_subscriptions: 20,
 			},
 		})) as typeof prSubscribeInternals.loadPluginConfig;
+		prSubscribeInternals.subscribe = mockSubscribe;
 		prRefInternals.execSync = (() =>
 			'https://github.com/test-owner/test-repo.git\n') as typeof prRefInternals.execSync;
 		mockSubscribe.mockReset();
@@ -317,6 +315,7 @@ describe('pr-subscribe adversarial security tests', () => {
 		mockSubscribe.mockReset();
 		prSubscribeInternals.loadPluginConfig =
 			savedPrSubscribeInternalsAdv.loadPluginConfig;
+		prSubscribeInternals.subscribe = savedPrSubscribeInternalsAdv.subscribe;
 	});
 
 	describe('1 — path traversal in PR ref', () => {

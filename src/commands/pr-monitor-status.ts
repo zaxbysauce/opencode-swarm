@@ -43,6 +43,7 @@ function formatRelativeTime(epochMs: number): string {
  */
 export const _internals = {
 	formatRelativeTime,
+	listActive,
 };
 
 /**
@@ -58,7 +59,7 @@ export async function handlePrMonitorStatusCommand(
 	_args: string[],
 	sessionID: string,
 ): Promise<string> {
-	const allActive = await listActive(directory);
+	const allActive = await _internals.listActive(directory);
 	const sessionSubs = allActive.filter(
 		(record) => record.sessionID === sessionID,
 	);

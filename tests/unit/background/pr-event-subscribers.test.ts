@@ -456,6 +456,70 @@ describe('handlePrEvent', () => {
 		expect(session.pendingAdvisoryMessages).toHaveLength(1);
 	});
 
+	test('dedup works correctly with interleaved different event types', async () => {
+		const session = makeMockSession('sess1');
+		mockState.listActive.mockReturnValue([
+			makeSubscription({ sessionID: 'sess1' }),
+		]);
+		mockState.getAgentSession.mockReturnValue(session as any);
+
+		// 1. Deliver pr.ci.failed → expect advisory delivered
+		await _internals.handlePrEvent(
+			{
+				type: 'pr.ci.failed',
+				payload: {
+					prNumber: 42,
+					repoFullName: 'owner/repo',
+					checkName: 'ci/build',
+					checkState: 'failure',
+				},
+			},
+			TEST_DIR,
+			makeConfig(),
+		);
+
+		expect(session.pendingAdvisoryMessages).toHaveLength(1);
+		expect(session.pendingAdvisoryMessages[0]).toContain('pr.ci.failed');
+
+		// 2. Deliver pr.new.comment → expect advisory delivered (different type)
+		await _internals.handlePrEvent(
+			{
+				type: 'pr.new.comment',
+				payload: {
+					prNumber: 42,
+					repoFullName: 'owner/repo',
+					prUrl: 'https://github.com/owner/repo/pull/42',
+					author: 'reviewer',
+					body: 'LGTM',
+				},
+			},
+			TEST_DIR,
+			makeConfig(),
+		);
+
+		// Both messages should be present (different event types)
+		expect(session.pendingAdvisoryMessages).toHaveLength(2);
+		expect(session.pendingAdvisoryMessages[1]).toContain('pr.new.comment');
+
+		// 3. Deliver pr.ci.failed again → expect DEDUPED (same type+PR, scanned from all messages)
+		await _internals.handlePrEvent(
+			{
+				type: 'pr.ci.failed',
+				payload: {
+					prNumber: 42,
+					repoFullName: 'owner/repo',
+					checkName: 'ci/build',
+					checkState: 'failure',
+				},
+			},
+			TEST_DIR,
+			makeConfig(),
+		);
+
+		// Still only 2 messages — the second ci.failed was deduped
+		expect(session.pendingAdvisoryMessages).toHaveLength(2);
+	});
+
 	test('delivers to multiple sessions subscribed to same PR', async () => {
 		const session1 = makeMockSession('sess1');
 		const session2 = makeMockSession('sess2');
@@ -949,6 +1013,39 @@ describe('auto_pr_feedback MODE signal injection', () => {
 			m.startsWith('[MODE: PR_FEEDBACK'),
 		);
 		expect(modeSignal).toBe(`[MODE: PR_FEEDBACK pr="${prUrl}"]`);
+	});
+
+	test('MODE signal escapes " and ] characters from prUrl', async () => {
+		const session = makeMockSession('sess1');
+		mockState.listActive.mockResolvedValueOnce([
+			makeSubscription({ sessionID: 'sess1', prNumber: 99 }),
+		]);
+		mockState.getAgentSession.mockReturnValue(session as any);
+
+		const maliciousUrl = 'https://github.com/owner/repo/pull/99"]INJECTION';
+
+		await _internals.handlePrEvent(
+			{
+				type: 'pr.merge.conflict',
+				payload: {
+					prNumber: 99,
+					repoFullName: 'owner/repo',
+					prUrl: maliciousUrl,
+				},
+			},
+			TEST_DIR,
+			makeConfig({ auto_pr_feedback: true }),
+		);
+
+		const modeSignal = session.pendingAdvisoryMessages.find((m: string) =>
+			m.startsWith('[MODE: PR_FEEDBACK'),
+		);
+		expect(modeSignal).toBeDefined();
+		// The " and ] should be stripped
+		expect(modeSignal).toBe(
+			'[MODE: PR_FEEDBACK pr="https://github.com/owner/repo/pull/99INJECTION"]',
+		);
+		expect(modeSignal).not.toContain('"]INJECTION');
 	});
 
 	test('advisory is delivered alongside MODE signal', async () => {

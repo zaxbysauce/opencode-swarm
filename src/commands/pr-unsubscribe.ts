@@ -51,10 +51,10 @@ export async function handlePrUnsubscribeCommand(
 	}
 
 	const refToken = rest[0];
-	const prInfo = parsePrRef(refToken, directory);
+	const prInfo = _internals.parsePrRef(refToken, directory);
 
 	if (!prInfo) {
-		if (looksLikePrRef(refToken)) {
+		if (_internals.looksLikePrRef(refToken)) {
 			return [
 				`Error: Could not resolve PR reference from "${refToken}".`,
 				'',
@@ -76,12 +76,12 @@ export async function handlePrUnsubscribeCommand(
 	const prUrl = `https://github.com/${prInfo.owner}/${prInfo.repo}/pull/${prInfo.number}`;
 
 	try {
-		const correlationId = buildCorrelationId(
+		const correlationId = _internals.buildCorrelationId(
 			sessionID,
 			repoFullName,
 			prInfo.number,
 		);
-		const result = await unsubscribe(directory, correlationId);
+		const result = await _internals.unsubscribe(directory, correlationId);
 
 		if (!result) {
 			return [
@@ -109,3 +109,12 @@ export async function handlePrUnsubscribeCommand(
 		);
 	}
 }
+
+// ── DI Seam for Testability ─────────────────────────────────────────
+
+export const _internals = {
+	unsubscribe,
+	buildCorrelationId,
+	parsePrRef,
+	looksLikePrRef,
+};

@@ -1,57 +1,42 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test';
-import { handlePrUnsubscribeCommand } from '../../../src/commands/pr-unsubscribe.js';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import {
+	_internals,
+	handlePrUnsubscribeCommand,
+} from '../../../src/commands/pr-unsubscribe';
 
 // ---------------------------------------------------------------------------
-// Helper – minimal stubs so the mock.module factory satisfies ESM resolution
-// ---------------------------------------------------------------------------
-const voidFn = () => {};
-const nullFn = () => null;
-const identity = <T>(v: T) => v;
-
-// ---------------------------------------------------------------------------
-// Mocks
+// Mocks via _internals DI seam — no mock.module needed
 // ---------------------------------------------------------------------------
 
-// Mock pr-ref.ts exports
+const mockUnsubscribe = mock(() => Promise.resolve(null));
+const mockBuildCorrelationId = mock(
+	(sessionID: string, repoFullName: string, prNumber: number) =>
+		`${sessionID}::${repoFullName}::${prNumber}`,
+);
 const mockParsePrRef = mock(() => null);
 const mockLooksLikePrRef = mock(() => false);
 
-mock.module('../../../src/commands/pr-ref.js', () => ({
-	sanitizeUrl: identity,
-	sanitizeInstructions: identity,
-	hasNonAsciiHostname: () => false,
-	isPrivateHost: () => false,
-	validateAndSanitizeUrl: () => ({
-		sanitized: 'https://github.com/owner/repo/pull/1',
-	}),
-	parsePrRef: mockParsePrRef,
-	detectGitRemote: nullFn,
-	parseGitRemoteUrl: nullFn,
-	looksLikePrRef: mockLooksLikePrRef,
-	resolvePrCommandInput: nullFn,
-	_internals: { execSync: voidFn },
-}));
+let savedInternals: typeof _internals;
 
-// Mock pr-subscriptions.ts exports
-const mockUnsubscribe = mock(() => Promise.resolve(null));
-
-mock.module('../../../src/background/pr-subscriptions.js', () => ({
-	unsubscribe: mockUnsubscribe,
-	buildCorrelationId: (
-		sessionID: string,
-		repoFullName: string,
-		prNumber: number,
-	) => `${sessionID}::${repoFullName}::${prNumber}`,
-	listActive: nullFn,
-	updateSnapshot: nullFn,
-	sweepStale: nullFn,
-	subscribe: nullFn,
-	setOnSubscriptionCreated: voidFn,
-	PR_SUBSCRIPTIONS_FILE: 'pr-monitor/subscriptions.jsonl',
-}));
+beforeEach(() => {
+	savedInternals = { ..._internals };
+	_internals.unsubscribe = mockUnsubscribe;
+	_internals.buildCorrelationId = mockBuildCorrelationId;
+	_internals.parsePrRef = mockParsePrRef;
+	_internals.looksLikePrRef = mockLooksLikePrRef;
+});
 
 afterEach(() => {
-	mock.restore();
+	mockUnsubscribe.mockReset();
+	mockParsePrRef.mockReset();
+	mockLooksLikePrRef.mockReset();
+	// mockBuildCorrelationId keeps its default implementation across tests;
+	// only clear call history (mockClear), do NOT reset the implementation.
+	mockBuildCorrelationId.mockClear();
+	_internals.unsubscribe = savedInternals.unsubscribe;
+	_internals.buildCorrelationId = savedInternals.buildCorrelationId;
+	_internals.parsePrRef = savedInternals.parsePrRef;
+	_internals.looksLikePrRef = savedInternals.looksLikePrRef;
 });
 
 // ---------------------------------------------------------------------------

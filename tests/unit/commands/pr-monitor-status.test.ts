@@ -2,7 +2,6 @@ import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import * as realPrSubscriptions from '../../../src/background/pr-subscriptions.js';
 import {
 	_internals,
 	handlePrMonitorStatusCommand,
@@ -12,28 +11,27 @@ import { COMMAND_REGISTRY } from '../../../src/commands/registry.js';
 const { formatRelativeTime } = _internals;
 
 // ---------------------------------------------------------------------------
-// Mock listActive — replaces the module-level export
+// Mock listActive via _internals DI seam — no mock.module needed
 // ---------------------------------------------------------------------------
 const mockListActive = mock(() => Promise.resolve([]));
-
-mock.module('../../../src/background/pr-subscriptions.js', () => ({
-	...realPrSubscriptions,
-	listActive: mockListActive,
-}));
 
 // ---------------------------------------------------------------------------
 // Temp directory
 // ---------------------------------------------------------------------------
 let tempDir: string;
+let savedInternals: typeof _internals;
 
 beforeEach(() => {
 	tempDir = mkdtempSync(join(tmpdir(), 'pr-status-test-'));
+	savedInternals = { ..._internals };
+	_internals.listActive = mockListActive;
 	mockListActive.mockReset();
 });
 
 afterEach(() => {
 	rmSync(tempDir, { recursive: true, force: true });
 	mockListActive.mockReset();
+	_internals.listActive = savedInternals.listActive;
 });
 
 // ---------------------------------------------------------------------------
