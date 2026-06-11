@@ -134,7 +134,7 @@ const _heartbeatTimers = new Map<string, number>();
 
 import {
 	addDeferredWarning,
-	deferredWarnings,
+	clearDeferredWarnings,
 } from './services/warning-buffer.js';
 
 const SWARM_COMMAND_SYSTEM_RULE_TAG = '[opencode-swarm:swarm-command-rule]';
@@ -205,7 +205,7 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	);
 
 	// Clear deferred warnings at session start for per-session isolation
-	deferredWarnings.length = 0;
+	clearDeferredWarnings();
 
 	// Full-auto mode validation: critic model must differ from architect model
 	if (config.full_auto?.enabled === true) {
