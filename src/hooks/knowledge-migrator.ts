@@ -3,6 +3,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 import * as logger from '../utils/logger';
@@ -567,7 +568,7 @@ async function writeSentinel(
  */
 function resolveLegacyHiveKnowledgePath(): string {
 	const platform = process.platform;
-	const home = process.env.HOME || require('node:os').homedir();
+	const home = process.env.HOME || os.homedir();
 	let dataDir: string;
 
 	if (platform === 'win32') {
