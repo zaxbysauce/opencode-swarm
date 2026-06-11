@@ -47,7 +47,10 @@ const warnedAgents = new Set<string>();
 // Keyed by swarmId: "default" for the default swarm, "local", "fast", "precise", etc. for named swarms
 const _swarmAgentsMap = new Map<
 	string,
-	Record<string, { model?: string; fallback_models?: string[]; disabled?: boolean }>
+	Record<
+		string,
+		{ model?: string; fallback_models?: string[]; disabled?: boolean }
+	>
 >();
 
 /**
@@ -182,12 +185,14 @@ export function resolveFallbackModel(
 
 /**
  * Get the swarm agents config (for runtime fallback resolution by guardrails).
- * 
+ *
  * @param swarmId - The swarm ID to retrieve config for. Defaults to 'default' for the default swarm.
  *                  For multi-swarm configs, use the swarm's ID (e.g., 'local', 'fast', 'precise').
  *                  Can also be extracted from a prefixed agent name using extractSwarmIdFromAgentName().
  */
-export function getSwarmAgents(swarmId?: string):
+export function getSwarmAgents(
+	swarmId?: string,
+):
 	| Record<
 			string,
 			{ model?: string; fallback_models?: string[]; disabled?: boolean }
@@ -773,6 +778,7 @@ export function createAgents(
 		// Multiple swarms mode
 		// Only a swarm explicitly named "default" gets unprefixed agents
 		// All other swarms get prefixed (cloud_*, local_*, etc.)
+		_swarmAgentsMap.set('default', {});
 		for (const swarmId of Object.keys(swarms)) {
 			let swarmConfig = swarms[swarmId];
 			const isDefault = swarmId === 'default';

@@ -1817,7 +1817,12 @@ export const PluginConfigSchema = z.object({
 	// Multiple swarms support
 	// Keys are swarm IDs (e.g., "cloud", "local", "fast")
 	// First swarm or one named "default" becomes the primary architect
-	swarms: z.record(z.string(), SwarmConfigSchema).optional(),
+	swarms: z
+		.record(
+			z.string().regex(/^[^_]+$/, 'Swarm ID must not contain underscores'),
+			SwarmConfigSchema,
+		)
+		.optional(),
 
 	// Pipeline settings
 	max_iterations: z.number().min(1).max(10).default(5),

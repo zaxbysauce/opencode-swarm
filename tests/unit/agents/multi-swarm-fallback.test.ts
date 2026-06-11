@@ -21,7 +21,7 @@ describe('multi-swarm fallback model resolution', () => {
 
 		it('handles edge cases', () => {
 			expect(extractSwarmIdFromAgentName('')).toBeUndefined();
-			expect(extractSwarmIdFromAgentName('_coder')).toBe('');
+			expect(extractSwarmIdFromAgentName('_coder')).toBeUndefined();
 			expect(extractSwarmIdFromAgentName('a_b_c')).toBe('a');
 		});
 	});
@@ -80,6 +80,9 @@ describe('multi-swarm fallback model resolution', () => {
 			const defaultAgents2 = getSwarmAgents();
 			expect(defaultAgents2).toBeDefined();
 			expect(defaultAgents2).toEqual(defaultAgents);
+
+			// Negative assertion: swarms must not share the same config object
+			expect(fastAgents).not.toBe(preciseAgents);
 		});
 
 		it('handles legacy single-swarm mode (top-level agents config)', () => {
@@ -99,7 +102,9 @@ describe('multi-swarm fallback model resolution', () => {
 			const defaultAgents = getSwarmAgents('default');
 			expect(defaultAgents).toBeDefined();
 			expect(defaultAgents?.coder?.model).toBe('legacy/model');
-			expect(defaultAgents?.coder?.fallback_models).toEqual(['legacy/fallback']);
+			expect(defaultAgents?.coder?.fallback_models).toEqual([
+				'legacy/fallback',
+			]);
 
 			// Verify getSwarmAgents with no argument works
 			const defaultAgents2 = getSwarmAgents();
@@ -140,7 +145,9 @@ describe('multi-swarm fallback model resolution', () => {
 			// Verify default swarm uses swarm-specific model (swarm model wins over top-level)
 			const defaultAgents = getSwarmAgents('default');
 			expect(defaultAgents?.coder?.model).toBe('default/model');
-			expect(defaultAgents?.coder?.fallback_models).toEqual(['default/fallback']);
+			expect(defaultAgents?.coder?.fallback_models).toEqual([
+				'default/fallback',
+			]);
 
 			// Verify local swarm
 			const localAgents = getSwarmAgents('local');
