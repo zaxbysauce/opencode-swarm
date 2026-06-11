@@ -14,7 +14,11 @@ describe('resolveWorkingDirectory', () => {
 	});
 
 	afterEach(() => {
-		rmSync(testDir, { recursive: true, force: true });
+		try {
+			rmSync(testDir, { recursive: true, force: true });
+		} catch {
+			// Ignore cleanup errors (EBUSY/EPERM on Windows)
+		}
 	});
 
 	test('returns fallback directory when working_directory is undefined', () => {
