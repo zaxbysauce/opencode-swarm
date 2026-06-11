@@ -99,7 +99,7 @@ describe('quiet:true suppresses non-critical warnings', () => {
 			quiet: true,
 			agents: {
 				coder: {
-					model: 'provider/model/variant', // Triggers deprecation warning if quiet=false
+					model: 'provider/model/high', // Triggers deprecation warning if quiet=false
 				},
 			},
 		};
@@ -122,7 +122,7 @@ describe('quiet:true suppresses non-critical warnings', () => {
 			quiet: false,
 			agents: {
 				coder: {
-					model: 'provider/model/variant', // Triggers deprecation warning
+					model: 'provider/model/high', // Triggers deprecation warning
 				},
 			},
 		};
@@ -144,7 +144,7 @@ describe('quiet:true suppresses non-critical warnings', () => {
 		const config = {
 			agents: {
 				coder: {
-					model: 'provider/model/variant',
+					model: 'provider/model/high',
 				},
 			},
 		};

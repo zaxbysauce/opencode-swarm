@@ -1,5 +1,82 @@
 # Changelog
 
+## [7.65.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.1...v7.65.2) (2026-06-11)
+
+
+### Bug Fixes
+
+* collapse multi-line existsSync call to satisfy Biome formatter ([09e6eba](https://github.com/zaxbysauce/opencode-swarm/commit/09e6eba294f58a64db9ebe3c1b2577cbcef7230f))
+* **config:** resolve realpathSync false-positive and complete isSubagent test coverage ([b178966](https://github.com/zaxbysauce/opencode-swarm/commit/b1789660dae9a0df6f8cf70f0ee11d0670e8a95c))
+* **sast:** harden semgrep stderr cap, byte-length, glob dir filter, and test coverage ([ea7c6b3](https://github.com/zaxbysauce/opencode-swarm/commit/ea7c6b38a2631c05f571d97df768d9d6033f14bd))
+
+## [7.65.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.0...v7.65.1) (2026-06-11)
+
+
+### Bug Fixes
+
+* **agents:** respect top-level agent config in swarms mode ([#1216](https://github.com/zaxbysauce/opencode-swarm/issues/1216)) ([1922b7f](https://github.com/zaxbysauce/opencode-swarm/commit/1922b7f276433d3070f5638e44c8cd61abcdfc34))
+
+## [7.65.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.64.0...v7.65.0) (2026-06-11)
+
+
+### Features
+
+* **security:** harden architect-relayed evidence tools with provenance verification ([#1199](https://github.com/zaxbysauce/opencode-swarm/issues/1199)) ([2023521](https://github.com/zaxbysauce/opencode-swarm/commit/20235219be420f5cea13568ed63ae399412df223))
+
+
+### Bug Fixes
+
+* **knowledge:** align write-path validation, config semantics, ranking weights, and removal guards ([#1207](https://github.com/zaxbysauce/opencode-swarm/issues/1207)) ([1597485](https://github.com/zaxbysauce/opencode-swarm/commit/15974855ab669cca00438b8e802aa50334e6bda4))
+
+## [7.64.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.63.0...v7.64.0) (2026-06-10)
+
+
+### Features
+
+* **curation:** add external skill curation pipeline with 3-gate validation ([#1211](https://github.com/zaxbysauce/opencode-swarm/issues/1211)) ([0163acb](https://github.com/zaxbysauce/opencode-swarm/commit/0163acb151d5baaf200c55c775f8304e3fae6fc8))
+
+## [7.63.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.62.1...v7.63.0) (2026-06-10)
+
+
+### Features
+
+* **knowledge:** swarm learning system — directives, enforcement, reflection, retrieval (Changes 1–6) ([#1209](https://github.com/zaxbysauce/opencode-swarm/issues/1209)) ([00216d3](https://github.com/zaxbysauce/opencode-swarm/commit/00216d33e8c5aa8dd884663721d61e12ce176403))
+
+## [7.62.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.62.0...v7.62.1) (2026-06-10)
+
+
+### Bug Fixes
+
+* **cli:** resolve 20 advisory findings from final council review (issue [#1167](https://github.com/zaxbysauce/opencode-swarm/issues/1167)) ([#1205](https://github.com/zaxbysauce/opencode-swarm/issues/1205)) ([6240ba7](https://github.com/zaxbysauce/opencode-swarm/commit/6240ba71accbc059c304168b2af027d8892ce326))
+
+## [7.62.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.61.0...v7.62.0) (2026-06-10)
+
+
+### Features
+
+* **sdd:** add openspec-compatible spec projection ([61bd9e2](https://github.com/zaxbysauce/opencode-swarm/commit/61bd9e2f602392b2bc8c5701fd198f3436a02599))
+
+
+### Bug Fixes
+
+* **sdd:** address review feedback ([2b26cca](https://github.com/zaxbysauce/opencode-swarm/commit/2b26ccab47f7961ca4a88dfbbb6b80f6fb9c8d7f))
+
+## [7.61.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.60.0...v7.61.0) (2026-06-09)
+
+
+### Features
+
+* **council:** make HIGH/CRITICAL concerns blocking at tool level ([110d400](https://github.com/zaxbysauce/opencode-swarm/commit/110d4008628d096e39ee3531ebdfbe2e09403c0a))
+
+
+### Bug Fixes
+
+* **council:** address Copilot PR review findings ([1c307bf](https://github.com/zaxbysauce/opencode-swarm/commit/1c307bfabacba5a73ef17639021a7b0ff8a9c19e))
+* **council:** address swarm-pr-review findings F-001 through F-006 ([d9bede0](https://github.com/zaxbysauce/opencode-swarm/commit/d9bede084ab790a388f49fcc0894f4fab154fd6e))
+* **council:** biome formatting in promoteBlockingConcerns ([78c258f](https://github.com/zaxbysauce/opencode-swarm/commit/78c258f1a51656bf7a5511f4cb8a1b164ae4150c))
+* **council:** mutation gap HIGH/CRITICAL findings now increment blockingConcernsCount ([6ee5f6d](https://github.com/zaxbysauce/opencode-swarm/commit/6ee5f6d42901fc4d7bc0047e2e7289a188398fe7))
+* **test:** add blockingConcernsCount to council test helpers ([7ca2320](https://github.com/zaxbysauce/opencode-swarm/commit/7ca2320952a0a756f9ffd6df9e8692d920d10672))
+
 ## [7.60.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.59.1...v7.60.0) (2026-06-09)
 
 

@@ -10,6 +10,7 @@ import {
 	AGENT_TOOL_MAP,
 	ALL_AGENT_NAMES,
 	DEFAULT_MODELS,
+	EXTERNAL_SKILL_AGENT_TOOL_MAP,
 	MEMORY_AGENT_TOOL_MAP,
 } from '../config/constants';
 import { stripKnownSwarmPrefix } from '../config/schema';
@@ -347,6 +348,7 @@ function createSwarmAgents(
 			pluginConfig?.memory?.enabled === true,
 			pluginConfig?.architectural_supervision,
 			pluginConfig?.design_docs?.enabled === true,
+			pluginConfig?.external_skills?.curation_enabled === true,
 		);
 		architect.name = prefixName('architect');
 
@@ -752,8 +754,24 @@ export function createAgents(
 		// Only a swarm explicitly named "default" gets unprefixed agents
 		// All other swarms get prefixed (cloud_*, local_*, etc.)
 		for (const swarmId of Object.keys(swarms)) {
-			const swarmConfig = swarms[swarmId];
+			let swarmConfig = swarms[swarmId];
 			const isDefault = swarmId === 'default';
+
+			// Merge in top-level agents config for all swarms.
+			// This ensures that top-level agents are respected even when swarms are configured.
+			// Precedence is object-level (not field-level): if both top-level and the swarm
+			// define the same agent (e.g. "coder"), the swarm's entire agent entry wins and
+			// top-level fields for that agent are not inherited individually.
+			if (config?.agents) {
+				swarmConfig = {
+					...swarmConfig,
+					agents: {
+						...config.agents,
+						...(swarmConfig.agents ?? {}),
+					},
+				};
+			}
+
 			const swarmAgents = createSwarmAgents(
 				swarmId,
 				swarmConfig,
@@ -999,6 +1017,20 @@ export function getAgentConfigs(
 				if (memoryTools.length > 0) {
 					allowedTools = Array.from(
 						new Set([...(allowedTools ?? []), ...memoryTools]),
+					);
+				}
+			}
+
+			// Feature-gate: external skill curation tools are only available
+			// when external_skills.curation_enabled is true in the resolved config.
+			if (config?.external_skills?.curation_enabled === true) {
+				const externalSkillTools =
+					EXTERNAL_SKILL_AGENT_TOOL_MAP[
+						baseAgentName as keyof typeof EXTERNAL_SKILL_AGENT_TOOL_MAP
+					] ?? [];
+				if (externalSkillTools.length > 0) {
+					allowedTools = Array.from(
+						new Set([...(allowedTools ?? []), ...externalSkillTools]),
 					);
 				}
 			}
