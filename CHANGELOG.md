@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.65.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.2...v7.65.3) (2026-06-11)
+
+
+### Bug Fixes
+
+* **ci:** apply biome formatting and optional-chain fixes ([1f74c11](https://github.com/zaxbysauce/opencode-swarm/commit/1f74c11fc01f0e2a42c2ae5869d13a055b34a86b))
+* **skill-propagation:** auto-inject skills when architect omits SKILLS field ([540be5e](https://github.com/zaxbysauce/opencode-swarm/commit/540be5e8500a2bc44ed76bd1678ac7ae61167d24))
+
 ## [7.65.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.65.1...v7.65.2) (2026-06-11)
 
 
