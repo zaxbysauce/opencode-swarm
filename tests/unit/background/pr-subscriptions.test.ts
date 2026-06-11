@@ -161,6 +161,51 @@ describe('pr-subscriptions store', () => {
 				maxSubscriptions: 0,
 			});
 		});
+
+		test('subscribe rejects invalid repoFullName with three segments', async () => {
+			await expect(
+				subscribe(dir, {
+					sessionID: 'sess_1',
+					prNumber: 1,
+					repoFullName: 'owner/repo/extra',
+					prUrl: 'https://github.com/owner/repo/pull/1',
+				}),
+			).rejects.toThrow(/Invalid subscription record/);
+		});
+
+		test('subscribe rejects invalid prUrl that is not a GitHub URL', async () => {
+			await expect(
+				subscribe(dir, {
+					sessionID: 'sess_1',
+					prNumber: 1,
+					repoFullName: 'owner/repo',
+					prUrl: 'not-a-url',
+				}),
+			).rejects.toThrow(/Invalid subscription record/);
+		});
+
+		test('subscribe rejects malformed prUrl with wrong domain', async () => {
+			await expect(
+				subscribe(dir, {
+					sessionID: 'sess_1',
+					prNumber: 1,
+					repoFullName: 'owner/repo',
+					prUrl: 'https://gitlab.com/owner/repo/pull/1',
+				}),
+			).rejects.toThrow(/Invalid subscription record/);
+		});
+
+		test('valid inputs still produce an active record', async () => {
+			const record = await subscribe(dir, {
+				sessionID: 'sess_1',
+				prNumber: 42,
+				repoFullName: 'owner/repo',
+				prUrl: 'https://github.com/owner/repo/pull/42',
+			});
+			expect(record.status).toBe('active');
+			expect(record.repoFullName).toBe('owner/repo');
+			expect(record.prUrl).toBe('https://github.com/owner/repo/pull/42');
+		});
 	});
 
 	describe('unsubscribe', () => {

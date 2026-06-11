@@ -183,6 +183,10 @@ function readAllRecords(directory: string): PrSubscriptionRecord[] {
 }
 
 function appendRecord(directory: string, record: PrSubscriptionRecord): void {
+	const result = RecordSchema.safeParse(record);
+	if (!result.success) {
+		throw new Error(`Invalid subscription record: ${result.error.message}`);
+	}
 	ensureSwarmDir(directory);
 	fs.appendFileSync(
 		storePath(directory),
