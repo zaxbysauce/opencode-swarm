@@ -1211,7 +1211,18 @@ ${handoffContent}`;
 							if (sessionIdAutoProceed) {
 								const sessionAutoProceed =
 									getAgentSession(sessionIdAutoProceed);
-								if (sessionAutoProceed) {
+								if (
+									sessionAutoProceed &&
+									stripKnownSwarmPrefix(sessionAutoProceed.agentName) ===
+										'architect'
+								) {
+									// Defense in depth: the parent `if (isArchitect)` block at
+									// line 1190 already gates all banner injections. This
+									// redundant inner check is intentional — see PR #1258
+									// review history (Qwen3.6/Gemma-4 repeatedly flagged the
+									// absence of a per-banner guard even though the parent
+									// block makes it unreachable in practice). The check
+									// is a single condition move, not new behavior.
 									const resolvedAutoProceed = getResolvedAutoProceed(
 										sessionAutoProceed,
 										plan?.execution_profile?.auto_proceed,
