@@ -125,7 +125,9 @@ describe('resolveWorkingDirectory', () => {
 		const result = resolveWorkingDirectory(undefined, undefined);
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.message).toContain('fallbackDirectory is missing or not a string');
+			expect(result.message).toContain(
+				'fallbackDirectory is missing or not a string',
+			);
 		}
 	});
 
@@ -133,7 +135,9 @@ describe('resolveWorkingDirectory', () => {
 		const result = resolveWorkingDirectory(undefined, null);
 		expect(result.success).toBe(false);
 		if (!result.success) {
-			expect(result.message).toContain('fallbackDirectory is missing or not a string');
+			expect(result.message).toContain(
+				'fallbackDirectory is missing or not a string',
+			);
 		}
 	});
 

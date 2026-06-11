@@ -145,9 +145,7 @@ export function resolveWorkingDirectory(
 		// Reject only if working_directory is a subdirectory of fallback.
 		// Example: workingDir=/project/src, fallback=/project → src is a subdirectory of /project → REJECT
 		// Example: workingDir=/project, fallback=/tmp/wrong → /project is NOT a subdirectory of /tmp/wrong → TRUST
-		const isSubdirectory = resolvedDir.startsWith(
-			resolvedFallback + path.sep,
-		);
+		const isSubdirectory = resolvedDir.startsWith(resolvedFallback + path.sep);
 		if (isSubdirectory) {
 			return {
 				success: false,
