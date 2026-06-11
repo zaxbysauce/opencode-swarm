@@ -1,6 +1,9 @@
 import { join } from 'node:path';
 import { KnowledgeConfigSchema } from '../config/schema.js';
-import { migrateContextToKnowledge } from '../hooks/knowledge-migrator.js';
+import {
+	migrateContextToKnowledge,
+	migrateHiveKnowledgeLegacy,
+} from '../hooks/knowledge-migrator.js';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -128,33 +131,66 @@ export async function handleKnowledgeMigrateCommand(
 	args: string[],
 ): Promise<string> {
 	const targetDir = args[0] || directory;
+	const config = KnowledgeConfigSchema.parse({});
 
 	try {
-		const result = await migrateContextToKnowledge(
+		// Run context.md → knowledge.jsonl migration
+		const contextResult = await migrateContextToKnowledge(
 			targetDir,
-			KnowledgeConfigSchema.parse({}),
+			config,
 		);
 
-		if (result.skippedReason) {
-			switch (result.skippedReason) {
+		// Run legacy hive-knowledge.jsonl → shared-learnings.jsonl migration
+		const hiveResult = await migrateHiveKnowledgeLegacy(config);
+
+		const messages: string[] = [];
+
+		// Handle context migration result
+		if (contextResult.skippedReason) {
+			switch (contextResult.skippedReason) {
 				case 'sentinel-exists':
-					return '⏭ Migration already completed for this project. Delete .swarm/.knowledge-migrated to re-run.';
+					messages.push(
+						'⏭ Context migration already completed. Delete .swarm/.knowledge-migrated to re-run.',
+					);
+					break;
 				case 'no-context-file':
-					return 'ℹ️ No .swarm/context.md found — nothing to migrate.';
+					messages.push('ℹ️ No .swarm/context.md found — nothing to migrate.');
+					break;
 				case 'empty-context':
-					return 'ℹ️ .swarm/context.md is empty — nothing to migrate.';
-				default:
-					return '⚠️ Migration skipped for an unknown reason.';
+					messages.push('ℹ️ .swarm/context.md is empty — nothing to migrate.');
+					break;
 			}
+		} else {
+			messages.push(
+				`✅ Context migration: ${contextResult.entriesMigrated} entries added, ${contextResult.entriesDropped} dropped`,
+			);
 		}
 
-		return `✅ Migration complete: ${result.entriesMigrated} entries added, ${result.entriesDropped} dropped (validation/dedup), ${result.entriesTotal} total processed.`;
+		// Handle hive migration result
+		if (hiveResult.skippedReason) {
+			switch (hiveResult.skippedReason) {
+				case 'sentinel-exists':
+					messages.push(
+						'⏭ Hive legacy migration already completed. Delete the sentinel in the hive data dir to re-run.',
+					);
+					break;
+				case 'no-context-file':
+					messages.push('ℹ️ No legacy hive-knowledge.jsonl found — nothing to migrate.');
+					break;
+			}
+		} else if (hiveResult.migrated) {
+			messages.push(
+				`✅ Hive legacy migration: ${hiveResult.entriesMigrated} entries added, ${hiveResult.entriesDropped} dropped`,
+			);
+		}
+
+		return messages.join('\n');
 	} catch (error) {
 		console.warn(
-			'[knowledge-command] migrateContextToKnowledge error:',
+			'[knowledge-command] migration error:',
 			error instanceof Error ? error.message : String(error),
 		);
-		return '❌ Migration failed. Check .swarm/context.md is readable.';
+		return '❌ Migration failed. Check that knowledge source files are readable.';
 	}
 }
 
