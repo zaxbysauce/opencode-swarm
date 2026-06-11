@@ -33,7 +33,7 @@ describe('constants.ts', () => {
 	});
 
 	describe('ALL_SUBAGENT_NAMES', () => {
-		it('contains all 22 subagents (sme + researcher + docs + critics + curators + council + qa + pipeline)', () => {
+		it('contains all 22 subagents (sme + researcher + docs + docs_design + designer + critic variants + curator variants + council + QA + pipeline)', () => {
 			// v6.1: added docs (default enabled) and designer (opt-in); v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight; v7.0.2: council_member/moderator → council_generalist/skeptic/domain_expert; feat: +researcher
 			expect(ALL_SUBAGENT_NAMES).toContain('sme');
 			expect(ALL_SUBAGENT_NAMES).toContain('researcher');
@@ -63,7 +63,7 @@ describe('constants.ts', () => {
 
 	describe('ALL_AGENT_NAMES', () => {
 		it('contains architect + all 22 subagents = 23 total', () => {
-			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight; v6.72.x: added critic_hallucination_verifier; v7.0.2: council_member/moderator → council_generalist/skeptic/domain_expert; v7.10.0: +skill_improver +spec_writer; feat: +researcher
+			// v6.1: added docs and designer; v6.34: added critic_sounding_board; v6.36.0: added critic_drift_verifier; v6.42.1: added curator_init + curator_phase; v6.x.x: added critic_oversight; v6.72.x: added critic_hallucination_verifier; v7.0.2: council_member/moderator → council_generalist/skeptic/domain_expert; v7.10.0: +skill_improver +spec_writer; +docs_design; feat: +researcher
 			// architect must be first — it is the orchestrator and must be listed before all subagents
 			expect(ALL_AGENT_NAMES[0]).toBe('architect');
 			// All subagents must be present
@@ -162,7 +162,7 @@ describe('constants.ts', () => {
 		});
 
 		it('has exactly 20 entries (subagents + default, no architect or council role-agents)', () => {
-			// v6.14: architect removed; v6.36.0: +critic_drift_verifier; v6.42.1: +curator_init/phase; v6.x.x: +critic_oversight; v6.72.x: +critic_hallucination_verifier; v7.0.2: council_member/moderator removed (council agents use reviewer/critic/sme model keys instead); v7.10.0: +skill_improver +spec_writer; #893: +critic_architecture_supervisor; feat: +researcher
+			// v6.14: architect removed; v6.36.0: +critic_drift_verifier; v6.42.1: +curator_init/phase; v6.x.x: +critic_oversight; v6.72.x: +critic_hallucination_verifier; v7.0.2: council_member/moderator removed (council agents use reviewer/critic/sme model keys instead); v7.10.0: +skill_improver +spec_writer; #893: +critic_architecture_supervisor; +docs_design; feat: +researcher
 			expect(Object.keys(DEFAULT_MODELS)).toHaveLength(20);
 		});
 	});
