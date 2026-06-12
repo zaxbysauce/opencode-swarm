@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.69.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.69.0...v7.69.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **test-engineer:** add apply_patch tool and declare_scope guidance for write delegations ([74d46f6](https://github.com/zaxbysauce/opencode-swarm/commit/74d46f67345ac8a57c21abe63c0f256c0d48c264))
+* **test-engineer:** address PR review findings - fragment reference and test robustness ([3f8c3ac](https://github.com/zaxbysauce/opencode-swarm/commit/3f8c3ac3b702148d2090dab4ff87c33d7717e527))
+
 ## [7.69.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.68.2...v7.69.0) (2026-06-12)
 
 
