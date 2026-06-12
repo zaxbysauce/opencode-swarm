@@ -265,12 +265,13 @@ export interface SuccessMotifProposalResult {
 
 /**
  * Extract the ordered tool sequence from a task's trajectory. Returns the
- * sequence only if EVERY step succeeded (no `failure` AND no `pending` steps)
- * and the trajectory has >= SUCCESS_SEQUENCE_MIN_STEPS steps. A `pending`
- * result is any verdict that is not literally `success`/`failure`
- * (trajectory-logger `mapResult`), so a step with e.g. `needs_revision`,
- * `concerns`, or `blocked` disqualifies the whole trajectory as a success
- * motif — otherwise non-successful patterns would contaminate proposals.
+ * sequence only if the trajectory has >= SUCCESS_SEQUENCE_MIN_STEPS steps AND
+ * every step's `result` is exactly `'success'`. Any non-`'success'` result
+ * disqualifies the whole trajectory — that includes `'failure'` and the
+ * `'pending'` bucket that trajectory-logger `mapResult` assigns to verdicts
+ * like `needs_revision`/`concerns`/`blocked`. The code does not distinguish
+ * among non-success values; they are all rejected, so non-successful patterns
+ * never contaminate success-motif proposals.
  */
 function extractSuccessSequence(
 	trajectory: TrajectoryEntry[],

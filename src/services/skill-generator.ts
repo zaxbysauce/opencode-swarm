@@ -872,7 +872,12 @@ export async function autoApplyProposals(
 				}
 			} else {
 				// Ambiguous or malformed verdict: neither activate nor delete.
-				// Leave the proposal in place so it can be retried next pass.
+				// Leave the proposal in place so it can be retried next pass, and
+				// log it (parity with the other branches) so unexpected critic
+				// outputs are debuggable.
+				warn(
+					`[skill-generator] auto-apply got ambiguous verdict for "${proposal.slug}" (${verdict.slice(0, 24)}); skipping`,
+				);
 				result.skipped.push(proposal.slug);
 			}
 		} catch {
