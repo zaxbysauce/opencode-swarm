@@ -1,4 +1,4 @@
-# fix: test_engineer can now write test files (#1303)
+# fix: test_engineer can now write test files (issue #1303, PR #1305)
 
 The `test_engineer` agent was unable to write test files and would fall into
 retry loops. Two root causes were fixed:
