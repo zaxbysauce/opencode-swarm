@@ -274,8 +274,9 @@ export interface SuccessMotifProposalResult {
  */
 function extractSuccessSequence(
 	trajectory: TrajectoryEntry[],
+	minSteps: number = SUCCESS_SEQUENCE_MIN_STEPS,
 ): Array<{ tool: string; action: string }> | null {
-	if (trajectory.length < SUCCESS_SEQUENCE_MIN_STEPS) return null;
+	if (trajectory.length < minSteps) return null;
 	if (trajectory.some((e) => e.result !== 'success')) return null;
 	return trajectory.map((e) => ({
 		tool: (e.tool ?? 'unknown').toLowerCase(),
@@ -329,8 +330,7 @@ export async function gatherSuccessMotifs(
 
 		for (const taskId of taskIds) {
 			const trajectory = await readTaskTrajectory(directory, taskId);
-			if (trajectory.length < minSteps) continue;
-			const seq = extractSuccessSequence(trajectory);
+			const seq = extractSuccessSequence(trajectory, minSteps);
 			if (!seq) continue;
 			const sig = sequenceSignature(seq);
 			let c = clusters.get(sig);

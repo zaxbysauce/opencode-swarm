@@ -107,6 +107,25 @@ describe('success motif mining', () => {
 		expect(motifs).toHaveLength(0);
 	});
 
+	it('honors a custom minSteps option (threaded into extraction)', async () => {
+		// Two 2-step all-success runs: rejected under the default MIN_STEPS (3),
+		// accepted when minSteps:2 is passed — proving the option reaches
+		// extractSuccessSequence, not just the hardcoded constant.
+		for (let i = 0; i < 2; i++) {
+			seedTask(dir, `task-min2-${i}`, [
+				trajLine(1, 'edit', 'success'),
+				trajLine(2, 'test_runner', 'success'),
+			]);
+		}
+
+		const defaultMotifs = await gatherSuccessMotifs(dir);
+		expect(defaultMotifs).toHaveLength(0);
+
+		const customMotifs = await gatherSuccessMotifs(dir, { minSteps: 2 });
+		expect(customMotifs.length).toBeGreaterThanOrEqual(1);
+		expect(customMotifs[0].sequence.length).toBe(2);
+	});
+
 	it('requires the same sequence in at least 2 tasks to produce a motif', async () => {
 		seedTask(dir, 'task-unique', [
 			trajLine(1, 'edit', 'success'),

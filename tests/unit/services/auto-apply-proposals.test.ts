@@ -111,6 +111,25 @@ describe('autoApplyProposals', () => {
 		expect(result.skipped).toContain('test-error');
 	});
 
+	it('skips (and does NOT delete) proposals on an ambiguous verdict', async () => {
+		// Only an explicit REJECT may delete. A non-APPROVE/non-REJECT verdict
+		// must leave the proposal in place for a future retry — never silent loss.
+		writeProposal(dir, 'test-ambiguous', PROPOSAL_CONTENT);
+		const delegate = async () => 'MAYBE — I am not certain about this one';
+		const result = await autoApplyProposals(dir, delegate);
+		expect(result.skipped).toContain('test-ambiguous');
+		expect(result.approved).not.toContain('test-ambiguous');
+		expect(result.rejected).not.toContain('test-ambiguous');
+		const proposalPath = path.join(
+			dir,
+			'.swarm',
+			'skills',
+			'proposals',
+			'test-ambiguous.md',
+		);
+		expect(fs.existsSync(proposalPath)).toBe(true);
+	});
+
 	it('respects batch limit', async () => {
 		for (let i = 0; i < 8; i++) {
 			writeProposal(dir, `batch-${i}`, PROPOSAL_CONTENT);

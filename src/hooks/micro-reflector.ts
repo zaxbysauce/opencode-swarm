@@ -180,8 +180,14 @@ async function appendInsightCandidates(
 			try {
 				const content = await readFile(p, 'utf-8');
 				return readInsightJsonl(content);
-			} catch {
-				return [];
+			} catch (err) {
+				// First write: the file simply doesn't exist yet → empty is the
+				// correct base. Any OTHER read error (EACCES, EIO, …) must abort
+				// the transaction by rethrowing: returning [] here would, under
+				// the write-back half of transactFile, clobber an existing queue
+				// with only the new candidates (silent data loss).
+				if ((err as NodeJS.ErrnoException)?.code === 'ENOENT') return [];
+				throw err;
 			}
 		},
 		async (p, data) => {
