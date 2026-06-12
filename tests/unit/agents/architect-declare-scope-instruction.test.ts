@@ -117,4 +117,22 @@ describe('architect prompt: declare_scope instruction at every coder delegation 
 		const matches = prompt.match(/declare_scope/g) ?? [];
 		expect(matches.length).toBeGreaterThanOrEqual(8);
 	});
+
+	it('Rule 1a SCOPE DISCIPLINE covers test_engineer write delegations', () => {
+		const start = prompt.indexOf('1a. SCOPE DISCIPLINE');
+		expect(start).toBeGreaterThan(-1);
+		const end = prompt.indexOf('2. ONE agent per message');
+		expect(end).toBeGreaterThan(start);
+		const slice = prompt.slice(start, end);
+		expect(slice).toContain('test_engineer');
+		expect(slice).toContain('declare_scope');
+	});
+
+	it('Rule 3b covers test_engineer pre-delegation scope call', () => {
+		const start = prompt.indexOf('3b.');
+		expect(start).toBeGreaterThan(-1);
+		const slice = prompt.slice(start, start + 400);
+		expect(slice).toContain('test_engineer');
+		expect(slice).toContain('declare_scope');
+	});
 });

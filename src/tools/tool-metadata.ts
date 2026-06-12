@@ -586,7 +586,7 @@ export const TOOL_METADATA = {
 	apply_patch: {
 		description:
 			'Apply a unified diff patch to workspace files with exact context matching, atomic writes, and path validation',
-		agents: ['coder'],
+		agents: ['coder', 'test_engineer'],
 	},
 	external_skill_discover: {
 		description:
