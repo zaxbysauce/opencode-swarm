@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.68.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.68.0...v7.68.1) (2026-06-12)
+
+
+### Bug Fixes
+
+* **knowledge-migrator:** harden legacy migration loop and add test coverage ([9701a42](https://github.com/zaxbysauce/opencode-swarm/commit/9701a42f820f66d051cd1ea587d6f380db821aa2))
+* **tests:** resolve pre-existing biome useOptionalChain warnings ([9a9f780](https://github.com/zaxbysauce/opencode-swarm/commit/9a9f78023904547c6b15e00e74e99743eeb68ace))
+
 ## [7.68.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.67.0...v7.68.0) (2026-06-12)
 
 
