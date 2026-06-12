@@ -15,9 +15,8 @@
 import { z } from 'zod';
 import { recordKnowledgeEvent } from '../hooks/knowledge-events.js';
 import {
-	readKnowledge,
 	resolveSwarmKnowledgePath,
-	rewriteKnowledge,
+	transactKnowledge,
 } from '../hooks/knowledge-store.js';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
 import { warn } from '../utils/logger.js';
@@ -85,51 +84,50 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 			}
 
 			const swarmPath = resolveSwarmKnowledgePath(directory);
-			let entries: SwarmKnowledgeEntry[];
-			try {
-				entries = await readKnowledge<SwarmKnowledgeEntry>(swarmPath);
-			} catch (err) {
-				return JSON.stringify({
-					success: false,
-					error: err instanceof Error ? err.message : 'Unknown error',
-				});
-			}
-
-			const target = entries.find((e) => e.id === id);
-			if (!target) {
-				return JSON.stringify({ success: false, message: 'entry not found' });
-			}
-			const previousStatus = target.status;
 			const now = new Date().toISOString();
 
-			let nextEntries: SwarmKnowledgeEntry[];
-			let resultStatus: string;
-			if (mode === 'purge') {
-				// Defense-in-depth: hard-delete is irreversible. Emit a prominent
-				// warning even though allow_purge:true was already required. The
-				// archived event below is the audit trail.
-				warn(
-					`[knowledge_archive] PURGE: hard-deleting entry id=${id} actor=${
-						ctx?.agent ?? 'unknown'
-					} reason=${reason}`,
-				);
-				nextEntries = entries.filter((e) => e.id !== id);
-				resultStatus = 'purged';
-			} else {
-				const newStatus = mode === 'quarantine' ? 'quarantined' : 'archived';
-				nextEntries = entries.map((e) =>
-					e.id === id ? { ...e, status: newStatus, updated_at: now } : e,
-				);
-				resultStatus = newStatus;
-			}
+			// State variables to track across the transaction closure
+			let found = false;
+			let previousStatus: string | undefined;
+			let resultStatus: string | undefined;
 
 			try {
-				await rewriteKnowledge(swarmPath, nextEntries);
+				// Atomically read, modify, and write with lock-before-read to prevent TOCTOU
+				await transactKnowledge<SwarmKnowledgeEntry>(swarmPath, (entries) => {
+					const target = entries.find((e) => e.id === id);
+					if (!target) return null; // not found, no write
+
+					previousStatus = target.status;
+					found = true;
+
+					if (mode === 'purge') {
+						// Defense-in-depth: hard-delete is irreversible. Emit a prominent
+						// warning even though allow_purge:true was already required. The
+						// archived event below is the audit trail.
+						warn(
+							`[knowledge_archive] PURGE: hard-deleting entry id=${id} actor=${
+								ctx?.agent ?? 'unknown'
+							} reason=${reason}`,
+						);
+						resultStatus = 'purged';
+						return entries.filter((e) => e.id !== id);
+					}
+
+					const newStatus = mode === 'quarantine' ? 'quarantined' : 'archived';
+					resultStatus = newStatus;
+					return entries.map((e) =>
+						e.id === id ? { ...e, status: newStatus, updated_at: now } : e,
+					);
+				});
 			} catch (err) {
 				return JSON.stringify({
 					success: false,
 					error: err instanceof Error ? err.message : 'Unknown error',
 				});
+			}
+
+			if (!found) {
+				return JSON.stringify({ success: false, message: 'entry not found' });
 			}
 
 			// Append the audit tombstone. Fire-and-forget (fail-open): the status

@@ -233,6 +233,89 @@ describe('getShownButNotAcknowledged', () => {
 });
 
 // ============================================================================
+// bumpCountersBatch — TOCTOU race condition fix
+// ============================================================================
+
+describe('bumpCountersBatch — concurrent counter bump with append', () => {
+	it(
+		'concurrent recordAcknowledgment and appendKnowledge do not lose entries — ' +
+			'lock-before-read ensures atomic read-modify-write',
+		async () => {
+			const id = '99999999-9999-4999-9999-999999999999';
+			await seedEntry(id);
+
+			// Import appendKnowledge to simulate concurrent append during counter bump
+			const { appendKnowledge } = await import(
+				'../../../src/hooks/knowledge-store.js'
+			);
+			const { bumpCountersBatch } = await import(
+				'../../../src/hooks/knowledge-application.js'
+			);
+
+			// Simulate the race: recordAcknowledgment will read and update counters
+			// while appendKnowledge tries to append new entries.
+			// Without the lock-before-read fix, the appended entry would be lost
+			// when the counter update is written back.
+
+			// First, create a second entry that will be "appended" during the race
+			const secondId = 'aaaaaaaa-aaaa-4aaa-9aaa-aaaaaaaaaaaa';
+			const secondEntry: SwarmKnowledgeEntry = {
+				id: secondId,
+				tier: 'swarm',
+				lesson: 'second entry for concurrency test',
+				category: 'process',
+				tags: [],
+				scope: 'global',
+				confidence: 0.8,
+				status: 'candidate',
+				confirmed_by: [],
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: 2,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				project_name: 'test',
+			};
+
+			// Concurrently bump counters (which would trigger a rewrite) and append
+			// a new entry. With the TOCTOU fix (lock-before-read), both operations
+			// are serialized by the directory lock and no entry is lost.
+			await Promise.all([
+				recordAcknowledgment(tmp, { id, result: 'applied' }, { phase: 'Phase 1' }),
+				appendKnowledge(resolveSwarmKnowledgePath(tmp), secondEntry),
+			]);
+
+			// Verify both the counter update and the append succeeded
+			const knowledgePath = resolveSwarmKnowledgePath(tmp);
+			const entries = JSON.parse(
+				readFileSync(knowledgePath, 'utf-8').trim().split('\n').pop()!,
+			);
+
+			// The file should have both entries (the file is JSONL, so we need to read all lines)
+			const lines = readFileSync(knowledgePath, 'utf-8').trim().split('\n');
+			const allEntries = lines.map((line) => JSON.parse(line));
+
+			// Should have 2 entries: original + appended
+			expect(allEntries).toHaveLength(2);
+
+			// Original entry should have updated counters
+			const originalEntry = allEntries.find((e: any) => e.id === id);
+			expect(originalEntry).toBeDefined();
+			expect(originalEntry.retrieval_outcomes.applied_explicit_count).toBe(1);
+			expect(originalEntry.retrieval_outcomes.acknowledged_count).toBe(1);
+
+			// Appended entry should still exist
+			const appendedEntry = allEntries.find((e: any) => e.id === secondId);
+			expect(appendedEntry).toBeDefined();
+			expect(appendedEntry.id).toBe(secondId);
+		},
+	);
+});
+
+// ============================================================================
 // filterHighConfidenceKnowledge — unit tests
 // ============================================================================
 

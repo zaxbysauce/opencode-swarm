@@ -12,10 +12,9 @@ import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { warn } from '../utils/logger.js';
 import {
-	readKnowledge,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
-	rewriteKnowledge,
+	transactKnowledge,
 } from './knowledge-store.js';
 import type {
 	HiveKnowledgeEntry,
@@ -135,7 +134,7 @@ async function bumpCountersBatch(
 	const now = new Date().toISOString();
 	const applyOne = <T extends SwarmKnowledgeEntry | HiveKnowledgeEntry>(
 		entries: T[],
-	): boolean => {
+	): T[] | null => {
 		let updated = false;
 		for (const e of entries) {
 			const fields = idToFields.get(e.id);
@@ -152,17 +151,17 @@ async function bumpCountersBatch(
 				updated = true;
 			}
 		}
-		return updated;
+		return updated ? entries : null;
 	};
 
+	// Atomically bump counters in swarm knowledge (lock-before-read prevents TOCTOU)
 	const swarmPath = resolveSwarmKnowledgePath(directory);
-	const swarm = await readKnowledge<SwarmKnowledgeEntry>(swarmPath);
-	if (applyOne(swarm)) await rewriteKnowledge(swarmPath, swarm);
+	await transactKnowledge<SwarmKnowledgeEntry>(swarmPath, applyOne);
 
+	// Atomically bump counters in hive knowledge if it exists
 	const hivePath = resolveHiveKnowledgePath();
 	if (existsSync(hivePath)) {
-		const hive = await readKnowledge<HiveKnowledgeEntry>(hivePath);
-		if (applyOne(hive)) await rewriteKnowledge(hivePath, hive);
+		await transactKnowledge<HiveKnowledgeEntry>(hivePath, applyOne);
 	}
 }
 
