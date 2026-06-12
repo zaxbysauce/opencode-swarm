@@ -12,9 +12,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { executeWriteMutationEvidence } from './write-mutation-evidence.js';
 import { validateSwarmPath } from '../hooks/utils.js';
+import { executeWriteMutationEvidence } from './write-mutation-evidence.js';
 
 describe('write_mutation_evidence — real path validation (no mocks)', () => {
 	let tempDir: string;
@@ -38,7 +37,12 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 	test('evidence is written under .swarm/ with real validateSwarmPath', async () => {
 		const result = JSON.parse(
 			await executeWriteMutationEvidence(
-				{ phase: 1, verdict: 'PASS', summary: 'All mutants killed', killRate: 0.9 },
+				{
+					phase: 1,
+					verdict: 'PASS',
+					summary: 'All mutants killed',
+					killRate: 0.9,
+				},
 				tempDir,
 			),
 		);
@@ -63,7 +67,12 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 		for (const phase of [1, 2, 3]) {
 			const result = JSON.parse(
 				await executeWriteMutationEvidence(
-					{ phase, verdict: 'PASS', summary: `Phase ${phase} done`, killRate: 0.9 },
+					{
+						phase,
+						verdict: 'PASS',
+						summary: `Phase ${phase} done`,
+						killRate: 0.9,
+					},
 					tempDir,
 				),
 			);
@@ -71,7 +80,13 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 		}
 
 		for (const phase of [1, 2, 3]) {
-			const p = path.join(tempDir, '.swarm', 'evidence', String(phase), 'mutation-gate.json');
+			const p = path.join(
+				tempDir,
+				'.swarm',
+				'evidence',
+				String(phase),
+				'mutation-gate.json',
+			);
 			expect(fs.existsSync(p)).toBe(true);
 		}
 	});
@@ -79,27 +94,27 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 	// ─── validateSwarmPath security: path traversal ─────────────────────────
 
 	test('validateSwarmPath rejects ../ traversal', () => {
-		expect(() =>
-			validateSwarmPath(tempDir, '../../../etc/passwd'),
-		).toThrow('path traversal detected');
+		expect(() => validateSwarmPath(tempDir, '../../../etc/passwd')).toThrow(
+			'path traversal detected',
+		);
 	});
 
 	test('validateSwarmPath rejects ..\\ Windows traversal', () => {
-		expect(() =>
-			validateSwarmPath(tempDir, '..\\..\\secret'),
-		).toThrow('path traversal detected');
+		expect(() => validateSwarmPath(tempDir, '..\\..\\secret')).toThrow(
+			'path traversal detected',
+		);
 	});
 
 	test('validateSwarmPath rejects POSIX absolute path', () => {
-		expect(() =>
-			validateSwarmPath(tempDir, '/etc/passwd'),
-		).toThrow('path escapes .swarm directory');
+		expect(() => validateSwarmPath(tempDir, '/etc/passwd')).toThrow(
+			'path escapes .swarm directory',
+		);
 	});
 
 	test('validateSwarmPath rejects Windows absolute path (e.g. C:\\Windows)', () => {
-		expect(() =>
-			validateSwarmPath(tempDir, 'C:\\Windows\\secret.txt'),
-		).toThrow('path escapes .swarm directory');
+		expect(() => validateSwarmPath(tempDir, 'C:\\Windows\\secret.txt')).toThrow(
+			'path escapes .swarm directory',
+		);
 	});
 
 	test('validateSwarmPath rejects null bytes in filename', () => {
@@ -109,13 +124,24 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 	});
 
 	test('validateSwarmPath accepts a normal relative sub-path', () => {
-		const resolved = validateSwarmPath(tempDir, 'evidence/1/mutation-gate.json');
-		const expected = path.join(tempDir, '.swarm', 'evidence', '1', 'mutation-gate.json');
+		const resolved = validateSwarmPath(
+			tempDir,
+			'evidence/1/mutation-gate.json',
+		);
+		const expected = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'mutation-gate.json',
+		);
 		expect(resolved).toBe(expected);
 	});
 
 	test('validateSwarmPath confines resolved path inside .swarm/', () => {
 		const resolved = validateSwarmPath(tempDir, 'evidence/99/custom.json');
-		expect(resolved.startsWith(path.join(tempDir, '.swarm') + path.sep)).toBe(true);
+		expect(resolved.startsWith(path.join(tempDir, '.swarm') + path.sep)).toBe(
+			true,
+		);
 	});
 });

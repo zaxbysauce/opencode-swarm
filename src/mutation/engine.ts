@@ -213,15 +213,11 @@ export async function executeMutation(
 				safeTestFiles.length > 0
 					? [...testCommand.slice(1), ...safeTestFiles]
 					: testCommand.slice(1);
-			const spawnResult = _internals.spawnSync(
-				testCommand[0],
-				testArgs,
-				{
-					cwd: workingDir,
-					timeout: MUTATION_TIMEOUT_MS,
-					stdio: 'pipe',
-				},
-			);
+			const spawnResult = _internals.spawnSync(testCommand[0], testArgs, {
+				cwd: workingDir,
+				timeout: MUTATION_TIMEOUT_MS,
+				stdio: 'pipe',
+			});
 			if (spawnResult.error) {
 				if ((spawnResult.error as NodeJS.ErrnoException).code === 'ETIMEDOUT') {
 					outcome = 'timeout';

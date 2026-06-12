@@ -9,16 +9,16 @@
  *   - testCommand allowlist validation via executeMutationSuite
  */
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
+import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import * as fs from 'node:fs';
 
 import {
 	_internals,
+	ALLOWED_TEST_RUNNERS,
 	executeMutation,
 	executeMutationSuite,
 	type MutationPatch,
-	ALLOWED_TEST_RUNNERS,
 	validateTestCommand,
 } from '../../../src/mutation/engine.js';
 
@@ -48,19 +48,18 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 		);
 		savedSpawnSync = _internals.spawnSync;
 		mockSpawnSync.mockClear();
-		mockSpawnSync.mockImplementation(
-			(cmd: string, _args: string[]) => {
-				if (cmd === 'git') {
-					return { status: 0, stderr: Buffer.from(''), stdout: Buffer.from('') };
-				}
-				return {
-					status: 0,
-					stderr: Buffer.from(''),
-					stdout: Buffer.from('Tests passed'),
-				};
-			},
-		);
-		_internals.spawnSync = mockSpawnSync as unknown as typeof _internals.spawnSync;
+		mockSpawnSync.mockImplementation((cmd: string, _args: string[]) => {
+			if (cmd === 'git') {
+				return { status: 0, stderr: Buffer.from(''), stdout: Buffer.from('') };
+			}
+			return {
+				status: 0,
+				stderr: Buffer.from(''),
+				stdout: Buffer.from('Tests passed'),
+			};
+		});
+		_internals.spawnSync =
+			mockSpawnSync as unknown as typeof _internals.spawnSync;
 	});
 
 	afterEach(() => {
@@ -75,9 +74,7 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 	test('empty testFiles → only testCommand.slice(1) passed to spawnSync', async () => {
 		await executeMutation(makePatch(), ['bun', 'test'], [], tempDir);
 
-		const testCall = mockSpawnSync.mock.calls.find(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCall = mockSpawnSync.mock.calls.find(([cmd]) => cmd !== 'git');
 		expect(testCall).toBeDefined();
 		const [, args] = testCall!;
 		expect(args).toEqual(['test']);
@@ -91,9 +88,7 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 			tempDir,
 		);
 
-		const testCall = mockSpawnSync.mock.calls.find(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCall = mockSpawnSync.mock.calls.find(([cmd]) => cmd !== 'git');
 		expect(testCall).toBeDefined();
 		const [, args] = testCall!;
 		expect(args).toEqual(['test', 'src/foo.test.ts']);
@@ -107,9 +102,7 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 			tempDir,
 		);
 
-		const testCall = mockSpawnSync.mock.calls.find(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCall = mockSpawnSync.mock.calls.find(([cmd]) => cmd !== 'git');
 		expect(testCall).toBeDefined();
 		const [, args] = testCall!;
 		expect(args).toEqual(['test', 'src/foo.test.ts', 'src/bar.test.ts']);
@@ -123,9 +116,7 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 			tempDir,
 		);
 
-		const testCall = mockSpawnSync.mock.calls.find(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCall = mockSpawnSync.mock.calls.find(([cmd]) => cmd !== 'git');
 		expect(testCall).toBeDefined();
 		const [, args] = testCall!;
 		// Flag-like entries starting with '-' should be filtered out
@@ -141,9 +132,7 @@ describe('executeMutation — testFiles scoping (bug fix)', () => {
 			tempDir,
 		);
 
-		const testCall = mockSpawnSync.mock.calls.find(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCall = mockSpawnSync.mock.calls.find(([cmd]) => cmd !== 'git');
 		expect(testCall).toBeDefined();
 		const [, args] = testCall!;
 		expect(args).toEqual(['test', '--bail', 'src/foo.test.ts']);
@@ -160,19 +149,18 @@ describe('executeMutationSuite — testFiles scoping integration', () => {
 		);
 		savedSpawnSync = _internals.spawnSync;
 		mockSpawnSync.mockClear();
-		mockSpawnSync.mockImplementation(
-			(cmd: string, _args: string[]) => {
-				if (cmd === 'git') {
-					return { status: 0, stderr: Buffer.from(''), stdout: Buffer.from('') };
-				}
-				return {
-					status: 0,
-					stderr: Buffer.from(''),
-					stdout: Buffer.from('Tests passed'),
-				};
-			},
-		);
-		_internals.spawnSync = mockSpawnSync as unknown as typeof _internals.spawnSync;
+		mockSpawnSync.mockImplementation((cmd: string, _args: string[]) => {
+			if (cmd === 'git') {
+				return { status: 0, stderr: Buffer.from(''), stdout: Buffer.from('') };
+			}
+			return {
+				status: 0,
+				stderr: Buffer.from(''),
+				stdout: Buffer.from('Tests passed'),
+			};
+		});
+		_internals.spawnSync =
+			mockSpawnSync as unknown as typeof _internals.spawnSync;
 	});
 
 	afterEach(() => {
@@ -193,9 +181,7 @@ describe('executeMutationSuite — testFiles scoping integration', () => {
 		);
 
 		// At least one test call should have happened with the scoped file
-		const testCalls = mockSpawnSync.mock.calls.filter(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCalls = mockSpawnSync.mock.calls.filter(([cmd]) => cmd !== 'git');
 		expect(testCalls.length).toBeGreaterThan(0);
 
 		const testCallArgs = testCalls[0][1] as string[];
@@ -210,9 +196,7 @@ describe('executeMutationSuite — testFiles scoping integration', () => {
 			tempDir,
 		);
 
-		const testCalls = mockSpawnSync.mock.calls.filter(
-			([cmd]) => cmd !== 'git',
-		);
+		const testCalls = mockSpawnSync.mock.calls.filter(([cmd]) => cmd !== 'git');
 		expect(testCalls.length).toBeGreaterThan(0);
 
 		const testCallArgs = testCalls[0][1] as string[];
@@ -230,7 +214,9 @@ describe('validateTestCommand — allowlist', () => {
 
 	test('accepts full path to a known runner (basename check)', () => {
 		expect(validateTestCommand(['/usr/local/bin/bun', 'test'])).toBeNull();
-		expect(validateTestCommand(['/usr/bin/python3', '-m', 'pytest'])).toBeNull();
+		expect(
+			validateTestCommand(['/usr/bin/python3', '-m', 'pytest']),
+		).toBeNull();
 	});
 
 	test('accepts runner with .exe extension on Windows (basename strip)', () => {
