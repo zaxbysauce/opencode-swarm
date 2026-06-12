@@ -863,8 +863,12 @@ export async function autoApplyProposals(
 				result.rejected.push(proposal.slug);
 				try {
 					_internals.unlinkSync(proposal.path);
-				} catch {
-					/* best-effort cleanup */
+				} catch (delErr) {
+					// Surface the failure: the file remains on disk, so a silent
+					// catch would contradict the "deleting …" log above.
+					warn(
+						`[skill-generator] failed to delete rejected proposal ${proposal.path}: ${delErr instanceof Error ? delErr.message : String(delErr)}`,
+					);
 				}
 			} else {
 				// Ambiguous or malformed verdict: neither activate nor delete.

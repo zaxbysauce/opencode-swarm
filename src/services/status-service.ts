@@ -10,7 +10,7 @@ import {
 	type RecentEscalation,
 	readRecentEscalations,
 } from '../hooks/knowledge-escalator';
-import { readSwarmFileAsync } from '../hooks/utils';
+import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
 import {
 	hasActiveFullAuto,
@@ -224,10 +224,10 @@ export async function getStatusData(
 	// #1234 Part 3: surface learning-loop queue depths in /swarm status.
 	status.pendingProposals = await countProposals(directory);
 	status.unactionableQueueDepth = await safeLineCount(
-		path.join(directory, '.swarm', 'knowledge-unactionable.jsonl'),
+		validateSwarmPath(directory, 'knowledge-unactionable.jsonl'),
 	);
 	status.insightCandidatesPending = await safeLineCount(
-		path.join(directory, '.swarm', 'insight-candidates.jsonl'),
+		validateSwarmPath(directory, 'insight-candidates.jsonl'),
 	);
 
 	// Enrich with Lean Turbo data if active
@@ -472,7 +472,7 @@ async function safeLineCount(filePath: string): Promise<number> {
 
 async function countProposals(directory: string): Promise<number> {
 	try {
-		const proposalsDir = path.join(directory, '.swarm', 'skills', 'proposals');
+		const proposalsDir = validateSwarmPath(directory, 'skills/proposals');
 		if (!fsSync.existsSync(proposalsDir)) return 0;
 		const { readdir } = await import('node:fs/promises');
 		const entries = await readdir(proposalsDir);
