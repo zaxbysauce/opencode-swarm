@@ -22,7 +22,7 @@ function slugify(str: string): string {
 function sanitizeFilename(filename: string): string {
 	// Remove ASCII control characters (0x00–0x1F, 0x7F) and common quote chars
 	// that could be used to break out of the prompt context.
-	return filename.replace(/[\x00-\x1f\x7f"'`]/g, '_');
+	return filename.replace(/[\p{Cc}"'`]/gu, '_');
 }
 
 /**

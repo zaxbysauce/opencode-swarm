@@ -20,18 +20,23 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-
-import { computeReport, type MutationResult } from '../../../src/mutation/engine.js';
-import { evaluateMutationGate } from '../../../src/mutation/gate.js';
-import { executeWriteMutationEvidence } from '../../../src/tools/write-mutation-evidence.js';
 import { closeAllProjectDbs } from '../../../src/db/project-db.js';
-import { getOrCreateProfile, setGates } from '../../../src/db/qa-gate-profile.js';
+import {
+	getOrCreateProfile,
+	setGates,
+} from '../../../src/db/qa-gate-profile.js';
+import {
+	computeReport,
+	type MutationResult,
+} from '../../../src/mutation/engine.js';
+import { evaluateMutationGate } from '../../../src/mutation/gate.js';
 import {
 	ensureAgentSession,
 	recordPhaseAgentDispatch,
 	resetSwarmState,
 	swarmState,
 } from '../../../src/state.js';
+import { executeWriteMutationEvidence } from '../../../src/tools/write-mutation-evidence.js';
 
 const { phase_complete } = await import('../../../src/tools/phase-complete.js');
 
@@ -56,7 +61,9 @@ function setupSwarmDir(dir: string): void {
 				id: 1,
 				name: 'Phase 1',
 				status: 'pending',
-				tasks: [{ id: '1.1', phase: 1, status: 'pending', description: 'Test task' }],
+				tasks: [
+					{ id: '1.1', phase: 1, status: 'pending', description: 'Test task' },
+				],
 			},
 		],
 	};
@@ -142,7 +149,10 @@ function writeDriftEvidence(
 /**
  * Build a MutationReport with a controlled kill count out of `total`.
  */
-function buildReport(killed: number, total: number): ReturnType<typeof computeReport> {
+function buildReport(
+	killed: number,
+	total: number,
+): ReturnType<typeof computeReport> {
 	const results: MutationResult[] = [];
 	for (let i = 0; i < killed; i++) {
 		results.push({
@@ -231,7 +241,13 @@ describe('mutation gate pipeline — E2E integration', () => {
 		expect(evResult.verdict).toBe('pass');
 
 		// Step 3: Confirm the file exists and has the right shape
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1', 'mutation-gate.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'mutation-gate.json',
+		);
 		expect(fs.existsSync(evidencePath)).toBe(true);
 		const raw = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));
 		expect(raw.entries[0].type).toBe('mutation-gate');
@@ -286,7 +302,9 @@ describe('mutation gate pipeline — E2E integration', () => {
 				killRate: gate.killRate,
 				adjustedKillRate: gate.adjustedKillRate,
 				summary: gate.message,
-				survivedMutants: JSON.stringify(gate.survivedMutants.map((m) => m.patchId)),
+				survivedMutants: JSON.stringify(
+					gate.survivedMutants.map((m) => m.patchId),
+				),
 			},
 			tempDir,
 		);
@@ -368,12 +386,18 @@ describe('mutation gate pipeline — E2E integration', () => {
 		);
 
 		// These are the exact fields phase_complete / mutation-gate.ts reads
-		const evidencePath = path.join(tempDir, '.swarm', 'evidence', '1', 'mutation-gate.json');
+		const evidencePath = path.join(
+			tempDir,
+			'.swarm',
+			'evidence',
+			'1',
+			'mutation-gate.json',
+		);
 		const content = JSON.parse(fs.readFileSync(evidencePath, 'utf-8'));
 
 		expect(content.entries).toHaveLength(1);
-		expect(content.entries[0].type).toBe('mutation-gate');    // exact string match required
-		expect(content.entries[0].verdict).toBe('pass');           // lowercase normalized verdict
+		expect(content.entries[0].type).toBe('mutation-gate'); // exact string match required
+		expect(content.entries[0].verdict).toBe('pass'); // lowercase normalized verdict
 		expect(content.entries[0].killRate).toBe(0.9);
 		expect(content.entries[0].adjustedKillRate).toBe(0.92);
 		expect(typeof content.entries[0].timestamp).toBe('string');
