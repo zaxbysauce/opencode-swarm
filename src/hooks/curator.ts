@@ -45,10 +45,10 @@ import {
 	retireSkill,
 } from '../services/skill-generator.js';
 import {
-	reviseSkill,
 	getSkillVersion,
-	REVISION_VIOLATION_THRESHOLD,
 	MAX_REVISION_CALLS_PER_PHASE,
+	REVISION_VIOLATION_THRESHOLD,
+	reviseSkill,
 	type ViolationContext,
 } from '../services/skill-reviser.js';
 import { swarmState } from '../state.js';
@@ -1300,7 +1300,7 @@ export async function runCuratorPhase(
 							timestamp: e.timestamp,
 						}));
 
-					const result = await reviseSkill({
+					const result = await _internals.reviseSkill({
 						directory,
 						slug: active.slug,
 						skillPath: active.path,

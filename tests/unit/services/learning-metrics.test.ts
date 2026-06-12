@@ -166,7 +166,7 @@ describe('learning-metrics', () => {
 			expect(m.violationTrends).toEqual([]);
 			expect(m.overallViolationRate).toEqual({ window7d: 0, window30d: 0 });
 			expect(m.applicationRateByPriority).toEqual({});
-			expect(m.timeToFirstApplication).toEqual([]);
+			expect(m.timeToLatestApplication).toEqual([]);
 			expect(m.escalationFrequency).toEqual({
 				total: 0,
 				last7d: 0,
@@ -341,9 +341,9 @@ describe('learning-metrics', () => {
 			seedKnowledge(tmp, [entry]);
 
 			const m = await computeLearningMetrics(tmp, { now: NOW });
-			expect(m.timeToFirstApplication.length).toBe(1);
-			expect(m.timeToFirstApplication[0].entryId).toBe('e1');
-			expect(m.timeToFirstApplication[0].daysToApply).toBeCloseTo(5, 0);
+			expect(m.timeToLatestApplication.length).toBe(1);
+			expect(m.timeToLatestApplication[0].entryId).toBe('e1');
+			expect(m.timeToLatestApplication[0].daysToApply).toBeCloseTo(5, 0);
 		});
 
 		it('returns null daysToApply for entries never applied', async () => {
@@ -354,8 +354,8 @@ describe('learning-metrics', () => {
 			seedKnowledge(tmp, [entry]);
 
 			const m = await computeLearningMetrics(tmp, { now: NOW });
-			expect(m.timeToFirstApplication.length).toBe(1);
-			expect(m.timeToFirstApplication[0].daysToApply).toBeNull();
+			expect(m.timeToLatestApplication.length).toBe(1);
+			expect(m.timeToLatestApplication[0].daysToApply).toBeNull();
 		});
 	});
 

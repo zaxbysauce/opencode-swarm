@@ -1,4 +1,3 @@
-import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { warn } from '../utils/logger.js';
@@ -18,9 +17,9 @@ export function resolveSkillChangelogPath(
 	directory: string,
 	slug: string,
 ): string {
-	if (slug.includes('..') || slug.includes('/')) {
+	if (slug.includes('..') || slug.includes('/') || slug.includes('\\')) {
 		throw new Error(
-			`Invalid skill slug: ${slug} — must not contain ".." or "/"`,
+			`Invalid skill slug: ${slug} — must not contain "..", "/" or "\\"`,
 		);
 	}
 	return path.join(directory, '.swarm', 'skill-changelogs', `${slug}.jsonl`);
@@ -59,8 +58,13 @@ export async function readSkillChangelog(
 	slug: string,
 ): Promise<SkillChangelogEntry[]> {
 	const filePath = resolveSkillChangelogPath(directory, slug);
-	if (!existsSync(filePath)) return [];
-	const content = await readFile(filePath, 'utf-8');
+	let content: string;
+	try {
+		content = await readFile(filePath, 'utf-8');
+	} catch (err: unknown) {
+		if ((err as NodeJS.ErrnoException).code === 'ENOENT') return [];
+		throw err;
+	}
 	const out: SkillChangelogEntry[] = [];
 	for (const line of content.split('\n')) {
 		const trimmed = line.trim();

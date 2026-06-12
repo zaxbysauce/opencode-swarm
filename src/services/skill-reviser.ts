@@ -12,12 +12,12 @@
  */
 
 import { readFile, rename, writeFile } from 'node:fs/promises';
-import { warn } from '../utils/logger.js';
-import { appendSkillChangelog } from './skill-changelog.js';
-import { releaseQuota, reserveQuota } from './skill-improver-quota.js';
-import type { SkillChangelogEntry } from './skill-changelog.js';
-import type { QuotaWindow } from './skill-improver-quota.js';
 import type { SkillImproverLLMDelegate } from '../hooks/skill-improver-llm-factory.js';
+import { warn } from '../utils/logger.js';
+import type { SkillChangelogEntry } from './skill-changelog.js';
+import { appendSkillChangelog } from './skill-changelog.js';
+import type { QuotaWindow } from './skill-improver-quota.js';
+import { releaseQuota, reserveQuota } from './skill-improver-quota.js';
 
 export const REVISION_VIOLATION_THRESHOLD = 0.15;
 export const MAX_REVISION_CALLS_PER_PHASE = 3;
@@ -46,6 +46,7 @@ export interface ReviseSkillParams {
 	violationContexts: ViolationContext[];
 	currentContent: string;
 	currentVersion: number;
+	maxCalls?: number;
 	quotaWindow?: QuotaWindow;
 	delegate?: SkillImproverLLMDelegate;
 	now?: Date;
@@ -117,7 +118,7 @@ export function buildDeterministicRevision(
 			result.slice(sourceKnowledgeIdx);
 	} else {
 		// Append at end if no Source Knowledge IDs section exists
-		result = result.trimEnd() + '\n\n' + revisionSection;
+		result = `${result.trimEnd()}\n\n${revisionSection}`;
 	}
 
 	return result;
@@ -204,7 +205,17 @@ export async function reviseSkill(
 					agent: v.agent,
 				})),
 			};
-			await appendSkillChangelog(params.directory, params.slug, entry);
+			try {
+				await appendSkillChangelog(params.directory, params.slug, entry);
+			} catch (changelogErr) {
+				warn(
+					`[skill-reviser] changelog append failed (non-fatal) for ${params.slug}: ${
+						changelogErr instanceof Error
+							? changelogErr.message
+							: String(changelogErr)
+					}`,
+				);
+			}
 
 			return {
 				revised: true,
@@ -228,7 +239,7 @@ export async function reviseSkill(
 
 	// LLM-based revision path
 	const quotaOpts = {
-		maxCalls: DEFAULT_MAX_CALLS,
+		maxCalls: params.maxCalls ?? DEFAULT_MAX_CALLS,
 		window: params.quotaWindow ?? ('utc' as const),
 		now: params.now,
 		nCalls: 1,
@@ -276,7 +287,7 @@ export async function reviseSkill(
 		}
 
 		const tmpPath = `${params.skillPath}.tmp-${process.pid}-${Date.now()}`;
-		await writeFile(tmpPath, finalOutput + '\n', 'utf-8');
+		await writeFile(tmpPath, `${finalOutput}\n`, 'utf-8');
 		await rename(tmpPath, params.skillPath);
 
 		const newVersion = expectedVersion;
@@ -291,7 +302,17 @@ export async function reviseSkill(
 				agent: v.agent,
 			})),
 		};
-		await appendSkillChangelog(params.directory, params.slug, entry);
+		try {
+			await appendSkillChangelog(params.directory, params.slug, entry);
+		} catch (changelogErr) {
+			warn(
+				`[skill-reviser] changelog append failed (non-fatal) for ${params.slug}: ${
+					changelogErr instanceof Error
+						? changelogErr.message
+						: String(changelogErr)
+				}`,
+			);
+		}
 
 		return {
 			revised: true,

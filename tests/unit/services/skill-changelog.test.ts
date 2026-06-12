@@ -64,6 +64,12 @@ describe('skill-changelog', () => {
 				/must not contain/,
 			);
 		});
+
+		it('throws on slug containing "\\"', () => {
+			expect(() => resolveSkillChangelogPath(tmp, 'foo\\bar')).toThrow(
+				/must not contain/,
+			);
+		});
 	});
 
 	// ── Append + Read roundtrip ───────────────────────────────────────

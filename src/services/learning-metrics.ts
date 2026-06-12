@@ -1,15 +1,15 @@
+import { readRecentEscalations } from '../hooks/knowledge-escalator.js';
 import {
-	readKnowledgeEvents,
-	recomputeCounters,
 	type CounterRollup,
 	type KnowledgeEvent,
+	readKnowledgeEvents,
+	recomputeCounters,
 } from '../hooks/knowledge-events.js';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
 } from '../hooks/knowledge-store.js';
 import type { SwarmKnowledgeEntry } from '../hooks/knowledge-types.js';
-import { readRecentEscalations } from '../hooks/knowledge-escalator.js';
 
 export interface LearningMetrics {
 	violationTrends: ViolationTrend[];
@@ -18,7 +18,7 @@ export interface LearningMetrics {
 		string,
 		{ applied: number; total: number; rate: number }
 	>;
-	timeToFirstApplication: TimeToApply[];
+	timeToLatestApplication: TimeToApply[];
 	escalationFrequency: { total: number; last7d: number; last30d: number };
 	unacknowledgedCriticalCount: number;
 	entryROI: EntryROI[];
@@ -70,7 +70,7 @@ function safeDivide(numerator: number, denominator: number): number {
 
 function truncateLesson(lesson: string): string {
 	if (lesson.length <= MAX_LESSON_DISPLAY_CHARS) return lesson;
-	return lesson.slice(0, MAX_LESSON_DISPLAY_CHARS - 3) + '...';
+	return `${lesson.slice(0, MAX_LESSON_DISPLAY_CHARS - 3)}...`;
 }
 
 function isReceiptType(
@@ -242,7 +242,7 @@ export async function computeLearningMetrics(
 	}
 
 	// Time to first application
-	const timeToFirstApplication: TimeToApply[] = [];
+	const timeToLatestApplication: TimeToApply[] = [];
 	for (const entry of entries) {
 		const rollup = rollups.get(entry.id);
 		let daysToApply: number | null = null;
@@ -257,7 +257,7 @@ export async function computeLearningMetrics(
 				daysToApply = (appliedMs - createdMs) / MS_PER_DAY;
 			}
 		}
-		timeToFirstApplication.push({
+		timeToLatestApplication.push({
 			entryId: entry.id,
 			lesson: entry.lesson,
 			daysToApply,
@@ -349,7 +349,7 @@ export async function computeLearningMetrics(
 		violationTrends,
 		overallViolationRate,
 		applicationRateByPriority,
-		timeToFirstApplication,
+		timeToLatestApplication,
 		escalationFrequency,
 		unacknowledgedCriticalCount,
 		entryROI,
@@ -364,7 +364,7 @@ function emptyMetrics(): LearningMetrics {
 		violationTrends: [],
 		overallViolationRate: { window7d: 0, window30d: 0 },
 		applicationRateByPriority: {},
-		timeToFirstApplication: [],
+		timeToLatestApplication: [],
 		escalationFrequency: { total: 0, last7d: 0, last30d: 0 },
 		unacknowledgedCriticalCount: 0,
 		entryROI: [],
@@ -514,7 +514,7 @@ export function formatLearningMarkdown(metrics: LearningMetrics): string {
 
 	// Time to First Application
 	lines.push('## Time to First Application', '');
-	const applied = metrics.timeToFirstApplication
+	const applied = metrics.timeToLatestApplication
 		.filter((t) => t.daysToApply !== null)
 		.map((t) => t.daysToApply as number);
 	if (applied.length === 0) {

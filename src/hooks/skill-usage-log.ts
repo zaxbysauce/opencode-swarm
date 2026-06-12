@@ -336,7 +336,7 @@ export function computeComplianceByVersion(
 	skillPath: string,
 ): Map<number | undefined, VersionComplianceStats> {
 	const map = new Map<number | undefined, VersionComplianceStats>();
-	const normalizedTarget = skillPath.replace(/\\/g, '/');
+	const normalizedTarget = skillPath.replace(/^file:/, '').replace(/\\/g, '/');
 
 	for (const e of entries) {
 		let p = e.skillPath;
