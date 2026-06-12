@@ -35,6 +35,7 @@ export interface MigrationResult {
 	entriesMigrated: number;
 	entriesDropped: number;
 	entriesTotal: number;
+	entryErrors?: string[];
 	skippedReason?:
 		| 'sentinel-exists'
 		| 'no-context-file'
@@ -76,6 +77,7 @@ interface Section {
 // ============================================================================
 
 export const _internals = {
+	appendKnowledge,
 	migrateContextToKnowledge,
 	migrateKnowledgeToExternal,
 	migrateHiveKnowledgeLegacy,
@@ -284,9 +286,8 @@ export async function migrateHiveKnowledgeLegacy(
 	}
 
 	// Read legacy entries
-	const legacyEntries = await readKnowledge<Record<string, unknown>>(
-		legacyHivePath,
-	);
+	const legacyEntries =
+		await readKnowledge<Record<string, unknown>>(legacyHivePath);
 
 	if (legacyEntries.length === 0) {
 		await _internals.writeSentinel(sentinelPath, 0, 0);
@@ -299,73 +300,121 @@ export async function migrateHiveKnowledgeLegacy(
 	}
 
 	// Read existing canonical hive entries for deduplication
-	const existingHiveEntries = await readKnowledge<HiveKnowledgeEntry>(
-		canonicalHivePath,
-	);
+	const existingHiveEntries =
+		await readKnowledge<HiveKnowledgeEntry>(canonicalHivePath);
 
 	let migrated = 0;
 	let dropped = 0;
+	const entryErrors: string[] = [];
 
 	// Process each legacy entry
 	for (const legacyEntry of legacyEntries) {
-		const lesson = (legacyEntry as Record<string, unknown>).lesson as string;
-		if (!lesson || typeof lesson !== 'string' || lesson.length < 15) {
+		try {
+			const lesson = (legacyEntry as Record<string, unknown>).lesson as string;
+			if (!lesson || typeof lesson !== 'string' || lesson.length < 15) {
+				dropped++;
+				continue;
+			}
+
+			// Check for near-duplicate against existing hive entries
+			const dup = findNearDuplicate(
+				lesson,
+				existingHiveEntries,
+				config.dedup_threshold ?? 0.6,
+			);
+			if (dup) {
+				dropped++;
+				continue;
+			}
+
+			// Validate lesson
+			const category =
+				((legacyEntry as Record<string, unknown>).category as string) ||
+				'process';
+			const validationResult = validateLesson(
+				lesson,
+				existingHiveEntries.map((e) => e.lesson),
+				{
+					category: category as KnowledgeCategory,
+					scope: 'global',
+					confidence: 0.3,
+				},
+			);
+			if (!validationResult.valid) {
+				const errorMsg = `Validation failed for legacy entry: ${validationResult.reason}`;
+				entryErrors.push(errorMsg);
+				logger.warn(`[knowledge-migrator] ${errorMsg}`);
+				dropped++;
+				continue;
+			}
+
+			// Convert legacy entry to HiveKnowledgeEntry format
+			const confidence =
+				((legacyEntry as Record<string, unknown>).confidence as
+					| number
+					| null
+					| undefined) ?? 0.8;
+			const scopeTag =
+				((legacyEntry as Record<string, unknown>).scope_tag as string) ||
+				'global';
+
+			// ID collision check: if legacy ID already exists in canonical store, generate new UUID
+			const legacyId = (legacyEntry as Record<string, unknown>).id as
+				| string
+				| undefined;
+			const existingIds = new Set(existingHiveEntries.map((e) => e.id));
+			const resolvedId =
+				legacyId && existingIds.has(legacyId)
+					? randomUUID()
+					: legacyId || randomUUID();
+			if (legacyId && existingIds.has(legacyId)) {
+				logger.warn(
+					`[knowledge-migrator] Legacy entry ID collision for "${legacyId}", generating new UUID`,
+				);
+			}
+
+			const newHiveEntry: HiveKnowledgeEntry = {
+				id: resolvedId,
+				tier: 'hive',
+				lesson: _internals.truncateLesson(lesson),
+				category: category as KnowledgeCategory,
+				tags: ['migration:legacy-hive'],
+				scope: scopeTag,
+				confidence: Math.min(Math.max(confidence, 0), 1),
+				status: 'established',
+				confirmed_by: [],
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: KNOWLEDGE_SCHEMA_VERSION,
+				created_at:
+					((legacyEntry as Record<string, unknown>).created_at as string) ||
+					new Date().toISOString(),
+				updated_at:
+					((legacyEntry as Record<string, unknown>).updated_at as string) ||
+					new Date().toISOString(),
+				source_project: 'legacy-promotion',
+				encounter_score: 1.0,
+			};
+
+			try {
+				await _internals.appendKnowledge(canonicalHivePath, newHiveEntry);
+				existingHiveEntries.push(newHiveEntry);
+				migrated++;
+			} catch (appendError) {
+				const errorMsg = `Failed to append entry: ${appendError instanceof Error ? appendError.message : String(appendError)}`;
+				entryErrors.push(errorMsg);
+				logger.warn(`[knowledge-migrator] ${errorMsg}`);
+				dropped++;
+			}
+		} catch (entryError) {
+			const errorMsg = `Unexpected error processing legacy entry: ${entryError instanceof Error ? entryError.message : String(entryError)}`;
+			entryErrors.push(errorMsg);
+			logger.warn(`[knowledge-migrator] ${errorMsg}`);
 			dropped++;
-			continue;
 		}
-
-		// Check for near-duplicate against existing hive entries
-		const dup = findNearDuplicate(
-			lesson,
-			existingHiveEntries,
-			config.dedup_threshold ?? 0.6,
-		);
-		if (dup) {
-			dropped++;
-			continue;
-		}
-
-		// Convert legacy entry to HiveKnowledgeEntry format
-		const category = (
-			(legacyEntry as Record<string, unknown>).category as string
-		) || 'process';
-		const confidence =
-			((legacyEntry as Record<string, unknown>).confidence as number) ||
-			0.8;
-		const scopeTag = (
-			(legacyEntry as Record<string, unknown>).scope_tag as string
-		) || 'global';
-
-		const newHiveEntry: HiveKnowledgeEntry = {
-			id: (legacyEntry as Record<string, unknown>).id as string ||
-				randomUUID(),
-			tier: 'hive',
-			lesson: _internals.truncateLesson(lesson),
-			category: (category as KnowledgeCategory) || 'process',
-			tags: ['migration:legacy-hive'],
-			scope: scopeTag,
-			confidence: Math.min(Math.max(confidence, 0), 1),
-			status: 'established',
-			confirmed_by: [],
-			retrieval_outcomes: {
-				applied_count: 0,
-				succeeded_after_count: 0,
-				failed_after_count: 0,
-			},
-			schema_version: KNOWLEDGE_SCHEMA_VERSION,
-			created_at: (
-				(legacyEntry as Record<string, unknown>).created_at as string
-			) || new Date().toISOString(),
-			updated_at: (
-				(legacyEntry as Record<string, unknown>).updated_at as string
-			) || new Date().toISOString(),
-			source_project: 'legacy-promotion',
-			encounter_score: 1.0,
-		};
-
-		await appendKnowledge(canonicalHivePath, newHiveEntry);
-		existingHiveEntries.push(newHiveEntry);
-		migrated++;
 	}
 
 	// Write sentinel file
@@ -381,6 +430,7 @@ export async function migrateHiveKnowledgeLegacy(
 		entriesMigrated: migrated,
 		entriesDropped: dropped,
 		entriesTotal: legacyEntries.length,
+		...(entryErrors.length > 0 && { entryErrors }),
 	};
 }
 
@@ -573,8 +623,7 @@ function resolveLegacyHiveKnowledgePath(): string {
 
 	if (platform === 'win32') {
 		dataDir = path.join(
-			process.env.LOCALAPPDATA ||
-				path.join(home, 'AppData', 'Local'),
+			process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'),
 			'opencode-swarm',
 			'Data',
 		);
@@ -594,4 +643,3 @@ function resolveLegacyHiveKnowledgePath(): string {
 
 	return path.join(dataDir, 'hive-knowledge.jsonl');
 }
-

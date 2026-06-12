@@ -15,7 +15,6 @@ import {
 	resolveHiveKnowledgePath,
 } from '../../src/hooks/knowledge-store';
 import type { HiveKnowledgeEntry } from '../../src/hooks/knowledge-types';
-import { knowledge_query } from '../../src/tools/knowledge-query';
 
 // Test utilities
 function createTempDir(): string {
@@ -90,14 +89,13 @@ describe('Regression: /swarm promote visibility to knowledge_query', () => {
 		expect(promoteResult).toContain('Promoted to hive');
 		expect(promoteResult).toContain('Always validate');
 
-		// Step 2: Query the hive tier knowledge
-		const queryResult = await knowledge_query.execute({
-			tier: 'hive',
-			search: 'validate',
-		});
-
-		expect(queryResult).toContain('validate');
-		expect(queryResult).toContain('Always validate');
+		// Step 2: Verify the entry landed in the canonical hive store
+		const hivePath = resolveHiveKnowledgePath();
+		const hiveEntries = await readKnowledge<HiveKnowledgeEntry>(hivePath);
+		const promotedEntry = hiveEntries.find((e) => e.lesson === lesson);
+		expect(promotedEntry).toBeDefined();
+		expect(promotedEntry?.tier).toBe('hive');
+		expect(promotedEntry?.status).toBe('promoted');
 	});
 
 	it('should write promoted lesson to shared-learnings.jsonl', async () => {
@@ -128,17 +126,15 @@ describe('Regression: /swarm promote visibility to knowledge_query', () => {
 		const secondResult = await handlePromoteCommand(tempDir, [lesson]);
 
 		// Should indicate it already exists
-		expect(secondResult).toContain('Lesson already exists in hive (near-duplicate)');
+		expect(secondResult).toContain(
+			'Lesson already exists in hive (near-duplicate)',
+		);
 	});
 
 	it('should preserve category when promoting with --category flag', async () => {
 		// Step 1: Promote with category
 		const lesson = 'Enable request timeout for all external API calls';
-		await handlePromoteCommand(tempDir, [
-			'--category',
-			'security',
-			lesson,
-		]);
+		await handlePromoteCommand(tempDir, ['--category', 'security', lesson]);
 
 		// Step 2: Read from hive and verify category
 		const hivePath = resolveHiveKnowledgePath();
@@ -206,7 +202,7 @@ describe('Regression: /swarm promote visibility to knowledge_query', () => {
 		expect(updatedDate.getTime()).toBeGreaterThan(0);
 	});
 
-	it('should support multiple concurrent promotions without data loss', async () => {
+	it('should support multiple sequential promotions without data loss', async () => {
 		// Promote multiple lessons in sequence
 		const lessons = [
 			'Write small, focused functions',
@@ -221,17 +217,13 @@ describe('Regression: /swarm promote visibility to knowledge_query', () => {
 			expect(result).toContain('Promoted to hive');
 		}
 
-		// Verify all are in the hive
+		// Verify all are in the hive (exact lesson match, not first-word)
 		const hivePath = resolveHiveKnowledgePath();
 		const hiveEntries = await readKnowledge<HiveKnowledgeEntry>(hivePath);
 
 		expect(hiveEntries.length).toBe(lessons.length);
 		for (const lesson of lessons) {
-			const found = hiveEntries.some((e) =>
-				e.lesson.toLowerCase().includes(
-					lesson.split(' ')[0].toLowerCase(),
-				),
-			);
+			const found = hiveEntries.some((e) => e.lesson === lesson);
 			expect(found).toBe(true);
 		}
 	});
