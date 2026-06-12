@@ -378,9 +378,17 @@ export async function gatherSuccessMotifs(
 	}
 }
 
+/**
+ * Deterministic slug for a success-motif workflow proposal. Single source of
+ * truth so the proposal frontmatter and the on-disk filename always agree.
+ */
+function workflowSlug(signature: string): string {
+	return `workflow-${slugify(signature.slice(0, 48))}`;
+}
+
 export function buildWorkflowProposal(motif: SuccessMotif): string {
 	const seqStr = motif.sequence.map((s) => s.tool).join(' → ');
-	const slug = `workflow-${slugify(motif.signature.slice(0, 48))}`;
+	const slug = workflowSlug(motif.signature);
 	const lines = [
 		'---',
 		`slug: ${slug}`,
@@ -440,7 +448,7 @@ export async function writeSuccessMotifProposals(
 		);
 		await mkdir(proposalsDir, { recursive: true });
 		for (const motif of motifs.slice(0, max)) {
-			const slug = `workflow-${slugify(motif.signature.slice(0, 48))}`;
+			const slug = workflowSlug(motif.signature);
 			const filePath = path.join(proposalsDir, `${slug}.md`);
 			await writeFile(filePath, buildWorkflowProposal(motif), 'utf-8');
 			result.proposalsWritten.push(filePath);
