@@ -105,6 +105,12 @@ import { createMemoryLifecycleHooks } from './memory';
 import { createPrmHook } from './prm';
 import { createCompactionService } from './services/compaction-service';
 import { shouldRunOnStartup } from './services/config-doctor';
+import {
+	createInjectionBudgetPool,
+	DEFAULT_ARCHITECT_SOURCES,
+	DEFAULT_DELEGATE_SOURCES,
+	type InjectionBudgetPool,
+} from './services/injection-budget.js';
 import { scheduleVersionCheck } from './services/version-check.js';
 import { loadSnapshot } from './session/snapshot-reader.js';
 import { createSnapshotWriterHook } from './session/snapshot-writer.js';
@@ -1360,6 +1366,20 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				ccCommandInterceptHook?.messagesTransform,
 				delegationGateHooks.messagesTransform,
 				delegationSanitizerHook,
+				// WP5: create architect injection budget pool before memory/knowledge hooks draw from it
+				(input: unknown, _output: unknown): Promise<void> => {
+					const p = input as { sessionID?: string };
+					if (!p.sessionID) return Promise.resolve();
+					const injBudgetCfg = config.context_budget?.injection_budget;
+					if (injBudgetCfg?.enabled === false) return Promise.resolve();
+					const totalChars = injBudgetCfg?.architect_pool_chars ?? 3_000;
+					const pool = createInjectionBudgetPool(
+						totalChars,
+						DEFAULT_ARCHITECT_SOURCES,
+					);
+					swarmState.architectInjectionPools.set(p.sessionID, pool);
+					return Promise.resolve();
+				},
 				memoryLifecycleHooks.messagesTransform,
 				knowledgeInjectorHook, // v6.17 knowledge injection
 				// v2: scan latest architect-authored message for KNOWLEDGE_APPLIED
@@ -1519,6 +1539,19 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 				}
 			}
 
+			// WP5: create delegate injection budget pool before directive/skill injection
+			if (input.sessionID) {
+				const injBudgetCfg = config.context_budget?.injection_budget;
+				if (injBudgetCfg?.enabled !== false) {
+					const totalChars = injBudgetCfg?.delegate_pool_chars ?? 4_000;
+					const pool = createInjectionBudgetPool(
+						totalChars,
+						DEFAULT_DELEGATE_SOURCES,
+					);
+					swarmState.delegateInjectionPools.set(input.sessionID, pool);
+				}
+			}
+
 			// ---------------------------------------------------------------
 			// FAIL-CLOSED CHAIN — DO NOT wrap any of the calls below in
 			// safeHook() or composeHandlers(). Both helpers swallow throws,
@@ -1653,7 +1686,23 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 									})
 									.join(', ');
 
-								const skillsLine = `SKILLS: ${skillPaths}`;
+								let skillsLine = `SKILLS: ${skillPaths}`;
+
+								// WP5: cap skill injection via delegate pool
+								const skillPool = input.sessionID
+									? (swarmState.delegateInjectionPools.get(input.sessionID) as
+											| InjectionBudgetPool
+											| undefined)
+									: undefined;
+								if (skillPool) {
+									const allowed = skillPool.allocate(
+										'skill_recommendations',
+										skillsLine.length,
+									);
+									if (allowed < skillsLine.length) {
+										skillsLine = skillsLine.slice(0, allowed);
+									}
+								}
 
 								// Inject at the beginning of the prompt
 								const newPrompt = `${skillsLine}\n\n${promptRaw}`;

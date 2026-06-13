@@ -290,6 +290,14 @@ export const ContextBudgetConfigSchema = z.object({
 	recent_window: z.number().min(1).max(100).default(10),
 	enforce_on_agent_switch: z.boolean().default(true),
 	tool_output_mask_threshold: z.number().min(100).max(100000).default(2000),
+	injection_budget: z
+		.object({
+			enabled: z.boolean().default(true),
+			architect_pool_chars: z.number().min(500).max(20_000).default(3_000),
+			delegate_pool_chars: z.number().min(500).max(20_000).default(4_000),
+			source_shares: z.record(z.string(), z.number().min(0).max(1)).optional(),
+		})
+		.optional(),
 });
 
 export type ContextBudgetConfig = z.infer<typeof ContextBudgetConfigSchema>;

@@ -10,7 +10,11 @@ import { createHash } from 'node:crypto';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { getCurrentTaskId, loadPlan } from '../plan/manager.js';
 import { getRunMemorySummary } from '../services/run-memory.js';
-import { clearCriticalShownIds, setCriticalShownIds } from '../state.js';
+import {
+	clearCriticalShownIds,
+	setCriticalShownIds,
+	swarmState,
+} from '../state.js';
 import { warn } from '../utils/logger.js';
 import { sanitizeContextText } from './context-sanitizer.js';
 import {
@@ -637,12 +641,28 @@ export function createKnowledgeInjectorHook(
 
 			// Three-regime injection budget (maps to BACM high/moderate/low budget regimes)
 			const maxInjectChars = config.inject_char_budget ?? 2_000;
-			const effectiveBudget =
+			let effectiveBudget =
 				headroomChars >= MODEL_LIMIT_CHARS * 0.6
 					? maxInjectChars // high: >60% remaining — full budget
 					: headroomChars >= MODEL_LIMIT_CHARS * 0.2
 						? Math.floor(maxInjectChars * 0.5) // moderate: 20–60% — half budget
 						: Math.floor(maxInjectChars * 0.25); // low: 5–20% — quarter budget
+
+			// WP5: If a unified injection pool exists, draw from it instead.
+			const poolSessionID = output.messages?.find(
+				(m) => m.info?.role === 'system',
+			)?.info?.sessionID;
+			const injPool = poolSessionID
+				? (swarmState.architectInjectionPools.get(poolSessionID) as
+						| import('../services/injection-budget.js').InjectionBudgetPool
+						| undefined)
+				: undefined;
+			if (injPool) {
+				effectiveBudget = injPool.allocate(
+					'knowledge_directives',
+					effectiveBudget,
+				);
+			}
 
 			// Agent check — architects go through the orchestrator path below;
 			// delegated subagents go through the per-agent directive path; all
@@ -758,10 +778,13 @@ export function createKnowledgeInjectorHook(
 					'curator-briefing.md',
 				);
 				if (briefingContent) {
-					// Sanitize and truncate to stay within token budget (same 500 char limit as drift)
+					// Sanitize and truncate — pool-aware when unified budget is active
+					const briefingCap = injPool
+						? injPool.allocate('curator_briefing', 500)
+						: 500;
 					const truncatedBriefing = sanitizeContextText(briefingContent).slice(
 						0,
-						500,
+						briefingCap,
 					);
 					freshPreamble = freshPreamble
 						? `<curator_briefing>${truncatedBriefing}</curator_briefing>\n\n${freshPreamble}`

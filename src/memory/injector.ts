@@ -95,6 +95,22 @@ async function injectIntoMessages(
 		appendRunLog: internals.appendRunLog,
 	});
 	if (!result || result.bundle.items.length === 0) return;
+
+	// WP5: If a unified injection pool exists, cap the recall block.
+	let promptBlock = result.bundle.promptBlock;
+	const { swarmState } = await import('../state.js');
+	const injPool = sessionID
+		? (swarmState.architectInjectionPools.get(sessionID) as
+				| import('../services/injection-budget.js').InjectionBudgetPool
+				| undefined)
+		: undefined;
+	if (injPool) {
+		const allowed = injPool.allocate('memory_recall', promptBlock.length);
+		if (allowed < promptBlock.length) {
+			promptBlock = promptBlock.slice(0, allowed);
+		}
+	}
+
 	const insertAt = recallMessageInsertIndex(messages);
 	const recallMessage: MessageWithParts = {
 		info: {
@@ -102,7 +118,7 @@ async function injectIntoMessages(
 			agent: agentRole,
 			sessionID,
 		},
-		parts: [{ type: 'text', text: result.bundle.promptBlock }],
+		parts: [{ type: 'text', text: promptBlock }],
 	};
 	messages.splice(insertAt, 0, recallMessage);
 	await internals.appendRunLog(options.directory, sessionID, {

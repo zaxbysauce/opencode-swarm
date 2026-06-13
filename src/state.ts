@@ -465,6 +465,13 @@ export const swarmState = {
 	 */
 	generatedAgentNames: [] as string[],
 
+	/** Per-request unified injection budget pools (WP5).
+	 * Keyed by sessionID. Created at hook-chain start, consumed by injection
+	 * hooks, cleared at end of cycle. Two scopes: architect (messagesTransform)
+	 * and delegate (tool.execute.before). */
+	architectInjectionPools: new Map<string, unknown>(),
+	delegateInjectionPools: new Map<string, unknown>(),
+
 	/** Last known context budget percentage (0-100), updated by system-enhancer */
 	lastBudgetPct: 0,
 
@@ -491,6 +498,8 @@ export function resetSwarmState(): void {
 	swarmState.activeAgent.clear();
 	swarmState.delegationChains.clear();
 	swarmState.pendingEvents = 0;
+	swarmState.architectInjectionPools.clear();
+	swarmState.delegateInjectionPools.clear();
 	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
 	swarmState.pendingRehydrations.clear();

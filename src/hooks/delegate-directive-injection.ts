@@ -25,6 +25,8 @@ import {
 } from '../agents/reviewer-directive-compliance.js';
 import { stripKnownSwarmPrefix } from '../config/schema.js';
 import { loadPlan } from '../plan/manager.js';
+import type { InjectionBudgetPool } from '../services/injection-budget.js';
+import { swarmState } from '../state.js';
 import { warn } from '../utils/logger.js';
 import { extractCurrentPhaseFromPlan } from './extractors.js';
 import {
@@ -127,7 +129,21 @@ export async function injectDelegateDirectivesBefore(
 		}
 
 		if (prefixParts.length === 0) return 0;
-		argsRecord.prompt = `${prefixParts.join('\n\n')}\n\n${promptRaw}`;
+
+		let prefix = prefixParts.join('\n\n');
+		const injPool = sessionId
+			? (swarmState.delegateInjectionPools.get(sessionId) as
+					| InjectionBudgetPool
+					| undefined)
+			: undefined;
+		if (injPool) {
+			const allowed = injPool.allocate('delegate_directives', prefix.length);
+			if (allowed < prefix.length) {
+				prefix = prefix.slice(0, allowed);
+			}
+		}
+
+		argsRecord.prompt = `${prefix}\n\n${promptRaw}`;
 		return entries.length;
 	} catch (err) {
 		warn(
