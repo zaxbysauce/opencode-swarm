@@ -1605,7 +1605,7 @@ export async function executePhaseComplete(
 						'../hooks/curator-postmortem.js'
 					);
 					const pmResult = await runCuratorPostMortem(dir, {
-						llmDelegate: createCuratorLLMDelegate(dir, 'phase', sessionID),
+						llmDelegate: createCuratorLLMDelegate(dir, 'postmortem', sessionID),
 					});
 					if (pmResult.success && pmResult.summary) {
 						warnings.push(`[POST-MORTEM] ${pmResult.summary}`);

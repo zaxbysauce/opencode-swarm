@@ -728,7 +728,7 @@ export async function handleCloseCommand(
 			const pmResult = await runCuratorPostMortem(directory, {
 				llmDelegate: createCuratorLLMDelegate(
 					directory,
-					'phase',
+					'postmortem',
 					options.sessionID,
 				),
 			});
