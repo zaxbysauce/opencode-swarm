@@ -1,5 +1,47 @@
 # Changelog
 
+## [7.71.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.71.1...v7.71.2) (2026-06-13)
+
+
+### Bug Fixes
+
+* **skill-propagation-gate:** remove stray space breaking COMPLIANCE_PATTERN regex ([d65d426](https://github.com/zaxbysauce/opencode-swarm/commit/d65d4260a0171b5b215b889226454d2cf63af9b7))
+
+## [7.71.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.71.0...v7.71.1) (2026-06-13)
+
+
+### Bug Fixes
+
+* **ci:** add guardrails submodules to process.cwd() allowlist, correct doc reference ([#1318](https://github.com/zaxbysauce/opencode-swarm/issues/1318)) ([57e21d5](https://github.com/zaxbysauce/opencode-swarm/commit/57e21d535c33f9b251640baeda53f70e7af84b30))
+
+## [7.71.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.70.0...v7.71.0) (2026-06-13)
+
+
+### Features
+
+* **learning:** WP6 + WP7 — near-dup escalation, verdict feedback, justification, post-mortem ([#1234](https://github.com/zaxbysauce/opencode-swarm/issues/1234)) ([754ec40](https://github.com/zaxbysauce/opencode-swarm/commit/754ec40440f94e1f4f1df28ee926f610bd394365))
+
+
+### Bug Fixes
+
+* **learning:** add LLM timeout to runCuratorPostMortem + fix release fragment ([a6e6fe5](https://github.com/zaxbysauce/opencode-swarm/commit/a6e6fe5c9b4e1124d08762dea1389f82b847ce69))
+* **learning:** add postmortem agent names to test mock and fix comment count ([0f319fe](https://github.com/zaxbysauce/opencode-swarm/commit/0f319feb6cbe916bb47a7d2526fda9acdfb9049d))
+* **learning:** address cubic review — prompt field mismatch, JSONL resilience ([3bfcb75](https://github.com/zaxbysauce/opencode-swarm/commit/3bfcb75a7f0c0e7766b67ec45beadce06163cf17))
+* **learning:** fix phase status value in post-mortem plan summary ([2fb39c0](https://github.com/zaxbysauce/opencode-swarm/commit/2fb39c0c8eece0fd2dc9e117e093ef44d729446b))
+* **learning:** wire dedicated postmortem mode into curator LLM delegate factory ([e237caf](https://github.com/zaxbysauce/opencode-swarm/commit/e237caf0fcd20cef49ee3846c75033000eefbfc1))
+
+## [7.70.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.69.1...v7.70.0) (2026-06-12)
+
+
+### Features
+
+* **config:** support reasoning and thinking fields in AgentOverrideConfigSchema ([037b9c5](https://github.com/zaxbysauce/opencode-swarm/commit/037b9c5c9b79e846f82ce173aa2645bb8c67632c)), closes [#1220](https://github.com/zaxbysauce/opencode-swarm/issues/1220)
+
+
+### Bug Fixes
+
+* **config:** address PR [#1252](https://github.com/zaxbysauce/opencode-swarm/issues/1252) review findings ([af9a9d6](https://github.com/zaxbysauce/opencode-swarm/commit/af9a9d68d190ea633af4d276601c12231ff41618)), closes [#1220](https://github.com/zaxbysauce/opencode-swarm/issues/1220)
+
 ## [7.69.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.69.0...v7.69.1) (2026-06-12)
 
 

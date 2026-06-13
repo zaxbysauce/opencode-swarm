@@ -420,6 +420,9 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	swarmState.curatorPhaseAgentNames = Object.keys(agents).filter(
 		(k) => k === 'curator_phase' || k.endsWith('_curator_phase'),
 	);
+	swarmState.curatorPostmortemAgentNames = Object.keys(agents).filter(
+		(k) => k === 'curator_postmortem' || k.endsWith('_curator_postmortem'),
+	);
 	// v2: skill_improver and spec_writer agent registries — same multi-swarm
 	// resolution pattern as curator. Used by skill-improver-llm-factory to
 	// pick the right prefixed agent under named swarms.
