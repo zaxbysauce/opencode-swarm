@@ -354,9 +354,12 @@ describe('htmlToText', () => {
 		expect(out).toBe('one\ntwo');
 	});
 
-	test('handles many unclosed <script openers in linear time (regression: ReDoS)', () => {
-		// The previous lazy-regex strip was O(n²) and hung for minutes on this
-		// input. The linear indexOf scan must finish in milliseconds.
+	test('handles many unclosed <script openers without catastrophic slowdown (regression: ReDoS)', () => {
+		// Smoke test: the previous lazy-regex strip was O(n²) and hung for
+		// minutes on large inputs. The indexOf-based implementation finds the
+		// first unclosed opener, fails to find a closer, and breaks in O(n) —
+		// so 1.4 MB of '<script' repetitions must complete well under 1 s.
+		// (The 1 s budget is a catastrophic-failure guard, not a complexity proof.)
 		const start = Date.now();
 		const out = htmlToText('<script'.repeat(200_000));
 		expect(Date.now() - start).toBeLessThan(1000);
