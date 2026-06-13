@@ -20,7 +20,7 @@ export async function handlePostMortemCommand(
 			try {
 				pmOptions.llmDelegate = createCuratorLLMDelegate(
 					directory,
-					'phase',
+					'postmortem',
 					options.sessionID,
 				);
 			} catch {
