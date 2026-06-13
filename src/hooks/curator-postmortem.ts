@@ -482,10 +482,29 @@ export async function runCuratorPostMortem(
 				retrospectives,
 				driftReports,
 			);
-			const llmOutput = await options.llmDelegate(
-				CURATOR_POSTMORTEM_PROMPT,
-				userInput,
-			);
+			const ac = new AbortController();
+			const timer = setTimeout(() => ac.abort(), 300_000);
+			let llmOutput: string;
+			try {
+				// Hoist to attach no-op catch before race — prevents unhandled
+				// rejection when timeout fires and the delegate later rejects.
+				const delegatePromise = options.llmDelegate(
+					CURATOR_POSTMORTEM_PROMPT,
+					userInput,
+					ac.signal,
+				);
+				void delegatePromise.catch(() => {});
+				llmOutput = await Promise.race([
+					delegatePromise,
+					new Promise<never>((_, reject) => {
+						ac.signal.addEventListener('abort', () =>
+							reject(new Error('CURATOR_LLM_TIMEOUT')),
+						);
+					}),
+				]);
+			} finally {
+				clearTimeout(timer);
+			}
 			reportContent = `# Post-Mortem Report: ${planId}\nGenerated: ${new Date().toISOString()}\n\n${llmOutput}`;
 		} catch (err) {
 			const msg = err instanceof Error ? err.message : String(err);

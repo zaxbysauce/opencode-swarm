@@ -26,7 +26,7 @@ New `curator_postmortem` agent completes the curator cadence: `curator_init` (se
 
 1. **Automatic at project end**: `phase_complete` detects all phases complete and auto-fires
 2. **`/swarm finalize` step**: runs during finalize after curation, before archive
-3. **On demand**: `/swarm post-mortem [--scope session|project] [--force]`
+3. **On demand**: `/swarm post-mortem [--force]`
 
 ## Idempotency and safety
 
