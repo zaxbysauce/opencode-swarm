@@ -884,7 +884,7 @@ export async function skillPropagationGateBefore(
 
 /** Compliance verdict pattern: SKILL_COMPLIANCE: COMPLIANT|PARTIAL|VIOLATED [— notes] */
 const COMPLIANCE_PATTERN =
-	/SKILL_COMPLIANCE\s*:\s*(COMPLIANT|PARTIAL|VIOLATED)(?:\s*(?:—|-)\s*(.*))? \s*$/i;
+	/SKILL_COMPLIANCE\s*:\s*(COMPLIANT|PARTIAL|VIOLATED)(?:\s*(?:—|-)\s*(.*))?\s*$/i;
 
 /** Skill path pattern: SKILLS_USED_BY_CODER: <path> */
 const CODER_SKILLS_PATTERN = /SKILLS_USED_BY_CODER\s*:\s*(.+)/i;
