@@ -88,7 +88,7 @@ export async function handleFullAutoCommand(
 	} else if (arg && isValidMode(arg)) {
 		// A bare mode token (`/swarm full-auto strict`) means "turn on in that
 		// mode" — treating it as a toggle could silently turn Full-Auto OFF
-		// when the user meant to switch modes (adversarial review F10).
+		// when the user meant to switch modes.
 		newFullAutoMode = true;
 		modeOverride = arg;
 	} else {
@@ -109,10 +109,10 @@ export async function handleFullAutoCommand(
 		const { config, configHadErrors } = loadPluginConfigWithMeta(directory);
 		const fullAutoConfig = config.full_auto;
 
-		// Fail-closed activation guard (adversarial review F2): if a config
-		// file existed but could not be loaded (corrupt JSON, oversized,
-		// permission error), `locked` may have silently defaulted to false.
-		// Refuse activation rather than bypassing an unreadable lock.
+		// Fail-closed activation guard: if a config file existed but could
+		// not be loaded (corrupt JSON, oversized, permission error), `locked`
+		// may have silently defaulted to false. Refuse activation rather than
+		// bypassing an unreadable lock.
 		if (newFullAutoMode && configHadErrors) {
 			return 'Error: Full-Auto Mode cannot be enabled — a swarm plugin config file exists but could not be loaded, so full_auto.locked cannot be verified. Fix the config file (see warnings above) and retry.';
 		}
@@ -144,7 +144,7 @@ export async function handleFullAutoCommand(
 			// user EXPLICITLY configured matching models — with a zero-config
 			// install both sides resolve from defaults and the architect's
 			// real runtime model is orchestrator-determined, so a warning
-			// would be a standing false positive (adversarial review F10).
+			// would be a standing false positive.
 			const criticModel =
 				fullAutoConfig?.critic_model ?? config.agents?.critic?.model;
 			const architectModel = config.agents?.architect?.model;
@@ -156,17 +156,19 @@ export async function handleFullAutoCommand(
 			// Explicit user `off` DISARMS the run (status 'idle') so the session
 			// returns to normal interactive operation. Pausing here would leave
 			// every non-read-only tool blocked until the next `on` — a one-way
-			// door (adversarial review F3). Paused/terminated states remain
-			// reserved for system-initiated halts.
+			// door. Paused/terminated states remain reserved for system-initiated
+			// halts.
 			const disarmed = disarmFullAutoRun(
 				directory,
 				sessionID,
 				'/swarm full-auto off',
 			);
 			if (!disarmed) {
-				// No prior state — terminate cleanly so any future hook lookup
-				// is a no-op for this session (terminate without a record is
-				// itself a no-op; nothing durable is created).
+				// No prior durable state for this session — `terminateFullAutoRun`
+				// is itself a no-op on a missing record (it just `return undefined`
+				// from the withStateLock callback). The call is retained so a
+				// future hook lookup that consults the durable state can rely on
+				// the path being clearly absent rather than ambiguous.
 				terminateFullAutoRun(directory, sessionID, 'never started');
 			}
 			v2Status = 'idle';
@@ -239,7 +241,7 @@ function buildStatusReport(
 		// Surface a corrupt/unreadable state file explicitly — in that
 		// situation the permission hook fail-closed-blocks non-read-only
 		// tools project-wide, and reporting "none" would be actively
-		// misleading (adversarial review F4).
+		// misleading.
 		const stateHealth = isFullAutoStateUnreadable();
 		if (stateHealth.unreadable) {
 			lines.push(

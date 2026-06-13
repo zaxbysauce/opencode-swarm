@@ -243,13 +243,15 @@ export function isFullAutoStateUnreadable(): {
 }
 
 /**
- * mtime+size-keyed read cache (adversarial review F6). The always-armed hooks
- * call `readPersisted` on every tool call; once a state file exists, an
- * uncached implementation pays a full read+parse on the hot path forever.
- * The cache returns a structuredClone of the parsed state when the file's
- * mtimeMs+size are unchanged — cloning keeps caller mutations (which are
- * always followed by `writePersisted` under the state lock) from poisoning
- * the cache. Cross-process writers bump mtime, which invalidates the entry.
+ * mtime+size-keyed read cache. The always-armed full-auto v2 hooks (or the
+ * per-tool `readPersisted` call from any consumer when a run is active) pay
+ * for a full read+parse on the hot path forever without it; once a state
+ * file exists, caching by `mtimeMs + size` reduces each subsequent read to
+ * a single `fs.statSync`. The cache returns a `structuredClone` of the parsed
+ * state when the file's mtimeMs+size are unchanged — cloning keeps caller
+ * mutations (which are always followed by `writePersisted` under the state
+ * lock) from poisoning the cache. Cross-process writers bump mtime, which
+ * invalidates the entry.
  */
 const readCache = new Map<
 	string,
