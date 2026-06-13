@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.71.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.71.2...v7.71.3) (2026-06-13)
+
+
+### Bug Fixes
+
+* **skills:** address reviewer feedback on parallel-work-check ([1e3293c](https://github.com/zaxbysauce/opencode-swarm/commit/1e3293ca2dbc67a50a4925ff10feed97b2045ece))
+
 ## [7.71.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.71.1...v7.71.2) (2026-06-13)
 
 
