@@ -1,7 +1,10 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import * as os from 'node:os';
+import { Readable } from 'node:stream';
+import { gzipSync } from 'node:zlib';
 import {
 	_internals,
+	extractTitle,
 	htmlToText,
 	isBlockedAddress,
 	web_fetch,
@@ -204,13 +207,22 @@ describe('web_fetch — fetching and extraction', () => {
 		expect(res.finalUrl).toBe('https://example.com/page');
 	});
 
-	test('rejects unsupported content types', async () => {
+	test('rejects unsupported content types and cancels the stream', async () => {
 		enableCouncil();
 		publicDns();
-		stubHttp(200, { 'content-type': 'image/png' }, 'binary');
+		let cancelCalled = false;
+		_internals.httpRequest = (async () => ({
+			status: 200,
+			headers: { 'content-type': 'image/png' },
+			body: bodyOf('binary'),
+			cancel: () => {
+				cancelCalled = true;
+			},
+		})) as unknown as typeof _internals.httpRequest;
 		const res = await run({ url: 'https://example.com/image.png' });
 		expect(res.success).toBe(false);
 		expect(res.reason).toBe('unsupported_content_type');
+		expect(cancelCalled).toBe(true);
 	});
 
 	test('reports HTTP errors', async () => {
@@ -240,7 +252,7 @@ describe('web_fetch — fetching and extraction', () => {
 		const res = await run({ url: 'https://example.com/big', max_bytes: 1024 });
 		expect(res.success).toBe(true);
 		expect(res.truncated).toBe(true);
-		expect(res.bytesRead).toBe(1024);
+		expect(res.bytesReturned).toBe(1024);
 	});
 
 	test('follows a redirect to an allowed host', async () => {
@@ -364,5 +376,255 @@ describe('htmlToText', () => {
 		const out = htmlToText('<script'.repeat(200_000));
 		expect(Date.now() - start).toBeLessThan(1000);
 		expect(out).toBe('');
+	});
+});
+
+describe('extractTitle', () => {
+	test('extracts a simple title', () => {
+		expect(extractTitle('<html><head><title>Hello</title></head></html>')).toBe(
+			'Hello',
+		);
+	});
+
+	test('decodes HTML entities in the title', () => {
+		expect(extractTitle('<title>A &amp; B</title>')).toBe('A & B');
+	});
+
+	test('returns undefined when no title element is present', () => {
+		expect(
+			extractTitle('<html><body><p>no title</p></body></html>'),
+		).toBeUndefined();
+	});
+
+	test('returns undefined for unclosed title tag (no </title>)', () => {
+		expect(extractTitle('<title>open but never closed')).toBeUndefined();
+	});
+
+	test('handles large input without closing </title> without catastrophic slowdown (regression: ReDoS)', () => {
+		// The previous /<title[^>]*>([\s\S]*?)<\/title>/i regex was O(n²) on
+		// unclosed title tags — same ReDoS class as the stripSpans fix.
+		// The indexOf scan must complete in well under 100 ms on 1.4 MB input.
+		const start = Date.now();
+		const result = extractTitle('<title'.repeat(200_000));
+		expect(Date.now() - start).toBeLessThan(100);
+		expect(result).toBeUndefined();
+	});
+});
+
+describe('web_fetch — content encoding (gzip)', () => {
+	test('decompresses a gzip response and applies the byte cap on decoded output', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		// 5 KB of 'x' compressed to gzip — well under 5 KB compressed,
+		// well over the 1024-byte max_bytes cap when decoded.
+		const compressed = gzipSync(Buffer.from('x'.repeat(5000)));
+		_internals.httpRequest = (async () => ({
+			status: 200,
+			headers: { 'content-type': 'text/plain', 'content-encoding': 'gzip' },
+			body: Readable.from([compressed]),
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({
+			url: 'https://example.com/big.gz',
+			max_bytes: 1024,
+		});
+		expect(res.success).toBe(true);
+		expect(res.truncated).toBe(true);
+		expect(res.bytesReturned).toBe(1024);
+	});
+
+	test('decompresses a gzip response and returns the full content when under cap', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		const plaintext = 'Hello from gzip!';
+		const compressed = gzipSync(Buffer.from(plaintext));
+		_internals.httpRequest = (async () => ({
+			status: 200,
+			headers: { 'content-type': 'text/plain', 'content-encoding': 'gzip' },
+			body: Readable.from([compressed]),
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/page.gz' });
+		expect(res.success).toBe(true);
+		expect(res.truncated).toBe(false);
+		expect(res.text).toContain(plaintext);
+	});
+});
+
+describe('web_fetch — redirect and DNS edge cases', () => {
+	test('re-pins socket to new IP on each redirect hop (multi-hop re-pinning)', async () => {
+		enableCouncil();
+		stubEvidence();
+		let dnsCall = 0;
+		_internals.dnsLookup = (async () => {
+			dnsCall += 1;
+			return [{ address: dnsCall === 1 ? '93.184.216.34' : '104.18.0.123' }];
+		}) as unknown as typeof _internals.dnsLookup;
+		const seen: string[] = [];
+		_internals.httpRequest = (async (a: { pinnedAddress: string }) => {
+			seen.push(a.pinnedAddress);
+			if (seen.length === 1) {
+				return {
+					status: 302,
+					headers: { location: 'https://cdn.example.com/page' },
+					body: null,
+					cancel: () => {},
+				};
+			}
+			return {
+				status: 200,
+				headers: { 'content-type': 'text/html' },
+				body: bodyOf('<p>done</p>'),
+				cancel: () => {},
+			};
+		}) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/start' });
+		expect(res.success).toBe(true);
+		expect(seen[0]).toBe('93.184.216.34');
+		expect(seen[1]).toBe('104.18.0.123');
+	});
+
+	test('returns too_many_redirects after exceeding MAX_REDIRECTS hops', async () => {
+		enableCouncil();
+		publicDns();
+		let hop = 0;
+		_internals.httpRequest = (async () => ({
+			status: 302,
+			headers: { location: `https://example.com/step${(hop += 1)}` },
+			body: null,
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/start' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('too_many_redirects');
+	});
+
+	test('returns dns_failure when dnsLookup throws on initial fetch', async () => {
+		enableCouncil();
+		_internals.dnsLookup = (async () => {
+			throw new Error('ENOTFOUND notfound.example.com');
+		}) as unknown as typeof _internals.dnsLookup;
+		const res = await run({ url: 'https://notfound.example.com/page' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('dns_failure');
+	});
+
+	test('returns dns_failure when dnsLookup returns no addresses', async () => {
+		enableCouncil();
+		_internals.dnsLookup =
+			(async () => []) as unknown as typeof _internals.dnsLookup;
+		const res = await run({ url: 'https://example.com/page' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('dns_failure');
+	});
+
+	test('returns dns_failure when dnsLookup throws during redirect re-validation', async () => {
+		enableCouncil();
+		let dnsCall = 0;
+		_internals.dnsLookup = (async () => {
+			dnsCall += 1;
+			if (dnsCall === 1) return [{ address: '93.184.216.34' }];
+			throw new Error('ENOTFOUND cdn.example.com');
+		}) as unknown as typeof _internals.dnsLookup;
+		_internals.httpRequest = (async () => ({
+			status: 302,
+			headers: { location: 'https://cdn.example.com/page' },
+			body: null,
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/start' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('dns_failure');
+	});
+
+	test('blocks redirect to IPv6-mapped metadata address in Location header', async () => {
+		enableCouncil();
+		publicDns();
+		_internals.httpRequest = (async () => ({
+			status: 302,
+			headers: { location: 'http://[::ffff:169.254.169.254]/' },
+			body: null,
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/redirect' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('blocked_host');
+	});
+
+	test('blocks when any resolved address is private (mixed public+private DNS)', async () => {
+		enableCouncil();
+		_internals.dnsLookup = (async () => [
+			{ address: '93.184.216.34' },
+			{ address: '10.0.0.1' },
+		]) as unknown as typeof _internals.dnsLookup;
+		const res = await run({ url: 'https://example.com/page' });
+		expect(res.success).toBe(false);
+		expect(res.reason).toBe('blocked_host');
+	});
+});
+
+describe('web_fetch — byte cap boundary', () => {
+	test('does not truncate when response is exactly max_bytes', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		const exact = new Uint8Array(1024).fill('x'.charCodeAt(0));
+		_internals.httpRequest = (async () => ({
+			status: 200,
+			headers: { 'content-type': 'text/plain' },
+			body: (async function* () {
+				yield exact;
+			})(),
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({
+			url: 'https://example.com/exact',
+			max_bytes: 1024,
+		});
+		expect(res.success).toBe(true);
+		expect(res.truncated).toBe(false);
+		expect(res.bytesReturned).toBe(1024);
+	});
+
+	test('accepts max_bytes at the hard cap (5_000_000)', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		stubHttp(200, { 'content-type': 'text/plain' }, 'hi');
+		const res = await run({
+			url: 'https://example.com/page',
+			max_bytes: 5_000_000,
+		});
+		expect(res.success).toBe(true);
+		expect(res.truncated).toBe(false);
+	});
+
+	test('accepts timeout_ms at the hard cap (30_000)', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		stubHttp(200, { 'content-type': 'text/plain' }, 'hi');
+		const res = await run({
+			url: 'https://example.com/page',
+			timeout_ms: 30_000,
+		});
+		expect(res.success).toBe(true);
+	});
+});
+
+describe('web_fetch — evidence failure', () => {
+	test('returns success:true with evidence.stored:false when writeEvidenceDocuments throws', async () => {
+		enableCouncil();
+		publicDns();
+		_internals.writeEvidenceDocuments = (async () => {
+			throw new Error('disk full');
+		}) as unknown as typeof _internals.writeEvidenceDocuments;
+		stubHttp(200, { 'content-type': 'text/plain' }, 'some content');
+		const res = await run({ url: 'https://example.com/page' });
+		expect(res.success).toBe(true);
+		expect(res.evidence.stored).toBe(false);
+		expect(res.evidence.error).toContain('disk full');
 	});
 });

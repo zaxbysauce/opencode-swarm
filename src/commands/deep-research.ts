@@ -64,8 +64,6 @@ interface ParsedArgs {
 
 function isBoundedInteger(raw: string, min: number, max: number): boolean {
 	if (!raw || !/^\d+$/.test(raw)) return false;
-	if (raw.startsWith('0x') || raw.startsWith('0X') || raw.includes('.'))
-		return false;
 	const n = Number(raw);
 	return Number.isInteger(n) && n >= min && n <= max;
 }

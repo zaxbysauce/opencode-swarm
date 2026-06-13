@@ -57,8 +57,12 @@ SSRF and resource defenses:
   is checked against loopback / private / link-local / unique-local / CGNAT /
   metadata ranges, blocking the cloud metadata endpoint (`169.254.169.254`) and
   internal services.
-- Redirects are followed manually and **re-validated on every hop**, so a public
-  URL cannot 302 into an internal target.
+- **Socket pinned to pre-validated IP** (DNS rebinding TOCTOU closed): after
+  `dnsLookup` validates and approves the resolved address, the socket is opened
+  to that exact IP with the hostname kept for the `Host` header and TLS SNI/cert
+  identity. No second name resolution occurs at connect time.
+- Redirects are followed manually and **re-validated AND re-pinned on every
+  hop**, so a public URL cannot 302 into an internal target.
 - The response body is streamed and aborted once it exceeds `max_bytes` of
   decoded output (so a compressed bomb is bounded by decompressed size, not the
   advisory `Content-Length`), under an `AbortController` timeout.

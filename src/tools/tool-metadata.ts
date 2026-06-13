@@ -453,7 +453,7 @@ export const TOOL_METADATA = {
 	},
 	web_fetch: {
 		description:
-			'Fetch the readable text of a single http(s) URL for architect-driven deep research (MODE: DEEP_RESEARCH). Returns decoded page text, document title, final URL after redirects, and an evidence reference. Reads primary sources that web_search only surfaces as snippets. Config-gated on council.general.enabled. Blocks private/loopback/link-local/metadata addresses (re-validated across redirects); enforces timeout and body size cap.',
+			'Fetch the readable text of a single http(s) URL (architect-only). Returns decoded page text, document title, final URL after redirects, and an evidence reference. Reads primary sources that web_search only surfaces as snippets. Config-gated on council.general.enabled. Blocks private/loopback/link-local/metadata addresses (re-validated and re-pinned across redirects); enforces timeout and body size cap.',
 		agents: ['architect'],
 	},
 	convene_general_council: {

@@ -42,7 +42,7 @@ import { lookup } from 'node:dns/promises';
 import * as http from 'node:http';
 import * as https from 'node:https';
 import { isIP } from 'node:net';
-import type { Readable } from 'node:stream';
+import { Readable } from 'node:stream';
 import * as zlib from 'node:zlib';
 import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
@@ -96,7 +96,8 @@ interface WebFetchOk {
 	title?: string;
 	text: string;
 	truncated: boolean;
-	bytesRead: number;
+	/** Size of the returned buffer — capped at max_bytes, not bytes-from-wire. */
+	bytesReturned: number;
 	evidence: {
 		stored: boolean;
 		ref?: string;
@@ -300,11 +301,23 @@ function isAllowedContentType(contentType: string | null): boolean {
 	return false;
 }
 
-/** Extract the document <title>, if present. */
-function extractTitle(html: string): string | undefined {
-	const match = html.match(/<title[^>]*>([\s\S]*?)<\/title>/i);
-	if (!match) return undefined;
-	const title = decodeEntities(match[1].replace(/\s+/g, ' ').trim());
+/**
+ * Extract the document <title>, if present. Uses a forward indexOf scan so
+ * there is no regex backtracking on large inputs — a lazy
+ * `/<title[^>]*>([\s\S]*?)<\/title>/i` is O(n²) on unclosed title tags
+ * (same ReDoS class as the `stripSpans` fix).
+ */
+export function extractTitle(html: string): string | undefined {
+	const lower = html.toLowerCase();
+	const start = lower.indexOf('<title');
+	if (start === -1) return undefined;
+	const tagEnd = lower.indexOf('>', start);
+	if (tagEnd === -1) return undefined;
+	const contentStart = tagEnd + 1;
+	const end = lower.indexOf('</title', contentStart);
+	if (end === -1) return undefined;
+	const content = html.slice(contentStart, end);
+	const title = decodeEntities(content.replace(/\s+/g, ' ').trim());
 	return title || undefined;
 }
 
@@ -440,27 +453,13 @@ function performHttpRequest(args: HttpRequestArgs): Promise<RawHttpResponse> {
 			for (const [key, value] of Object.entries(res.headers)) {
 				normHeaders[key] = Array.isArray(value) ? value[0] : value;
 			}
-			const encoding = (normHeaders['content-encoding'] ?? '').toLowerCase();
-			let stream: Readable = res;
-			if (encoding === 'gzip' || encoding === 'x-gzip') {
-				stream = res.pipe(zlib.createGunzip());
-			} else if (encoding === 'deflate') {
-				stream = res.pipe(zlib.createInflate());
-			} else if (encoding === 'br') {
-				stream = res.pipe(zlib.createBrotliDecompress());
-			}
-			// Absorb late 'error' events emitted when we destroy the socket /
-			// decoder on an early break (byte-cap truncation, redirect, cancel).
-			// An EventEmitter 'error' with no listener throws uncaught; the async
-			// iterator still rejects errors that occur during active reading, so
-			// genuinely corrupt bodies are reported while intentional teardown is
-			// swallowed. Attach to both res and the decoder when they differ.
+			// Absorb late 'error' events on early break (byte-cap, cancel).
+			// Decompression is applied in boundedFetch so it is testable via stubs.
 			res.on('error', () => {});
-			if (stream !== res) stream.on('error', () => {});
 			resolve({
 				status: res.statusCode ?? 0,
 				headers: normHeaders,
-				body: stream as AsyncIterable<Uint8Array>,
+				body: res as unknown as AsyncIterable<Uint8Array>,
 				cancel: () => req.destroy(),
 			});
 		};
@@ -549,7 +548,7 @@ async function boundedFetch(
 					return {
 						ok: false,
 						reason: 'too_many_redirects',
-						message: `Exceeded ${MAX_REDIRECTS} redirects.`,
+						message: `Exceeded ${MAX_REDIRECTS} redirect hops.`,
 					};
 				}
 				current = { url: revalidated.url, address: revalidated.address };
@@ -575,9 +574,35 @@ async function boundedFetch(
 				};
 			}
 
+			// Apply Content-Encoding decompression after the content-type check.
+			// Moving decompression here (not in performHttpRequest) makes the path
+			// testable: stubs returning a Readable are piped through the decoder;
+			// async-generator stubs (which are not Readable instances) bypass it.
+			// The byte cap bounds *decoded* output, bounding decompression bombs.
+			let activeBody: AsyncIterable<Uint8Array> | null = raw.body;
+			if (raw.body !== null && (raw.body as unknown) instanceof Readable) {
+				const encoding = (raw.headers['content-encoding'] ?? '').toLowerCase();
+				let decoder: Readable | null = null;
+				if (encoding === 'gzip' || encoding === 'x-gzip')
+					decoder = (raw.body as unknown as Readable).pipe(zlib.createGunzip());
+				else if (encoding === 'deflate')
+					decoder = (raw.body as unknown as Readable).pipe(
+						zlib.createInflate(),
+					);
+				else if (encoding === 'br')
+					decoder = (raw.body as unknown as Readable).pipe(
+						zlib.createBrotliDecompress(),
+					);
+				if (decoder) {
+					// Absorb late teardown errors on early break (same rationale as
+					// the res.on('error') in performHttpRequest).
+					decoder.on('error', () => {});
+					activeBody = decoder as unknown as AsyncIterable<Uint8Array>;
+				}
+			}
 			let body: { bytes: Uint8Array; truncated: boolean };
 			try {
-				body = await readBounded(raw.body, maxBytes);
+				body = await readBounded(activeBody, maxBytes);
 			} catch (err) {
 				raw.cancel?.();
 				if (controller.signal.aborted) {
@@ -608,7 +633,7 @@ async function boundedFetch(
 		return {
 			ok: false,
 			reason: 'too_many_redirects',
-			message: `Exceeded ${MAX_REDIRECTS} redirects.`,
+			message: `Exceeded ${MAX_REDIRECTS} redirect hops.`,
 		};
 	} finally {
 		clearTimeout(timer);
@@ -790,7 +815,7 @@ export const web_fetch: ReturnType<typeof tool> = createSwarmTool({
 			title,
 			text,
 			truncated: textTruncated,
-			bytesRead: outcome.bytes.byteLength,
+			bytesReturned: outcome.bytes.byteLength,
 			evidence,
 		};
 		return JSON.stringify(ok, null, 2);

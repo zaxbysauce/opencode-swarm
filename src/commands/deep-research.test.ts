@@ -102,4 +102,41 @@ describe('handleDeepResearchCommand', () => {
 		const result = await handleDeepResearchCommand('/x', ['--rounds']);
 		expect(result).toContain('requires a value');
 	});
+
+	test('rejects hex, float, negative, and zero for --max-researchers', async () => {
+		for (const bad of ['0x3', '3.5', '-1', '0']) {
+			const result = await handleDeepResearchCommand('/x', [
+				'--max-researchers',
+				bad,
+				'topic',
+			]);
+			expect(result).toContain('Invalid --max-researchers');
+		}
+	});
+
+	test('rejects hex, float, negative, and zero for --rounds', async () => {
+		for (const bad of ['0x1', '1.5', '-1', '0']) {
+			const result = await handleDeepResearchCommand('/x', [
+				'--rounds',
+				bad,
+				'topic',
+			]);
+			expect(result).toContain('Invalid --rounds');
+		}
+	});
+
+	test('--brief combined with --depth exhaustive and explicit --rounds', async () => {
+		const result = await handleDeepResearchCommand('/x', [
+			'--brief',
+			'--depth',
+			'exhaustive',
+			'--rounds',
+			'2',
+			'topic',
+		]);
+		expect(result).toContain('output=brief');
+		expect(result).toContain('depth=exhaustive');
+		expect(result).toContain('rounds=2');
+		expect(result.endsWith('topic')).toBe(true);
+	});
 });
