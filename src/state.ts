@@ -7,6 +7,11 @@
  * and delegation chains.
  */
 
+// FR-007: This module spans 6+ distinct concerns (session management, agent tracking,
+// tool call history, spiral detection, QA gate overrides, worktree tracking) with 48
+// exported symbols and 100+ importing files. Splitting is deferred pending a concrete
+// driver. See .swarm/spec.md FR-007.
+
 import * as fs from 'node:fs/promises';
 import * as path from 'node:path';
 import type { OpencodeClient } from '@opencode-ai/sdk';
@@ -766,6 +771,10 @@ export function ensureAgentSession(
 			session.windows = {};
 		}
 
+		// FR-009: The `=== undefined` migration guards below are intentional
+		// forward-compatibility checks. The `undefined` value carries different semantics
+		// from an explicit default. Do not replace with default-value coalescing.
+		// See .swarm/spec.md FR-009.
 		// Initialize lastCompactionHint if missing (migration safety)
 		if (session.lastCompactionHint === undefined) {
 			session.lastCompactionHint = 0;
