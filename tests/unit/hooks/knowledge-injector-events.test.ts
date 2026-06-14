@@ -174,6 +174,9 @@ describe('knowledge injector retrieved events', () => {
 						modelID: 'tiny-model',
 						providerID: 'test-provider',
 					},
+					// The configured override is 1000 tokens, or roughly 3030 chars.
+					// A 4000-char message only trips the residual-headroom guard when
+					// the override is used instead of the default model limit.
 					parts: [{ type: 'text', text: 'x'.repeat(4000) }],
 				},
 				{

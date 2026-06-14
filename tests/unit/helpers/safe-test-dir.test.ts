@@ -110,6 +110,9 @@ describe('safeRmRecursive', () => {
 	it.skipIf(process.platform === 'win32')(
 		'rejects symlinks inside os.tmpdir() that resolve outside os.tmpdir()',
 		() => {
+			// Windows directory symlinks are junction-like and require different
+			// privileges/semantics; non-Windows CI exercises the symlink escape path,
+			// while the helper still uses realpath containment on every platform.
 			const { dir, cleanup } = createSafeTestDir('safe-rm-symlink-');
 			const linkPath = path.join(dir, 'outside-link');
 			fs.symlinkSync(process.cwd(), linkPath, 'dir');
