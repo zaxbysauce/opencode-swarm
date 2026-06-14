@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.73.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.2...v7.73.3) (2026-06-14)
+
+
+### Bug Fixes
+
+* **commands:** harden issue and pr url parsing ([#1242](https://github.com/zaxbysauce/opencode-swarm/issues/1242)) ([d8436b4](https://github.com/zaxbysauce/opencode-swarm/commit/d8436b4e4d7c936effb8525106e3419da2af8c35))
+* **skills:** align compliance verdict consumers to canonical violated value ([#1342](https://github.com/zaxbysauce/opencode-swarm/issues/1342)) ([4ff75f9](https://github.com/zaxbysauce/opencode-swarm/commit/4ff75f94a791fc4991f6a8dfa6320b12ffdaf457)), closes [#1281](https://github.com/zaxbysauce/opencode-swarm/issues/1281)
+
 ## [7.73.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.1...v7.73.2) (2026-06-14)
 
 
