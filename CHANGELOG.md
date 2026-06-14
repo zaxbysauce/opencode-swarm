@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.73.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.72.1...v7.73.0) (2026-06-14)
+
+
+### Features
+
+* **agents:** add auto-research agent with multi-source search protocol ([15457b8](https://github.com/zaxbysauce/opencode-swarm/commit/15457b84608093e557c225c93e4e4b49d2d44c47))
+
+
+### Bug Fixes
+
+* **agents:** address review feedback for researcher subagent ([fad9c69](https://github.com/zaxbysauce/opencode-swarm/commit/fad9c6916bac5316ed0ff87eaf8e09138a3516ec))
+* **rebase:** update agent count assertions for main divergence ([b18e541](https://github.com/zaxbysauce/opencode-swarm/commit/b18e541110dff7a19d44094745240c843ef54a1a))
+* **tests:** correct stale agent count descriptions in constants.test.ts ([a0b4c7a](https://github.com/zaxbysauce/opencode-swarm/commit/a0b4c7ab7dfc954f0f2f62065f8a99c9716dd8f6))
+
 ## [7.72.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.72.0...v7.72.1) (2026-06-14)
 
 
