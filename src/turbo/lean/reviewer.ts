@@ -359,6 +359,7 @@ async function defaultDispatchReviewerAgent(
 	reviewPackage: ReviewPackage,
 	agentName: string,
 	timeoutMs: number,
+	parentSessionId?: string,
 ): Promise<string> {
 	const client = swarmState.opencodeClient;
 	if (!client) {
@@ -367,6 +368,9 @@ async function defaultDispatchReviewerAgent(
 
 	// Create an ephemeral session for the reviewer
 	const sessionResult = await client.session.create({
+		...(parentSessionId
+			? { body: { parentID: parentSessionId, title: 'lean_turbo_reviewer background' } }
+			: {}),
 		query: { directory },
 	});
 
@@ -480,6 +484,7 @@ export const _internals: {
 		pkg: ReviewPackage,
 		agentName: string,
 		timeoutMs: number,
+		parentSessionId?: string,
 	) => Promise<string>;
 	resolveDefaultReviewerAgent: typeof resolveDefaultReviewerAgent;
 	listLaneEvidence: typeof listLaneEvidence;
@@ -550,6 +555,7 @@ export async function dispatchPhaseReviewer(
 			pkg,
 			agentName,
 			mergedConfig.timeoutMs,
+			sessionID,
 		);
 	} catch (error) {
 		// Fail-closed: dispatch failure → write REJECTED verdict
