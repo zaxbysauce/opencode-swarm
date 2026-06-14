@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.74.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.3...v7.74.0) (2026-06-14)
+
+
+### Features
+
+* **concurrency:** increase default max_concurrent_tasks to 10 with adaptive backoff ([#1243](https://github.com/zaxbysauce/opencode-swarm/issues/1243)) ([cb77630](https://github.com/zaxbysauce/opencode-swarm/commit/cb77630129cf641ef49ef7b63e80475fc391e277))
+
 ## [7.73.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.2...v7.73.3) (2026-06-14)
 
 
