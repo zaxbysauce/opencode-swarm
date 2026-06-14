@@ -515,7 +515,7 @@ export const TOOL_METADATA = {
 	},
 	knowledge_archive: {
 		description:
-			'archive (default), quarantine, or purge a swarm knowledge entry by ID with an immutable audit tombstone; purge requires an admin flag',
+			'archive (default), quarantine, or purge a swarm or hive knowledge entry by ID with an immutable audit tombstone; purge requires an admin flag',
 		agents: ['architect'],
 	},
 	swarm_memory_recall: {

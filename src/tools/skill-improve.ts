@@ -12,7 +12,10 @@
 
 import { z } from 'zod';
 import { loadPluginConfigWithMeta } from '../config';
-import { SkillImproverConfigSchema } from '../config/schema';
+import {
+	KnowledgeConfigSchema,
+	SkillImproverConfigSchema,
+} from '../config/schema';
 import { runSkillImprover } from '../services/skill-improver.js';
 import { createSwarmTool } from './create-tool.js';
 
@@ -45,6 +48,13 @@ export const skill_improve: ReturnType<typeof createSwarmTool> =
 			const parsed = SkillImproverConfigSchema.parse(
 				config.skill_improver ?? {},
 			);
+			const knowledgeConfig = KnowledgeConfigSchema.parse(
+				config.knowledge ?? {},
+			);
+			const enrichmentConfig = knowledgeConfig.enrichment ?? {
+				max_calls_per_day: 30,
+				quota_window: 'utc' as const,
+			};
 			if (!parsed.enabled) {
 				return JSON.stringify(
 					{
@@ -63,6 +73,10 @@ export const skill_improve: ReturnType<typeof createSwarmTool> =
 				mode: a.mode,
 				maxCalls: a.max_calls,
 				sessionId: ctx?.sessionID,
+				enrichmentQuota: {
+					maxCalls: enrichmentConfig.max_calls_per_day,
+					window: enrichmentConfig.quota_window,
+				},
 			});
 			return JSON.stringify(result, null, 2);
 		},

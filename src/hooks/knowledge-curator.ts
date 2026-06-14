@@ -466,7 +466,8 @@ export interface EnrichmentQuotaOptions {
 /**
  * Enrich one prose lesson with v3 actionability fields via the curator LLM.
  * One retry on schema failure (with a RETRY message naming the missing
- * fields). Quota-gated per call via skill-improver-quota. Returns null when
+ * fields). Quota-gated per call via the dedicated knowledge-enrichment quota.
+ * Returns null when
  * enrichment is unavailable (quota exhausted) or fails twice — the caller
  * quarantines the entry. Never throws.
  */
@@ -491,6 +492,7 @@ export async function enrichLessonToV3(params: {
 				nCalls: 1,
 				maxCalls: quota.maxCalls,
 				window: quota.window,
+				scope: 'knowledge-enrichment',
 			});
 			if (!reservation.allowed) return null;
 			const response = await params.llmDelegate(
@@ -1081,9 +1083,15 @@ export async function runAutoPromotion(
  * Create the knowledge curator hook.
  * Watches for writes to .swarm/plan.md and extracts lessons from the retrospective section.
  */
+export interface KnowledgeCuratorHookOptions {
+	llmDelegateFactory?: (sessionID: string) => CuratorLLMDelegate | undefined;
+	enrichmentQuota?: EnrichmentQuotaOptions;
+}
+
 export function createKnowledgeCuratorHook(
 	directory: string,
 	config: KnowledgeConfig,
+	options: KnowledgeCuratorHookOptions = {},
 ): (input: unknown, output: unknown) => Promise<void> {
 	const handler = async (input: unknown, _output: unknown): Promise<void> => {
 		// Prune stale entries from seenRetroSections
@@ -1172,6 +1180,10 @@ export function createKnowledgeCuratorHook(
 				{ phase_number: phaseNumber },
 				directory,
 				config,
+				{
+					llmDelegate: options.llmDelegateFactory?.(sessionID),
+					enrichmentQuota: options.enrichmentQuota,
+				},
 			);
 
 			return;
@@ -1215,6 +1227,10 @@ export function createKnowledgeCuratorHook(
 			{ phase_number: phaseNumber },
 			directory,
 			config,
+			{
+				llmDelegate: options.llmDelegateFactory?.(sessionID),
+				enrichmentQuota: options.enrichmentQuota,
+			},
 		);
 	};
 

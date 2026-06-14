@@ -1055,6 +1055,13 @@ export const KnowledgeConfigSchema = z.object({
 			synonym_map_max_pairs: z.number().int().min(1).max(10000).default(500),
 		})
 		.optional(),
+	/** Dedicated quota for LLM enrichment of plain-prose lessons into v3 directives. */
+	enrichment: z
+		.object({
+			max_calls_per_day: z.number().int().min(0).max(1000).default(30),
+			quota_window: z.enum(['utc', 'local']).default('utc'),
+		})
+		.default({ max_calls_per_day: 30, quota_window: 'utc' }),
 });
 
 export type KnowledgeConfig = z.infer<typeof KnowledgeConfigSchema>;
@@ -1159,8 +1166,8 @@ export const CuratorConfigSchema = z.object({
 	skill_generation_enabled: z.boolean().default(true),
 	/** v2: Skill generation mode: 'draft' writes only proposals; 'active' compiles directly into .opencode/skills/generated. Default: 'draft' */
 	skill_generation_mode: z.enum(['draft', 'active']).default('draft'),
-	/** v2: Minimum confidence for an entry to be a skill candidate. Default: 0.85 */
-	min_skill_confidence: z.number().min(0).max(1).default(0.85),
+	/** v2: Minimum confidence for an entry to be a skill candidate. Default: 0.7 */
+	min_skill_confidence: z.number().min(0).max(1).default(0.7),
 	/** v2: Minimum number of phase confirmations for a skill candidate cluster. Default: 2 */
 	min_skill_confirmations: z.number().int().min(1).max(50).default(2),
 });

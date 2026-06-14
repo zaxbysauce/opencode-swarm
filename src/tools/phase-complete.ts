@@ -14,7 +14,6 @@ import {
 	KnowledgeConfigSchema,
 	type PhaseCompleteConfig,
 	PhaseCompleteConfigSchema,
-	SkillImproverConfigSchema,
 	stripKnownSwarmPrefix,
 } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
@@ -860,10 +859,7 @@ export async function executePhaseComplete(
 
 			// Change 4 (Task 4.2): provide the curator LLM delegate so plain-prose
 			// lessons are enriched with v3 actionability fields before the Layer-5
-			// gate; quota knobs come from the shared skill_improver budget.
-			const skillImproverCfg = SkillImproverConfigSchema.parse(
-				config.skill_improver ?? {},
-			);
+			// gate; quota knobs come from the dedicated knowledge.enrichment budget.
 			const curationResult = await curateAndStoreSwarm(
 				retroEntry.lessons_learned,
 				projectName,
@@ -873,8 +869,8 @@ export async function executePhaseComplete(
 				{
 					llmDelegate: createCuratorLLMDelegate(dir, 'phase', sessionID),
 					enrichmentQuota: {
-						maxCalls: skillImproverCfg.max_calls_per_day,
-						window: skillImproverCfg.quota_window,
+						maxCalls: knowledgeConfig.enrichment.max_calls_per_day,
+						window: knowledgeConfig.enrichment.quota_window,
 					},
 				},
 			);

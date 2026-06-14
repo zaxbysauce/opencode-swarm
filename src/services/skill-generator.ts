@@ -17,6 +17,11 @@ import { existsSync, unlinkSync } from 'node:fs';
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import {
+	effectiveRetrievalOutcomes,
+	readKnowledgeCounterRollups,
+} from '../hooks/knowledge-events.js';
+import {
+	computeOutcomeSignal,
 	readKnowledge,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
@@ -80,6 +85,10 @@ export interface CandidateSelectionOptions {
 	minConfirmations: number;
 }
 
+export const DEFAULT_SKILL_MIN_CONFIDENCE = 0.7;
+export const DEFAULT_SKILL_MIN_CONFIRMATIONS = 2;
+export const STRONG_SKILL_OUTCOME_COUNT = 3;
+
 export interface KnowledgeCluster {
 	slug: string;
 	title: string;
@@ -104,22 +113,58 @@ export async function selectCandidateEntries(
 		? await readKnowledge<HiveKnowledgeEntry>(hivePath)
 		: [];
 	const all: KnowledgeEntryBase[] = [...swarm, ...hive];
-	return all.filter((e) => {
-		if (e.status === 'archived') return false;
-		if (e.confidence < opts.minConfidence) return false;
-		const confirmations = (e.confirmed_by ?? []).length;
-		if (confirmations < opts.minConfirmations) return false;
+	const counterRollups = await readKnowledgeCounterRollups(directory);
+	const selected: KnowledgeEntryBase[] = [];
+	for (const e of all) {
+		if (e.status === 'archived') continue;
 		// Already-compiled entries are not re-selected unless caller forces.
-		if (e.generated_skill_slug) return false;
-		return true;
-	});
+		if (e.generated_skill_slug) continue;
+		const outcomes = effectiveRetrievalOutcomes(
+			e.retrieval_outcomes,
+			counterRollups.get(e.id),
+		);
+		if (!isSkillMaturityEligible(e, opts, outcomes)) continue;
+		selected.push({ ...e, retrieval_outcomes: outcomes });
+	}
+	return selected;
+}
+
+function hasStrongSkillOutcomeRecord(
+	outcomes: KnowledgeEntryBase['retrieval_outcomes'] | undefined,
+): boolean {
+	return (
+		(outcomes?.applied_explicit_count ?? 0) >= STRONG_SKILL_OUTCOME_COUNT ||
+		(outcomes?.succeeded_after_shown_count ?? 0) >= STRONG_SKILL_OUTCOME_COUNT
+	);
+}
+
+function isHighPriorityDirective(entry: KnowledgeEntryBase): boolean {
+	return (
+		entry.directive_priority === 'critical' ||
+		entry.directive_priority === 'high'
+	);
+}
+
+export function isSkillMaturityEligible(
+	entry: KnowledgeEntryBase,
+	opts: CandidateSelectionOptions,
+	outcomes:
+		| KnowledgeEntryBase['retrieval_outcomes']
+		| undefined = entry.retrieval_outcomes,
+): boolean {
+	const outcomeSignal = computeOutcomeSignal(outcomes);
+	if (outcomeSignal < 0) return false;
+	const strongOutcomes = hasStrongSkillOutcomeRecord(outcomes);
+	if (entry.confidence < opts.minConfidence && !strongOutcomes) return false;
+	const confirmations = (entry.confirmed_by ?? []).length;
+	return confirmations >= opts.minConfirmations || strongOutcomes;
 }
 
 // ============================================================================
 // Clustering — Jaccard-based fuzzy tag clustering
 // ============================================================================
 
-/** Minimum cluster size: single-entry clusters are dropped. */
+/** Minimum cluster size for ordinary entries; strong/high-priority singletons pass. */
 const MIN_CLUSTER_SIZE = 2;
 
 /** Jaccard similarity threshold for merging entries into an existing cluster. */
@@ -177,7 +222,12 @@ export function clusterEntries(
 	// Build KnowledgeCluster objects, filtering out small clusters
 	const result: KnowledgeCluster[] = [];
 	for (const c of clusters) {
-		if (c.members.length < MIN_CLUSTER_SIZE) continue;
+		if (
+			c.members.length < MIN_CLUSTER_SIZE &&
+			!isSkillSingletonEligible(c.members[0])
+		) {
+			continue;
+		}
 		const arr = c.members;
 		const triggers = uniqueStrings(arr.flatMap((e) => e.triggers ?? []));
 		const required = uniqueStrings(
@@ -226,6 +276,16 @@ export function clusterEntries(
 			a.slug.localeCompare(b.slug),
 	);
 	return result;
+}
+
+function isSkillSingletonEligible(
+	entry: KnowledgeEntryBase | undefined,
+): boolean {
+	if (!entry) return false;
+	return (
+		isHighPriorityDirective(entry) ||
+		hasStrongSkillOutcomeRecord(entry.retrieval_outcomes)
+	);
 }
 
 function uniqueStrings(arr: string[]): string[] {
@@ -396,8 +456,9 @@ export interface GenerateResult {
 export async function generateSkills(
 	req: GenerateRequest,
 ): Promise<GenerateResult> {
-	const minConfidence = req.minConfidence ?? 0.85;
-	const minConfirmations = req.minConfirmations ?? 2;
+	const minConfidence = req.minConfidence ?? DEFAULT_SKILL_MIN_CONFIDENCE;
+	const minConfirmations =
+		req.minConfirmations ?? DEFAULT_SKILL_MIN_CONFIRMATIONS;
 	const candidates = await selectCandidateEntries(req.directory, {
 		minConfidence,
 		minConfirmations,
@@ -1237,6 +1298,7 @@ export const _internals = {
 	sanitizeSlug,
 	isValidSlug,
 	selectCandidateEntries,
+	isSkillMaturityEligible,
 	clusterEntries,
 	jaccardSimilarity,
 	renderSkillMarkdown,

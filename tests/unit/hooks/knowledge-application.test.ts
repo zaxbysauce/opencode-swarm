@@ -13,6 +13,7 @@ import {
 	DEFAULT_KNOWLEDGE_APPLICATION_CONFIG,
 	gateKnowledgeApplication,
 	getShownButNotAcknowledged,
+	MAX_LEGACY_APPLICATION_LOG_ENTRIES,
 	parseAcknowledgments,
 	processArchitectText,
 	recordAcknowledgment,
@@ -163,6 +164,30 @@ describe('recordKnowledgeShown vs recordAcknowledgment', () => {
 		expect(lines.length).toBeGreaterThanOrEqual(2);
 		expect(lines.some((l) => l.includes('"shown"'))).toBe(true);
 		expect(lines.some((l) => l.includes('"applied"'))).toBe(true);
+	});
+
+	it('caps the legacy application audit log after appending', async () => {
+		const logPath = resolveApplicationLogPath(tmp);
+		await mkdir(path.dirname(logPath), { recursive: true });
+		const lines = Array.from(
+			{ length: MAX_LEGACY_APPLICATION_LOG_ENTRIES + 5 },
+			(_, i) =>
+				JSON.stringify({
+					timestamp: `2026-01-01T00:00:${String(i % 60).padStart(2, '0')}.000Z`,
+					knowledgeId: `old-${i}`,
+					result: 'shown',
+				}),
+		);
+		await writeFile(logPath, `${lines.join('\n')}\n`, 'utf-8');
+
+		await recordKnowledgeShown(tmp, ['newest'], { phase: 'Phase 1' });
+
+		const capped = readFileSync(logPath, 'utf-8').trim().split('\n');
+		expect(capped).toHaveLength(MAX_LEGACY_APPLICATION_LOG_ENTRIES);
+		expect(capped.some((line) => line.includes('"knowledgeId":"old-0"'))).toBe(
+			false,
+		);
+		expect(capped[capped.length - 1]).toContain('"knowledgeId":"newest"');
 	});
 });
 

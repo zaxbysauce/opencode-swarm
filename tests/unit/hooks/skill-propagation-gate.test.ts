@@ -3290,6 +3290,72 @@ describe('skillPropagationTransformScan — dedup on repeated calls', () => {
 		}
 	});
 
+	test('explicit reviewer TASK attribution overrides latest delegation fallback', async () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'attribution-task-'));
+		const swarmDir = path.join(tempDir, '.swarm');
+		fs.mkdirSync(swarmDir, { recursive: true });
+
+		const sessionID = `attr-task-${Date.now()}`;
+		const skillA = 'file:.claude/skills/writing-tests/SKILL.md';
+		const skillB = 'file:.claude/skills/engineering-conventions/SKILL.md';
+
+		for (const sp of [skillA, skillB]) {
+			const absPath = path.join(tempDir, sp.replace('file:', ''));
+			fs.mkdirSync(path.dirname(absPath), { recursive: true });
+			fs.writeFileSync(absPath, '# Skill\n');
+		}
+
+		appendSkillUsageEntry(tempDir, {
+			skillPath: skillA,
+			agentName: 'coder',
+			taskID: 'task-earlier',
+			complianceVerdict: 'not_checked',
+			sessionID,
+			timestamp: new Date().toISOString(),
+		});
+		appendSkillUsageEntry(tempDir, {
+			skillPath: skillB,
+			agentName: 'coder',
+			taskID: 'task-latest',
+			complianceVerdict: 'not_checked',
+			sessionID,
+			timestamp: new Date().toISOString(),
+		});
+
+		const messages = [
+			{
+				info: { role: 'assistant', agent: 'reviewer', sessionID },
+				parts: [
+					{
+						type: 'text',
+						text: 'TASK: task-earlier\nSKILL_COMPLIANCE: COMPLIANT — all guidelines followed',
+					},
+				],
+			},
+		];
+
+		try {
+			await _internals.skillPropagationTransformScan(
+				tempDir,
+				{
+					messages: messages as Parameters<
+						typeof _internals.skillPropagationTransformScan
+					>[1]['messages'],
+				},
+				sessionID,
+			);
+
+			const complianceEntries = readSkillUsageEntries(tempDir, {
+				sessionID,
+			}).filter((e) => e.agentName === 'reviewer');
+			expect(complianceEntries).toHaveLength(1);
+			expect(complianceEntries[0].skillPath).toBe(skillA);
+			expect(complianceEntries[0].taskID).toBe('task-earlier');
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
 	test('compliance uses resolved taskID even when SKILLS_USED_BY_CODER is present', async () => {
 		const sessionID = 'test-skills-with-taskid';
 		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spg-taskid-'));

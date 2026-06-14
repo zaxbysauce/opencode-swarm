@@ -166,8 +166,12 @@ mock.module('../../../src/hooks/knowledge-validator.js', () => ({
 
 // Import the SUT and the transactKnowledge (the mock provided by the knowledge-store mock.module)
 // using dynamic import so that the mocks are active before the modules under test are loaded.
-const { createKnowledgeCuratorHook, curateAndStoreSwarm, runAutoPromotion } =
-	await import('../../../src/hooks/knowledge-curator.js');
+const {
+	createKnowledgeCuratorHook,
+	curateAndStoreSwarm,
+	runAutoPromotion,
+	_internals,
+} = await import('../../../src/hooks/knowledge-curator.js');
 
 const { transactKnowledge } = await import(
 	'../../../src/hooks/knowledge-store.js'
@@ -193,6 +197,10 @@ const defaultConfig: KnowledgeConfig = {
 	low_utility_threshold: 0.3,
 	min_retrievals_for_utility: 3,
 	schema_version: 1,
+	enrichment: {
+		max_calls_per_day: 30,
+		quota_window: 'utc',
+	},
 };
 
 function makePlanContent(lessons: string[]): string {
@@ -380,6 +388,52 @@ describe('knowledge-curator', () => {
 			// Expected: hook should NOT throw (safeHook catches errors)
 			// The function resolves successfully (even though it catches internally)
 			await expect(hook(input, {})).resolves.toBeUndefined();
+		});
+
+		test('hook passes session delegate and dedicated enrichment quota to curation', async () => {
+			const planContent = makePlanContent(['Always validate user input']);
+			mockReadSwarmFileAsync.mockResolvedValueOnce(planContent);
+			const delegate = mock(async () => '{}');
+			const factory = mock((sessionID: string) => {
+				expect(sessionID).toBe('sess-quota');
+				return delegate;
+			});
+			const quota = { maxCalls: 7, window: 'local' as const };
+			const realCurate = _internals.curateAndStoreSwarm;
+			const curateSpy = mock(async () => ({
+				stored: 0,
+				reinforced: 0,
+				skipped: 0,
+				rejected: 0,
+				quarantined: 0,
+			}));
+			_internals.curateAndStoreSwarm =
+				curateSpy as typeof _internals.curateAndStoreSwarm;
+
+			try {
+				const hook = createKnowledgeCuratorHook('/project', defaultConfig, {
+					llmDelegateFactory: factory,
+					enrichmentQuota: quota,
+				});
+				await hook(
+					{
+						toolName: 'write',
+						path: '/project/.swarm/plan.md',
+						sessionID: 'sess-quota',
+					},
+					{},
+				);
+
+				expect(factory).toHaveBeenCalledTimes(1);
+				expect(curateSpy).toHaveBeenCalledTimes(1);
+				const options = curateSpy.mock.calls[0][5];
+				expect(options).toEqual({
+					llmDelegate: delegate,
+					enrichmentQuota: quota,
+				});
+			} finally {
+				_internals.curateAndStoreSwarm = realCurate;
+			}
 		});
 	});
 

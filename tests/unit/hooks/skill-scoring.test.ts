@@ -336,6 +336,20 @@ describe('computeContextMatchScore', () => {
 		expect(score).toBeCloseTo(2 / 3, 5);
 	});
 
+	test('uses SKILL.md metadata description for context matching', () => {
+		const score = _internals.computeContextMatchScore(
+			'database migration rollback',
+			'.claude/skills/generated/unrelated/SKILL.md',
+			{
+				path: '.claude/skills/generated/unrelated/SKILL.md',
+				name: 'generated-unrelated',
+				description: 'Database migration rollback guidance',
+			},
+		);
+
+		expect(score).toBe(1);
+	});
+
 	test('extractSkillName handles SKILL.md basename', () => {
 		// extractSkillName is in _internals; test via computeContextMatchScore
 		const score = _internals.computeContextMatchScore(

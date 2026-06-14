@@ -325,12 +325,13 @@ function extractKeywords(text: string): Set<string> {
 function computeContextMatchScore(
 	taskDescription: string,
 	skillPath: string,
+	metadata?: SkillMetadata,
 ): number {
 	const taskKeywords = extractKeywords(taskDescription);
 	if (taskKeywords.size === 0) return 0;
 
 	const skillName = extractSkillName(skillPath);
-	const skillText = `${skillPath} ${skillName}`;
+	const skillText = `${skillPath} ${skillName} ${metadata?.name ?? ''} ${metadata?.description ?? ''}`;
 	const skillKeywords = extractKeywords(skillText);
 
 	let matchCount = 0;
@@ -381,7 +382,8 @@ export function computeSkillRelevanceScore(
 ): number {
 	// --- Context component (0-0.20) ---
 	const contextScore =
-		computeContextMatchScore(taskDescription, skillPath) * CONTEXT_WEIGHT;
+		computeContextMatchScore(taskDescription, skillPath, metadata) *
+		CONTEXT_WEIGHT;
 
 	if (usageHistory.length === 0) return Math.min(1.0, contextScore);
 

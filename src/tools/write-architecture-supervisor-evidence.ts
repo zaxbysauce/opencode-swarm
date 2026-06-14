@@ -12,10 +12,7 @@ import * as path from 'node:path';
 import type { tool } from '@opencode-ai/plugin';
 import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
-import {
-	KnowledgeConfigSchema,
-	SkillImproverConfigSchema,
-} from '../config/schema';
+import { KnowledgeConfigSchema } from '../config/schema';
 import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
 import { generateSkills } from '../services/skill-generator';
@@ -169,9 +166,6 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 					// gate. Provide the curator LLM delegate to enrich prose lessons with
 					// v3 fields; lessons that cannot be enriched are quarantined to the
 					// unactionable queue (recoverable by the hardening loop), not stored.
-					const skillImproverCfg = SkillImproverConfigSchema.parse(
-						config.skill_improver ?? {},
-					);
 					const result = await curateAndStoreSwarm(
 						lessons,
 						path.basename(dirResult.directory),
@@ -185,8 +179,8 @@ export const write_architecture_supervisor_evidence: ReturnType<typeof tool> =
 								'phase',
 							),
 							enrichmentQuota: {
-								maxCalls: skillImproverCfg.max_calls_per_day,
-								window: skillImproverCfg.quota_window,
+								maxCalls: knowledgeConfig.enrichment.max_calls_per_day,
+								window: knowledgeConfig.enrichment.quota_window,
 							},
 						},
 					);

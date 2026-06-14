@@ -136,4 +136,56 @@ describe('knowledge injector retrieved events', () => {
 		expect(injectedText).toContain('knowledge lesson shown');
 		expect(injectedText).toContain('knowledge lesson low-confidence');
 	});
+
+	test('uses configured model limit overrides for residual headroom checks', async () => {
+		let searchCalled = false;
+		_internals.searchKnowledge = async () => {
+			searchCalled = true;
+			return {
+				trace_id: 'trace-skipped',
+				results: [rankedEntry('should-not-show')],
+			};
+		};
+		_internals.recordKnowledgeEvent = async () => null;
+		_internals.recordKnowledgeShown = async () => {};
+
+		const hook = createKnowledgeInjectorHook(
+			tempDir,
+			{
+				...baseConfig,
+				enabled: true,
+				context_budget_threshold: 300,
+			},
+			{ 'test-provider/tiny-model': 1000 },
+		);
+		const output: { messages?: MessageWithParts[] } = {
+			messages: [
+				{
+					info: {
+						role: 'system',
+						agent: 'architect',
+						sessionID: 'session-1',
+					},
+					parts: [{ type: 'text', text: 'system' }],
+				},
+				{
+					info: {
+						role: 'assistant',
+						modelID: 'tiny-model',
+						providerID: 'test-provider',
+					},
+					parts: [{ type: 'text', text: 'x'.repeat(4000) }],
+				},
+				{
+					info: { role: 'user' },
+					parts: [{ type: 'text', text: 'please continue' }],
+				},
+			],
+		};
+
+		await hook({}, output);
+
+		expect(searchCalled).toBe(false);
+		expect(output.messages).toHaveLength(3);
+	});
 });

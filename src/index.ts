@@ -33,7 +33,6 @@ import {
 	PrMonitorConfigSchema,
 	PrmConfigSchema,
 	SelfReviewConfigSchema,
-	SkillImproverConfigSchema,
 	SkillPropagationConfigSchema,
 	SummaryConfigSchema,
 	stripKnownSwarmPrefix,
@@ -615,22 +614,31 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 
 	// v6.17 Knowledge system hooks — fire-and-forget, wrapped in safeHook
 	const knowledgeConfig = KnowledgeConfigSchema.parse(config.knowledge ?? {});
-	// Shared skill-improver budget — also bounds the micro-reflector's LLM calls.
-	const skillImproverConfig = SkillImproverConfigSchema.parse(
-		config.skill_improver ?? {},
-	);
 	const skillPropagationConfig = SkillPropagationConfigSchema.parse(
 		config.skillPropagation ?? {},
 	);
+	// skill_improver keeps its own proposal quota; curator/micro-reflector
+	// enrichment uses knowledge.enrichment below.
 	const knowledgeCuratorHook = knowledgeConfig.enabled
-		? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig)
+		? createKnowledgeCuratorHook(ctx.directory, knowledgeConfig, {
+				llmDelegateFactory: (sessionID) =>
+					createCuratorLLMDelegate(ctx.directory, 'phase', sessionID),
+				enrichmentQuota: {
+					maxCalls: knowledgeConfig.enrichment.max_calls_per_day,
+					window: knowledgeConfig.enrichment.quota_window,
+				},
+			})
 		: undefined;
 	const hivePromoterHook =
 		knowledgeConfig.enabled && knowledgeConfig.hive_enabled
 			? createHivePromoterHook(ctx.directory, knowledgeConfig)
 			: undefined;
 	const knowledgeInjectorHook = knowledgeConfig.enabled
-		? createKnowledgeInjectorHook(ctx.directory, knowledgeConfig)
+		? createKnowledgeInjectorHook(
+				ctx.directory,
+				knowledgeConfig,
+				config.context_budget?.model_limits ?? {},
+			)
 		: undefined;
 
 	// v6.18 Steering acknowledgment hook — auto-acknowledges unconsumed steering directives
@@ -1791,8 +1799,8 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 							output,
 							createCuratorLLMDelegate(ctx.directory, 'phase', input.sessionID),
 							{
-								maxCalls: skillImproverConfig.max_calls_per_day,
-								window: skillImproverConfig.quota_window,
+								maxCalls: knowledgeConfig.enrichment.max_calls_per_day,
+								window: knowledgeConfig.enrichment.quota_window,
 							},
 						),
 					)(input, output);

@@ -107,6 +107,11 @@ Quarantined entries are hidden from queries but preserved:
 /swarm knowledge restore lesson-abc123
 ```
 
+Quarantined, archived, and `quarantined_unactionable` entries are inactive for
+query injection, hive promotion, and hive encounter-score reinforcement. New
+near-duplicate evidence reinforces only active entries; inactive duplicates stay
+archived/quarantined and a fresh candidate can be created instead.
+
 ### Expiration (N-phase TTL decay)
 
 At every successful phase completion, `sweepAgedEntries()` runs:
@@ -167,6 +172,8 @@ All keys live under `knowledge.*` in your config (see `src/config/schema.ts:804`
 | `todo_max_phases` | int | 3 | TODO-category TTL |
 | `same_project_weight` | float | 1.0 | Encounter score (source project) |
 | `cross_project_weight` | float | 0.5 | Encounter score (other projects) |
+| `enrichment.max_calls_per_day` | int | 30 | Dedicated daily quota for curator/close-time/unactionable-hardening LLM enrichment of plain prose into actionable directives |
+| `enrichment.quota_window` | `"utc"`/`"local"` | `"utc"` | Calendar window for the enrichment quota |
 
 ---
 
@@ -423,6 +430,22 @@ High-confidence candidates (>= `curator.min_skill_confidence`) trigger
 `skill_generate` in **draft** mode; activation always requires a human or
 architect to call `skill_apply`.
 
+### Maturity gate
+
+The compiler no longer requires only repeated high-confidence confirmations.
+Selection uses the effective event-sourced outcome rollup:
+
+- Repeated confirmations still qualify candidates.
+- Strong positive outcomes (`applied_explicit`, `succeeded_after_shown`, or
+  repeated acknowledgments) can qualify a well-evidenced singleton even when
+  confirmation count is low.
+- Negative outcome signal blocks compilation even when confidence is high.
+- The default confidence floor is `0.70`; high/critical priority and strong
+  outcome records can draft a singleton proposal, but activation remains manual.
+
+See [Generated Skills](skills.md) for the generated-skill lifecycle and file
+layout.
+
 ---
 
 ## Skill improver agent (issue #629)
@@ -471,7 +494,7 @@ no delegate is available.
 
 ### Quota policy
 
-Quota state lives at `.swarm/skill-improver-quota.json`:
+Skill-improver proposal quota state lives at `.swarm/skill-improver-quota.json`:
 
 ```json
 {
@@ -485,6 +508,9 @@ Quota state lives at `.swarm/skill-improver-quota.json`:
 
 - Quota reservation runs under a `proper-lockfile` so parallel
   `skill_improve` invocations cannot lost-update each other.
+- Knowledge enrichment uses a separate `.swarm/knowledge-enrichment-quota.json`
+  file, governed by `knowledge.enrichment.*`, so curator/close-time/hardening
+  LLM attempts do not consume the skill-improver proposal budget.
 - **No-client + fallback-disabled** → refuse pre-flight; quota untouched.
 - **Inventory failure (pre-network)** → release the reservation.
 - **LLM call started** → slot stays consumed even on failure (anti-flake

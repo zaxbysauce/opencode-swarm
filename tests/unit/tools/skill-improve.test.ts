@@ -226,6 +226,24 @@ describe('skill_improve tool', () => {
 			expect(callArgs.config).toBe(config);
 		});
 
+		it('passes knowledge enrichment quota to runSkillImprover', async () => {
+			mockLoadPluginConfigWithMeta.mockReturnValueOnce({
+				config: {
+					skill_improver: { enabled: true },
+					knowledge: {
+						enrichment: { max_calls_per_day: 7, quota_window: 'local' },
+					},
+				},
+				meta: { source: 'test' },
+			});
+			await skill_improve.execute({}, tmp);
+			const callArgs = mockRunSkillImprover.mock.calls[0][0];
+			expect(callArgs.enrichmentQuota).toEqual({
+				maxCalls: 7,
+				window: 'local',
+			});
+		});
+
 		it('handles null args gracefully', async () => {
 			mockLoadPluginConfigWithMeta.mockReturnValueOnce({
 				config: { skill_improver: { enabled: true } },

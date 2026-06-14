@@ -19,6 +19,7 @@ import {
 	appendRejectedLesson,
 	computeConfidence,
 	computeOutcomeSignal,
+	enforceKnowledgeCap,
 	findNearDuplicate,
 	inferTags,
 	jaccardBigram,
@@ -37,6 +38,7 @@ import type {
 	RejectedLesson,
 	SwarmKnowledgeEntry,
 } from '../../../src/hooks/knowledge-types.js';
+import { safeRmRecursive } from '../../helpers/safe-test-dir.js';
 
 function makeSwarmEntry(
 	overrides: Partial<SwarmKnowledgeEntry> = {},
@@ -497,6 +499,65 @@ describe('knowledge-store', () => {
 				applied_explicit_count: 20,
 			});
 			expect(manyPositive).toBeGreaterThan(onePositive);
+		});
+	});
+
+	describe('enforceKnowledgeCap priority eviction', () => {
+		it('preserves promoted entries and evicts low-signal non-promoted entries first', async () => {
+			const tempDir = path.join(
+				os.tmpdir(),
+				`knowledge-cap-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+			);
+			const tempPath = path.join(tempDir, 'knowledge.jsonl');
+			try {
+				await fs.promises.mkdir(tempDir, { recursive: true });
+				const entries: SwarmKnowledgeEntry[] = [
+					makeSwarmEntry({
+						id: 'promoted-old',
+						status: 'promoted',
+						retrieval_outcomes: {
+							applied_count: 0,
+							succeeded_after_count: 0,
+							failed_after_count: 0,
+						},
+					}),
+					makeSwarmEntry({
+						id: 'low-signal',
+						status: 'established',
+						retrieval_outcomes: {
+							applied_count: 0,
+							succeeded_after_count: 0,
+							failed_after_count: 0,
+							contradicted_count: 4,
+						},
+					}),
+					makeSwarmEntry({
+						id: 'positive',
+						status: 'established',
+						retrieval_outcomes: {
+							applied_count: 0,
+							succeeded_after_count: 0,
+							failed_after_count: 0,
+							applied_explicit_count: 4,
+						},
+					}),
+				];
+				await fs.promises.writeFile(
+					tempPath,
+					entries.map((entry) => JSON.stringify(entry)).join('\n') + '\n',
+					'utf-8',
+				);
+
+				await enforceKnowledgeCap<SwarmKnowledgeEntry>(tempPath, 2);
+
+				const survivors = await readKnowledge<SwarmKnowledgeEntry>(tempPath);
+				expect(survivors.map((entry) => entry.id)).toEqual([
+					'promoted-old',
+					'positive',
+				]);
+			} finally {
+				safeRmRecursive(tempDir);
+			}
 		});
 	});
 

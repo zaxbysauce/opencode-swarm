@@ -383,8 +383,11 @@ mockRealpathSync.mockImplementation((inputPath: string) => {
 - Use `os.tmpdir()` + `path.join()` for temp paths. **Never** hardcode `/tmp` or `C:\`.
 - Wrap `mkdtempSync` in `realpathSync` if the result is `chdir`'d on macOS (temp
   dirs are often symlinked to `/private/var/...`).
-- Clean up temp dirs in `afterEach` or `afterAll` using the `rm` utility with
-  `{ force: true, recursive: true }`.
+- Clean up temp dirs in `afterEach` or `afterAll` with a bounded helper that
+  verifies the resolved cleanup target is a child of `os.tmpdir()` before
+  calling recursive `rm`. Reuse `tests/helpers/safe-test-dir.ts` when possible.
+  Do not call recursive `rm` on a computed path unless the helper has rejected
+  empty strings, `os.tmpdir()` itself, and paths outside the temp root.
 
 ### Line ending normalization
 
