@@ -585,7 +585,9 @@ async function buildParallelExecutionGuidance(
 		const FAILURE_RATE_THRESHOLD = 0.2;
 		const BACKOFF_MULTIPLIER = 0.5;
 
-		if (failureRate > FAILURE_RATE_THRESHOLD) {
+		// Require at least 2 blocked tasks to avoid throttling on single-task
+		// flakiness in small plans (e.g. 1/4 = 25% should not auto-reduce).
+		if (failureRate > FAILURE_RATE_THRESHOLD && blockedTasks.length >= 2) {
 			const newConcurrency = Math.max(
 				1,
 				Math.floor(effectiveMaxConcurrent * BACKOFF_MULTIPLIER),

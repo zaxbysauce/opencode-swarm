@@ -15,7 +15,7 @@ Increased the default number of concurrent tasks from 1 to 10, and added adaptiv
 - **Better UX**: Users can use the new "medium" preset (8) for a strong balance, and "max" (16) for maximum parallelization
 
 ## How to use
-No migration required. The changes are automatic:
+The changes are automatic for most users:
 
 1. **Plans without execution_profile**: New plans will default to `max_concurrent_tasks: 10` when parallelization is enabled
 2. **Existing plans**: Not affected; only new plans created after this release will use the new default
@@ -31,10 +31,27 @@ Example concurrency commands:
 ```
 
 ## Migration
-No migration required.
+
+### Preset value changes
+If you use preset values in scripts or automation, be aware that the numeric values have changed:
+
+| Preset | Old value | New value |
+|--------|-----------|-----------|
+| `medium` | 3 | 8 |
+| `max` | 8 | 16 |
+
+For example, `/swarm concurrency set medium` now sets concurrency to 8 (previously 3), and `/swarm concurrency set max` now sets it to 16 (previously 8).
+
+**Action needed**: If your scripts rely on specific preset numeric values, update them to match the new defaults.
+
+### Default change
+The new default for plans without an explicit `execution_profile` is 10 (previously 1). This only affects **new plans** created after this release—existing plans are unaffected.
 
 ## Breaking changes
-None. Existing behavior is preserved; only the default has increased.
+None for new plans. Existing behavior is preserved for plans without `execution_profile`; only the default has increased.
+
+## Breaking changes for preset users
+None—preset names remain the same, only their numeric values changed.
 
 ## Known caveats
 - Adaptive backoff only triggers when failure rate exceeds 20%, to avoid over-reacting to minor issues

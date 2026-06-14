@@ -383,7 +383,7 @@ describe('buildParallelExecutionGuidance', () => {
 	});
 
 	// ── Additional: Plan with no execution_profile ───────────────────────────────
-	it('Plan without execution_profile uses default max_concurrent_tasks=1', async () => {
+	it('Plan without execution_profile returns null when parallelization is disabled', async () => {
 		const planWithoutProfile: Plan = {
 			schema_version: '1.0.0',
 			title: 'Test Project',
@@ -419,8 +419,8 @@ describe('buildParallelExecutionGuidance', () => {
 			swarmState.agentSessions.get(sessionId)!,
 		);
 
-		// Default max_concurrent_tasks is 1 when not specified, so result should be null
-		// because effectiveMaxConcurrent <= 1 returns null
+		// parallelization_enabled defaults to false when no execution_profile is present,
+		// so result should be null because !enabled returns null (not because of max_concurrent_tasks)
 		expect(result).toBeNull();
 	});
 
@@ -578,6 +578,87 @@ describe('buildParallelExecutionGuidance', () => {
 			expect(result).not.toContain(
 				'blocked task(s) detected — concurrency auto-reduced',
 			);
+		}
+	});
+
+	it('Adaptive backoff: does not reduce concurrency when effective max is already 1', async () => {
+		const planWithMinConcurrency: Plan = {
+			schema_version: '1.0.0',
+			title: 'Test Project',
+			swarm: 'mega',
+			current_phase: 1,
+			phases: [
+				{
+					id: 1,
+					name: 'Phase 1',
+					status: 'in_progress',
+					tasks: [
+						{
+							id: '1.1',
+							description: 'Task 1.1',
+							status: 'pending',
+							depends: [],
+						},
+						{
+							id: '1.2',
+							description: 'Task 1.2',
+							status: 'blocked',
+							blocked_reason: 'Failed during execution',
+							depends: [],
+						},
+						{
+							id: '1.3',
+							description: 'Task 1.3',
+							status: 'blocked',
+							blocked_reason: 'Failed during execution',
+							depends: [],
+						},
+						{
+							id: '1.4',
+							description: 'Task 1.4',
+							status: 'pending',
+							depends: [],
+						},
+						{
+							id: '1.5',
+							description: 'Task 1.5',
+							status: 'pending',
+							depends: [],
+						},
+					],
+				},
+			],
+			execution_profile: {
+				max_concurrent_tasks: 1,
+				parallelization_enabled: true,
+				locked: false,
+			},
+		} as Plan;
+
+		mockLoadPlanJsonOnly.mockImplementation(() =>
+			Promise.resolve(planWithMinConcurrency),
+		);
+
+		const sessionId = 'test-no-backoff-min-concurrency';
+		createTestSession(sessionId);
+		const session = swarmState.agentSessions.get(sessionId)!;
+
+		// Initial state: no override
+		expect(session.maxConcurrencyOverride).toBeUndefined();
+
+		const result = await buildParallelExecutionGuidance(
+			testDirectory,
+			sessionId,
+			session,
+		);
+
+		// Even though 2 blocked out of 5 = 40% > 20% threshold,
+		// Math.max(1, Math.floor(1 * 0.5)) = Math.max(1, 0) = 1
+		// Since effective max is already 1, no backoff should trigger (1 < 1 is false)
+		expect(session.maxConcurrencyOverride).toBeUndefined();
+		// Result should not contain backoff message since no reduction occurred
+		if (result) {
+			expect(result).not.toContain('concurrency auto-reduced');
 		}
 	});
 });
