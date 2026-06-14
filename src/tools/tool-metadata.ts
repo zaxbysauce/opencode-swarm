@@ -388,6 +388,7 @@ export const TOOL_METADATA = {
 			'explorer',
 			'coder',
 			'test_engineer',
+			'researcher',
 		],
 	},
 	batch_symbols: {

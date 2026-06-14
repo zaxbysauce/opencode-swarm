@@ -62,9 +62,9 @@ describe('researcher.ts — Researcher agent factory', () => {
 
 		test('tools.create_file is false', () => {
 			const agent = createResearcherAgent(TEST_MODEL);
-			expect(
-				(agent.config.tools as Record<string, unknown>).create_file,
-			).toBe(false);
+			expect((agent.config.tools as Record<string, unknown>).create_file).toBe(
+				false,
+			);
 		});
 	});
 
@@ -150,32 +150,60 @@ describe('researcher.ts — Researcher agent factory', () => {
 		test('customPrompt takes precedence over customAppendPrompt', () => {
 			const customPrompt = 'OVERRIDE_PROMPT';
 			const appendPrompt = 'APPEND_PROMPT';
-			const agent = createResearcherAgent(TEST_MODEL, customPrompt, appendPrompt);
+			const agent = createResearcherAgent(
+				TEST_MODEL,
+				customPrompt,
+				appendPrompt,
+			);
 			expect(agent.config.prompt).toBe(customPrompt);
 			expect(agent.config.prompt).not.toContain(appendPrompt);
 		});
 	});
 
 	// ============================================================
-	// TEST 5: Agent definition shape
+	// TEST 5: Agent definition shape (specific values)
 	// ============================================================
-	describe('agent definition shape', () => {
+	describe('agent definition shape (specific values)', () => {
 		test('agent has name property', () => {
 			const agent = createResearcherAgent(TEST_MODEL);
 			expect(typeof agent.name).toBe('string');
+			expect(agent.name).toBe('researcher');
 		});
 
-		test('agent has description property', () => {
+		test('agent description matches the documented contract', () => {
 			const agent = createResearcherAgent(TEST_MODEL);
-			expect(typeof agent.description).toBe('string');
+			expect(agent.description).toBe(
+				'Automated multi-source research specialist. Searches the web, GitHub, official docs, and academic sources, then synthesises findings with citations. Read-only.',
+			);
 		});
 
-		test('agent has config with model, temperature, prompt, and tools', () => {
+		test('agent config.tools has all 9 write-tool flags set to false', () => {
 			const agent = createResearcherAgent(TEST_MODEL);
-			expect(typeof agent.config.model).toBe('string');
-			expect(typeof agent.config.temperature).toBe('number');
-			expect(typeof agent.config.prompt).toBe('string');
-			expect(typeof agent.config.tools).toBe('object');
+			const writeToolKeys = [
+				'write',
+				'edit',
+				'patch',
+				'apply_patch',
+				'create_file',
+				'insert',
+				'replace',
+				'append',
+				'prepend',
+			];
+			for (const key of writeToolKeys) {
+				expect((agent.config.tools as Record<string, unknown>)[key]).toBe(
+					false,
+				);
+			}
+		});
+
+		test('prompt does not contain template placeholder markers', () => {
+			const agent = createResearcherAgent(TEST_MODEL);
+			// Ensure no unrendered template placeholders remain in the default prompt.
+			// Square-bracket placeholder text is used in the INPUT FORMAT guidance but should
+			// not appear as unfilled template variables.
+			expect(agent.config.prompt).not.toMatch(/\{\{[^}]+\}\}/);
+			expect(agent.config.prompt).not.toMatch(/\$\{[^}]+\}/);
 		});
 	});
 });

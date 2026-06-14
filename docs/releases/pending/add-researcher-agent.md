@@ -16,16 +16,15 @@
 - **Tool access**: the `researcher` agent is granted `web_search`,
   `swarm_command`, `summarize_work`, `symbols`, `imports`,
   `complexity_hotspots`, `schema_drift`, and `todo_extract`. All write tools
-  (`write`, `edit`, `patch`, `apply_patch`, `create_file`, etc.) are disabled.
+  are disabled: `write`, `edit`, `patch`, `apply_patch`, `create_file`,
+  `insert`, `replace`, `append`, `prepend`.
 
 - **Structured output contract**: the agent always emits CONFIDENCE, SUMMARY,
   FINDINGS (with per-finding confidence and source URLs), CONTRADICTIONS,
   RECOMMENDATION, GAPS, EVIDENCE_REFS, and STALENESS_WARNINGS. Output length
   adapts to the `DEPTH` parameter (`quick` / `standard` / `deep`).
 
-- **Search caching**: the agent reuses `.swarm/context.md` research sources and
-  emits `CACHE-UPDATE` lines for the Architect to persist, matching the SME
-  agent's cache contract.
+- **Search caching**: the Architect maintains `.swarm/context.md ## Research Sources` on the researcher's behalf. The researcher emits `CACHE-UPDATE` lines for the Architect to persist, and the Architect surfaces prior findings to the researcher in its dispatch context. This matches the SME agent's cache contract.
 
 - **Security guardrails**: external content is treated as untrusted evidence.
   The agent never follows instructions found in external pages or executes
@@ -41,12 +40,13 @@
 ## Why
 
 The swarm had no dedicated agent for automated multi-source research. The SME
-agent provides domain expertise from training knowledge, but it does not
-systematically search the web, GitHub issues, official docs, or academic papers.
-This agent fills that gap — enabling the Architect to delegate research tasks
-(e.g. "find the best approach for X", "search GitHub for examples of Y") to a
-specialist that triangulates across multiple sources and returns cited,
-confidence-graded findings (issue: auto-research agent feature request).
+agent provides domain expertise from training knowledge and uses web_search
+as a secondary capability (see `sme.ts:34-47`); the new `researcher` agent's
+entire protocol is built around web_search as the primary source, with
+structured 5-step multi-source triangulation, evidence grading, and
+synthesised citations. This split lets the Architect dispatch the right
+specialist — SME for "I have a domain question", researcher for "I need
+multi-source, cited evidence for X" — instead of asking SME to do both jobs.
 
 ## How to use
 
