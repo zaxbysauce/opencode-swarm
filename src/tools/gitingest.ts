@@ -83,18 +83,23 @@ export async function fetchGitingest(args: GitingestArgs): Promise<string> {
 				let buffer = '';
 				const decoder = new TextDecoder();
 				let totalBytes = 0;
-				while (true) {
-					const { done, value } = await reader.read();
-					if (done) break;
-					totalBytes += value.byteLength;
-					if (totalBytes > GITINGEST_MAX_RESPONSE_BYTES) {
-						reader.cancel();
-						throw new Error('gitingest response too large');
+				try {
+					while (true) {
+						const { done, value } = await reader.read();
+						if (done) break;
+						totalBytes += value.byteLength;
+						if (totalBytes > GITINGEST_MAX_RESPONSE_BYTES) {
+							throw new Error('gitingest response too large');
+						}
+						buffer += decoder.decode(value, { stream: true });
 					}
-					buffer += decoder.decode(value, { stream: true });
+					buffer += decoder.decode(); // Flush decoder
+					text = buffer;
+				} finally {
+					reader.cancel().catch(() => {
+						// Best-effort cancellation; ignore if reader already closed
+					});
 				}
-				buffer += decoder.decode(); // Flush decoder
-				text = buffer;
 			} else {
 				// Fallback: use response.text() if streaming is not available
 				text = await response.text();

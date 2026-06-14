@@ -13,11 +13,11 @@ Previously, `gitingest` and `web_search` returned external content directly to t
    - Returns threat level, findings, and neutralized content with threat markers wrapped
    - Trust-level modulation (default: `low` treats warnings as errors)
 
-2. **Integrated scanner into `gitingest.ts`**:
-   - All fetched repository content (summary, tree, file content) scanned for threats
-   - Added streaming byte cap to prevent unbounded buffering (early-abort on size limit)
-   - If threats detected, response includes security note and threat summary
-   - Clean content returned as-is; no performance impact
+ 2. **Integrated scanner into `gitingest.ts`**:
+    - All fetched repository content (summary, tree, file content) scanned for threats
+    - Added streaming byte cap to prevent unbounded buffering (early-abort on size limit)
+    - **Behavioral change**: When threats are detected, the response is prepended with a `[GITINGEST SECURITY NOTE: ...]` header followed by the threat summary and neutralized content. Clean content is returned as-is with no modification.
+    - Streaming reader now uses `try/finally` to ensure `reader.cancel()` is called on error, preventing resource leaks.
 
 3. **Integrated scanner into `web_search.ts`**:
    - Result titles and snippets scanned for threats before returning

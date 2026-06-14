@@ -81,15 +81,6 @@ function neutralizeThreatPatterns(
 		return text;
 	}
 
-	// Group findings by pattern to avoid multiple wrappings
-	const patternMatches = new Map<string, ValidationFinding[]>();
-	for (const finding of findings) {
-		if (!patternMatches.has(finding.pattern)) {
-			patternMatches.set(finding.pattern, []);
-		}
-		patternMatches.get(finding.pattern)!.push(finding);
-	}
-
 	let result = text;
 
 	// For each error-severity finding, wrap the matched text with markers.
@@ -98,8 +89,10 @@ function neutralizeThreatPatterns(
 	for (const finding of findings.filter((f) => f.severity === 'error')) {
 		const escapedMatch = finding.match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		const pattern = new RegExp(escapedMatch, 'g');
-		result = result.replace(pattern, () =>
-			`[EXTERNAL_CONTENT_THREAT: ${finding.pattern}] ${finding.match} [/EXTERNAL_CONTENT_THREAT]`,
+		result = result.replace(
+			pattern,
+			() =>
+				`[EXTERNAL_CONTENT_THREAT: ${finding.pattern}] ${finding.match} [/EXTERNAL_CONTENT_THREAT]`,
 		);
 	}
 
@@ -133,6 +126,13 @@ export function scanExternalContent(
 ): ExternalContentScanResult {
 	const trustLevel = options?.trustLevel ?? 'low';
 	const maxLength = options?.maxLength ?? 50_000;
+
+	// Defensive guard: treat null/undefined as empty string to prevent
+	// runtime TypeError from callers outside the type system boundary.
+	if (text == null) {
+		text = '';
+	}
+
 	const originalLength = text.length;
 
 	const findings: ValidationFinding[] = [];
@@ -160,7 +160,7 @@ export function scanExternalContent(
 				field: 'external_content',
 				description: entry.description,
 				severity: entry.severity,
-				match: match[0].slice(0, 100),
+				match: match[0],
 			});
 		}
 	}
@@ -174,7 +174,7 @@ export function scanExternalContent(
 				field: 'external_content',
 				description: entry.description,
 				severity: entry.severity,
-				match: match[0].slice(0, 100),
+				match: match[0],
 			});
 		}
 	}
