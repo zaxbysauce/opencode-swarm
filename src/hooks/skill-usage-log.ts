@@ -27,7 +27,9 @@ export interface SkillUsageEntry {
 	taskID: string;
 	/** ISO 8601 timestamp of the event. */
 	timestamp: string;
-	/** Compliance outcome — 'compliant' | 'violation' | 'partial' | 'not_checked' | custom. */
+	/** Compliance outcome — 'compliant' | 'partial' | 'violated' | 'not_checked' | custom.
+	 *  Legacy on-disk entries may carry the pre-fix spelling 'violation'; these are
+	 *  normalized to 'violated' on the read path (see normalizeComplianceVerdict). */
 	complianceVerdict: string;
 	/** Optional free-text notes from the reviewer. */
 	reviewerNotes?: string;
@@ -68,6 +70,23 @@ export interface PruneResult {
 /** Resolve the absolute path to `.swarm/skill-usage.jsonl`, with swarm-path validation. */
 function resolveLogPath(directory: string): string {
 	return validateSwarmPath(directory, 'skill-usage.jsonl');
+}
+
+// ============================================================================
+// Verdict normalization (legacy backward-compat)
+// ============================================================================
+
+/**
+ * Normalize a compliance verdict to the canonical spelling.
+ * The sole producer (`skill-propagation-gate.ts`) lowercases the regex
+ * capture, yielding 'violated'.  Pre-fix on-disk entries may carry the
+ * legacy spelling 'violation'; this maps them to the canonical form so
+ * that every downstream comparison can use a single string.
+ *
+ * Exported for unit-testing.
+ */
+export function normalizeComplianceVerdict(verdict: string): string {
+	return verdict === 'violation' ? 'violated' : verdict;
 }
 
 // ============================================================================
@@ -213,7 +232,11 @@ export function readSkillUsageEntries(
 		const trimmed = line.trim();
 		if (!trimmed) continue;
 		try {
-			entries.push(JSON.parse(trimmed) as SkillUsageEntry);
+			const entry = JSON.parse(trimmed) as SkillUsageEntry;
+			entry.complianceVerdict = normalizeComplianceVerdict(
+				entry.complianceVerdict,
+			);
+			entries.push(entry);
 		} catch {
 			// skip malformed line — consistent with knowledge-application pattern
 		}
@@ -300,6 +323,9 @@ export function readSkillUsageEntriesTail(
 				if (!line.trim()) continue;
 				try {
 					const entry: SkillUsageEntry = JSON.parse(line);
+					entry.complianceVerdict = normalizeComplianceVerdict(
+						entry.complianceVerdict,
+					);
 					if (
 						filters.sessionID !== undefined &&
 						entry.sessionID !== filters.sessionID
@@ -358,7 +384,7 @@ export function computeComplianceByVersion(
 		}
 		stats.total += 1;
 		if (e.complianceVerdict === 'compliant') stats.compliant += 1;
-		if (e.complianceVerdict === 'violation') stats.violation += 1;
+		if (e.complianceVerdict === 'violated') stats.violation += 1;
 	}
 
 	for (const stats of map.values()) {
@@ -594,7 +620,7 @@ export async function applySkillUsageFeedback(
 		const actionable = allEntries.filter((e) => {
 			if (
 				e.complianceVerdict !== 'compliant' &&
-				e.complianceVerdict !== 'violation'
+				e.complianceVerdict !== 'violated'
 			) {
 				return false;
 			}
@@ -625,7 +651,7 @@ export async function applySkillUsageFeedback(
 
 			for (const entry of entries) {
 				if (entry.complianceVerdict === 'compliant') compliantCount++;
-				else if (entry.complianceVerdict === 'violation') violationCount++;
+				else if (entry.complianceVerdict === 'violated') violationCount++;
 			}
 
 			// Skip skills with no actionable verdicts (shouldn't happen due to filter, but defensive)
