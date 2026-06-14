@@ -1,28 +1,34 @@
 import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
-import { _internals } from '../../../src/commands/_shared/url-security';
+import {
+	_internals,
+	MAX_URL_LEN,
+} from '../../../src/commands/_shared/url-security';
 import { handleIssueCommand } from '../../../src/commands/issue';
 
-const realExecSync = _internals.execSync;
-const execSyncMock = mock((cmd: string) => {
-	if (cmd === 'git remote get-url origin') {
-		return 'https://github.com/test-owner/test-repo.git';
-	}
-	throw new Error('No remote');
-});
+const realSpawnSync = _internals.spawnSync;
+const spawnSyncMock = mock(
+	(_bin: string, _args: string[], opts: Record<string, unknown>) => {
+		if (opts.cwd) {
+			return {
+				status: 0,
+				stdout: 'https://github.com/test-owner/test-repo.git',
+				error: undefined,
+			} as ReturnType<typeof _internals.spawnSync>;
+		}
+		throw new Error('No remote');
+	},
+);
 
 describe('handleIssueCommand', () => {
 	beforeEach(() => {
-		execSyncMock.mockClear();
-		_internals.execSync = execSyncMock as typeof _internals.execSync;
+		spawnSyncMock.mockClear();
+		_internals.spawnSync = spawnSyncMock as typeof _internals.spawnSync;
 	});
 
 	afterEach(() => {
-		_internals.execSync = realExecSync;
+		_internals.spawnSync = realSpawnSync;
+		mock.restore();
 	});
-
-	// =============================================================================
-	// URL Parsing (3 formats)
-	// =============================================================================
 
 	describe('URL Parsing', () => {
 		test('Full URL: parses https://github.com/owner/repo/issues/42 correctly', () => {
@@ -51,9 +57,11 @@ describe('handleIssueCommand', () => {
 		});
 
 		test('Bare number: requires git remote detection (mocked)', () => {
-			execSyncMock.mockImplementation(
-				() => 'https://github.com/test-owner/test-repo.git',
-			);
+			spawnSyncMock.mockImplementation(() => ({
+				status: 0,
+				stdout: 'https://github.com/test-owner/test-repo.git',
+				error: undefined,
+			}));
 			const result = handleIssueCommand('/test', ['42']);
 			expect(result).toContain(
 				'issue="https://github.com/test-owner/test-repo/issues/42"',
@@ -61,7 +69,7 @@ describe('handleIssueCommand', () => {
 		});
 
 		test('Bare number with no git remote returns error', () => {
-			execSyncMock.mockImplementation(() => {
+			spawnSyncMock.mockImplementation(() => {
 				throw new Error('No remote');
 			});
 			const result = handleIssueCommand('/test', ['42']);
@@ -173,7 +181,13 @@ describe('handleIssueCommand', () => {
 			expect(result).toContain('Error:');
 		});
 
-		test('Non-ASCII in shorthand path is not currently blocked (path-level non-ASCII check gap)', () => {
+		// KNOWN GAP (tracked by PR review): non-ASCII characters in the shorthand
+		// path (owner/repo#N) are not currently blocked. parseIssueRef only checks
+		// control characters, and validateAndSanitizeGithubUrl checks non-ASCII on
+		// url.hostname only — not on the full URL path. This allows inputs like
+		// 'ownër/repo#42' to pass through. Path-level non-ASCII enforcement is a
+		// future hardening item; this test documents the current behavior.
+		test('Non-ASCII in shorthand path is not currently blocked', () => {
 			// Shorthand 'ownër/repo#42' expands to https://github.com/ownër/repo/issues/42
 			// The hostname is ASCII (github.com) but the path contains non-ASCII.
 			// validateAndSanitizeUrl checks non-ASCII on url.hostname only,
@@ -280,14 +294,23 @@ describe('handleIssueCommand', () => {
 			expect(result).not.toContain('\t');
 		});
 
-		test('URL exceeding 2048 chars is truncated', () => {
-			const longRepo = 'a'.repeat(100);
-			const result = handleIssueCommand('/test', [
-				`https://github.com/owner/${longRepo}/issues/42`,
-			]);
-			// The URL should be truncated to MAX_URL_LEN (2048)
-			expect(result).toContain('issue="https://github.com/owner/');
-			expect(result.length).toBeLessThanOrEqual(2200); // rough bound check
+		test('URL exceeding MAX_URL_LEN is truncated', () => {
+			// Build a URL whose total length clearly exceeds MAX_URL_LEN so the
+			// truncation path in sanitizeUrl is exercised.
+			const longRepo = 'a'.repeat(MAX_URL_LEN + 100);
+			const inputUrl = `https://github.com/owner/${longRepo}/issues/42`;
+			const result = handleIssueCommand('/test', [inputUrl]);
+			// Truncation cuts the path mid-repo, so the resulting URL no longer
+			// matches the github issue pattern and validation returns an error.
+			expect(result).toContain('Error:');
+			// The echoed input preview is bounded by sanitizeErrorEcho (80 chars
+			// default), so the output must not contain the full long repo.
+			expect(result).not.toContain(longRepo);
+			// If a URL is emitted in the output, it must respect MAX_URL_LEN.
+			const urlMatch = result.match(/issue="([^"]+)"/);
+			if (urlMatch) {
+				expect(urlMatch[1].length).toBeLessThanOrEqual(MAX_URL_LEN);
+			}
 		});
 
 		test('Non-GitHub URL (gitlab) fails parsing', () => {
@@ -299,13 +322,44 @@ describe('handleIssueCommand', () => {
 		});
 
 		test('Bare number outside github.com context still uses remote', () => {
-			execSyncMock.mockImplementation(
-				() => 'git@github.com:test-owner/test-repo.git',
-			);
+			spawnSyncMock.mockImplementation(() => ({
+				status: 0,
+				stdout: 'git@github.com:test-owner/test-repo.git',
+				error: undefined,
+			}));
 			const result = handleIssueCommand('/test', ['100']);
 			expect(result).toContain('test-owner');
 			expect(result).toContain('test-repo');
 			expect(result).toContain('100');
+		});
+
+		// Regression for DD-C014 (deep-dive audit, issue #1235):
+		// `parseGitRemoteUrl` previously returned null for proxy remotes and
+		// GitHub Enterprise hostnames, causing bare-number issue resolution to
+		// silently fail with a misleading "Could not parse issue reference" error
+		// for users on those remote shapes.
+		test('Bare number with proxy remote (path-style) resolves owner/repo', () => {
+			spawnSyncMock.mockImplementation(() => ({
+				status: 0,
+				stdout: 'http://proxy.example.com/git/owner/repo.git',
+				error: undefined,
+			}));
+			const result = handleIssueCommand('/test', ['77']);
+			expect(result).toContain(
+				'issue="https://github.com/owner/repo/issues/77"',
+			);
+		});
+
+		test('Bare number with GitHub Enterprise host (path-style) resolves owner/repo', () => {
+			spawnSyncMock.mockImplementation(() => ({
+				status: 0,
+				stdout: 'https://github.acme.com/owner/repo.git',
+				error: undefined,
+			}));
+			const result = handleIssueCommand('/test', ['88']);
+			expect(result).toContain(
+				'issue="https://github.com/owner/repo/issues/88"',
+			);
 		});
 	});
 
@@ -349,7 +403,5 @@ describe('handleIssueCommand', () => {
 		});
 	});
 
-	afterEach(() => {
-		mock.restore();
-	});
+	// afterEach merged into the single block at the top of this describe block
 });

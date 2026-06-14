@@ -1,11 +1,12 @@
-import { execSync } from 'node:child_process';
+import { spawnSync } from 'node:child_process';
 
-const MAX_URL_LEN = 2048;
+export const MAX_URL_LEN = 2048;
 const IPV4_PRIVATE = /^10\./;
 const IPV4_LOOPBACK = /^127\./;
 const IPV4_LINK_LOCAL = /^169\.254\./;
 const IPV4_PRIVATE_172 = /^172\.(1[6-9]|2\d|3[0-1])\./;
 const IPV4_PRIVATE_192 = /^192\.168\./;
+const IPV4_ZERO_NETWORK = /^0\./;
 const IPV6_LINK_LOCAL = /^fe80:/i;
 const IPV6_UNIQUE_LOCAL = /^f[cd][0-9a-f]{2}:/i;
 
@@ -14,7 +15,7 @@ export type ValidationResult = { sanitized: string } | { error: string };
 /**
  * File-scoped indirection seam for git remote lookups.
  */
-export const _internals = { execSync };
+export const _internals = { spawnSync };
 
 /**
  * Strip query strings, fragments, injected MODE headers, and credentials from
@@ -84,13 +85,14 @@ function hasNonAsciiHostname(hostname: string): boolean {
 	return false;
 }
 
-function isIpv4MappedPrivateHost(inner: string): boolean {
+export function isIpv4MappedPrivateHost(inner: string): boolean {
 	if (
 		IPV4_PRIVATE.test(inner) ||
 		IPV4_LOOPBACK.test(inner) ||
 		IPV4_LINK_LOCAL.test(inner) ||
 		IPV4_PRIVATE_172.test(inner) ||
-		IPV4_PRIVATE_192.test(inner)
+		IPV4_PRIVATE_192.test(inner) ||
+		IPV4_ZERO_NETWORK.test(inner)
 	) {
 		return true;
 	}
@@ -101,6 +103,7 @@ function isIpv4MappedPrivateHost(inner: string): boolean {
 	if (!Number.isFinite(firstWord)) return false;
 
 	return (
+		(firstWord >= 0x0000 && firstWord <= 0x00ff) ||
 		(firstWord >= 0x0a00 && firstWord <= 0x0aff) ||
 		(firstWord >= 0x7f00 && firstWord <= 0x7fff) ||
 		firstWord === 0xa9fe ||
@@ -119,7 +122,8 @@ export function isPrivateHost(url: URL): boolean {
 		host === 'localhost' ||
 		host === '::1' ||
 		host === '0.0.0.0' ||
-		IPV4_LOOPBACK.test(host)
+		IPV4_LOOPBACK.test(host) ||
+		IPV4_ZERO_NETWORK.test(host)
 	) {
 		return true;
 	}
@@ -200,14 +204,22 @@ export function validateAndSanitizeGithubUrl(
  */
 export function detectGitRemote(cwd?: string): string | null {
 	try {
-		const remoteUrl = _internals
-			.execSync('git remote get-url origin', {
+		const result = _internals.spawnSync(
+			'git',
+			['remote', 'get-url', 'origin'],
+			{
 				encoding: 'utf-8',
-				stdio: ['pipe', 'pipe', 'pipe'],
+				stdio: ['ignore', 'pipe', 'pipe'],
 				timeout: 5000,
 				...(cwd ? { cwd } : {}),
-			})
-			.trim();
+			},
+		);
+
+		if (result.status !== 0 || result.error) {
+			return null;
+		}
+
+		const remoteUrl = (result.stdout ?? '').trim();
 
 		return remoteUrl || null;
 	} catch {
@@ -225,29 +237,39 @@ export function parseGitRemoteUrl(
 		/^https:\/\/github\.com\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/i,
 	);
 	if (httpsMatch) {
-		return {
-			owner: httpsMatch[1],
-			repo: httpsMatch[2].replace(/\.git$/, ''),
-		};
+		const owner = httpsMatch[1];
+		const repo = httpsMatch[2].replace(/\.git$/, '');
+		if (containsControlCharacters(owner) || containsControlCharacters(repo)) {
+			return null;
+		}
+		return { owner, repo };
 	}
 
 	const sshMatch = remoteUrl.match(
 		/^git@github\.com:([^/]+)\/([^/]+?)(?:\.git)?$/i,
 	);
 	if (sshMatch) {
-		return {
-			owner: sshMatch[1],
-			repo: sshMatch[2].replace(/\.git$/, ''),
-		};
+		const owner = sshMatch[1];
+		const repo = sshMatch[2].replace(/\.git$/, '');
+		if (containsControlCharacters(owner) || containsControlCharacters(repo)) {
+			return null;
+		}
+		return { owner, repo };
 	}
 
 	const pathMatch = remoteUrl.match(/\/([^/]+)\/([^/]+?)(?:\.git)?\/?$/);
 	if (pathMatch) {
-		return {
-			owner: pathMatch[1],
-			repo: pathMatch[2].replace(/\.git$/, ''),
-		};
+		const owner = pathMatch[1];
+		const repo = pathMatch[2].replace(/\.git$/, '');
+		if (containsControlCharacters(owner) || containsControlCharacters(repo)) {
+			return null;
+		}
+		return { owner, repo };
 	}
 
 	return null;
+}
+
+export function isIPv4ZeroNetwork(host: string): boolean {
+	return IPV4_ZERO_NETWORK.test(host);
 }

@@ -6,7 +6,7 @@ import { _internals } from '../../../src/commands/pr-ref';
 import { handlePrReviewCommand } from '../../../src/commands/pr-review';
 
 let tempDir: string;
-const realExecSync = _internals.execSync;
+const realSpawnSync = _internals.spawnSync;
 
 beforeEach(() => {
 	tempDir = mkdtempSync(join(tmpdir(), 'pr-review-test-'));
@@ -15,7 +15,7 @@ beforeEach(() => {
 afterEach(() => {
 	rmSync(tempDir, { recursive: true, force: true });
 	// Restore the subprocess seam after any per-test override.
-	_internals.execSync = realExecSync;
+	_internals.spawnSync = realSpawnSync;
 });
 
 describe('handlePrReviewCommand', () => {
@@ -291,10 +291,18 @@ describe('handlePrReviewCommand', () => {
 			// for (invariant #3), not process.cwd(). Override the subprocess seam to
 			// return a known remote and assert both the resolution and the cwd.
 			let seenCwd: unknown;
-			_internals.execSync = ((_cmd: string, opts: Record<string, unknown>) => {
+			_internals.spawnSync = (
+				_bin: string,
+				_args: string[],
+				opts: Record<string, unknown>,
+			) => {
 				seenCwd = opts.cwd;
-				return 'https://github.com/acme/widgets.git\n';
-			}) as typeof _internals.execSync;
+				return {
+					status: 0,
+					stdout: 'https://github.com/acme/widgets.git',
+					error: undefined,
+				} as ReturnType<typeof _internals.spawnSync>;
+			};
 
 			const result = handlePrReviewCommand(tempDir, ['42']);
 
@@ -305,9 +313,10 @@ describe('handlePrReviewCommand', () => {
 		});
 
 		test('bare number errors when no origin remote is reachable', () => {
-			_internals.execSync = (() => {
+			const thrower = () => {
 				throw new Error('fatal: No such remote');
-			}) as typeof _internals.execSync;
+			};
+			_internals.spawnSync = thrower as typeof _internals.spawnSync;
 
 			const result = handlePrReviewCommand(tempDir, ['42']);
 

@@ -13,22 +13,26 @@ import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import { _internals } from '../../../src/commands/_shared/url-security';
 import { handleIssueCommand } from '../../../src/commands/issue';
 
-const realExecSync = _internals.execSync;
-const execSyncMock = mock((cmd: string) => {
-	if (cmd === 'git remote get-url origin') {
-		return 'https://github.com/test-owner/test-repo.git';
-	}
-	throw new Error('No remote');
-});
+const realSpawnSync = _internals.spawnSync;
+const spawnSyncMock = mock(
+	(_bin: string, _args: string[], _opts: Record<string, unknown>) => {
+		return {
+			status: 0,
+			stdout: 'https://github.com/test-owner/test-repo.git',
+			error: undefined,
+		} as ReturnType<typeof _internals.spawnSync>;
+	},
+);
 
 describe('Adversarial Security Tests for issue.ts', () => {
 	beforeEach(() => {
-		execSyncMock.mockClear();
-		_internals.execSync = execSyncMock as typeof _internals.execSync;
+		spawnSyncMock.mockClear();
+		_internals.spawnSync = spawnSyncMock as typeof _internals.spawnSync;
 	});
 
 	afterEach(() => {
-		_internals.execSync = realExecSync;
+		_internals.spawnSync = realSpawnSync;
+		mock.restore();
 	});
 
 	// =============================================================================
@@ -658,7 +662,5 @@ describe('Adversarial Security Tests for issue.ts', () => {
 		});
 	});
 
-	afterEach(() => {
-		mock.restore();
-	});
+	// afterEach merged into the single block near the top of this describe block
 });
