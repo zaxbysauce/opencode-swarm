@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.73.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.1...v7.73.2) (2026-06-14)
+
+
+### Bug Fixes
+
+* **knowledge:** reinforce duplicate lessons across phases ([b010f30](https://github.com/zaxbysauce/opencode-swarm/commit/b010f307319def8cc5bb3e45c208a919e6807575))
+
 ## [7.73.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.73.0...v7.73.1) (2026-06-14)
 
 
