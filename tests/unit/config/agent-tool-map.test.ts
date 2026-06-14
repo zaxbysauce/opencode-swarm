@@ -70,14 +70,35 @@ describe('AGENT_TOOL_MAP', () => {
 		expect(smeTools).not.toContain('apply_patch');
 	});
 
-	it('researcher has web_search and remains read-only', () => {
+	it('researcher has all 8 assigned tools and remains read-only', () => {
 		const researcherTools = AGENT_TOOL_MAP.researcher;
-		expect(researcherTools).toContain('web_search');
-		expect(researcherTools).toContain('swarm_command');
-		expect(researcherTools).toContain('summarize_work');
-		// researcher must not have write tools
-		expect(researcherTools).not.toContain('apply_patch');
-		expect(researcherTools).not.toContain('knowledge_add');
+		// All 8 tools assigned to researcher in tool-metadata.ts
+		const expectedTools = [
+			'imports',
+			'symbols',
+			'complexity_hotspots',
+			'schema_drift',
+			'todo_extract',
+			'web_search',
+			'swarm_command',
+			'summarize_work',
+		];
+		for (const tool of expectedTools) {
+			expect(researcherTools).toContain(tool);
+		}
+		// Read-only invariant: no write tools
+		const writeTools = [
+			'apply_patch',
+			'knowledge_add',
+			'save_plan',
+			'update_task_status',
+			'spec_write',
+			'phase_complete',
+			'checkpoint',
+		];
+		for (const tool of writeTools) {
+			expect(researcherTools).not.toContain(tool);
+		}
 	});
 
 	it('architect has all critical tools', () => {
