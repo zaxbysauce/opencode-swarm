@@ -136,6 +136,7 @@ describe('handleDeepResearchCommand', () => {
 		]);
 		expect(result).toContain('output=brief');
 		expect(result).toContain('depth=exhaustive');
+		expect(result).toContain('max_researchers=5');
 		expect(result).toContain('rounds=2');
 		expect(result.endsWith('topic')).toBe(true);
 	});

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import * as os from 'node:os';
 import { Readable } from 'node:stream';
-import { gzipSync } from 'node:zlib';
+import { brotliCompressSync, gzipSync } from 'node:zlib';
 import {
 	_internals,
 	extractTitle,
@@ -447,6 +447,24 @@ describe('web_fetch — content encoding (gzip)', () => {
 			cancel: () => {},
 		})) as unknown as typeof _internals.httpRequest;
 		const res = await run({ url: 'https://example.com/page.gz' });
+		expect(res.success).toBe(true);
+		expect(res.truncated).toBe(false);
+		expect(res.text).toContain(plaintext);
+	});
+
+	test('decompresses a brotli response and returns the full content', async () => {
+		enableCouncil();
+		publicDns();
+		stubEvidence();
+		const plaintext = 'Hello from brotli!';
+		const compressed = brotliCompressSync(Buffer.from(plaintext));
+		_internals.httpRequest = (async () => ({
+			status: 200,
+			headers: { 'content-type': 'text/plain', 'content-encoding': 'br' },
+			body: Readable.from([compressed]),
+			cancel: () => {},
+		})) as unknown as typeof _internals.httpRequest;
+		const res = await run({ url: 'https://example.com/page.br' });
 		expect(res.success).toBe(true);
 		expect(res.truncated).toBe(false);
 		expect(res.text).toContain(plaintext);
