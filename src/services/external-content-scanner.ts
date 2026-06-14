@@ -49,20 +49,22 @@ export interface ExternalContentScanResult {
  * match string and they are multi-codepoint.
  *
  * Returns an array of findings (empty if none found).
+ * Each finding includes the individual match string (not concatenated),
+ * so callers can neutralize each occurrence at its original position.
  */
 function scanInvisibleFormatChars(text: string): ValidationFinding[] {
 	const findings: ValidationFinding[] = [];
 	const matches = text.match(INVISIBLE_FORMAT_CHARS);
 	if (matches !== null && matches.length > 0) {
-		// Truncate the concatenated match to 100 chars
-		const joined = matches.join('').slice(0, 100);
-		findings.push({
-			pattern: 'invisible_format_chars',
-			field: 'external_content',
-			description: `Invisible format characters detected (${matches.length} occurrence(s))`,
-			severity: 'error',
-			match: joined,
-		});
+		for (const match of matches) {
+			findings.push({
+				pattern: 'invisible_format_chars',
+				field: 'external_content',
+				description: `Invisible format characters detected (${matches.length} occurrence(s))`,
+				severity: 'error',
+				match: match.slice(0, 100),
+			});
+		}
 	}
 	return findings;
 }
@@ -90,12 +92,13 @@ function neutralizeThreatPatterns(
 
 	let result = text;
 
-	// For each error-severity finding, wrap the matched text with markers
+	// For each error-severity finding, wrap the matched text with markers.
+	// Use a replacement function so that `$` characters in the original match
+	// are not interpreted as RegExp replacement patterns ($&, $1, etc.).
 	for (const finding of findings.filter((f) => f.severity === 'error')) {
 		const escapedMatch = finding.match.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 		const pattern = new RegExp(escapedMatch, 'g');
-		result = result.replace(
-			pattern,
+		result = result.replace(pattern, () =>
 			`[EXTERNAL_CONTENT_THREAT: ${finding.pattern}] ${finding.match} [/EXTERNAL_CONTENT_THREAT]`,
 		);
 	}
