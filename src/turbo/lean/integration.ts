@@ -59,7 +59,7 @@ export interface PhaseCriticResult {
 	evidencePath: string;
 }
 
-// ─── Internal Types ───────────────────────────────────────────────────────────
+// ─── Internal Types ────────────────────────────────────────────────────────────
 
 /**
  * Reviewer evidence record (lean-turbo-reviewer.json).
@@ -390,7 +390,12 @@ async function defaultDispatchCriticAgent(
 	// Create an ephemeral session for the critic, scoped to the project directory
 	const sessionResult = await client.session.create({
 		...(parentSessionId
-			? { body: { parentID: parentSessionId, title: 'lean_turbo_critic background' } }
+			? {
+					body: {
+						parentID: parentSessionId,
+						title: 'lean_turbo_critic background',
+					},
+				}
 			: {}),
 		query: { directory },
 	});
