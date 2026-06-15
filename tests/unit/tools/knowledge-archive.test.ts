@@ -72,40 +72,30 @@ describe('knowledge_archive', () => {
 	let dir: string;
 	let swarmPath: string;
 	let hivePath: string;
-	let origHome: string | undefined;
+	let previousXdgDataHome: string | undefined;
+	let previousLocalAppData: string | undefined;
 
 	beforeEach(async () => {
+		previousXdgDataHome = process.env.XDG_DATA_HOME;
+		previousLocalAppData = process.env.LOCALAPPDATA;
 		dir = join(
 			tmpdir(),
 			`swarm-archive-${Date.now()}-${Math.random().toString(36).slice(2)}`,
 		);
 		mkdirSync(dir, { recursive: true });
+		process.env.XDG_DATA_HOME = join(dir, 'xdg-data');
+		process.env.LOCALAPPDATA = join(dir, 'localappdata');
 		swarmPath = resolveSwarmKnowledgePath(dir);
-		await appendKnowledge(swarmPath, makeSwarmEntry('k1'));
-
-		// Setup temporary home for hive path
-		origHome = process.env.HOME;
-		const hiveDir = join(tmpdir(), `hive-${Date.now()}`);
-		mkdirSync(hiveDir, { recursive: true });
-		process.env.HOME = hiveDir;
 		hivePath = resolveHiveKnowledgePath();
-		const hiveParent = hivePath.substring(0, hivePath.lastIndexOf('/'));
-		mkdirSync(hiveParent, { recursive: true });
+		await appendKnowledge(swarmPath, makeSwarmEntry('k1'));
 	});
 
 	afterEach(() => {
+		if (previousXdgDataHome === undefined) delete process.env.XDG_DATA_HOME;
+		else process.env.XDG_DATA_HOME = previousXdgDataHome;
+		if (previousLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+		else process.env.LOCALAPPDATA = previousLocalAppData;
 		rmSync(dir, { recursive: true, force: true });
-		// Only try to clean up the specific hive subdirectory, not the whole parent
-		if (process.env.HOME !== origHome && process.env.HOME) {
-			try {
-				rmSync(process.env.HOME, { recursive: true, force: true });
-			} catch {
-				// Ignore cleanup errors
-			}
-		}
-		if (origHome !== undefined) {
-			process.env.HOME = origHome;
-		}
 	});
 
 	describe('swarm-tier (default)', () => {
@@ -212,9 +202,6 @@ describe('knowledge_archive', () => {
 
 	describe('hive-tier', () => {
 		beforeEach(async () => {
-			// Ensure hive directory exists and add a hive entry
-			const hiveParent = hivePath.substring(0, hivePath.lastIndexOf('/'));
-			mkdirSync(hiveParent, { recursive: true });
 			await appendKnowledge(hivePath, makeHiveEntry('hive-1'));
 		});
 

@@ -19,10 +19,8 @@
 import { z } from 'zod';
 import { recordKnowledgeEvent } from '../hooks/knowledge-events.js';
 import {
-	readKnowledge,
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
-	rewriteKnowledge,
 	transactKnowledge,
 } from '../hooks/knowledge-store.js';
 import type { KnowledgeEntryBase } from '../hooks/knowledge-types.js';
@@ -38,9 +36,13 @@ type ArchiveTier = (typeof TIERS)[number];
 export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 	createSwarmTool({
 		description:
-			"Archive (default), quarantine, or purge a knowledge entry by ID (swarm or hive tier), appending an immutable audit tombstone. 'archive'/'quarantine' set the entry status reversibly and hide it from recall; 'purge' hard-deletes and requires allow_purge:true.",
+			"Archive (default), quarantine, or purge a swarm or hive knowledge entry by ID, appending an immutable audit tombstone. 'archive'/'quarantine' set the entry status reversibly and hide it from recall; 'purge' hard-deletes and requires allow_purge:true.",
 		args: {
 			id: z.string().min(1).describe('UUID of the knowledge entry'),
+			tier: z
+				.enum(TIERS)
+				.optional()
+				.describe("Knowledge tier to modify; default 'swarm'"),
 			reason: z
 				.string()
 				.min(1)
@@ -54,10 +56,6 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 					'Supporting evidence (e.g. "ignored 8 times, contradicted by tests")',
 				),
 			mode: z.enum(MODES).optional().describe("Default 'archive'"),
-			tier: z
-				.enum(TIERS)
-				.optional()
-				.describe("'swarm' (default) or 'hive' — which knowledge store to archive from"),
 			allow_purge: z
 				.boolean()
 				.optional()
@@ -67,9 +65,9 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 			const a = (args ?? {}) as {
 				id?: unknown;
 				reason?: unknown;
+				tier?: unknown;
 				evidence?: unknown;
 				mode?: unknown;
-				tier?: unknown;
 				allow_purge?: unknown;
 			};
 
@@ -88,9 +86,9 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 				});
 			}
 			const evidence = typeof a.evidence === 'string' ? a.evidence : undefined;
+			const tier: ArchiveTier = a.tier === 'hive' ? 'hive' : 'swarm';
 			const mode: ArchiveMode =
 				a.mode === 'quarantine' || a.mode === 'purge' ? a.mode : 'archive';
-			const tier: ArchiveTier = a.tier === 'hive' ? 'hive' : 'swarm';
 
 			if (mode === 'purge' && a.allow_purge !== true) {
 				return JSON.stringify({
@@ -99,75 +97,53 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 				});
 			}
 
-			let filePath: string;
-			if (tier === 'hive') {
-				filePath = resolveHiveKnowledgePath();
-			} else {
-				filePath = resolveSwarmKnowledgePath(directory);
-			}
+			const knowledgePath =
+				tier === 'hive'
+					? resolveHiveKnowledgePath()
+					: resolveSwarmKnowledgePath(directory);
+			let found = false;
+			let previousStatus: string | undefined;
+			const now = new Date().toISOString();
+			let resultStatus: string | undefined;
 
-			let entries: KnowledgeEntryBase[];
 			try {
-				entries = await readKnowledge<KnowledgeEntryBase>(filePath);
+				await transactKnowledge<KnowledgeEntryBase>(
+					knowledgePath,
+					(entries) => {
+						const target = entries.find((e) => e.id === id);
+						if (!target) return null;
+						found = true;
+						previousStatus = target.status;
+
+						if (mode === 'purge') {
+							// Defense-in-depth: hard-delete is irreversible. Emit a prominent
+							// warning even though allow_purge:true was already required. The
+							// archived event below is the audit trail.
+							warn(
+								`[knowledge_archive] PURGE: hard-deleting ${tier} entry id=${id} actor=${
+									ctx?.agent ?? 'unknown'
+								} reason=${reason}`,
+							);
+							resultStatus = 'purged';
+							return entries.filter((e) => e.id !== id);
+						}
+
+						const newStatus =
+							mode === 'quarantine' ? 'quarantined' : 'archived';
+						resultStatus = newStatus;
+						return entries.map((e) =>
+							e.id === id ? { ...e, status: newStatus, updated_at: now } : e,
+						);
+					},
+				);
 			} catch (err) {
 				return JSON.stringify({
 					success: false,
 					error: err instanceof Error ? err.message : 'Unknown error',
 				});
 			}
-
-			const target = entries.find((e) => e.id === id);
-			if (!target) {
+			if (!found) {
 				return JSON.stringify({ success: false, message: 'entry not found' });
-			}
-			const previousStatus = target.status;
-			const now = new Date().toISOString();
-
-			let resultStatus: string;
-			if (mode === 'purge') {
-				// Defense-in-depth: hard-delete is irreversible. Emit a prominent
-				// warning even though allow_purge:true was already required. The
-				// archived event below is the audit trail.
-				warn(
-					`[knowledge_archive] PURGE: hard-deleting entry id=${id} tier=${tier} actor=${
-						ctx?.agent ?? 'unknown'
-					} reason=${reason}`,
-				);
-				const nextEntries = entries.filter((e) => e.id !== id);
-				try {
-					await rewriteKnowledge(filePath, nextEntries);
-				} catch (err) {
-					return JSON.stringify({
-						success: false,
-						error: err instanceof Error ? err.message : 'Unknown error',
-					});
-				}
-				resultStatus = 'purged';
-			} else {
-				const newStatus = mode === 'quarantine' ? 'quarantined' : 'archived';
-				const mutate = (
-					currentEntries: KnowledgeEntryBase[],
-				): KnowledgeEntryBase[] | null => {
-					const index = currentEntries.findIndex((e) => e.id === id);
-					if (index === -1) return null;
-					const updated = [...currentEntries];
-					updated[index] = {
-						...updated[index],
-						status: newStatus,
-						updated_at: now,
-					};
-					return updated;
-				};
-
-				try {
-					await transactKnowledge(filePath, mutate);
-				} catch (err) {
-					return JSON.stringify({
-						success: false,
-						error: err instanceof Error ? err.message : 'Unknown error',
-					});
-				}
-				resultStatus = newStatus;
 			}
 
 			// Append the audit tombstone. Fire-and-forget (fail-open): the status
@@ -175,19 +151,19 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 			await recordKnowledgeEvent(directory, {
 				type: 'archived',
 				entry_id: id,
+				tier,
 				actor: ctx?.agent ?? 'unknown',
 				reason,
 				mode,
 				evidence,
 				previous_status: previousStatus,
-				tier,
 			});
 
 			return JSON.stringify({
 				success: true,
 				id,
-				mode,
 				tier,
+				mode,
 				previous_status: previousStatus,
 				status: resultStatus,
 			});
