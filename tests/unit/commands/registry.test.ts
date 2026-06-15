@@ -293,7 +293,7 @@ describe('resolveCommand()', () => {
 			);
 			// diagnosis is an alias of diagnose
 			expect(
-				(COMMAND_REGISTRY['diagnosis' as RegisteredCommand] as CommandEntry)
+				(COMMAND_REGISTRY.diagnosis as CommandEntry)
 					.aliasOf,
 			).toBe('diagnose');
 		});
@@ -703,6 +703,7 @@ describe('COMMAND_REGISTRY alias entries — completeness', () => {
 		const doctorEntry = COMMAND_REGISTRY[
 			'doctor' as RegisteredCommand
 		] as CommandEntry;
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const configDoctorEntry = COMMAND_REGISTRY['config doctor'] as CommandEntry;
 		expect(doctorEntry.category).toBe(configDoctorEntry.category);
 
@@ -710,34 +711,35 @@ describe('COMMAND_REGISTRY alias entries — completeness', () => {
 		const infoEntry = COMMAND_REGISTRY[
 			'info' as RegisteredCommand
 		] as CommandEntry;
-		const statusEntry = COMMAND_REGISTRY['status'] as CommandEntry;
+		const statusEntry = COMMAND_REGISTRY.status as CommandEntry;
 		expect(infoEntry.category).toBe(statusEntry.category);
 
 		// list-agents → agents (core)
 		const listAgentsEntry = COMMAND_REGISTRY[
 			'list-agents' as RegisteredCommand
 		] as CommandEntry;
-		const agentsEntry = COMMAND_REGISTRY['agents'] as CommandEntry;
+		const agentsEntry = COMMAND_REGISTRY.agents as CommandEntry;
 		expect(listAgentsEntry.category).toBe(agentsEntry.category);
 
 		// health → diagnose (diagnostics)
 		const healthEntry = COMMAND_REGISTRY[
 			'health' as RegisteredCommand
 		] as CommandEntry;
-		const diagnoseEntry = COMMAND_REGISTRY['diagnose'] as CommandEntry;
+		const diagnoseEntry = COMMAND_REGISTRY.diagnose as CommandEntry;
 		expect(healthEntry.category).toBe(diagnoseEntry.category);
 
 		// check → preflight (diagnostics)
 		const checkEntry = COMMAND_REGISTRY[
 			'check' as RegisteredCommand
 		] as CommandEntry;
-		const preflightEntry = COMMAND_REGISTRY['preflight'] as CommandEntry;
+		const preflightEntry = COMMAND_REGISTRY.preflight as CommandEntry;
 		expect(checkEntry.category).toBe(preflightEntry.category);
 
 		// clear → reset-session (utility)
 		const clearEntry = COMMAND_REGISTRY[
 			'clear' as RegisteredCommand
 		] as CommandEntry;
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const resetSessionEntry = COMMAND_REGISTRY['reset-session'] as CommandEntry;
 		expect(clearEntry.category).toBe(resetSessionEntry.category);
 	});
@@ -752,17 +754,20 @@ describe('deep-dive command registration (FR-025 through FR-028)', () => {
 	});
 
 	test('deep-dive entry has a handler function', () => {
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const entry = COMMAND_REGISTRY['deep-dive' as RegisteredCommand];
 		expect(typeof entry.handler).toBe('function');
 	});
 
 	test('deep-dive entry has non-empty description', () => {
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const entry = COMMAND_REGISTRY['deep-dive' as RegisteredCommand];
 		expect(typeof entry.description).toBe('string');
 		expect(entry.description.length).toBeGreaterThan(0);
 	});
 
 	test('deep-dive entry has args field', () => {
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const entry = COMMAND_REGISTRY['deep-dive' as RegisteredCommand];
 		expect(entry.args).toBe(
 			'<scope> [--profile standard|security|ux|architecture|full] [--max-explorers 1..8] [--json] [--skip-update] [--allow-dirty]',
@@ -770,6 +775,7 @@ describe('deep-dive command registration (FR-025 through FR-028)', () => {
 	});
 
 	test('deep-dive entry has details field', () => {
+		// biome-ignore lint/complexity/useLiteralKeys: compound key
 		const entry = COMMAND_REGISTRY['deep-dive' as RegisteredCommand];
 		expect(entry.details).toContain('parallel explorer waves');
 		expect(entry.details).toContain('always 2 parallel reviewers');
