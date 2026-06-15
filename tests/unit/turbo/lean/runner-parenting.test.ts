@@ -7,12 +7,12 @@ import type { LeanTurboLane } from '../../../../src/turbo/lean/state';
 // We drive dispatchLane directly with an injected _sessionOps mock, avoiding
 // the full plan/lock machinery.
 //
-// Injection seam: LeanTurboRunner stores its SDK session operations in the
-// `_sessionOps` field (prefixed by convention as a test seam). The cast below
-// replaces it before the first `dispatchLane` call, skipping network I/O
-// while keeping the full business logic path under test. If the runner is
-// refactored to expose _internals (like integration.ts / reviewer.ts), update
-// to use that instead.
+// `_sessionOps` is a documented public test-seam field declared at
+// runner.ts:265-283. It is part of the class's intentional DI contract — the
+// class JSDoc shows this exact injection pattern. The `as unknown as` cast on
+// the assigned value is only needed because `SessionClient` is not exported
+// and the bun `mock()` wrapper differs in exact type signature while remaining
+// structurally compatible.
 
 const LANE: LeanTurboLane = {
 	laneId: 'lane-1',
@@ -42,13 +42,9 @@ describe('LeanTurboRunner lane session parenting', () => {
 			directory: '/tmp/runner-parent',
 			sessionID: 'sess-parent',
 		});
-		(
-			runner as unknown as {
-				_sessionOps: ReturnType<typeof makeMockSessionOps>;
-			}
-		)._sessionOps = makeMockSessionOps((b) => {
+		runner._sessionOps = makeMockSessionOps((b) => {
 			capturedBody = b as { parentID?: string; title?: string };
-		});
+		}) as unknown as typeof runner._sessionOps;
 
 		const result = await runner.dispatchLane(LANE, 'coder');
 
