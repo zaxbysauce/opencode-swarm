@@ -1,5 +1,5 @@
 import type { AgentDefinition } from '../agents/index.js';
-import { syncBundledProjectSkillsIfMissing } from '../config/bundled-skills.js';
+import { syncBundledProjectSkillsIfMissingAsync } from '../config/bundled-skills.js';
 import { handleAcknowledgeSpecDriftCommand } from './acknowledge-spec-drift.js';
 import { handleAgentsCommand } from './agents.js';
 import { handleAnalyzeCommand } from './analyze.js';
@@ -241,7 +241,13 @@ async function handleModeCommandWithBundledSkills(
 	handler: (directory: string, args: string[]) => string | CommandResult,
 ): CommandResult {
 	if (ctx.packageRoot) {
-		syncBundledProjectSkillsIfMissing(ctx.directory, ctx.packageRoot);
+		// Backstop for projects that predate init-time materialization (the
+		// primary sync now runs at plugin init; see src/index.ts). Missing-only
+		// and fail-open, so it self-heals legacy projects without regression.
+		await syncBundledProjectSkillsIfMissingAsync(
+			ctx.directory,
+			ctx.packageRoot,
+		);
 	}
 	return Promise.resolve(handler(ctx.directory, ctx.args));
 }
@@ -368,6 +374,18 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
 		description: 'Run tool registration coherence check',
 		category: 'diagnostics',
+	},
+	// Alias for the hyphenated form '/swarm doctor-tools'. Without it,
+	// resolveCommand(['doctor-tools']) returns null and the TUI shows
+	// "command not found". NOTE: aliasOf is warning text only — resolveCommand
+	// invokes this entry's OWN handler, so the handler must be set here (mirrors
+	// the 'config-doctor' alias above).
+	'doctor-tools': {
+		handler: (ctx) => handleDoctorToolsCommand(ctx.directory, ctx.args),
+		description: 'Run tool registration coherence check',
+		category: 'diagnostics',
+		aliasOf: 'doctor tools',
+		deprecated: true,
 	},
 	diagnose: {
 		handler: (ctx) => handleDiagnoseCommand(ctx.directory, ctx.args),
@@ -892,10 +910,14 @@ export const COMMAND_REGISTRY = {
 	'full-auto': {
 		handler: (ctx) =>
 			handleFullAutoCommand(ctx.directory, ctx.args, ctx.sessionID),
-		description: 'Toggle Full-Auto Mode for the active session [on|off]',
-		args: 'on, off',
+		description:
+			'Toggle Full-Auto Mode for the active session [on [mode]|off|status]',
+		args: 'on [assisted|supervised|strict], off, status',
 		details:
-			'Toggles Full-Auto Mode which enables autonomous execution without confirmation prompts. When enabled, the architect proceeds through implementation steps automatically. Session-scoped — resets on new session. Use "on" or "off" to set explicitly, or toggle with no argument.',
+			'First-class toggle for Full-Auto Mode — autonomous execution with the critic reviewing escalations on your behalf. No config-level enablement is required: "on" activates immediately (unless full_auto.locked is true in config), "off" disarms the run and returns the session to normal interactive operation, "status" reports the durable run state. ' +
+			'An optional mode after "on" overrides full_auto.mode for this run: assisted (critic consulted only on policy escalations), supervised (default — risky/high-impact actions reviewed by the critic), strict (ALL plan mutations reviewed by the critic). ' +
+			'While active, the critic answers architect questions and reviews phase boundaries, delegations, and risky actions on your behalf; only ESCALATE_TO_HUMAN verdicts halt the run for your input. ' +
+			'The run state is durable (.swarm/full-auto-state.json) and survives restarts; toggle with no argument flips the current state.',
 		category: 'utility',
 	},
 	'auto-proceed': {

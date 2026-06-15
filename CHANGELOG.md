@@ -1,5 +1,40 @@
 # Changelog
 
+## [7.76.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.76.1...v7.76.2) (2026-06-15)
+
+
+### Bug Fixes
+
+* **skills:** materialize bundled mode skills at plugin init for fresh-project onboarding ([#1356](https://github.com/zaxbysauce/opencode-swarm/issues/1356)) ([254f38b](https://github.com/zaxbysauce/opencode-swarm/commit/254f38b80937d1b8058bf9a3d8fa5b003d85aa30))
+
+## [7.76.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.76.0...v7.76.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* stop background sessions flooding the TUI with reasoning parts ([#1346](https://github.com/zaxbysauce/opencode-swarm/issues/1346)) ([dd8b18f](https://github.com/zaxbysauce/opencode-swarm/commit/dd8b18f6cb2cc40e5e8567a26e88befb825b4c82))
+
+## [7.76.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.75.0...v7.76.0) (2026-06-15)
+
+
+### Features
+
+* **repo-map:** add ontology and review workflow guidance ([#1349](https://github.com/zaxbysauce/opencode-swarm/issues/1349)) ([588912a](https://github.com/zaxbysauce/opencode-swarm/commit/588912a9104dd53544da3c33135355443cf6d4ce))
+
+## [7.75.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.74.3...v7.75.0) (2026-06-15)
+
+
+### Features
+
+* **swarm:** first-class full-auto toggle and auto-review machinery ([#1319](https://github.com/zaxbysauce/opencode-swarm/issues/1319)) ([3fbf8e0](https://github.com/zaxbysauce/opencode-swarm/commit/3fbf8e05c437e12bacef6bee34d49e9c5b407020))
+
+## [7.74.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.74.2...v7.74.3) (2026-06-15)
+
+
+### Bug Fixes
+
+* **config-doctor:** extend validation coverage and onboarding polish ([#1347](https://github.com/zaxbysauce/opencode-swarm/issues/1347)) ([8c2940d](https://github.com/zaxbysauce/opencode-swarm/commit/8c2940de016e129664b626dba2f56109b4fe1758))
+
 ## [7.74.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.74.1...v7.74.2) (2026-06-14)
 
 

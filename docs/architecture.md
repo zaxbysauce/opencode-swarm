@@ -62,6 +62,33 @@ The protocol executes in the following stages:
 
 This mode is strictly **read-only**: it does NOT mutate source code, delegate to the coder, or call `declare_scope`.
 
+### Repo Graph Ontology
+
+`repo_map` is the shared structural-awareness surface for planning and review.
+It persists `.swarm/repo-graph.json` using the same bounded async graph builder
+that runs after plugin registration, so on-demand `repo_map action="build"` and
+startup graph injection now read/write the same graph schema.
+The published package exposes only the root plugin entry and `./package.json`
+through `package.json#exports`; the Bun-targeted CLI remains available via
+`bin` and is intentionally not exported as a package subpath.
+
+The graph stores imports, exports, inferred file roles, route facts, data
+operations, security-related facts, conventions, and ontology findings. Query
+actions include:
+
+- `importers`, `dependencies`, `blast_radius`, `localization`, and `key_files`
+  for dependency and impact analysis.
+- `ontology` for one file's roles, routes, data/security facts, conventions,
+  and findings.
+- `package_boundaries` for inferred package/layer summaries across the graph.
+- `preflight_packet` for a bounded agent packet covering target files,
+  ontology facts, findings, and a target-local package-boundary summary.
+
+The ontology extractor is intentionally conservative. It records detected facts
+and "detected missing guard" findings; it does not claim formal security proofs.
+Tree-sitter remains the syntax and AST-diff engine, while repo graph startup
+continues to use bounded source scanning to preserve plugin-init invariants.
+
 ### Signal-Triggered Modes (On-Demand Skills)
 
 `DEEP_DIVE` is one of several **signal-triggered modes**. A `/swarm <command>` handler emits a `[MODE: X ...]` activation signal; the architect recognizes it and loads the matching `### MODE: X` section + skill on demand. This keeps the core prompt lean while supporting deep specialized workflows.
@@ -723,7 +750,7 @@ project/
 │       ├── index.ts       # Barrel exports
 │       └── manager.ts     # CRUD: save/load/list/delete/archive evidence
 │
-├── tests/unit/            # 1211 tests across 54+ files (bun test)
+├── tests/unit/            # 1214 tests across 54+ files (bun test)
 │   ├── agents/            # creation (64), factory (20), architect-v6-prompt (15),
 │   │                      # security-categories (12)
 │   ├── config/            # constants (14), schema (35), loader (17), plan-schema (40),
@@ -1811,14 +1838,21 @@ Validates project state before agent execution:
 #### Config Doctor
 
 Startup service that validates and fixes configuration:
-- Validates config schema and types
-- Detects stale/invalid settings
+- **Extended validation coverage** — validates all 62+ top-level schema keys with type checks for strings, booleans, numbers, and objects
+- **Unknown key detection** — warns on typos with Levenshtein-based suggestions (edit distance ≤ 2)
+- **Swarms hardening** — warns on empty `swarms` configuration (INFO), rejects path-traversal characters in swarm IDs (`..`, `/`, `\`, `\0`) as HIGH/ERROR
+- **Deprecated field flagging** — emits INFO findings for legacy `skill_improver.model`, `skill_improver.fallback_models`, `spec_writer.model`, `spec_writer.fallback_models` with replacement guidance
+- **Auto-fix inventory** — 156 range-bounded numeric keys (e.g. `max_iterations`, `qa_retry_limit`) are auto-clampable
 - Classifies findings by severity (info/warn/error)
 - Proposes safe auto-fixes
 
 **Security:** Defaults to scan-only mode. Autofix requires explicit `automation.capabilities.config_doctor_autofix = true`.
 
 **Backups:** Creates encrypted backups in `.swarm/` before auto-fix. Supports restore via `/swarm config doctor --restore <backup-id>`.
+
+**Startup advisory:** When the doctor runs on startup (via `config_doctor_on_startup`) and finds auto-fixable issues without autofix enabled, it emits a console-visible advisory to the user suggesting `/swarm config doctor --fix`. When autofix is enabled and fixes are applied, a confirmation advisory is shown instead.
+
+**Last-run summary:** The `/swarm config doctor` command (without `--fix`) reads the previous run artifact from `.swarm/config-doctor.json` and displays a compact summary line showing the last run timestamp, findings count, and auto-fixable count before the current findings.
 
 #### Decision Drift Analyzer
 
