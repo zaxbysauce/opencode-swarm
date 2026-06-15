@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.77.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.2...v7.77.3) (2026-06-15)
+
+
+### Bug Fixes
+
+* **knowledge:** TOCTOU race in bumpCountersBatch and knowledge_archive ([#1307](https://github.com/zaxbysauce/opencode-swarm/issues/1307)) ([401d055](https://github.com/zaxbysauce/opencode-swarm/commit/401d0556db41c8cd49a2fa9bf4f4270028dd3d43))
+
 ## [7.77.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.1...v7.77.2) (2026-06-15)
 
 
