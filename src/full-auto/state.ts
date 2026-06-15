@@ -316,8 +316,10 @@ function readPersisted(directory: string): FullAutoPersistedState {
 			cached.mtimeMs === stats.mtimeMs &&
 			cached.size === stats.size
 		) {
-			clearStateUnreadable();
-			return structuredClone(cached.state);
+ 		clearStateUnreadable();
+ 		// structuredClone is a Node.js 17+ global API. The project requires
+ 		// bun >=1.3.13 (Node 20+ runtime), so no fallback is needed.
+ 		return structuredClone(cached.state);
 		}
 		const raw = fs.readFileSync(filePath, 'utf-8');
 		const parsed = JSON.parse(raw) as Partial<FullAutoPersistedState>;
@@ -349,6 +351,8 @@ function readPersisted(directory: string): FullAutoPersistedState {
 		readCache.set(filePath, {
 			mtimeMs: stats.mtimeMs,
 			size: stats.size,
+			// structuredClone is a Node.js 17+ global API. The project requires
+			// bun >=1.3.13 (Node 20+ runtime), so no fallback is needed.
 			state: structuredClone(state),
 		});
 		return state;
