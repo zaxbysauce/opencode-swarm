@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.75.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.74.3...v7.75.0) (2026-06-15)
+
+
+### Features
+
+* **swarm:** first-class full-auto toggle and auto-review machinery ([#1319](https://github.com/zaxbysauce/opencode-swarm/issues/1319)) ([3fbf8e0](https://github.com/zaxbysauce/opencode-swarm/commit/3fbf8e05c437e12bacef6bee34d49e9c5b407020))
+
 ## [7.74.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.74.2...v7.74.3) (2026-06-15)
 
 
