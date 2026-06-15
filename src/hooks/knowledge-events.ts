@@ -26,6 +26,7 @@ import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { warn } from '../utils/logger.js';
+import { resolveHiveEventsPath } from './knowledge-store.js';
 import type {
 	KnowledgeApplicationRecord,
 	RetrievalOutcome,
@@ -209,6 +210,11 @@ export function resolveKnowledgeEventsPath(directory: string): string {
 	return path.join(directory, '.swarm', 'knowledge-events.jsonl');
 }
 
+// Re-export so callers can reach the shared hive events log via this module
+// alongside the project-local resolver. The resolver itself lives in
+// knowledge-store.ts next to the other hive path resolvers.
+export { resolveHiveEventsPath };
+
 /** Returns `.swarm/knowledge-application.jsonl` for legacy v2 audit records. */
 export function resolveLegacyApplicationLogPath(directory: string): string {
 	return path.join(directory, '.swarm', 'knowledge-application.jsonl');
@@ -243,18 +249,16 @@ function withDefaults(event: KnowledgeEventInput): KnowledgeEvent {
 // ============================================================================
 
 /**
- * Append one event to the log, filling in event_id / timestamp if absent.
- * Returns the fully-populated event that was written.
- *
- * Throws on I/O failure — callers on hot paths should prefer
- * {@link recordKnowledgeEvent}, which swallows errors.
+ * Append one populated event to a specific JSONL events file, locking the
+ * containing directory and enforcing the FIFO cap. Shared core for both the
+ * project-local ({@link appendKnowledgeEvent}) and shared-hive
+ * ({@link appendHiveKnowledgeEvent}) logs.
  */
-export async function appendKnowledgeEvent(
-	directory: string,
+async function appendEventToPath(
+	filePath: string,
 	event: KnowledgeEventInput,
 ): Promise<KnowledgeEvent> {
 	const populated = withDefaults(event);
-	const filePath = resolveKnowledgeEventsPath(directory);
 	const dirPath = path.dirname(filePath);
 	await mkdir(dirPath, { recursive: true });
 	let release: (() => Promise<void>) | undefined;
@@ -277,7 +281,7 @@ export async function appendKnowledgeEvent(
 			}
 		} catch (err) {
 			warn(
-				`[knowledge-events] local cap trim failed (non-fatal): ${
+				`[knowledge-events] cap trim failed (non-fatal) for ${filePath}: ${
 					err instanceof Error ? err.message : String(err)
 				}`,
 			);
@@ -286,6 +290,32 @@ export async function appendKnowledgeEvent(
 		if (release) await release().catch(() => {});
 	}
 	return populated;
+}
+
+/**
+ * Append one event to the project-local log, filling in event_id / timestamp if
+ * absent. Returns the fully-populated event that was written.
+ *
+ * Throws on I/O failure — callers on hot paths should prefer
+ * {@link recordKnowledgeEvent}, which swallows errors.
+ */
+export async function appendKnowledgeEvent(
+	directory: string,
+	event: KnowledgeEventInput,
+): Promise<KnowledgeEvent> {
+	return appendEventToPath(resolveKnowledgeEventsPath(directory), event);
+}
+
+/**
+ * Append one event to the shared, cross-project hive events log. Use for audit
+ * tombstones of mutations to the hive store so any project can read why a hive
+ * entry was archived/quarantined/purged. Throws on I/O failure; hot paths should
+ * prefer {@link recordHiveKnowledgeEvent}.
+ */
+export async function appendHiveKnowledgeEvent(
+	event: KnowledgeEventInput,
+): Promise<KnowledgeEvent> {
+	return appendEventToPath(resolveHiveEventsPath(), event);
 }
 
 /**
@@ -308,19 +338,36 @@ export async function recordKnowledgeEvent(
 	}
 }
 
+/**
+ * Fail-open variant of {@link appendHiveKnowledgeEvent} for hot paths. Never
+ * throws; logs a warning and returns null on failure.
+ */
+export async function recordHiveKnowledgeEvent(
+	event: KnowledgeEventInput,
+): Promise<KnowledgeEvent | null> {
+	try {
+		return await appendHiveKnowledgeEvent(event);
+	} catch (err) {
+		warn(
+			`[knowledge-events] recordHiveKnowledgeEvent failed: ${
+				err instanceof Error ? err.message : String(err)
+			}`,
+		);
+		return null;
+	}
+}
+
 // ============================================================================
 // Read
 // ============================================================================
 
 /**
- * Read all events from the log. Skips corrupted JSONL lines (logging a warning
- * for each) and returns an empty array when the file does not exist — mirrors
- * `readKnowledge` in knowledge-store.ts.
+ * Read all events from a specific JSONL events file. Skips corrupted lines
+ * (logging a warning for each) and returns an empty array when the file does not
+ * exist — mirrors `readKnowledge` in knowledge-store.ts. Shared core for the
+ * project-local and shared-hive readers.
  */
-export async function readKnowledgeEvents(
-	directory: string,
-): Promise<KnowledgeEvent[]> {
-	const filePath = resolveKnowledgeEventsPath(directory);
+async function readEventsFromPath(filePath: string): Promise<KnowledgeEvent[]> {
 	if (!existsSync(filePath)) return [];
 	const content = await readFile(filePath, 'utf-8');
 	const out: KnowledgeEvent[] = [];
@@ -339,6 +386,24 @@ export async function readKnowledgeEvents(
 		}
 	}
 	return out;
+}
+
+/**
+ * Read all events from the project-local log. Skips corrupted JSONL lines and
+ * returns an empty array when the file does not exist.
+ */
+export async function readKnowledgeEvents(
+	directory: string,
+): Promise<KnowledgeEvent[]> {
+	return readEventsFromPath(resolveKnowledgeEventsPath(directory));
+}
+
+/**
+ * Read all events from the shared, cross-project hive events log. Skips
+ * corrupted JSONL lines and returns an empty array when the file does not exist.
+ */
+export async function readHiveKnowledgeEvents(): Promise<KnowledgeEvent[]> {
+	return readEventsFromPath(resolveHiveEventsPath());
 }
 
 /**
@@ -667,9 +732,13 @@ export function effectiveRetrievalOutcomes(
 
 export const _internals: {
 	resolveKnowledgeEventsPath: typeof resolveKnowledgeEventsPath;
+	resolveHiveEventsPath: typeof resolveHiveEventsPath;
 	appendKnowledgeEvent: typeof appendKnowledgeEvent;
+	appendHiveKnowledgeEvent: typeof appendHiveKnowledgeEvent;
 	recordKnowledgeEvent: typeof recordKnowledgeEvent;
+	recordHiveKnowledgeEvent: typeof recordHiveKnowledgeEvent;
 	readKnowledgeEvents: typeof readKnowledgeEvents;
+	readHiveKnowledgeEvents: typeof readHiveKnowledgeEvents;
 	readLegacyApplicationRecords: typeof readLegacyApplicationRecords;
 	readKnowledgeCounterRollups: typeof readKnowledgeCounterRollups;
 	effectiveRetrievalOutcomes: typeof effectiveRetrievalOutcomes;
@@ -678,9 +747,13 @@ export const _internals: {
 	newEventId: typeof newEventId;
 } = {
 	resolveKnowledgeEventsPath,
+	resolveHiveEventsPath,
 	appendKnowledgeEvent,
+	appendHiveKnowledgeEvent,
 	recordKnowledgeEvent,
+	recordHiveKnowledgeEvent,
 	readKnowledgeEvents,
+	readHiveKnowledgeEvents,
 	readLegacyApplicationRecords,
 	readKnowledgeCounterRollups,
 	effectiveRetrievalOutcomes,

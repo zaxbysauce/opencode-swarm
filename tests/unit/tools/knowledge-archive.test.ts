@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import {
 	type ArchivedEvent,
+	readHiveKnowledgeEvents,
 	readKnowledgeEvents,
 } from '../../../src/hooks/knowledge-events';
 import {
@@ -229,13 +230,21 @@ describe('knowledge_archive', () => {
 			expect(entries).toHaveLength(1);
 			expect(entries[0].status).toBe('archived');
 
-			const tomb = (await readKnowledgeEvents(dir)).filter(
+			// Hive tombstones go to the shared hive events log, not the
+			// project-local log.
+			const tomb = (await readHiveKnowledgeEvents()).filter(
 				(e): e is ArchivedEvent => e.type === 'archived',
 			);
 			expect(tomb).toHaveLength(1);
 			expect(tomb[0].entry_id).toBe('hive-1');
 			expect(tomb[0].tier).toBe('hive');
 			expect(tomb[0].previous_status).toBe('established');
+
+			// The project-local log must NOT receive the hive tombstone.
+			const localTomb = (await readKnowledgeEvents(dir)).filter(
+				(e): e is ArchivedEvent => e.type === 'archived',
+			);
+			expect(localTomb).toHaveLength(0);
 		});
 
 		it('quarantines hive entry when tier=hive and mode=quarantine', async () => {
@@ -251,7 +260,7 @@ describe('knowledge_archive', () => {
 			const entries = await readKnowledge<HiveKnowledgeEntry>(hivePath);
 			expect(entries[0].status).toBe('quarantined');
 
-			const tomb = (await readKnowledgeEvents(dir)).filter(
+			const tomb = (await readHiveKnowledgeEvents()).filter(
 				(e): e is ArchivedEvent => e.type === 'archived',
 			);
 			expect(tomb[0].tier).toBe('hive');
@@ -270,7 +279,7 @@ describe('knowledge_archive', () => {
 			const entries = await readKnowledge<HiveKnowledgeEntry>(hivePath);
 			expect(entries).toHaveLength(0);
 
-			const tomb = (await readKnowledgeEvents(dir)).filter(
+			const tomb = (await readHiveKnowledgeEvents()).filter(
 				(e): e is ArchivedEvent => e.type === 'archived',
 			);
 			expect(tomb[0].mode).toBe('purge');
@@ -299,6 +308,31 @@ describe('knowledge_archive', () => {
 			const parsed = JSON.parse(raw);
 			expect(parsed.success).toBe(false);
 			expect(parsed.message).toBe('entry not found');
+		});
+
+		it('records the hive tombstone in a shared log readable from any project', async () => {
+			// Archive a hive entry while running in "project A".
+			const projectA = join(dir, 'project-a');
+			mkdirSync(projectA, { recursive: true });
+			await knowledge_archive.execute(
+				{ id: 'hive-1', reason: 'remediated from project A', tier: 'hive' },
+				ctx(projectA),
+			);
+
+			// "Project B" — a different project directory on the same machine —
+			// reads the shared hive events log and sees the remediation.
+			const projectB = join(dir, 'project-b');
+			mkdirSync(projectB, { recursive: true });
+			const sharedTomb = (await readHiveKnowledgeEvents()).filter(
+				(e): e is ArchivedEvent => e.type === 'archived',
+			);
+			expect(sharedTomb).toHaveLength(1);
+			expect(sharedTomb[0].entry_id).toBe('hive-1');
+			expect(sharedTomb[0].reason).toBe('remediated from project A');
+
+			// Neither project's local event log holds the hive tombstone.
+			expect(await readKnowledgeEvents(projectA)).toHaveLength(0);
+			expect(await readKnowledgeEvents(projectB)).toHaveLength(0);
 		});
 	});
 });
