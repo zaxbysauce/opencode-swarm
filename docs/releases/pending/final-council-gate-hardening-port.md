@@ -23,3 +23,4 @@ Ports the intended hardening changes from PR #1244 onto a fresh branch from orig
 ### Scope reductions vs PR #1244
 
 - No derivePlanId V1/V2 migration (15+ caller blast radius too high for a port)
+# CI trigger 2026-06-15T15:07:03.4196089-05:00
