@@ -511,8 +511,15 @@ export async function dispatchCriticAndWriteEvent(
 
 	let criticResponse = '';
 	try {
-		// 1. Create ephemeral session scoped to project directory
+		// 1. Create ephemeral session scoped to project directory.
+		// Bind to the calling session as parent so OpenCode treats this as
+		// a child session and does not persist it as a new root in the TUI.
 		const createResult = await client.session.create({
+			...(sessionID
+				? {
+						body: { parentID: sessionID, title: 'full_auto_critic background' },
+					}
+				: {}),
 			query: { directory },
 		});
 		if (!createResult.data) {
