@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.76.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.76.0...v7.76.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* stop background sessions flooding the TUI with reasoning parts ([#1346](https://github.com/zaxbysauce/opencode-swarm/issues/1346)) ([dd8b18f](https://github.com/zaxbysauce/opencode-swarm/commit/dd8b18f6cb2cc40e5e8567a26e88befb825b4c82))
+
 ## [7.76.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.75.0...v7.76.0) (2026-06-15)
 
 
