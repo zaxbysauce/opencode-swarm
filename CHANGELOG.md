@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.77.1](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.0...v7.77.1) (2026-06-15)
+
+
+### Bug Fixes
+
+* **test-impact:** expand infrastructure failure classifier coverage ([#1247](https://github.com/zaxbysauce/opencode-swarm/issues/1247)) ([a5f1ecb](https://github.com/zaxbysauce/opencode-swarm/commit/a5f1ecb3f0680a7804a0a8c044fb847504894ddc))
+
 ## [7.77.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.76.2...v7.77.0) (2026-06-15)
 
 
