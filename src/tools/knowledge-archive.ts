@@ -17,7 +17,10 @@
  */
 
 import { z } from 'zod';
-import { recordKnowledgeEvent } from '../hooks/knowledge-events.js';
+import {
+	recordHiveKnowledgeEvent,
+	recordKnowledgeEvent,
+} from '../hooks/knowledge-events.js';
 import {
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
@@ -148,8 +151,13 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 
 			// Append the audit tombstone. Fire-and-forget (fail-open): the status
 			// change already persisted; a telemetry failure must not undo it.
-			await recordKnowledgeEvent(directory, {
-				type: 'archived',
+			//
+			// Route the tombstone to the same scope as the store it describes:
+			// hive-tier mutations write to the shared, cross-project hive events
+			// log so any project can audit why a shared lesson was remediated;
+			// swarm-tier mutations write to the project-local events log.
+			const tombstone = {
+				type: 'archived' as const,
 				entry_id: id,
 				tier,
 				actor: ctx?.agent ?? 'unknown',
@@ -157,7 +165,12 @@ export const knowledge_archive: ReturnType<typeof createSwarmTool> =
 				mode,
 				evidence,
 				previous_status: previousStatus,
-			});
+			};
+			if (tier === 'hive') {
+				await recordHiveKnowledgeEvent(tombstone);
+			} else {
+				await recordKnowledgeEvent(directory, tombstone);
+			}
 
 			return JSON.stringify({
 				success: true,

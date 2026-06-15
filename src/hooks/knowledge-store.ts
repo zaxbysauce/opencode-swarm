@@ -89,6 +89,16 @@ export function resolveHiveRejectedPath(): string {
 	return path.join(path.dirname(hivePath), 'shared-learnings-rejected.jsonl');
 }
 
+// Returns path to the hive-level knowledge events log (same directory as hive
+// knowledge). This is the shared, cross-project audit trail for mutations to the
+// hive store: it lives alongside the hive store so the store and its audit
+// history share one scope, and any project can read why a hive entry was
+// archived/quarantined/purged.
+export function resolveHiveEventsPath(): string {
+	const hivePath = resolveHiveKnowledgePath();
+	return path.join(path.dirname(hivePath), 'shared-knowledge-events.jsonl');
+}
+
 // ============================================================================
 // Read Functions
 // ============================================================================
@@ -783,6 +793,7 @@ export const _internals: {
 	resolveSwarmRejectedPath: typeof resolveSwarmRejectedPath;
 	resolveHiveKnowledgePath: typeof resolveHiveKnowledgePath;
 	resolveHiveRejectedPath: typeof resolveHiveRejectedPath;
+	resolveHiveEventsPath: typeof resolveHiveEventsPath;
 	readKnowledge: typeof readKnowledge;
 	readRejectedLessons: typeof readRejectedLessons;
 	appendKnowledge: typeof appendKnowledge;
@@ -806,6 +817,7 @@ export const _internals: {
 	resolveSwarmRejectedPath,
 	resolveHiveKnowledgePath,
 	resolveHiveRejectedPath,
+	resolveHiveEventsPath,
 	readKnowledge,
 	readRejectedLessons,
 	appendKnowledge,
