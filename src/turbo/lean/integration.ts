@@ -59,7 +59,7 @@ export interface PhaseCriticResult {
 	evidencePath: string;
 }
 
-// ─── Internal Types ────────────────────────────────────────────────────────────
+// ─── Internal Types ───────────────────────────────────────────────────────────
 
 /**
  * Reviewer evidence record (lean-turbo-reviewer.json).
