@@ -32,22 +32,6 @@ import {
 	validateWorkspace,
 } from './validation';
 
-// ============ DI Seam for Testability ============
-
-/**
- * Internal function references for testability.
- * Replace _internals.safeRealpathSync in tests to mock symlink resolution.
- * Replace _internals.fsRename to exercise the rename retry path (e.g. EPERM).
- * Restore each entry in afterEach via the saved original reference.
- */
-export const _internals: {
-	safeRealpathSync: typeof safeRealpathSync;
-	fsRename: typeof fsPromises.rename;
-} = {
-	safeRealpathSync,
-	fsRename: fsPromises.rename.bind(fsPromises),
-};
-
 // ============ Constants ============
 
 /**
@@ -58,9 +42,36 @@ export const _internals: {
 const WINDOWS_RENAME_MAX_RETRIES = 5;
 
 /**
- * Delay between rename attempts (ms).
+ * Delay between rename attempts (ms). 5 attempts → 4 sleeps → 400 ms total
+ * worst-case wait. Intentionally higher than bun-compat.ts (3 attempts / 50 ms)
+ * because saveGraph uses its own DI seam (_internals.fsRename / retryDelayMs)
+ * rather than bunWrite, and this file requires the longer AV-scan window.
+ *
+ * No process.platform guard: EPERM from rename(2) can also arise on NFS/CIFS
+ * mounts on Linux and macOS (not only on Windows AV). Unconditional retry
+ * matches the existing bun-compat.ts pattern.
  */
 const WINDOWS_RENAME_RETRY_DELAY_MS = 100;
+
+// ============ DI Seam for Testability ============
+
+/**
+ * Internal function references for testability.
+ * Replace _internals.safeRealpathSync in tests to mock symlink resolution.
+ * Replace _internals.fsRename to exercise the rename retry path (e.g. EPERM).
+ * Set _internals.retryDelayMs = 0 in tests to skip real sleeps while still
+ * exercising multi-retry paths.
+ * Restore each entry in afterEach via the saved original reference.
+ */
+export const _internals: {
+	safeRealpathSync: typeof safeRealpathSync;
+	fsRename: typeof fsPromises.rename;
+	retryDelayMs: number;
+} = {
+	safeRealpathSync,
+	fsRename: fsPromises.rename.bind(fsPromises),
+	retryDelayMs: WINDOWS_RENAME_RETRY_DELAY_MS,
+};
 
 function validateLoadedGraph(parsed: RepoGraph): void {
 	if (!parsed.schema_version) {
@@ -394,6 +405,7 @@ export async function saveGraph(
 			// unlink and rename. On Windows, rename over a locked target returns
 			// EPERM (e.g. AV on-access scan) or EEXIST; EBUSY is also retried for
 			// consistency with the rest of the codebase (bun-compat.ts).
+			// _internals.retryDelayMs can be set to 0 in tests for instant retries.
 			for (let attempt = 0; attempt < WINDOWS_RENAME_MAX_RETRIES; attempt++) {
 				try {
 					await _internals.fsRename(tempPath, graphPath);
@@ -407,7 +419,7 @@ export async function saveGraph(
 					}
 					if (attempt < WINDOWS_RENAME_MAX_RETRIES - 1) {
 						await new Promise((resolve) =>
-							setTimeout(resolve, WINDOWS_RENAME_RETRY_DELAY_MS),
+							setTimeout(resolve, _internals.retryDelayMs),
 						);
 					}
 				}

@@ -7,6 +7,7 @@
  *
  * Uses _internals.fsRename DI seam to inject a mock rename without
  * mock.module leakage across test files.
+ * Uses _internals.retryDelayMs = 0 to skip real sleeps in retry-path tests.
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
@@ -42,6 +43,7 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 	let workspaceName: string;
 	let resolvedWorkspace: string;
 	const realRename = _internals.fsRename;
+	const realRetryDelayMs = _internals.retryDelayMs;
 
 	beforeEach(async () => {
 		tempDir = await fsPromises.mkdtemp(
@@ -58,8 +60,9 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 	});
 
 	afterEach(async () => {
-		// Always restore the real rename
+		// Always restore the real rename and retry delay
 		_internals.fsRename = realRename;
+		_internals.retryDelayMs = realRetryDelayMs;
 		process.chdir(originalCwd);
 		clearCache(workspaceName);
 		try {
@@ -71,6 +74,7 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 
 	test('saveGraph retries and succeeds when rename throws EPERM on first attempt', async () => {
 		const graph = makeGraph(resolvedWorkspace);
+		_internals.retryDelayMs = 0;
 		let calls = 0;
 		_internals.fsRename = async (src: string, dst: string) => {
 			calls++;
@@ -89,6 +93,7 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 
 	test('saveGraph retries and succeeds when rename throws EBUSY on first attempt', async () => {
 		const graph = makeGraph(resolvedWorkspace);
+		_internals.retryDelayMs = 0;
 		let calls = 0;
 		_internals.fsRename = async (src: string, dst: string) => {
 			calls++;
@@ -102,6 +107,7 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 
 	test('saveGraph throws after exhausting all retries on persistent EPERM', async () => {
 		const graph = makeGraph(resolvedWorkspace);
+		_internals.retryDelayMs = 0;
 		const epermErr = makeErr('EPERM');
 		_internals.fsRename = async () => {
 			throw epermErr;
@@ -142,6 +148,7 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 
 	test('saveGraph retries and succeeds when rename throws EEXIST on first attempt', async () => {
 		const graph = makeGraph(resolvedWorkspace);
+		_internals.retryDelayMs = 0;
 		let calls = 0;
 		_internals.fsRename = async (src: string, dst: string) => {
 			calls++;
@@ -151,6 +158,24 @@ describe('saveGraph rename retry (EPERM/EBUSY regression)', () => {
 
 		await expect(saveGraph(workspaceName, graph)).resolves.toBeUndefined();
 		expect(calls).toBe(2);
+	});
+
+	test('saveGraph retries multiple times and succeeds (fails on attempts 1+2, succeeds on 3)', async () => {
+		const graph = makeGraph(resolvedWorkspace);
+		_internals.retryDelayMs = 0;
+		let calls = 0;
+		_internals.fsRename = async (src: string, dst: string) => {
+			calls++;
+			if (calls <= 2) throw makeErr('EPERM');
+			return realRename(src, dst);
+		};
+
+		await expect(saveGraph(workspaceName, graph)).resolves.toBeUndefined();
+		expect(calls).toBe(3);
+
+		const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+		const content = await fsPromises.readFile(graphPath, 'utf-8');
+		expect(() => JSON.parse(content)).not.toThrow();
 	});
 
 	test('saveGraph succeeds on real FS without needing a retry (baseline)', async () => {
