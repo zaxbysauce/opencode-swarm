@@ -331,10 +331,9 @@ describe('recordAcknowledgment / bumpCountersBatch — TOCTOU race fix (#1285)',
 		await mkdir(path.join(tmp, '.swarm'), { recursive: true });
 		await writeFile(
 			knowledgePath,
-			[
-				JSON.stringify(baseEntry(id1)),
-				JSON.stringify(baseEntry(id2)),
-			].join('\n') + '\n',
+			[JSON.stringify(baseEntry(id1)), JSON.stringify(baseEntry(id2))].join(
+				'\n',
+			) + '\n',
 			'utf-8',
 		);
 
