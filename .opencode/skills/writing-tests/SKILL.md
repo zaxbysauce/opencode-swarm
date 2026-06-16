@@ -142,7 +142,7 @@ When test files pass individually but fail when run together, follow this protoc
 5. **Specific symptom — closure capture failure**: `vi.mock()` captures closures at **hoist time** (before `beforeEach` runs). Reassigning `mockFn.mockImplementation(newFn)` in the test body does **NOT** update the hoisted closure — the mock still calls the original function.
    - Symptom: `expect(mockFn).toHaveBeenCalledTimes(N)` fails with an unexpected count
    - Symptom: `expect(mockFn).not.toHaveBeenCalled()` fails because the real function was called
-6. **Fix path**: Migrate the affected test file to `_internals` DI seam pattern per the `mock-to-internals-migration` skill. This eliminates both the `vi.mock()` call and the closure capture surface area.
+6. **Fix path**: Migrate the affected test file to `_internals` DI seam pattern per the `mock-to-internals-migration` skill. This eliminates both the `vi.mock()` call and the closure capture surface area. **Exception — reference-captured functions**: if the source code passes a function as a direct argument to another function at definition time (e.g., `transactFile(path, readKnowledge, ...)`), the reference is captured before `_internals` is set up — migrating to `_internals` does not help. In that case, test via observable outcomes (e.g., run concurrent callers and assert on final persisted state).
 
 ## Two-Tier Mock Convention
 
@@ -230,6 +230,24 @@ test('mainFn uses mocked helper', () => {
 - Fast (no module re-parsing)
 - Works in batch test runs without isolation
 
+**Critical limitation — reference-captured functions:** `_internals` interception requires the source code to read `_internals.fn` at the call site. When a function is instead passed as a direct argument or captured in a closure at module definition time, replacing `_internals.fn` has no effect — the mock is silently ignored and the real function runs.
+
+```typescript
+// Source: readKnowledge is captured at definition time, NOT via _internals
+export async function transactKnowledge(filePath: string, mutate: Fn) {
+  return transactFile(filePath, readKnowledge, ...);  // direct ref, captured at parse time
+}
+export const _internals = { readKnowledge };  // mutating this does NOT affect the closure above
+
+// Test — mock is silently ignored; real readKnowledge still runs
+const orig = _internals.readKnowledge;
+_internals.readKnowledge = mock(() => []);  // only mutates the object property
+await transactKnowledge(path, mutate);      // still calls the real readKnowledge
+_internals.readKnowledge = orig;
+```
+
+When `_internals` interception cannot work, verify **observable outcomes** instead: run concurrent callers and assert on final persisted state. See `tests/unit/hooks/knowledge-application.test.ts` ("two concurrent bumpCountersBatch calls") for the pattern.
+
 ### Tier 2: mock.module (Cross-Module)
 
 When mocking dependencies from other modules (especially Node built-ins), use `mock.module` with proper cleanup:
@@ -253,7 +271,7 @@ afterEach(() => mock.restore());
 ### Choosing Between Tiers
 
 | Scenario | Pattern | Example |
-|----------|---------|---------|
+|----------|---------|--------|
 | Mocking a function in the same module you're testing | `_internals` seam | `src/state.ts` `_internals.loadSnapshot` |
 | Mocking a Node built-in (fs, child_process, etc.) | `mock.module` + spread real | `mock.module('node:fs/promises', () => ({ ...realFs, readFile: mockFn }))` |
 | Mocking another application module | `mock.module` + cleanup | `mock.module('../../../src/utils/logger', ...)` + `afterEach(mock.restore())` |
