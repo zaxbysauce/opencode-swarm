@@ -18,7 +18,7 @@ import {
 	type PRStatusResult,
 	type ReviewStateResult,
 } from '../git/pr';
-import { error as logError, log } from '../utils';
+import { log, error as logError } from '../utils';
 import { type AutomationEventType, getGlobalEventBus } from './event-bus';
 import {
 	listActive,

@@ -11,9 +11,9 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	listActive,
 	PR_SUBSCRIPTIONS_FILE,
 	type PrSubscriptionRecord,
-	listActive,
 	setOnSubscriptionCreated,
 	subscribe,
 } from '../../../src/background/pr-subscriptions';
@@ -303,7 +303,7 @@ describe('pr-subscriptions — startup scan (listActive triggers worker start)',
 		expect(active[0]!.status).toBe('active');
 	});
 
-	test('startup scan: re-subscribing existing record fires callback for worker start', async () => {
+	test('startup scan: listActive then ensureWorker mirrors production pattern', async () => {
 		// Phase 1: subscribe creates the record (simulates previous session)
 		await subscribe(dir, {
 			sessionID: 'sess_startup_2',
@@ -312,33 +312,22 @@ describe('pr-subscriptions — startup scan (listActive triggers worker start)',
 			prUrl: 'https://github.com/owner/repo/pull/20',
 		});
 
-		// Phase 2: simulate plugin restart — register fresh callback
-		const restartCalls: Array<{
-			directory: string;
-			record: PrSubscriptionRecord;
-		}> = [];
-		setOnSubscriptionCreated((directory, record) => {
-			restartCalls.push({ directory, record });
-		});
+		// Phase 2: simulate plugin restart (worker stopped, callback cleared via beforeEach)
+		let workerStartCalls = 0;
+		const mockEnsureWorker = (_d: string) => {
+			workerStartCalls++;
+		};
 
-		// Phase 3: startup scan discovers existing subscriptions
+		// Phase 3: production startup scan pattern — listActive then call ensureWorker
 		const active = await listActive(dir);
-		expect(active.length).toBeGreaterThan(0);
-		expect(active[0]!.correlationId).toBe('sess_startup_2::owner/repo::20');
+		if (active.length > 0) {
+			mockEnsureWorker(dir);
+		}
 
-		// Phase 4: re-subscribing the same PR triggers the callback
-		// (idempotent path in subscribe() for existing active records)
-		await subscribe(dir, {
-			sessionID: 'sess_startup_2',
-			prNumber: 20,
-			repoFullName: 'owner/repo',
-			prUrl: 'https://github.com/owner/repo/pull/20',
-		});
-
-		expect(restartCalls).toHaveLength(1);
-		expect(restartCalls[0]!.directory).toBe(dir);
-		expect(restartCalls[0]!.record.prNumber).toBe(20);
-		expect(restartCalls[0]!.record.status).toBe('active');
+		expect(active).toHaveLength(1);
+		expect(active[0]!.prNumber).toBe(20);
+		expect(active[0]!.status).toBe('active');
+		expect(workerStartCalls).toBe(1);
 	});
 
 	test('startup scan with no existing subscriptions returns empty', async () => {

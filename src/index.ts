@@ -955,12 +955,21 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	}
 
 	// Startup scan: resume worker for existing subscriptions after plugin restart.
-	// listActive is sync-backed (readFileSync) so this is lightweight.
+	// Deferred via queueMicrotask so setup() returns promptly (fail-open).
 	if (prMonitorConfig.enabled) {
-		const active = await listActiveSubscriptions(ctx.directory);
-		if (active.length > 0) {
-			ensurePrMonitorWorkerRunning(ctx.directory);
-		}
+		queueMicrotask(() => {
+			void listActiveSubscriptions(ctx.directory)
+				.then((active) => {
+					if (active.length > 0) {
+						ensurePrMonitorWorkerRunning(ctx.directory);
+					}
+				})
+				.catch((err) => {
+					error('[pr-monitor] Startup scan failed (non-fatal)', {
+						error: err instanceof Error ? err.message : String(err),
+					});
+				});
+		});
 	}
 
 	// Cleanup: stop automation manager and workers on process exit
