@@ -20,6 +20,16 @@ canonical workflow.
   head ref if absent, confirm the working tree is clean (`git status --porcelain`),
   then check it out. Verification and fixes must run against the PR branch, not the
   base branch.
+- **MCP push sync (remote execution environments):** When pushing via
+  `mcp__github__push_files` instead of local `git push`, the local working tree is
+  not updated by the push. After each MCP push, resync the local tree with
+  `git fetch origin <branch> && git reset --hard origin/<branch>` before reading
+  or editing files — otherwise reads and diffs will reflect the pre-push state.
+- **Bot rate-limit re-trigger:** When a CI bot pauses automatic reviews due to
+  iteration frequency (e.g., "I've paused automatic reviews — trigger with
+  `@cubic-dev-ai review`"), post the trigger comment immediately after each push.
+  Without the manual trigger the bot does not re-engage and the review cycle stalls
+  invisibly.
 - Start by collecting all feedback surfaces before editing: pasted feedback,
   GitHub review threads/comments, requested-changes reviews, CI/check failures,
   conflicts, branch drift, PR body claims, linked issues, and commits.
