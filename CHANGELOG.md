@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.77.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.4...v7.77.5) (2026-06-16)
+
+
+### Bug Fixes
+
+* **commands:** wire gap commands into TUI and establish tool-policy SSOT ([#1380](https://github.com/zaxbysauce/opencode-swarm/issues/1380)) ([010f612](https://github.com/zaxbysauce/opencode-swarm/commit/010f612c7dad0d1bd714018c162b43e77d6fb5d8))
+
 ## [7.77.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.3...v7.77.4) (2026-06-16)
 
 
