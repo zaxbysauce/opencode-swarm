@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.78.4](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.3...v7.78.4) (2026-06-16)
+
+
+### Performance Improvements
+
+* **cache:** add swarm artifact read-through cache ([#1320](https://github.com/zaxbysauce/opencode-swarm/issues/1320)) ([6e2b476](https://github.com/zaxbysauce/opencode-swarm/commit/6e2b476cb4bc072f2063705b286132de4e50ec78))
+
 ## [7.78.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.2...v7.78.3) (2026-06-16)
 
 
