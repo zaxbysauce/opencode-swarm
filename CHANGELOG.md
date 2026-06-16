@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.78.3](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.2...v7.78.3) (2026-06-16)
+
+
+### Bug Fixes
+
+* **knowledge:** prevent counter decay on trim and cap unbounded application log ([#1335](https://github.com/zaxbysauce/opencode-swarm/issues/1335)) ([842395e](https://github.com/zaxbysauce/opencode-swarm/commit/842395e1fc034431a408d7b42858982a91afb8d4))
+
 ## [7.78.2](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.1...v7.78.2) (2026-06-16)
 
 
