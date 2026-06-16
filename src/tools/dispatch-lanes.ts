@@ -151,6 +151,7 @@ export interface SessionOps {
 			tools: ReadOnlyToolPermissions;
 			parts: Array<{ type: 'text'; text: string }>;
 		};
+		signal?: AbortSignal;
 	}): Promise<{
 		data?: { parts?: Array<{ type: string; text?: string }> } | null;
 		error?: unknown;
@@ -281,6 +282,7 @@ async function runLane(
 		};
 	}
 
+	const promptController = new AbortController();
 	let sessionId: string | undefined;
 	try {
 		const createTimeoutMessage = `Lane "${lane.id}" session.create timed out after ${timeoutMs}ms`;
@@ -323,9 +325,11 @@ async function runLane(
 					tools: buildReadOnlyTools(),
 					parts: [{ type: 'text', text: lane.prompt }],
 				},
+				signal: promptController.signal,
 			}),
 			timeoutMs,
 			`Lane "${lane.id}" session.prompt timed out after ${timeoutMs}ms`,
+			promptController,
 		);
 		if (!promptResult.data) {
 			return failedLane(
@@ -364,6 +368,7 @@ async function runLane(
 		);
 	} finally {
 		dispatcher.releaseSlot(decision.slot.slotId);
+		promptController.abort();
 		if (sessionId) {
 			scheduleSessionCleanup(session, sessionId);
 		}
@@ -539,13 +544,20 @@ async function withTimeout<T>(
 	promise: Promise<T>,
 	timeoutMs: number,
 	message: string,
+	controller?: AbortController,
 ): Promise<T> {
 	let timeout: ReturnType<typeof setTimeout> | undefined;
 	try {
 		return await Promise.race([
 			promise,
 			new Promise<never>((_, reject) => {
-				timeout = setTimeout(() => reject(new Error(message)), timeoutMs);
+				timeout = setTimeout(() => {
+					controller?.abort();
+					reject(new Error(message));
+				}, timeoutMs);
+				if (typeof (timeout as { unref?: () => void }).unref === 'function') {
+					(timeout as { unref: () => void }).unref();
+				}
 			}),
 		]);
 	} finally {

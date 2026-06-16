@@ -1,5 +1,26 @@
 # Changelog
 
+## [7.78.0](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.7...v7.78.0) (2026-06-16)
+
+
+### Features
+
+* **knowledge-archive:** Add hive-tier support for archiving cross-project lessons ([#1306](https://github.com/zaxbysauce/opencode-swarm/issues/1306)) ([a880658](https://github.com/zaxbysauce/opencode-swarm/commit/a8806582804c86696c7fb9635deeb0b20648ed5f))
+
+## [7.77.7](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.6...v7.77.7) (2026-06-16)
+
+
+### Bug Fixes
+
+* **sessions:** abort in-flight prompt before session.delete() to prevent FK crashes ([#1374](https://github.com/zaxbysauce/opencode-swarm/issues/1374)) ([5e0c954](https://github.com/zaxbysauce/opencode-swarm/commit/5e0c95406c2b78c94853a9bac990fbee5efae883))
+
+## [7.77.6](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.5...v7.77.6) (2026-06-16)
+
+
+### Bug Fixes
+
+* **repo-graph:** retry rename on EPERM/EBUSY in saveGraph ([#1372](https://github.com/zaxbysauce/opencode-swarm/issues/1372)) ([a434dc2](https://github.com/zaxbysauce/opencode-swarm/commit/a434dc2ba312888a2a3e523c5dd6d895bb0d98a7))
+
 ## [7.77.5](https://github.com/zaxbysauce/opencode-swarm/compare/v7.77.4...v7.77.5) (2026-06-16)
 
 

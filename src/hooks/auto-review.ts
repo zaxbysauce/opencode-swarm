@@ -200,6 +200,7 @@ async function dispatchReviewer(
 		throw new Error('Failed to create auto-review session');
 	}
 	const sessionId = createResult.data.id;
+	const promptController = new AbortController();
 	let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 	try {
 		const promptCall = client.session.prompt({
@@ -210,14 +211,15 @@ async function dispatchReviewer(
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: prompt }],
 			},
+			signal: promptController.signal,
 		});
 		const response = await Promise.race([
 			promptCall,
 			new Promise<never>((_, reject) => {
-				timeoutHandle = setTimeout(
-					() => reject(new Error(`auto-review timed out after ${timeoutMs}ms`)),
-					timeoutMs,
-				);
+				timeoutHandle = setTimeout(() => {
+					promptController.abort();
+					reject(new Error(`auto-review timed out after ${timeoutMs}ms`));
+				}, timeoutMs);
 			}),
 		]);
 		if (!response.data) {
@@ -228,9 +230,8 @@ async function dispatchReviewer(
 			.map((p) => p.text)
 			.join('\n');
 	} finally {
-		// Clear the race timer so successful dispatches do not leave a pending
-		// timeout (up to 30min) keeping the event loop alive.
 		if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+		promptController.abort();
 		client.session.delete({ path: { id: sessionId } }).catch(() => {});
 	}
 }
