@@ -89,15 +89,14 @@ jobs:
         run: bun run build
       - name: Collect and partition test files
         shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
         run: |
           tmpdir="${RUNNER_TEMP:-${TEMP:-/tmp}}"
           find tests/unit -name '*.test.ts' -type f | sort > "$tmpdir/all-tests.txt"
-          total=$(wc -l < "$tmpdir/all-tests.txt")
-          shard=${{ matrix.shard }}
           num_shards=4
-          awk -v s="$shard" -v n="$num_shards" '(NR - 1) % n == (s - 1)' "$tmpdir/all-tests.txt" > "$tmpdir/shard-tests.txt"
-          shard_count=$(wc -l < "$tmpdir/shard-tests.txt")
-          echo "Shard ${shard}/${num_shards}: ${shard_count} of ${total} files"
+          awk -v s="$SHARD" -v n="$num_shards" '(NR - 1) % n == (s - 1)' "$tmpdir/all-tests.txt" > "$tmpdir/shard-tests.txt"
+          echo "Shard ${SHARD}/${num_shards}"
       - name: Run unit tests
         shell: bash
         run: |
@@ -106,7 +105,7 @@ jobs:
           trap 'rm -f "$tmpdir"/bun-out-$$-*' EXIT
           while IFS= read -r f; do
             [ -f "$f" ] || continue
-            tmp="$tmpdir/bun-out-$$-$(basename "$f")"
+            tmp="$tmpdir/bun-out-$$-${f##*/}"
             exit_code=0
             bun --smol test "$f" --timeout 120000 > "$tmp" 2>&1 || exit_code=$?
             if [ $exit_code -ne 0 ]; then
