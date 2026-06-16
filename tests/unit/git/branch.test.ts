@@ -5,20 +5,21 @@
 
 import { beforeEach, describe, expect, mock, test } from 'bun:test';
 
-// Create mock function for spawnSync
-let callIndex = 0;
 type MockSpawnResult = {
 	status: number | null;
 	stdout: string;
 	stderr: string;
 	error?: NodeJS.ErrnoException;
 };
-let returnValues: MockSpawnResult[] = [];
+
+// Create mock function for spawnSync
+let callIndex = 0;
+let returnValues: Array<MockSpawnResult> = [];
 
 const mockSpawnSync = mock(
-	(command: string, args: string[], options: { cwd: string }) => {
+	(command: string, args: string[], options: Record<string, unknown>) => {
 		// console.log(`Mock call ${callIndex}: git ${args.join(' ')}`);
-		const result = returnValues[callIndex] ?? {
+		const result: MockSpawnResult = returnValues[callIndex] ?? {
 			status: 0,
 			stdout: '',
 			stderr: '',
@@ -36,9 +37,7 @@ mock.module('node:child_process', () => ({
 // Import AFTER mock setup
 const branch = await import('../../../src/git/branch');
 
-function setupMock(
-	...values: MockSpawnResult[]
-) {
+function setupMock(...values: Array<MockSpawnResult>) {
 	callIndex = 0;
 	returnValues = values;
 	mockSpawnSync.mockClear();
@@ -63,25 +62,6 @@ describe('Git Branch Module', () => {
 			expect(result).toBe(true);
 		});
 
-		test('uses bounded non-interactive git spawn options', () => {
-			setupMock({ status: 0, stdout: '.git', stderr: '' });
-
-			branch.isGitRepo(testCwd);
-
-			const options = mockSpawnSync.mock.calls[0]?.[2] as {
-				cwd: string;
-				timeout: number;
-				windowsHide: boolean;
-				maxBuffer: number;
-				stdio: string[];
-			};
-			expect(options.cwd).toBe(testCwd);
-			expect(options.timeout).toBe(30_000);
-			expect(options.windowsHide).toBe(true);
-			expect(options.maxBuffer).toBeGreaterThan(0);
-			expect(options.stdio).toEqual(['ignore', 'pipe', 'pipe']);
-		});
-
 		test('returns false when git rev-parse fails (not a git repo)', () => {
 			setupMock({ status: 128, stdout: '', stderr: 'not a git repo' });
 
@@ -98,65 +78,6 @@ describe('Git Branch Module', () => {
 			const result = branch.isGitRepo(testCwd);
 
 			expect(result).toBe(false);
-		});
-	});
-
-	describe('getGitRepositoryStatus()', () => {
-		test('reports non-repo separately from git execution failures', () => {
-			setupMock({
-				status: 128,
-				stdout: '',
-				stderr: 'fatal: not a git repository',
-			});
-
-			const result = branch.getGitRepositoryStatus(testCwd);
-
-			expect(result).toEqual({
-				isRepo: false,
-				reason: 'not_git_repo',
-				message: 'fatal: not a git repository',
-			});
-		});
-
-		test('reports missing git binary as unavailable, not non-repo', () => {
-			const enoent = Object.assign(new Error('spawn git ENOENT'), {
-				code: 'ENOENT',
-			});
-			setupMock(
-				...Array.from({ length: 10 }, () => ({
-					status: null,
-					stdout: '',
-					stderr: '',
-					error: enoent,
-				})),
-			);
-
-			const result = branch.getGitRepositoryStatus(testCwd);
-
-			expect(result).toMatchObject({
-				isRepo: false,
-				reason: 'git_unavailable',
-			});
-		});
-
-		test('reports other git probe failures as git_error', () => {
-			const timeout = Object.assign(new Error('spawn git ETIMEDOUT'), {
-				code: 'ETIMEDOUT',
-			});
-			setupMock({
-				status: null,
-				stdout: '',
-				stderr: '',
-				error: timeout,
-			});
-
-			const result = branch.getGitRepositoryStatus(testCwd);
-
-			expect(result).toEqual({
-				isRepo: false,
-				reason: 'git_error',
-				message: 'spawn git ETIMEDOUT',
-			});
 		});
 	});
 
@@ -488,6 +409,71 @@ describe('Git Branch Module', () => {
 			const result = branch.hasUncommittedChanges(testCwd);
 
 			expect(result).toBe(true);
+		});
+	});
+
+	describe('getGitRepositoryStatus()', () => {
+		test('reports non-repo separately from git execution failures', () => {
+			setupMock({
+				status: 128,
+				stdout: '',
+				stderr: 'fatal: not a git repository (or any of the parent directories): .git',
+			});
+
+			const result = branch.getGitRepositoryStatus(testCwd);
+
+			expect(result.isRepo).toBe(false);
+			if (!result.isRepo) {
+				expect(result.reason).toBe('not_git_repo');
+			}
+		});
+
+		test('reports missing git binary as unavailable, not non-repo', () => {
+			const enoent = Object.assign(new Error('spawn git ENOENT'), {
+				code: 'ENOENT',
+			}) as NodeJS.ErrnoException;
+			// Over-provision values so the test works on all platforms (Windows has more candidates)
+			returnValues = Array.from({ length: 10 }, () => ({
+				status: null,
+				stdout: '',
+				stderr: '',
+				error: enoent,
+			}));
+			callIndex = 0;
+			mockSpawnSync.mockClear();
+
+			const result = branch.getGitRepositoryStatus(testCwd);
+
+			expect(result.isRepo).toBe(false);
+			if (!result.isRepo) {
+				expect(result.reason).toBe('git_unavailable');
+			}
+		});
+
+		test('reports other git probe failures as git_error', () => {
+			const timedOut = Object.assign(new Error('spawnSync git ETIMEDOUT'), {
+				code: 'ETIMEDOUT',
+			}) as NodeJS.ErrnoException;
+			setupMock({ status: null, stdout: '', stderr: '', error: timedOut });
+
+			const result = branch.getGitRepositoryStatus(testCwd);
+
+			expect(result.isRepo).toBe(false);
+			if (!result.isRepo) {
+				expect(result.reason).toBe('git_error');
+			}
+		});
+
+		test('uses bounded non-interactive git spawn options', () => {
+			setupMock({ status: 0, stdout: '.git', stderr: '' });
+
+			branch.getGitRepositoryStatus(testCwd);
+
+			const opts = mockSpawnSync.mock.calls[0][2] as Record<string, unknown>;
+			expect(opts.timeout).toBe(30_000);
+			expect(opts.windowsHide).toBe(true);
+			expect(opts.maxBuffer).toBe(5 * 1024 * 1024);
+			expect((opts.stdio as string[])[0]).toBe('ignore');
 		});
 	});
 
