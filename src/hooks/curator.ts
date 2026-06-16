@@ -156,7 +156,7 @@ async function autoRetireSkills(
 			});
 
 			const violations = skillUsage.filter(
-				(e) => e.complianceVerdict === 'violation',
+				(e) => e.complianceVerdict === 'violated',
 			).length;
 			const violationRate =
 				skillUsage.length > 0 ? violations / skillUsage.length : 0;
@@ -506,8 +506,14 @@ export async function writeCuratorSummary(
 	summary: CuratorSummary,
 ): Promise<void> {
 	const resolvedPath = validateSwarmPath(directory, 'curator-summary.json');
+
+	// Ensure .swarm/ directory exists
 	fs.mkdirSync(path.dirname(resolvedPath), { recursive: true });
-	await bunWrite(resolvedPath, JSON.stringify(summary, null, 2));
+
+	// Atomic write: write to temp file then rename
+	const tempPath = `${resolvedPath}.tmp.${Date.now()}.${Math.random().toString(36).slice(2)}`;
+	await bunWrite(tempPath, JSON.stringify(summary, null, 2));
+	fs.renameSync(tempPath, resolvedPath);
 }
 
 /**
@@ -1185,10 +1191,12 @@ export async function runCuratorPhase(
 				);
 				fs.mkdirSync(evidenceDir, { recursive: true });
 				const findingsPath = path.join(evidenceDir, 'curator-findings.json');
-				await bunWrite(
-					findingsPath,
+				const tmpPath = `${findingsPath}.tmp.${Date.now()}`;
+				fs.writeFileSync(
+					tmpPath,
 					JSON.stringify({ findings: knowledgeApplicationFindings }, null, 2),
 				);
+				fs.renameSync(tmpPath, findingsPath);
 			} catch (err) {
 				logger.warn(
 					`[curator] failed to persist application findings: ${err instanceof Error ? err.message : String(err)}`,
@@ -1268,7 +1276,7 @@ export async function runCuratorPhase(
 				if (skillUsage.length === 0) continue;
 
 				const violations = skillUsage.filter(
-					(e) => e.complianceVerdict === 'violation',
+					(e) => e.complianceVerdict === 'violated',
 				).length;
 				const violationRate = violations / skillUsage.length;
 
@@ -1282,7 +1290,7 @@ export async function runCuratorPhase(
 
 					const currentVersion = fm?.version ?? 1;
 					const violationContexts: ViolationContext[] = skillUsage
-						.filter((e) => e.complianceVerdict === 'violation')
+						.filter((e) => e.complianceVerdict === 'violated')
 						.slice(-10)
 						.map((e) => ({
 							taskId: e.taskID,
