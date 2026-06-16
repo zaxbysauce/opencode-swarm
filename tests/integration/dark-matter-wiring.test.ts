@@ -14,8 +14,11 @@ import { tmpdir } from 'node:os';
 import * as path from 'node:path';
 import { AGENT_TOOL_MAP } from '../../src/config/constants';
 import type { PluginConfig } from '../../src/config/schema';
-import { _internals as coChangeInternals, type CoChangeEntry } from '../../src/tools/co-change-analyzer';
 import { _internals as knowledgeStoreInternals } from '../../src/hooks/knowledge-store';
+import {
+	type CoChangeEntry,
+	_internals as coChangeInternals,
+} from '../../src/tools/co-change-analyzer';
 import { co_change_analyzer } from '../../src/tools/index';
 import { TOOL_NAMES } from '../../src/tools/tool-names';
 
@@ -65,20 +68,28 @@ const mockResolveSwarmKnowledgePath = mock(
 );
 const mockReadKnowledge = mock(async () => []);
 
-// Save original functions for restoration
+// Save original functions so the test seam can be torn down at file exit
+// (Bun's per-file teardown) rather than per-test. The mocks are applied
+// once at module load and stay in place for the lifetime of the test file.
+// `mockClear` in `beforeEach` resets call history without removing the mock
+// implementations, which is what the test assertions need.
 const originalDetectDarkMatter = coChangeInternals.detectDarkMatter;
 const originalFormatDarkMatterOutput = coChangeInternals.formatDarkMatterOutput;
-const originalDarkMatterToKnowledgeEntries = coChangeInternals.darkMatterToKnowledgeEntries;
+const originalDarkMatterToKnowledgeEntries =
+	coChangeInternals.darkMatterToKnowledgeEntries;
 const originalAppendKnowledge = knowledgeStoreInternals.appendKnowledge;
-const originalResolveSwarmKnowledgePath = knowledgeStoreInternals.resolveSwarmKnowledgePath;
+const originalResolveSwarmKnowledgePath =
+	knowledgeStoreInternals.resolveSwarmKnowledgePath;
 const originalReadKnowledge = knowledgeStoreInternals.readKnowledge;
 
 // Apply mocks via _internals seams to avoid mock.module cross-test pollution
 coChangeInternals.detectDarkMatter = mockDetectDarkMatter as any;
 coChangeInternals.formatDarkMatterOutput = mockFormatDarkMatterOutput as any;
-coChangeInternals.darkMatterToKnowledgeEntries = mockDarkMatterToKnowledgeEntries as any;
+coChangeInternals.darkMatterToKnowledgeEntries =
+	mockDarkMatterToKnowledgeEntries as any;
 knowledgeStoreInternals.appendKnowledge = mockAppendKnowledge as any;
-knowledgeStoreInternals.resolveSwarmKnowledgePath = mockResolveSwarmKnowledgePath as any;
+knowledgeStoreInternals.resolveSwarmKnowledgePath =
+	mockResolveSwarmKnowledgePath as any;
 knowledgeStoreInternals.readKnowledge = mockReadKnowledge as any;
 
 // Import after seam setup
@@ -86,15 +97,21 @@ const { detectArchitectMode, createSystemEnhancerHook } = await import(
 	'../../src/hooks/system-enhancer'
 );
 
-// Restore original functions after all tests to prevent cross-test contamination
-afterEach(() => {
+// Restore original functions at file exit (Bun runs afterAll at process
+// teardown). This prevents the mocks from leaking into OTHER test files
+// that share the same module cache.
+const restoreOriginals = () => {
 	coChangeInternals.detectDarkMatter = originalDetectDarkMatter;
 	coChangeInternals.formatDarkMatterOutput = originalFormatDarkMatterOutput;
-	coChangeInternals.darkMatterToKnowledgeEntries = originalDarkMatterToKnowledgeEntries;
+	coChangeInternals.darkMatterToKnowledgeEntries =
+		originalDarkMatterToKnowledgeEntries;
 	knowledgeStoreInternals.appendKnowledge = originalAppendKnowledge;
-	knowledgeStoreInternals.resolveSwarmKnowledgePath = originalResolveSwarmKnowledgePath;
+	knowledgeStoreInternals.resolveSwarmKnowledgePath =
+		originalResolveSwarmKnowledgePath;
 	knowledgeStoreInternals.readKnowledge = originalReadKnowledge;
-});
+};
+// Use process.on('exit') as a guaranteed teardown for the seam at file exit.
+process.on('exit', restoreOriginals);
 
 describe('co_change_analyzer registration', () => {
 	describe('TOOL_NAMES registration', () => {

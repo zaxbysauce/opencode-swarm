@@ -134,8 +134,11 @@ export function createCcCommandInterceptHook(
 
 				const bareCmd = bareCmdMatch[1].toLowerCase();
 
-				// Check if it's a known CC command with a conflict
-				// (CC_COMMAND_MAP handles both direct commands and aliases like /clear → /reset)
+				// Check if it's a known CC command with a conflict.
+				// CC_COMMAND_MAP is populated by conflict-registry.ts with both direct commands
+				// (/plan → 'plan', /reset → 'reset', /checkpoint → 'checkpoint', ...) and
+				// documented aliases (/reset → 'clear' via the /reset entry's ccBehavior).
+				// If bareCmd is not in the map, it falls through to the native-command log.
 				const conflict = CC_COMMAND_MAP.get(bareCmd);
 				if (!conflict) {
 					// Check if it's in the native commands set (non-conflicting CC command)

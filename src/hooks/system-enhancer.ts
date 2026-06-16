@@ -117,6 +117,7 @@ import {
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry';
+import { _internals as coChangeInternals } from '../tools/co-change-analyzer.js';
 import { warn } from '../utils';
 import {
 	detectAdversarialPair,
@@ -136,12 +137,7 @@ import {
 	extractDecisions,
 	extractPlanCursor,
 } from './extractors';
-import {
-	appendKnowledge,
-	readKnowledge,
-	resolveSwarmKnowledgePath,
-	rewriteKnowledge,
-} from './knowledge-store';
+import { _internals as knowledgeStoreInternals } from './knowledge-store';
 import type { SwarmKnowledgeEntry } from './knowledge-types.js';
 import { validateActionability } from './knowledge-validator.js';
 import {
@@ -608,15 +604,20 @@ export function createSystemEnhancerHook(
 							'dark-matter.md',
 						);
 						if (!fs.existsSync(darkMatterPath)) {
-							const {
-								detectDarkMatter,
-								formatDarkMatterOutput,
-								darkMatterToKnowledgeEntries,
-							} = await import('../tools/co-change-analyzer.js');
-							const darkMatter = await detectDarkMatter(directory, {
-								minCommits: 20,
-								minCoChanges: 3,
-							});
+							// Read from `_internals` so the `_internals` DI seam can be
+							// mocked in tests (writing-tests skill Invariant 7). The
+							// named exports of co-change-analyzer.ts are bound at import
+							// time, so mutating `_internals.detectDarkMatter` would not
+							// affect them. Reading `_internals.foo` at call time picks
+							// up the latest seam value, which is what the dark-matter-
+							// wiring test relies on.
+							const darkMatter = await coChangeInternals.detectDarkMatter(
+								directory,
+								{
+									minCommits: 20,
+									minCoChanges: 3,
+								},
+							);
 							// Always write cache — even on empty results — to prevent
 							// repeated O(n²) recomputation on every chat turn (#1021).
 							// Ensure .swarm/ directory exists before writing (may not exist
@@ -624,7 +625,8 @@ export function createSystemEnhancerHook(
 							await fs.promises.mkdir(path.dirname(darkMatterPath), {
 								recursive: true,
 							});
-							const darkMatterReport = formatDarkMatterOutput(darkMatter);
+							const darkMatterReport =
+								coChangeInternals.formatDarkMatterOutput(darkMatter);
 							await fs.promises.writeFile(
 								darkMatterPath,
 								darkMatterReport,
@@ -637,14 +639,20 @@ export function createSystemEnhancerHook(
 								// Generate knowledge entries from dark matter results
 								try {
 									const projectName = path.basename(path.resolve(directory));
-									const knowledgeEntries = darkMatterToKnowledgeEntries(
-										darkMatter,
-										projectName,
-									);
-									const knowledgePath = resolveSwarmKnowledgePath(directory);
+									const knowledgeEntries =
+										coChangeInternals.darkMatterToKnowledgeEntries(
+											darkMatter,
+											projectName,
+										);
+									const knowledgePath =
+										knowledgeStoreInternals.resolveSwarmKnowledgePath(
+											directory,
+										);
 									// Deduplicate: skip entries already in knowledge
 									const existingEntries =
-										await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+										await knowledgeStoreInternals.readKnowledge<SwarmKnowledgeEntry>(
+											knowledgePath,
+										);
 									const existingLessons = new Set(
 										existingEntries.map((e) => e.lesson),
 									);
@@ -663,7 +671,10 @@ export function createSystemEnhancerHook(
 										);
 									} else {
 										for (const entry of newEntries) {
-											await appendKnowledge(knowledgePath, entry);
+											await knowledgeStoreInternals.appendKnowledge(
+												knowledgePath,
+												entry,
+											);
 										}
 										warn(
 											`[system-enhancer] Created ${newEntries.length} new knowledge entries (${knowledgeEntries.length - newEntries.length} duplicates skipped)`,
@@ -682,9 +693,12 @@ export function createSystemEnhancerHook(
 						// with scope: 'project', which is filtered out by the default scope_filter ['global'].
 						// Re-scope any such entries to 'global' so they can reach the architect.
 						try {
-							const knowledgePath = resolveSwarmKnowledgePath(directory);
+							const knowledgePath =
+								knowledgeStoreInternals.resolveSwarmKnowledgePath(directory);
 							const allEntries =
-								await readKnowledge<SwarmKnowledgeEntry>(knowledgePath);
+								await knowledgeStoreInternals.readKnowledge<SwarmKnowledgeEntry>(
+									knowledgePath,
+								);
 							const stale = allEntries.filter(
 								(e) =>
 									e.scope === 'project' &&
@@ -697,7 +711,10 @@ export function createSystemEnhancerHook(
 									e.scope = 'global';
 									e.updated_at = new Date().toISOString();
 								}
-								await rewriteKnowledge(knowledgePath, allEntries);
+								await knowledgeStoreInternals.rewriteKnowledge(
+									knowledgePath,
+									allEntries,
+								);
 								warn(
 									`[system-enhancer] Repaired ${stale.length} dark matter knowledge entries (scope: 'project' → 'global')`,
 								);
