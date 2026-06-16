@@ -55,18 +55,23 @@ describe('learning loop end-to-end (capture -> curate -> retrieve -> outcome)', 
 	let dir: string;
 	let kp: string;
 	let prevXdg: string | undefined;
+	let prevLocalAppData: string | undefined;
 
 	beforeEach(() => {
 		dir = fs.mkdtempSync(path.join(os.tmpdir(), 'learning-loop-'));
 		fs.mkdirSync(path.join(dir, '.swarm'), { recursive: true });
 		kp = resolveSwarmKnowledgePath(dir);
 		prevXdg = process.env.XDG_DATA_HOME;
+		prevLocalAppData = process.env.LOCALAPPDATA;
 		process.env.XDG_DATA_HOME = path.join(dir, 'xdg');
+		process.env.LOCALAPPDATA = path.join(dir, 'xdg');
 	});
 
 	afterEach(() => {
 		if (prevXdg === undefined) delete process.env.XDG_DATA_HOME;
 		else process.env.XDG_DATA_HOME = prevXdg;
+		if (prevLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+		else process.env.LOCALAPPDATA = prevLocalAppData;
 		fs.rmSync(dir, { recursive: true, force: true });
 	});
 

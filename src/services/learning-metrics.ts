@@ -2,8 +2,8 @@ import { readRecentEscalations } from '../hooks/knowledge-escalator.js';
 import {
 	type CounterRollup,
 	type KnowledgeEvent,
+	readKnowledgeCounterRollups,
 	readKnowledgeEvents,
-	recomputeCounters,
 } from '../hooks/knowledge-events.js';
 import {
 	readKnowledge,
@@ -143,16 +143,15 @@ export async function computeLearningMetrics(
 	const phasesThreshold =
 		options?.currentPhase ?? DEFAULT_PHASES_ALIVE_THRESHOLD;
 
-	const [events, entries] = await Promise.all([
+	const [events, entries, rollups] = await Promise.all([
 		readKnowledgeEvents(directory),
 		readKnowledge<SwarmKnowledgeEntry>(resolveSwarmKnowledgePath(directory)),
+		readKnowledgeCounterRollups(directory),
 	]);
 
 	if (events.length === 0 && entries.length === 0) {
 		return emptyMetrics();
 	}
-
-	const rollups = recomputeCounters(events);
 
 	const entryMap = new Map<string, SwarmKnowledgeEntry>();
 	for (const entry of entries) {

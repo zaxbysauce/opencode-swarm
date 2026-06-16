@@ -396,55 +396,72 @@ describe('searchKnowledge (unified retrieval)', () => {
 	});
 
 	it('forceReadHive:true reads hive even when config.hive_enabled is false (recall regression fix)', async () => {
-		const hivePath = resolveHiveKnowledgePath();
-		const hiveEntry: HiveKnowledgeEntry = {
-			id: 'hive1',
-			tier: 'hive',
-			lesson: 'hive lesson about caching strategies here',
-			category: 'performance',
-			tags: [],
-			scope: 'global',
-			confidence: 0.7,
-			status: 'promoted',
-			confirmed_by: [],
-			source_project: 'other',
-			encounter_score: 1,
-			retrieval_outcomes: {
-				applied_count: 0,
-				succeeded_after_count: 0,
-				failed_after_count: 0,
-			},
-			schema_version: 2,
-			created_at: new Date().toISOString(),
-			updated_at: new Date().toISOString(),
-		};
-		await appendKnowledge(hivePath, hiveEntry);
-		const hiveDisabled = { ...config, hive_enabled: false };
+		const prevHome = process.env.HOME;
+		const prevLocalAppData = process.env.LOCALAPPDATA;
+		const prevXdgDataHome = process.env.XDG_DATA_HOME;
+		const isolatedHiveDir = join(dir, 'hive-data');
+		mkdirSync(isolatedHiveDir, { recursive: true });
+		try {
+			process.env.HOME = dir;
+			process.env.LOCALAPPDATA = isolatedHiveDir;
+			process.env.XDG_DATA_HOME = isolatedHiveDir;
+			const hivePath = resolveHiveKnowledgePath();
+			const hiveEntry: HiveKnowledgeEntry = {
+				id: 'hive1',
+				tier: 'hive',
+				lesson: 'hive lesson about caching strategies here',
+				category: 'performance',
+				tags: [],
+				scope: 'global',
+				confidence: 0.7,
+				status: 'promoted',
+				confirmed_by: [],
+				source_project: 'other',
+				encounter_score: 1,
+				retrieval_outcomes: {
+					applied_count: 0,
+					succeeded_after_count: 0,
+					failed_after_count: 0,
+				},
+				schema_version: 2,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+			};
+			await appendKnowledge(hivePath, hiveEntry);
+			const hiveDisabled = { ...config, hive_enabled: false };
 
-		// With hive_enabled:false and no force, hive is hidden.
-		const hidden = await searchKnowledge({
-			directory: dir,
-			config: hiveDisabled,
-			query: 'lesson about caching',
-			mode: 'auto_injection',
-			tier: 'all',
-			emitEvent: false,
-		});
-		expect(hidden.results.map((r) => r.id)).not.toContain('hive1');
+			// With hive_enabled:false and no force, hive is hidden.
+			const hidden = await searchKnowledge({
+				directory: dir,
+				config: hiveDisabled,
+				query: 'lesson about caching',
+				mode: 'auto_injection',
+				tier: 'all',
+				emitEvent: false,
+			});
+			expect(hidden.results.map((r) => r.id)).not.toContain('hive1');
 
-		// Manual recall forces the hive read.
-		const forced = await searchKnowledge({
-			directory: dir,
-			config: hiveDisabled,
-			query: 'lesson about caching',
-			mode: 'manual',
-			tier: 'all',
-			forceReadHive: true,
-			applyScopeFilter: false,
-			applyRoleScope: false,
-			emitEvent: false,
-		});
-		expect(forced.results.map((r) => r.id)).toContain('hive1');
+			// Manual recall forces the hive read.
+			const forced = await searchKnowledge({
+				directory: dir,
+				config: hiveDisabled,
+				query: 'lesson about caching',
+				mode: 'manual',
+				tier: 'all',
+				forceReadHive: true,
+				applyScopeFilter: false,
+				applyRoleScope: false,
+				emitEvent: false,
+			});
+			expect(forced.results.map((r) => r.id)).toContain('hive1');
+		} finally {
+			if (prevHome === undefined) delete process.env.HOME;
+			else process.env.HOME = prevHome;
+			if (prevLocalAppData === undefined) delete process.env.LOCALAPPDATA;
+			else process.env.LOCALAPPDATA = prevLocalAppData;
+			if (prevXdgDataHome === undefined) delete process.env.XDG_DATA_HOME;
+			else process.env.XDG_DATA_HOME = prevXdgDataHome;
+		}
 	});
 
 	it('applyRoleScope:false does not role-gate role-scoped entries (recall regression fix)', async () => {

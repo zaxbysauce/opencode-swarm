@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { clearKnowledgeRollupCache } from '../../../src/hooks/knowledge-events';
 import {
 	computeLearningMetrics,
 	formatLearningJSON,
@@ -33,6 +34,20 @@ function seedKnowledge(dir: string, entries: Record<string, unknown>[]): void {
 	mkdirSync(swarmDir, { recursive: true });
 	const lines = entries.map((e) => JSON.stringify(e)).join('\n') + '\n';
 	writeFileSync(path.join(swarmDir, 'knowledge.jsonl'), lines, 'utf-8');
+}
+
+/** Seed a counter baseline file simulating evicted events from a prior trim. */
+function seedCounterBaseline(
+	dir: string,
+	entries: Record<string, unknown>,
+): void {
+	const swarmDir = path.join(dir, '.swarm');
+	mkdirSync(swarmDir, { recursive: true });
+	writeFileSync(
+		path.join(swarmDir, 'knowledge-counter-baseline.json'),
+		JSON.stringify({ schema_version: 1, entries }),
+		'utf-8',
+	);
 }
 
 /** ISO timestamp N days before NOW. */
@@ -644,6 +659,121 @@ describe('learning-metrics', () => {
 			// 1 violation out of 3 receipts in 7d
 			expect(m.overallViolationRate.window7d).toBeCloseTo(1 / 3, 5);
 			expect(m.violationTrends.length).toBe(1);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Baseline-inclusive rollups (F1.7)
+	// -----------------------------------------------------------------------
+
+	describe('baseline-inclusive rollups — regression: evicted event counters must be preserved', () => {
+		it('computeLearningMetrics includes evicted events preserved in baseline for shown_count', async () => {
+			// Simulate a trim scenario: baseline has 100 prior "shown" events for e1.
+			// Post-trim, only 5 new retrieved events remain in the log.
+			// computeLearningMetrics must report shown_count = 100 (baseline) + 5 (events) = 105.
+			const baselineShown = 100;
+			const eventShown = 5;
+			const entry = makeEntry({ id: 'e1', directive_priority: 'critical' });
+			seedCounterBaseline(tmp, {
+				e1: {
+					shown_count: baselineShown,
+					acknowledged_count: 0,
+					applied_explicit_count: 0,
+					ignored_count: 0,
+					violated_count: 0,
+					contradicted_count: 0,
+					n_a_count: 0,
+					succeeded_after_shown_count: 0,
+					failed_after_shown_count: 0,
+					partial_after_shown_count: 0,
+					violation_timestamps: [],
+				},
+			});
+			// Post-trim events: 5 retrieved events.
+			const events = Array.from({ length: eventShown }, (_, i) =>
+				makeRetrieved(['e1'], 'sess-1', daysAgo(i + 1)),
+			);
+			seedKnowledgeEvents(tmp, events);
+			seedKnowledge(tmp, [entry]);
+			clearKnowledgeRollupCache();
+
+			const m = await computeLearningMetrics(tmp, { now: NOW });
+			const roi = m.entryROI.find((r) => r.entryId === 'e1');
+			expect(roi).toBeDefined();
+			// shown_count must equal baseline + post-trim events.
+			expect(roi!.shownCount).toBe(baselineShown + eventShown);
+		});
+
+		it('computeLearningMetrics includes evicted events preserved in baseline for applied_explicit_count', async () => {
+			// Baseline: 20 prior applications. Post-trim: 3 new applied receipts.
+			const baselineApplied = 20;
+			const eventApplied = 3;
+			const entry = makeEntry({ id: 'e1', directive_priority: 'medium' });
+			seedCounterBaseline(tmp, {
+				e1: {
+					shown_count: 50,
+					acknowledged_count: 5,
+					applied_explicit_count: baselineApplied,
+					ignored_count: 0,
+					violated_count: 0,
+					contradicted_count: 0,
+					n_a_count: 0,
+					succeeded_after_shown_count: 10,
+					failed_after_shown_count: 2,
+					partial_after_shown_count: 0,
+					violation_timestamps: [],
+					last_applied_at: daysAgo(10),
+				},
+			});
+			// Post-trim applied receipts.
+			const events = Array.from({ length: eventApplied }, (_, i) =>
+				makeReceipt('applied', 'e1', 'sess-1', daysAgo(i + 1)),
+			);
+			seedKnowledgeEvents(tmp, events);
+			seedKnowledge(tmp, [entry]);
+			clearKnowledgeRollupCache();
+
+			const m = await computeLearningMetrics(tmp, { now: NOW });
+			const roi = m.entryROI.find((r) => r.entryId === 'e1');
+			expect(roi).toBeDefined();
+			// applied_explicit_count must equal baseline + post-trim events.
+			expect(roi!.appliedCount).toBe(baselineApplied + eventApplied);
+		});
+
+		it('computeLearningMetrics applicationRateByPriority uses baseline-inclusive shown_count', async () => {
+			// Baseline: 80 shown for critical priority. Post-trim: 20 more retrieved events.
+			const baselineShown = 80;
+			const eventShown = 20;
+			const entry = makeEntry({ id: 'e1', directive_priority: 'critical' });
+			seedCounterBaseline(tmp, {
+				e1: {
+					shown_count: baselineShown,
+					acknowledged_count: 0,
+					applied_explicit_count: 10,
+					ignored_count: 0,
+					violated_count: 0,
+					contradicted_count: 0,
+					n_a_count: 0,
+					succeeded_after_shown_count: 5,
+					failed_after_shown_count: 3,
+					partial_after_shown_count: 0,
+					violation_timestamps: [],
+				},
+			});
+			const events = Array.from({ length: eventShown }, (_, i) =>
+				makeRetrieved(['e1'], 'sess-1', daysAgo(i + 1)),
+			);
+			seedKnowledgeEvents(tmp, events);
+			seedKnowledge(tmp, [entry]);
+			clearKnowledgeRollupCache();
+
+			const m = await computeLearningMetrics(tmp, { now: NOW });
+			// applicationRateByPriority totals must include baseline.
+			expect(m.applicationRateByPriority.critical).toBeDefined();
+			expect(m.applicationRateByPriority.critical.total).toBe(
+				baselineShown + eventShown,
+			);
+			expect(m.applicationRateByPriority.critical.applied).toBe(10);
 		});
 	});
 });

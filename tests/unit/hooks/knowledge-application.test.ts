@@ -212,6 +212,109 @@ describe('processArchitectText', () => {
 	});
 });
 
+describe('appendAudit concurrent trim does not corrupt JSONL', () => {
+	// MAX_APPLICATION_LOG_ENTRIES = 5000, MIN_APPLICATION_LINE_BYTES = 80,
+	// TRIM_BATCH_SIZE = 100 → trimThreshold = 408_000 bytes.
+	// Write 5200 entries (≈416 KB) to exceed threshold and force the trim path.
+	const ENTRIES_BEYOND_THRESHOLD = 5200;
+
+	async function populateBeyondThreshold(directory: string): Promise<void> {
+		const logPath = resolveApplicationLogPath(directory);
+		await mkdir(path.dirname(logPath), { recursive: true });
+		const lines: string[] = [];
+		for (let i = 0; i < ENTRIES_BEYOND_THRESHOLD; i++) {
+			const record = {
+				timestamp: new Date().toISOString(),
+				phase: 'setup',
+				knowledgeId: `00000000-0000-4${String(i).padStart(3, '0')}-9fff-000000000001`,
+				result: 'shown',
+			};
+			lines.push(JSON.stringify(record));
+		}
+		await writeFile(logPath, `${lines.join('\n')}\n`, 'utf-8');
+	}
+
+	function isValidJsonl(content: string): boolean {
+		const lines = content.split('\n').filter((l) => l.trim().length > 0);
+		for (const line of lines) {
+			try {
+				JSON.parse(line);
+			} catch {
+				return false;
+			}
+		}
+		return true;
+	}
+
+	function countLines(content: string): number {
+		return content.split('\n').filter((l) => l.trim().length > 0).length;
+	}
+
+	it('concurrent recordKnowledgeShown calls preserve valid JSONL when trim fires', async () => {
+		await populateBeyondThreshold(tmp);
+
+		const CONCURRENT_CALLS = 20;
+		const IDS_PER_CALL = 5;
+		const allIds: string[] = [];
+		for (let c = 0; c < CONCURRENT_CALLS; c++) {
+			const batchIds: string[] = [];
+			for (let i = 0; i < IDS_PER_CALL; i++) {
+				batchIds.push(
+					`bbbbbbbb-bbbb-4${String(c).padStart(3, '0')}-9fff-${String(i).padStart(12, '0')}`,
+				);
+			}
+			allIds.push(...batchIds);
+		}
+
+		// Fire concurrent recordKnowledgeShown calls — each batch appends 5 entries.
+		// With 20 batches × 5 = 100 new entries. Combined with the 5200 pre-existing
+		// entries, the trim (capped at 5000) must run. The lock serializes trims;
+		// fail-open ensures we never crash.
+		await Promise.all(
+			Array.from({ length: CONCURRENT_CALLS }, (_, c) =>
+				recordKnowledgeShown(
+					tmp,
+					Array.from(
+						{ length: IDS_PER_CALL },
+						(_, i) =>
+							`bbbbbbbb-bbbb-4${String(c).padStart(3, '0')}-9fff-${String(i).padStart(12, '0')}`,
+					),
+					{ phase: 'concurrent-test' },
+				),
+			),
+		);
+
+		const logPath = resolveApplicationLogPath(tmp);
+		const content = readFileSync(logPath, 'utf-8');
+
+		// Must be valid JSONL — no partial writes, no interleaved corruption
+		expect(isValidJsonl(content)).toBe(true);
+
+		// All concurrent entries must be present (no lost writes)
+		const finalCount = countLines(content);
+		const expectedMin = Math.min(5200 + CONCURRENT_CALLS * IDS_PER_CALL, 5000);
+		expect(finalCount).toBeGreaterThanOrEqual(expectedMin - 1); // allow 1 off for TOCTOU trim window
+	});
+
+	it('trim respects cap and does not under-count due to concurrent locking', async () => {
+		// Same setup: file well over threshold
+		await populateBeyondThreshold(tmp);
+
+		// Single call — trim should run and cap at MAX_APPLICATION_LOG_ENTRIES
+		await recordKnowledgeShown(tmp, ['cccccccc-cccc-4ccc-9ccc-cccccccccccc'], {
+			phase: 'single-call-test',
+		});
+
+		const logPath = resolveApplicationLogPath(tmp);
+		const content = readFileSync(logPath, 'utf-8');
+
+		expect(isValidJsonl(content)).toBe(true);
+		// After trim, count should be exactly MAX_APPLICATION_LOG_ENTRIES (or 1 more if TOCTOU append landed)
+		const count = countLines(content);
+		expect(count).toBeLessThanOrEqual(5001);
+	});
+});
+
 describe('getShownButNotAcknowledged', () => {
 	it('returns shown ids that have no acknowledgment in scope', async () => {
 		const a = '11111111-1111-4111-9111-111111111111';

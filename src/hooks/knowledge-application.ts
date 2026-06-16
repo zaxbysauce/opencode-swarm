@@ -7,7 +7,7 @@
  */
 
 import { existsSync } from 'node:fs';
-import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
+import { appendFile, mkdir, readFile, stat, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { warn } from '../utils/logger.js';
@@ -38,6 +38,20 @@ export function resolveApplicationLogPath(directory: string): string {
  * unbounded growth and hot-path re-reads of massive files.
  */
 export const MAX_APPLICATION_LOG_ENTRIES = 5000;
+
+/**
+ * Conservative minimum bytes per JSONL application record. Used with the
+ * size-based fast-path to avoid acquiring the proper-lockfile lock on every
+ * append.
+ */
+const MIN_APPLICATION_LINE_BYTES = 80;
+
+/**
+ * Batch-size buffer for the size-based trim threshold. The threshold is set
+ * above the strict cap so the lock is only acquired when the file is likely
+ * already over limit.
+ */
+const TRIM_BATCH_SIZE = 100;
 
 // ============================================================================
 // Acknowledgment parser
@@ -90,27 +104,75 @@ async function appendAudit(
 ): Promise<void> {
 	const filePath = resolveApplicationLogPath(directory);
 	await mkdir(path.dirname(filePath), { recursive: true });
+
+	// Atomic append: OS-level serialization for small writes is sufficient for
+	// the common case. No lock here to keep the hot path fast and avoid
+	// lockfile overhead on every acknowledgement.
 	await appendFile(filePath, `${JSON.stringify(record)}\n`, 'utf-8');
 
 	// Best-effort FIFO trim once the log exceeds MAX_APPLICATION_LOG_ENTRIES.
 	// Legacy audit log is informational only; the event log is authoritative.
 	// Per recomputeCounters contract, legacy `shown` records are ignored once
 	// any `retrieved` event exists; trimming is safe.
+	//
+	// Fast-path: skip the expensive lock when the file is still small. We
+	// estimate the likely-over-cap threshold from a conservative per-line byte
+	// bound so we only pay the ~8 ms lock cost when a trim is actually needed.
+	//
+	// TOCTOU trade-off: a concurrent append can land between this size check
+	// and the locked read-modify-write below. That append may be overwritten
+	// by the trim's writeFile. This is intentional — the audit log is
+	// best-effort telemetry, and the tiny loss window is acceptable for the
+	// performance win of skipping the lock on every append.
+	const trimThreshold =
+		(MAX_APPLICATION_LOG_ENTRIES + TRIM_BATCH_SIZE) *
+		MIN_APPLICATION_LINE_BYTES;
+	let fileStat: { size: number } | null = null;
 	try {
-		const content = await readFile(filePath, 'utf-8');
-		const lines = content
-			.split('\n')
-			.filter((line) => line.trim().length > 0);
-		if (lines.length > MAX_APPLICATION_LOG_ENTRIES) {
-			const trimmed = lines.slice(lines.length - MAX_APPLICATION_LOG_ENTRIES);
-			await writeFile(filePath, `${trimmed.join('\n')}\n`, 'utf-8');
+		if (existsSync(filePath)) {
+			const s = await stat(filePath);
+			fileStat = { size: s.size };
+		}
+	} catch {
+		// fail-open: if we cannot stat the file, skip the trim and continue.
+	}
+	if (!fileStat || fileStat.size <= trimThreshold) {
+		return;
+	}
+
+	let release: (() => Promise<void>) | undefined;
+	try {
+		release = await lockfile.lock(path.dirname(filePath), {
+			retries: { retries: 200, minTimeout: 10, maxTimeout: 100 },
+		});
+		// Locked read-modify-write: concurrent appends are serialized and
+		// cannot interleave with this trim.
+		try {
+			const content = await readFile(filePath, 'utf-8');
+			const lines = content
+				.split('\n')
+				.filter((line) => line.trim().length > 0);
+			if (lines.length > MAX_APPLICATION_LOG_ENTRIES) {
+				const trimmed = lines.slice(lines.length - MAX_APPLICATION_LOG_ENTRIES);
+				await writeFile(filePath, `${trimmed.join('\n')}\n`, 'utf-8');
+			}
+		} catch (err) {
+			warn(
+				`[knowledge-application] audit log trim failed (non-fatal): ${
+					err instanceof Error ? err.message : String(err)
+				}`,
+			);
 		}
 	} catch (err) {
 		warn(
-			`[knowledge-application] audit log trim failed (non-fatal): ${
+			`[knowledge-application] audit log trim lock failed (non-fatal): ${
 				err instanceof Error ? err.message : String(err)
 			}`,
 		);
+	} finally {
+		if (release) {
+			await release().catch(() => {});
+		}
 	}
 }
 
