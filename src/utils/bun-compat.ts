@@ -192,7 +192,7 @@ export async function bunWrite(
 	try {
 		const dirFd = await fsPromises.open(dir, 'r');
 		try {
-			await dirFd.fsync();
+			await dirFd.sync();
 		} finally {
 			await dirFd.close();
 		}
