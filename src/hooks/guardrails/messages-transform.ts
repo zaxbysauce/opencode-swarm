@@ -358,6 +358,7 @@ export function createMessagesTransformHandler(ctx: MessagesTransformContext) {
 				'TRANSIENT ERROR:',
 				'MODEL FALLBACK:',
 				'DEGRADED:',
+				'[pr-monitor:',
 			];
 			const transientAdvisories = allAdvisories.filter((m: string) =>
 				TRANSIENT_PREFIXES.some((p) => m.startsWith(p)),
