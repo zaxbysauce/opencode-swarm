@@ -833,12 +833,14 @@ export const _internals: {
 	gitExec: typeof gitExec;
 	detectDefaultRemoteBranch: typeof detectDefaultRemoteBranch;
 	getDefaultBaseBranch: typeof getDefaultBaseBranch;
+	getGitRepositoryStatus: typeof getGitRepositoryStatus;
 	resetToRemoteBranch: typeof resetToRemoteBranch;
 	resetToMainAfterMerge: typeof resetToMainAfterMerge;
 } = {
 	gitExec,
 	detectDefaultRemoteBranch,
 	getDefaultBaseBranch,
+	getGitRepositoryStatus,
 	resetToRemoteBranch,
 	resetToMainAfterMerge,
 } as const;
