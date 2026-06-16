@@ -13,6 +13,7 @@ import * as path from 'node:path';
 import {
 	PR_SUBSCRIPTIONS_FILE,
 	type PrSubscriptionRecord,
+	listActive,
 	setOnSubscriptionCreated,
 	subscribe,
 } from '../../../src/background/pr-subscriptions';
@@ -254,5 +255,94 @@ describe('pr-subscriptions — subscribe() input validation', () => {
 				prUrl: 'https://github.com/owner/repo/pull/1',
 			}),
 		).rejects.toThrow(/directory is required/i);
+	});
+});
+
+describe('pr-subscriptions — startup scan (listActive triggers worker start)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = makeTempProject();
+		setOnSubscriptionCreated(
+			null as unknown as (
+				directory: string,
+				record: PrSubscriptionRecord,
+			) => void,
+		);
+	});
+
+	afterEach(() => {
+		setOnSubscriptionCreated(
+			null as unknown as (
+				directory: string,
+				record: PrSubscriptionRecord,
+			) => void,
+		);
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	test('listActive returns existing subscriptions for startup scan', async () => {
+		const calls: Array<{ directory: string; record: PrSubscriptionRecord }> =
+			[];
+		setOnSubscriptionCreated((directory, record) => {
+			calls.push({ directory, record });
+		});
+
+		await subscribe(dir, {
+			sessionID: 'sess_startup_1',
+			prNumber: 10,
+			repoFullName: 'owner/repo',
+			prUrl: 'https://github.com/owner/repo/pull/10',
+		});
+
+		expect(calls).toHaveLength(1);
+
+		const active = await listActive(dir);
+		expect(active).toHaveLength(1);
+		expect(active[0]!.prNumber).toBe(10);
+		expect(active[0]!.status).toBe('active');
+	});
+
+	test('startup scan: re-subscribing existing record fires callback for worker start', async () => {
+		// Phase 1: subscribe creates the record (simulates previous session)
+		await subscribe(dir, {
+			sessionID: 'sess_startup_2',
+			prNumber: 20,
+			repoFullName: 'owner/repo',
+			prUrl: 'https://github.com/owner/repo/pull/20',
+		});
+
+		// Phase 2: simulate plugin restart — register fresh callback
+		const restartCalls: Array<{
+			directory: string;
+			record: PrSubscriptionRecord;
+		}> = [];
+		setOnSubscriptionCreated((directory, record) => {
+			restartCalls.push({ directory, record });
+		});
+
+		// Phase 3: startup scan discovers existing subscriptions
+		const active = await listActive(dir);
+		expect(active.length).toBeGreaterThan(0);
+		expect(active[0]!.correlationId).toBe('sess_startup_2::owner/repo::20');
+
+		// Phase 4: re-subscribing the same PR triggers the callback
+		// (idempotent path in subscribe() for existing active records)
+		await subscribe(dir, {
+			sessionID: 'sess_startup_2',
+			prNumber: 20,
+			repoFullName: 'owner/repo',
+			prUrl: 'https://github.com/owner/repo/pull/20',
+		});
+
+		expect(restartCalls).toHaveLength(1);
+		expect(restartCalls[0]!.directory).toBe(dir);
+		expect(restartCalls[0]!.record.prNumber).toBe(20);
+		expect(restartCalls[0]!.record.status).toBe('active');
+	});
+
+	test('startup scan with no existing subscriptions returns empty', async () => {
+		const active = await listActive(dir);
+		expect(active).toHaveLength(0);
 	});
 });

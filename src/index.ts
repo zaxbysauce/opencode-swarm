@@ -13,7 +13,10 @@ import {
 	PrMonitorWorker,
 } from './background';
 import { createBackgroundCompletionObserver } from './background/completion-observer.js';
-import { setOnSubscriptionCreated } from './background/pr-subscriptions';
+import {
+	listActive as listActiveSubscriptions,
+	setOnSubscriptionCreated,
+} from './background/pr-subscriptions';
 import {
 	agentHasSwarmCommandTool,
 	createSwarmCommandHandler,
@@ -44,7 +47,6 @@ import {
 } from './config/schema';
 import { updateContextMapAfterAgent } from './context-map/post-agent-update.js';
 import { tickAndMaybeDispatchCadence } from './full-auto/cadence.js';
-import { isGhAvailable } from './git';
 import {
 	composeHandlers,
 	consolidateSystemMessages,
@@ -116,7 +118,7 @@ import { createSnapshotWriterHook } from './session/snapshot-writer.js';
 import { ensureAgentSession, swarmState } from './state';
 import { initTelemetry, telemetry } from './telemetry';
 import { buildPluginToolObject } from './tools/plugin-registration';
-import { log, warn } from './utils';
+import { error, log, warn } from './utils';
 import {
 	ENSURE_SWARM_GIT_EXCLUDED_OUTER_TIMEOUT_MS,
 	ensureSwarmGitExcluded,
@@ -904,41 +906,34 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 		});
 	}
 
-	// PR Monitor Worker — lazy start
-	// Worker is NOT started at plugin init — it starts lazily when the
-	// first subscription is created via the onSubscriptionCreated callback.
-	// This runs regardless of automation mode — gated only by pr_monitor.enabled.
+	// PR Monitor Worker — starts when pr_monitor.enabled and subscriptions exist.
+	// Worker creation is idempotent: first call creates, subsequent calls no-op.
 	const prMonitorConfig = PrMonitorConfigSchema.parse(config.pr_monitor ?? {});
 
-	// Wire the lazy-start callback into the subscription store so the
-	// worker starts automatically when the first PR is subscribed.
-	setOnSubscriptionCreated((directory: string, _record) => {
+	function ensurePrMonitorWorkerRunning(directory: string): void {
 		try {
-			// Only start if pr_monitor is enabled and gh CLI is available
 			if (!prMonitorConfig.enabled) return;
-			if (!isGhAvailable(directory)) {
-				log('[pr-monitor] gh CLI not available — skipping worker start');
-				return;
-			}
-			// Create worker on first trigger, reuse on subsequent
 			if (!prMonitorWorker) {
 				prMonitorWorker = new PrMonitorWorker({
 					directory,
 					config: prMonitorConfig,
-					// sessionId removed: worker polls ALL active subscriptions,
-					// not just the one from the triggering session. Session-scoped
-					// delivery is handled at the event layer (task 2.4).
 				});
 			}
 			if (!prMonitorWorker.isRunning()) {
 				prMonitorWorker.start();
-				log('PR Monitor Worker lazy-started', { directory });
+				log('PR Monitor Worker started', { directory });
 			}
 		} catch (err) {
-			log('PR Monitor Worker failed to lazy-start (non-fatal)', {
+			error('[pr-monitor] Worker failed to start (non-fatal)', {
 				error: err instanceof Error ? err.message : String(err),
 			});
 		}
+	}
+
+	// Wire the lazy-start callback into the subscription store so the
+	// worker starts automatically when a new PR is subscribed.
+	setOnSubscriptionCreated((directory: string, _record) => {
+		ensurePrMonitorWorkerRunning(directory);
 	});
 
 	// Register PR event subscribers for advisory delivery to active sessions
@@ -956,6 +951,15 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 			log('[pr-monitor] Failed to register PR event subscribers (non-fatal)', {
 				error: err instanceof Error ? err.message : String(err),
 			});
+		}
+	}
+
+	// Startup scan: resume worker for existing subscriptions after plugin restart.
+	// listActive is sync-backed (readFileSync) so this is lightweight.
+	if (prMonitorConfig.enabled) {
+		const active = await listActiveSubscriptions(ctx.directory);
+		if (active.length > 0) {
+			ensurePrMonitorWorkerRunning(ctx.directory);
 		}
 	}
 
