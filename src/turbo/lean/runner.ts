@@ -61,6 +61,7 @@ interface SessionClient {
 			tools: { write: boolean; edit: boolean; patch: boolean };
 			parts: Array<{ type: 'text'; text: string }>;
 		};
+		signal?: AbortSignal;
 	}): Promise<{
 		data: { parts: Array<{ type: string; text?: string }> } | null;
 		error: unknown;
@@ -528,23 +529,25 @@ export class LeanTurboRunner {
 		}
 
 		// Build a promise that does the full dispatch
+		const promptController = new AbortController();
 		const dispatchPromise = this._doDispatch(
 			session,
 			lane,
 			agentName,
 			worktreeDirectory,
+			promptController,
 		);
 
 		// Apply timeout if configured via _internals
 		const timeoutMs = LeanTurboRunner._internals.laneDispatchTimeoutMs;
 		if (timeoutMs !== undefined && timeoutMs > 0) {
-			const timeoutPromise = new Promise<never>((_, reject) =>
-				setTimeout(
-					() =>
-						reject(new Error(`Lane dispatch timed out after ${timeoutMs}ms`)),
-					timeoutMs,
-				),
-			);
+			let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
+			const timeoutPromise = new Promise<never>((_, reject) => {
+				timeoutHandle = setTimeout(() => {
+					promptController.abort();
+					reject(new Error(`Lane dispatch timed out after ${timeoutMs}ms`));
+				}, timeoutMs);
+			});
 			try {
 				return await Promise.race([dispatchPromise, timeoutPromise]);
 			} catch (err) {
@@ -580,6 +583,8 @@ export class LeanTurboRunner {
 					return { ok: false, error: err.message };
 				}
 				throw err;
+			} finally {
+				if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
 			}
 		}
 
@@ -594,7 +599,9 @@ export class LeanTurboRunner {
 		lane: LeanTurboLane,
 		agentName: string,
 		worktreeDirectory?: string,
+		abortController?: AbortController,
 	): Promise<LaneDispatchResult> {
+		let sessionId: string | undefined;
 		try {
 			// Use worktree directory when provided, otherwise use primary directory
 			const effectiveDirectory = worktreeDirectory ?? this._directory;
@@ -618,7 +625,7 @@ export class LeanTurboRunner {
 				};
 			}
 
-			const sessionId = createResult.data.id;
+			sessionId = createResult.data.id;
 
 			// Build task prompt for this lane
 			const promptText = this._buildLanePrompt(lane);
@@ -631,10 +638,11 @@ export class LeanTurboRunner {
 					tools: { write: true, edit: true, patch: true },
 					parts: [{ type: 'text' as const, text: promptText }],
 				},
+				signal: abortController?.signal,
 			});
 
 			if (!promptResult.data) {
-				// Clean up the orphaned session
+				abortController?.abort();
 				session.delete({ path: { id: sessionId } }).catch(() => {});
 				return {
 					ok: false,
@@ -644,6 +652,10 @@ export class LeanTurboRunner {
 
 			return { ok: true, sessionId };
 		} catch (err) {
+			if (sessionId) {
+				abortController?.abort();
+				session.delete({ path: { id: sessionId } }).catch(() => {});
+			}
 			const msg = err instanceof Error ? err.message : String(err);
 			return { ok: false, error: msg };
 		}

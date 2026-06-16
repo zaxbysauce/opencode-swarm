@@ -78,9 +78,13 @@ export async function generateMutants(
 
 	const directory = ctx.directory ?? process.cwd();
 	let ephemeralSessionId: string | undefined;
+	const promptController = new AbortController();
 
-	/** Best-effort session cleanup — never throws. */
+	/** Best-effort session cleanup — never throws.
+	 *  Aborts any in-flight prompt before deleting the session so OpenCode
+	 *  stops writing message rows before the session row is removed. */
 	const cleanup = () => {
+		promptController.abort();
 		if (ephemeralSessionId) {
 			const id = ephemeralSessionId;
 			ephemeralSessionId = undefined;
@@ -141,6 +145,7 @@ Return ONLY a valid JSON array. No markdown, no code fences, no explanation. Sta
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: promptText }],
 			},
+			signal: promptController.signal,
 		});
 
 		if (!promptResult.data) {

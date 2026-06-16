@@ -18,7 +18,7 @@ import {
 	type PRStatusResult,
 	type ReviewStateResult,
 } from '../git/pr';
-import { log } from '../utils';
+import { log, error as logError } from '../utils';
 import { type AutomationEventType, getGlobalEventBus } from './event-bus';
 import {
 	listActive,
@@ -794,7 +794,7 @@ export class PrMonitorWorker {
 
 			this.circuitBreakerMap.set(correlationId, cb);
 
-			log('[PrMonitorWorker] Circuit breaker tripped for PR', {
+			logError('[PrMonitorWorker] Circuit breaker tripped for PR', {
 				correlationId,
 				errorCount: cb.errorCount,
 				cooldownSeconds,

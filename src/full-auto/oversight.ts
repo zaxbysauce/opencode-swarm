@@ -361,7 +361,9 @@ export async function dispatchFullAutoOversight(
 	);
 
 	let ephemeralSessionId: string | undefined;
+	const promptController = new AbortController();
 	const cleanup = () => {
+		promptController.abort();
 		if (ephemeralSessionId) {
 			const id = ephemeralSessionId;
 			ephemeralSessionId = undefined;
@@ -399,6 +401,7 @@ export async function dispatchFullAutoOversight(
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: buildOversightPrompt(input) }],
 			},
+			signal: promptController.signal,
 		});
 
 		if (!promptResult.data) {

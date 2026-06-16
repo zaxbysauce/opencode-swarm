@@ -11,6 +11,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 import {
+	listActive,
 	PR_SUBSCRIPTIONS_FILE,
 	type PrSubscriptionRecord,
 	setOnSubscriptionCreated,
@@ -254,5 +255,83 @@ describe('pr-subscriptions — subscribe() input validation', () => {
 				prUrl: 'https://github.com/owner/repo/pull/1',
 			}),
 		).rejects.toThrow(/directory is required/i);
+	});
+});
+
+describe('pr-subscriptions — startup scan (listActive triggers worker start)', () => {
+	let dir: string;
+
+	beforeEach(() => {
+		dir = makeTempProject();
+		setOnSubscriptionCreated(
+			null as unknown as (
+				directory: string,
+				record: PrSubscriptionRecord,
+			) => void,
+		);
+	});
+
+	afterEach(() => {
+		setOnSubscriptionCreated(
+			null as unknown as (
+				directory: string,
+				record: PrSubscriptionRecord,
+			) => void,
+		);
+		fs.rmSync(dir, { recursive: true, force: true });
+	});
+
+	test('listActive returns existing subscriptions for startup scan', async () => {
+		const calls: Array<{ directory: string; record: PrSubscriptionRecord }> =
+			[];
+		setOnSubscriptionCreated((directory, record) => {
+			calls.push({ directory, record });
+		});
+
+		await subscribe(dir, {
+			sessionID: 'sess_startup_1',
+			prNumber: 10,
+			repoFullName: 'owner/repo',
+			prUrl: 'https://github.com/owner/repo/pull/10',
+		});
+
+		expect(calls).toHaveLength(1);
+
+		const active = await listActive(dir);
+		expect(active).toHaveLength(1);
+		expect(active[0]!.prNumber).toBe(10);
+		expect(active[0]!.status).toBe('active');
+	});
+
+	test('startup scan: listActive then ensureWorker mirrors production pattern', async () => {
+		// Phase 1: subscribe creates the record (simulates previous session)
+		await subscribe(dir, {
+			sessionID: 'sess_startup_2',
+			prNumber: 20,
+			repoFullName: 'owner/repo',
+			prUrl: 'https://github.com/owner/repo/pull/20',
+		});
+
+		// Phase 2: simulate plugin restart (worker stopped, callback cleared via beforeEach)
+		let workerStartCalls = 0;
+		const mockEnsureWorker = (_d: string) => {
+			workerStartCalls++;
+		};
+
+		// Phase 3: production startup scan pattern — listActive then call ensureWorker
+		const active = await listActive(dir);
+		if (active.length > 0) {
+			mockEnsureWorker(dir);
+		}
+
+		expect(active).toHaveLength(1);
+		expect(active[0]!.prNumber).toBe(20);
+		expect(active[0]!.status).toBe('active');
+		expect(workerStartCalls).toBe(1);
+	});
+
+	test('startup scan with no existing subscriptions returns empty', async () => {
+		const active = await listActive(dir);
+		expect(active).toHaveLength(0);
 	});
 });

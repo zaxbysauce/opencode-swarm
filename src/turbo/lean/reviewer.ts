@@ -384,6 +384,8 @@ async function defaultDispatchReviewerAgent(
 	}
 
 	const sessionId = sessionResult.data.id;
+	const promptController = new AbortController();
+	let timeoutHandle: ReturnType<typeof setTimeout> | undefined;
 
 	try {
 		const promptText = `You are a read-only phase reviewer for Lean Turbo execution.
@@ -435,18 +437,16 @@ Be specific and evidence-based. Do not approve a phase with unresolved degraded 
 								tools: { write: false, edit: false, patch: false },
 								parts: [{ type: 'text', text: promptText }],
 							},
+							signal: promptController.signal,
 						}),
-						new Promise<never>((_, reject) =>
-							setTimeout(
-								() =>
-									reject(
-										new Error(
-											`Reviewer dispatch timed out after ${timeoutMs}ms`,
-										),
-									),
-								timeoutMs,
-							),
-						),
+						new Promise<never>((_, reject) => {
+							timeoutHandle = setTimeout(() => {
+								promptController.abort();
+								reject(
+									new Error(`Reviewer dispatch timed out after ${timeoutMs}ms`),
+								);
+							}, timeoutMs);
+						}),
 					])
 				: await client.session.prompt({
 						path: { id: sessionId },
@@ -455,6 +455,7 @@ Be specific and evidence-based. Do not approve a phase with unresolved degraded 
 							tools: { write: false, edit: false, patch: false },
 							parts: [{ type: 'text', text: promptText }],
 						},
+						signal: promptController.signal,
 					});
 
 		if (!response.data) {
@@ -469,7 +470,8 @@ Be specific and evidence-based. Do not approve a phase with unresolved degraded 
 
 		return textParts;
 	} finally {
-		// Clean up the ephemeral session
+		if (timeoutHandle !== undefined) clearTimeout(timeoutHandle);
+		promptController.abort();
 		client.session.delete({ path: { id: sessionId } }).catch(() => {});
 	}
 }

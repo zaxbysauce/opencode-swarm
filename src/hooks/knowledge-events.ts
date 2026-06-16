@@ -23,6 +23,7 @@
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile, stat } from 'node:fs/promises';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
@@ -223,6 +224,30 @@ export function resolveKnowledgeCounterBaselinePath(directory: string): string {
 	return path.join(directory, '.swarm', 'knowledge-counter-baseline.json');
 }
 
+// Defined locally to avoid importing from knowledge-store.ts, which tests mock.
+// Mirrors resolveHiveKnowledgePath()'s directory logic in knowledge-store.ts so
+// the two paths stay co-located in the same platform-specific data directory.
+export function resolveHiveEventsPath(): string {
+	const platform = process.platform;
+	const home = process.env.HOME || os.homedir();
+	let dir: string;
+	if (platform === 'win32') {
+		dir = path.join(
+			process.env.LOCALAPPDATA || path.join(home, 'AppData', 'Local'),
+			'opencode-swarm',
+			'Data',
+		);
+	} else if (platform === 'darwin') {
+		dir = path.join(home, 'Library', 'Application Support', 'opencode-swarm');
+	} else {
+		dir = path.join(
+			process.env.XDG_DATA_HOME || path.join(home, '.local', 'share'),
+			'opencode-swarm',
+		);
+	}
+	return path.join(dir, 'shared-knowledge-events.jsonl');
+}
+
 /** Returns `.swarm/knowledge-application.jsonl` for legacy v2 audit records. */
 export function resolveLegacyApplicationLogPath(directory: string): string {
 	return path.join(directory, '.swarm', 'knowledge-application.jsonl');
@@ -324,6 +349,68 @@ export async function recordKnowledgeEvent(
 	}
 }
 
+/**
+ * Append one event to the shared, cross-project hive events log. Use for audit
+ * tombstones of mutations to the hive store so any project can read why a hive
+ * entry was archived/quarantined/purged. Throws on I/O failure; hot paths should
+ * prefer {@link recordHiveKnowledgeEvent}.
+ */
+export async function appendHiveKnowledgeEvent(
+	event: KnowledgeEventInput,
+): Promise<KnowledgeEvent> {
+	const populated = withDefaults(event);
+	const filePath = resolveHiveEventsPath();
+	const dirPath = path.dirname(filePath);
+	await mkdir(dirPath, { recursive: true });
+	let release: (() => Promise<void>) | undefined;
+	try {
+		release = await lockfile.lock(dirPath, {
+			retries: { retries: 200, minTimeout: 10, maxTimeout: 100 },
+		});
+		await appendFile(filePath, `${JSON.stringify(populated)}\n`, 'utf-8');
+		// Hive events don't participate in the counter rollup baseline (archival
+		// events are audit-only), so trim with a plain FIFO — no baseline folding.
+		try {
+			const content = await readFile(filePath, 'utf-8');
+			const lines = content
+				.split('\n')
+				.filter((line) => line.trim().length > 0);
+			if (lines.length > MAX_EVENT_LOG_ENTRIES) {
+				const trimmed = lines.slice(lines.length - MAX_EVENT_LOG_ENTRIES);
+				await atomicWriteFile(filePath, `${trimmed.join('\n')}\n`);
+			}
+		} catch (err) {
+			warn(
+				`[knowledge-events] hive cap trim failed (non-fatal): ${
+					err instanceof Error ? err.message : String(err)
+				}`,
+			);
+		}
+	} finally {
+		if (release) await release().catch(() => {});
+	}
+	return populated;
+}
+
+/**
+ * Fail-open variant of {@link appendHiveKnowledgeEvent} for hot paths. Never
+ * throws; logs a warning and returns null on failure.
+ */
+export async function recordHiveKnowledgeEvent(
+	event: KnowledgeEventInput,
+): Promise<KnowledgeEvent | null> {
+	try {
+		return await appendHiveKnowledgeEvent(event);
+	} catch (err) {
+		warn(
+			`[knowledge-events] recordHiveKnowledgeEvent failed: ${
+				err instanceof Error ? err.message : String(err)
+			}`,
+		);
+		return null;
+	}
+}
+
 // ============================================================================
 // Read
 // ============================================================================
@@ -337,6 +424,17 @@ export async function readKnowledgeEvents(
 	directory: string,
 ): Promise<KnowledgeEvent[]> {
 	const filePath = resolveKnowledgeEventsPath(directory);
+	if (!existsSync(filePath)) return [];
+	const content = await readFile(filePath, 'utf-8');
+	return parseEventLines(content.split('\n'), filePath);
+}
+
+/**
+ * Read all events from the shared, cross-project hive events log. Skips
+ * corrupted JSONL lines and returns an empty array when the file does not exist.
+ */
+export async function readHiveKnowledgeEvents(): Promise<KnowledgeEvent[]> {
+	const filePath = resolveHiveEventsPath();
 	if (!existsSync(filePath)) return [];
 	const content = await readFile(filePath, 'utf-8');
 	return parseEventLines(content.split('\n'), filePath);
@@ -936,6 +1034,10 @@ export const _internals: {
 	applyKnowledgeVerdictFeedback: typeof applyKnowledgeVerdictFeedback;
 	newTraceId: typeof newTraceId;
 	newEventId: typeof newEventId;
+	resolveHiveEventsPath: typeof resolveHiveEventsPath;
+	appendHiveKnowledgeEvent: typeof appendHiveKnowledgeEvent;
+	recordHiveKnowledgeEvent: typeof recordHiveKnowledgeEvent;
+	readHiveKnowledgeEvents: typeof readHiveKnowledgeEvents;
 } = {
 	resolveKnowledgeEventsPath,
 	resolveKnowledgeCounterBaselinePath,
@@ -950,4 +1052,8 @@ export const _internals: {
 	applyKnowledgeVerdictFeedback,
 	newTraceId,
 	newEventId,
+	resolveHiveEventsPath,
+	appendHiveKnowledgeEvent,
+	recordHiveKnowledgeEvent,
+	readHiveKnowledgeEvents,
 };

@@ -499,9 +499,14 @@ export async function dispatchCriticAndWriteEvent(
 	);
 
 	let ephemeralSessionId: string | undefined;
+	const promptController = new AbortController();
 
-	// Best-effort cleanup — never throws
+	// Best-effort cleanup — never throws.
+	// Aborts any in-flight prompt before deleting the session so OpenCode
+	// stops writing message rows before the session row is removed (prevents
+	// FK constraint crashes).
 	const cleanup = () => {
+		promptController.abort();
 		if (ephemeralSessionId) {
 			const id = ephemeralSessionId;
 			ephemeralSessionId = undefined;
@@ -540,6 +545,7 @@ export async function dispatchCriticAndWriteEvent(
 				tools: { write: false, edit: false, patch: false },
 				parts: [{ type: 'text', text: criticContext }],
 			},
+			signal: promptController.signal,
 		});
 
 		if (!promptResult.data) {
