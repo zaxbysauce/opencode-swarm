@@ -283,7 +283,7 @@ Candidates not validated must be listed as UNVERIFIED with reason in the validat
 **Reviewer classifications:**
 
 | Classification | Meaning |
-|----------------|---------|
+|----------------|--------|
 | **CONFIRMED** | Evidence is real and the finding is valid |
 | **DISPROVED** | The candidate claim is incorrect or does not apply |
 | **UNVERIFIED** | Cannot determine validity from available evidence |
@@ -323,7 +323,7 @@ Run the **Runtime-Aware False-Positive Guard Checklist** (below) before confirmi
 **Obligation Assessment:**
 
 | Status | Meaning |
-|--------|---------|
+|--------|--------|
 | **MET** | All obligations from this source are fulfilled by the PR |
 | **PARTIALLY MET** | Some obligations fulfilled, some not |
 | **NOT MET** | Obligations unfulfilled or actively violated |
@@ -400,7 +400,7 @@ When reviewing the opencode-swarm plugin codebase, apply domain expertise across
 8. **Config ratchet semantics** — once-enabled gates cannot be disabled, configuration drift, lock-state integrity
 9. **URL sanitization** — scheme allowlist enforcement, private IP blocking, credential stripping from user-supplied URLs
 10. **Git safety** — branch detection reliability, `reset --hard` safety checks, Windows path retry logic, .git directory protection
-11. **Test infrastructure** — bun:test usage, mock isolation correctness, cross-platform CI paths, `bun:test` vs `vitest` API compliance
+11. **Test infrastructure** — bun:test usage, mock isolation correctness, cross-platform CI paths, `bun:test` vs `vitest` API compliance, `_internals` reference-capture correctness: verify the source calls `_internals.fn()` at the call site — functions passed as direct references to other functions (e.g., `transactFile(path, readKnowledge, ...)`) are captured at definition time and NOT interceptable by replacing `_internals.fn` (the mock is silently ignored and the real function runs)
 
 ---
 
@@ -426,7 +426,7 @@ If **any** answer is yes and unaccounted for in the finding, the finding is down
 ## Merge Recommendation Table
 
 | Verdict | Condition |
-|---------|-----------|
+|---------|----------|
 | **APPROVE** | Zero CRITICAL findings, zero unresolved HIGH findings, all obligations MET |
 | **APPROVE_WITH_NOTES** | Zero CRITICAL findings, HIGH findings are confirmed ADVISORY only (not ship blockers) |
 | **REQUEST_CHANGES** | Any unresolved HIGH finding; or multiple MEDIUM findings in the same functional area |

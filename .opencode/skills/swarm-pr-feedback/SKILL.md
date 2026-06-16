@@ -42,6 +42,14 @@ final state. Expect N rounds of review for N pushes, and budget for it.
    defense-in-depth rationale comment rather than continue to debate. One extra
    condition is cheap; per-round debate is expensive. Document the parent-vs-inner
    relationship inline so future readers see the rationale.
+   **When not to apply 3-strikes:** If the suggested fix would add incorrect,
+   misleading, or redundant code — e.g., an outer guard that already exists at an
+   inner scope and whose addition would imply the inner guard is absent, a type
+   narrowing that masks a real error class, or a check whose presence asserts a
+   false invariant — do not add the change. A wrong fix embedded in the code is
+   harder to remove than a repeated rebuttal in a comment thread. Apply item 6's
+   "surface to user" path instead, with the cumulative evidence that the fix
+   direction is incorrect.
 4. **Verify bot fix-direction suggestions against actual file structure.** Bots
    read files linearly and can miss parent-block guards. For any "add an X check"
    suggestion, read the surrounding function/block to confirm the check is genuinely
