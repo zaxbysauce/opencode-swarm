@@ -44,49 +44,6 @@ function readArchivedPlanJson(testDirectory: string): {
 	return JSON.parse(readFileSync(archivedPlanPath, 'utf-8'));
 }
 
-type TestPlanInput = {
-	title?: string;
-	swarm?: string;
-	current_phase?: number;
-	phases: Array<{
-		id: number;
-		name: string;
-		status: string;
-		tasks: Array<Record<string, unknown> & { id: string; status?: string }>;
-	}>;
-};
-
-function canonicalPlan(input: TestPlanInput) {
-	return {
-		schema_version: '1.0.0',
-		swarm: input.swarm ?? 'test-swarm',
-		current_phase: input.current_phase ?? 1,
-		...input,
-		phases: input.phases.map((phase) => ({
-			...phase,
-			tasks: phase.tasks.map((task) => ({
-				phase: phase.id,
-				description: `Task ${task.id}`,
-				...task,
-				status: task.status === 'complete' ? 'completed' : task.status,
-			})),
-		})),
-	};
-}
-
-async function writeCanonicalPlan(
-	testDirectory: string,
-	input: TestPlanInput,
-) {
-	const plan = canonicalPlan(input);
-	writeFileSync(
-		path.join(testDirectory, '.swarm', 'plan.json'),
-		JSON.stringify(plan),
-	);
-	await initLedger(testDirectory, derivePlanId(plan));
-	return plan;
-}
-
 // Mock dependencies before importing the module
 const mockExecuteWriteRetro = mock(async (_args: unknown, _directory: string) =>
 	JSON.stringify({
@@ -111,9 +68,9 @@ let forceSkillReviewConfigError = false;
 let configLoadCallCount = 0;
 const mockLoadPluginConfigWithMeta = mock((_directory: string) => {
 	configLoadCallCount++;
-	if (forceSkillReviewConfigError && configLoadCallCount > 1) {
-		throw new Error('bad config');
-	}
+	// Only throw on 2nd+ call so that the first (main-config) call succeeds and
+	// handleCloseCommand reaches the skill-review section before failing.
+	if (forceSkillReviewConfigError && configLoadCallCount > 1) throw new Error('bad config');
 	return {
 		config: {
 			skill_improver: {
@@ -157,8 +114,8 @@ mock.module('../../../src/hooks/knowledge-curator.js', () => ({
 }));
 
 mock.module('../../../src/hooks/hive-promoter.js', () => ({
-	isHiveEligible: () => false,
 	promoteToHive: mockPromoteToHive,
+	isHiveEligible: () => false,
 }));
 
 mock.module('../../../src/evidence/manager.js', () => ({
@@ -237,6 +194,20 @@ mock.module('../../../src/state.js', () => ({
 	swarmState: mockSwarmState,
 	endAgentSession: () => {},
 	resetSwarmState: mockResetSwarmState,
+	resetSwarmStatePreservingSingletons: () => {
+		// Mirror real resetSwarmStatePreservingSingletons: save singletons, reset, restore.
+		const savedOpencodeClient = mockSwarmState.opencodeClient;
+		const savedFullAutoEnabledInConfig = mockSwarmState.fullAutoEnabledInConfig;
+		const savedCuratorInitAgentNames = [...mockSwarmState.curatorInitAgentNames];
+		const savedCuratorPhaseAgentNames = [...mockSwarmState.curatorPhaseAgentNames];
+		const savedSkillImproverAgentNames = [...mockSwarmState.skillImproverAgentNames];
+		mockResetSwarmState();
+		mockSwarmState.opencodeClient = savedOpencodeClient;
+		mockSwarmState.fullAutoEnabledInConfig = savedFullAutoEnabledInConfig;
+		mockSwarmState.curatorInitAgentNames = savedCuratorInitAgentNames;
+		mockSwarmState.curatorPhaseAgentNames = savedCuratorPhaseAgentNames;
+		mockSwarmState.skillImproverAgentNames = savedSkillImproverAgentNames;
+	},
 }));
 
 // Import after mock setup
@@ -246,13 +217,11 @@ const { handleCloseCommand, _internals } = await import(
 
 // ── DI Conversion Summary ────────────────────────────────────────────
 //
-// WITHIN-MODULE MOCKS: NONE POSSIBLE
-// close.ts imports all functions directly (flushPendingSnapshot, swarmState,
-// resetSwarmState, archiveEvidence, executeWriteRetro, curateAndStoreSwarm) and
-// does NOT route any through _internals. The _internals DI seam only works when
-// the consuming module uses _internals (e.g., full-auto-intercept.ts imports
-// state._internals directly). Since close.ts has no _internals usage, none of
-// its imports can be intercepted via _internals.
+// WITHIN-MODULE MOCKS VIA _internals:
+// close.ts routes getGitRepositoryStatus, resetToMainAfterMerge, and
+// resetToRemoteBranch through _internals. Tests that need to vary the git
+// alignment path should import _internals and replace those properties.
+// (See close-finalizer.test.ts Align stage tests for examples.)
 //
 // CROSS-MODULE MOCKS: All mocks remain as mock.module
 // - executeWriteRetro (tools/write-retro.ts)
@@ -265,6 +234,42 @@ const { handleCloseCommand, _internals } = await import(
 // ─────────────────────────────────────────────────────────────────────
 
 let testDir: string;
+
+type TestPlanInput = {
+	title: string;
+	phases: Array<{
+		id: number;
+		name?: string;
+		status: string;
+		tasks: Array<{ id: string; status: string; description?: string }>;
+	}>;
+};
+
+async function writeCanonicalPlan(
+	dir: string,
+	input: TestPlanInput,
+): Promise<void> {
+	const plan = {
+		schema_version: '1.0.0',
+		swarm: 'test-swarm',
+		current_phase: 1,
+		...input,
+		phases: input.phases.map((p) => ({
+			...p,
+			status: p.status === 'complete' ? 'completed' : p.status,
+			tasks: p.tasks.map((t) => ({
+				...t,
+				phase: p.id,
+				description: t.description ?? `Task ${t.id}`,
+				status: t.status === 'complete' ? 'completed' : t.status,
+			})),
+		})),
+	};
+	const planPath = path.join(dir, '.swarm', 'plan.json');
+	writeFileSync(planPath, JSON.stringify(plan));
+	const planId = derivePlanId({ swarm: plan.swarm, title: plan.title });
+	await initLedger(dir, planId);
+}
 
 describe('handleCloseCommand', () => {
 	beforeEach(() => {
@@ -313,7 +318,7 @@ describe('handleCloseCommand', () => {
 
 	describe('Writes retrospective for in-progress phases', () => {
 		it('should call executeWriteRetro for each in-progress phase', async () => {
-			const planData = canonicalPlan({
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -333,10 +338,6 @@ describe('handleCloseCommand', () => {
 					},
 				],
 			});
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
 
 			await handleCloseCommand(testDir, []);
 
@@ -352,7 +353,7 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should call executeWriteRetro for multiple in-progress phases', async () => {
-			await writeCanonicalPlan(testDir, {
+			const planData = {
 				title: 'Test Project',
 				phases: [
 					{
@@ -374,7 +375,11 @@ describe('handleCloseCommand', () => {
 						tasks: [],
 					},
 				],
-			});
+			};
+			writeFileSync(
+				path.join(testDir, '.swarm', 'plan.json'),
+				JSON.stringify(planData),
+			);
 
 			await handleCloseCommand(testDir, []);
 
@@ -408,6 +413,7 @@ describe('handleCloseCommand', () => {
 				'Test Project',
 				{ phase_number: 0 },
 				testDir,
+				expect.any(Object),
 				expect.any(Object),
 			);
 		});
@@ -461,7 +467,7 @@ describe('handleCloseCommand', () => {
 
 			expect(result).toContain('finalized');
 			const updatedPlan = readArchivedPlanJson(testDir);
-			expect(updatedPlan.phases[0].status).toBe('complete');
+			expect(updatedPlan.phases[0].status).toBe('completed');
 			expect(updatedPlan.phases[1].status).toBe('closed');
 			expect(updatedPlan.phases[1].tasks[0].status).toBe('closed');
 			// No retros for pending phases (never started)
@@ -522,14 +528,14 @@ describe('handleCloseCommand', () => {
 			const updatedPlan = readArchivedPlanJson(testDir);
 			// When closing, all non-complete phases get closed
 			// complete phases remain complete since allDone is false (due to in_progress phase)
-			expect(updatedPlan.phases[0].status).toBe('complete');
+			expect(updatedPlan.phases[0].status).toBe('completed');
 			expect(updatedPlan.phases[1].status).toBe('closed');
 		});
 	});
 
 	describe('Archives evidence', () => {
 		it('should call archiveEvidence with correct parameters', async () => {
-			const planData = canonicalPlan({
+			const planData = {
 				title: 'Test Project',
 				phases: [
 					{
@@ -539,7 +545,7 @@ describe('handleCloseCommand', () => {
 						tasks: [{ id: '1.1', status: 'complete' }],
 					},
 				],
-			});
+			};
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
 				JSON.stringify(planData),
@@ -1271,6 +1277,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1294,6 +1301,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1324,6 +1332,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1438,6 +1447,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1482,6 +1492,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1543,6 +1554,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1582,6 +1594,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1643,24 +1656,21 @@ describe('handleCloseCommand', () => {
 			});
 
 			it('preserves opencodeClient and fullAutoEnabledInConfig across reset', async () => {
-				writeFileSync(
-					path.join(testDir, '.swarm', 'plan.json'),
-					JSON.stringify({
-						title: 'Reset Test',
-						phases: [
-							{
-								id: 1,
-								name: 'P1',
-								status: 'in_progress',
-								tasks: [],
-							},
-						],
-					}),
-				);
+				await writeCanonicalPlan(testDir, {
+					title: 'Reset Test',
+					phases: [
+						{
+							id: 1,
+							name: 'P1',
+							status: 'in_progress',
+							tasks: [],
+						},
+					],
+				});
 
-				// The mock reset nulls these fields; close.ts must save and
-				// restore them because these are plugin-init singletons with no
-				// re-init path inside a plugin lifetime.
+				// resetSwarmStatePreservingSingletons saves and restores plugin-init
+				// singletons (opencodeClient, fullAutoEnabledInConfig, curator/skill
+				// agent name lists) so they survive the session reset.
 				await handleCloseCommand(testDir, []);
 
 				expect(mockSwarmState.opencodeClient).toEqual({
