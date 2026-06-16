@@ -62,10 +62,16 @@ function backoffMs(attempt: number): number {
  * then throws `TurboStateLockTimeoutError`. Always releases the lock in a
  * `finally` block even if `fn` throws.
  *
+ * **Timeout scope**: `timeoutMs` governs lock _acquisition_ only. Once the lock
+ * is held, `fn()` runs to completion with no separate execution deadline.
+ * Callers must ensure `fn` is bounded (e.g., synchronous disk writes). This
+ * matches the behaviour of the previous `Promise.race` implementation, which
+ * also could not cancel an in-flight `fn()`.
+ *
  * @param directory    Project root directory
  * @param sessionID    Session identifier (for lock metadata and diagnostics)
  * @param fn           Callback that performs the read-modify-write on turbo state
- * @param timeoutMs    Maximum wait time before TurboStateLockTimeoutError (default 30 000)
+ * @param timeoutMs    Maximum wait time for lock acquisition (default 30 000ms)
  */
 export async function withTurboStateLock<T>(
 	directory: string,
