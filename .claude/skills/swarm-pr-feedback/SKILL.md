@@ -67,7 +67,7 @@ canonical workflow.
   - Push merged/fixed content: `mcp__github__push_files` with full file content,
     commit message, and branch
   - Check mergeability: `mcp__github__pull_request_read` with `method: "get"` (inspect
-    `mergeable_state`: `"behind"` = no conflicts, `"dirty"` = conflicts)
+    `mergeable_state`: `"clean"` = no conflicts and mergeable, `"behind"` = behind base (no conflicts, but merging may be blocked until updated), `"dirty"` = merge conflict)
   This MCP path is also preferred when conflict resolution is a clear superset case
   (one branch already contains all of the other's changes) — it avoids a three-way
   merge entirely.

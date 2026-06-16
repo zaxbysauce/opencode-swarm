@@ -188,7 +188,7 @@ test('mainFn uses mocked helper', () => {
 ```typescript
 // Source: readKnowledge is captured at definition time, NOT via _internals
 export async function transactKnowledge(filePath: string, mutate: Fn) {
-  return transactFile(filePath, readKnowledge, ...);  // direct ref, captured at parse time
+  return transactFile(filePath, readKnowledge, ...);  // direct ref, captured at definition time
 }
 export const _internals = { readKnowledge };  // mutating this does NOT affect the closure above
 

@@ -142,7 +142,7 @@ When test files pass individually but fail when run together, follow this protoc
 5. **Specific symptom — closure capture failure**: `vi.mock()` captures closures at **hoist time** (before `beforeEach` runs). Reassigning `mockFn.mockImplementation(newFn)` in the test body does **NOT** update the hoisted closure — the mock still calls the original function.
    - Symptom: `expect(mockFn).toHaveBeenCalledTimes(N)` fails with an unexpected count
    - Symptom: `expect(mockFn).not.toHaveBeenCalled()` fails because the real function was called
-6. **Fix path**: Migrate the affected test file to `_internals` DI seam pattern per the `mock-to-internals-migration` skill. This eliminates both the `vi.mock()` call and the closure capture surface area. **Exception — reference-captured functions**: if the source code passes a function as a direct argument to another function at definition time (e.g., `transactFile(path, readKnowledge, ...)`), the reference is captured before `_internals` is set up — migrating to `_internals` does not help. In that case, test via observable outcomes (e.g., run concurrent callers and assert on final persisted state).
+6. **Fix path**: Migrate the affected test file to `_internals` DI seam pattern per the `mock-to-internals-migration` skill. This eliminates both the `vi.mock()` call and the closure capture surface area. **Exception — reference-captured functions**: if the source code passes a function as a direct argument or captures it in a closure at module scope (e.g., `transactFile(path, readKnowledge, ...)`), the reference bypasses `_internals` entirely — mutating `_internals.readKnowledge` changes only the object property, not the module-scope binding the source already holds. Migrating to `_internals` does not help. In that case, test via observable outcomes (e.g., run concurrent callers and assert on final persisted state).
 
 ## Two-Tier Mock Convention
 
@@ -235,7 +235,7 @@ test('mainFn uses mocked helper', () => {
 ```typescript
 // Source: readKnowledge is captured at definition time, NOT via _internals
 export async function transactKnowledge(filePath: string, mutate: Fn) {
-  return transactFile(filePath, readKnowledge, ...);  // direct ref, captured at parse time
+  return transactFile(filePath, readKnowledge, ...);  // direct ref, captured at definition time
 }
 export const _internals = { readKnowledge };  // mutating this does NOT affect the closure above
 
