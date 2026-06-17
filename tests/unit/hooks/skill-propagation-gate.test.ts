@@ -3501,9 +3501,7 @@ describe('skillPropagationTransformScan — dedup on repeated calls', () => {
 		// be wrong in parallel/interleaved scenarios.
 
 		const sessionID = 'test-interleaved-delegations';
-		const tempDir = fs.mkdtempSync(
-			path.join(os.tmpdir(), 'spg-interleaved-'),
-		);
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spg-interleaved-'));
 
 		const skillA = 'file:.claude/skills/writing-tests/SKILL.md';
 		const skillB = 'file:.claude/skills/engineering-conventions/SKILL.md';
@@ -3573,6 +3571,78 @@ SKILL_COMPLIANCE: COMPLIANT — skill A rules followed`,
 			// Compliance must be attributed to task-a (via explicit TASK: line)
 			// NOT to task-b (which would be the latest delegation without TASK:)
 			expect(entry.taskID).toBe('task-a');
+			expect(entry.complianceVerdict).toBe('compliant');
+			expect(entry.skillPath).toBe(skillA);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
+
+	test('interleaved delegations: missing TASK: falls back to latest delegation (negative control)', async () => {
+		// Negative control: when the reviewer omits TASK:, the fallback
+		// "latest delegation" picks the most recent delegation (task-b),
+		// demonstrating why explicit TASK: is required in interleaved scenarios.
+		const sessionID = 'test-interleaved-delegations-negative';
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'spg-interleaved-'));
+
+		const skillA = 'file:.claude/skills/writing-tests/SKILL.md';
+		const skillB = 'file:.claude/skills/engineering-conventions/SKILL.md';
+
+		for (const sp of [skillA, skillB]) {
+			const absPath = path.join(tempDir, sp.replace('file:', ''));
+			fs.mkdirSync(path.dirname(absPath), { recursive: true });
+			fs.writeFileSync(absPath, '# Skill\n');
+		}
+
+		appendSkillUsageEntry(tempDir, {
+			skillPath: skillA,
+			agentName: 'coder',
+			taskID: 'task-a',
+			complianceVerdict: 'not_checked',
+			sessionID,
+			timestamp: new Date().toISOString(),
+		});
+
+		appendSkillUsageEntry(tempDir, {
+			skillPath: skillB,
+			agentName: 'coder',
+			taskID: 'task-b',
+			complianceVerdict: 'not_checked',
+			sessionID,
+			timestamp: new Date().toISOString(),
+		});
+
+		const messages = [
+			{
+				info: { role: 'assistant', agent: 'reviewer', sessionID },
+				parts: [
+					{
+						type: 'text',
+						text: `SKILL_COMPLIANCE: COMPLIANT — skill rules followed`,
+					},
+				],
+			},
+		];
+
+		try {
+			await _internals.skillPropagationTransformScan(
+				tempDir,
+				{
+					messages: messages as Parameters<
+						typeof _internals.skillPropagationTransformScan
+					>[1]['messages'],
+				},
+				sessionID,
+			);
+
+			const entries = readSkillUsageEntries(tempDir, { sessionID });
+			const complianceEntries = entries.filter(
+				(e) => e.agentName === 'reviewer',
+			);
+
+			expect(complianceEntries).toHaveLength(1);
+			const entry = complianceEntries[0];
+			expect(entry.taskID).toBe('task-b');
 			expect(entry.complianceVerdict).toBe('compliant');
 		} finally {
 			fs.rmSync(tempDir, { recursive: true, force: true });
