@@ -9,6 +9,7 @@
 import * as path from 'node:path';
 import { SwarmError, warn } from '../utils';
 import { bunFile } from '../utils/bun-compat';
+import { readCachedTextFile } from '../utils/swarm-artifact-cache';
 
 /**
  * Test-only dependency-injection seam. Production code calls
@@ -170,14 +171,30 @@ export async function readSwarmFileAsync(
 	directory: string,
 	filename: string,
 ): Promise<string | null> {
-	try {
-		const resolvedPath = _internals.validateSwarmPath(directory, filename);
-		const file = bunFile(resolvedPath);
-		const content = await file.text();
-		return content;
-	} catch {
-		return null;
+	// Retry loop to handle macOS/APFS rename-visibility race.
+	// After an atomic rename, the filesystem can take a few ms to update
+	// the directory entry. Immediately-following reads may see ENOENT.
+	// Retry up to 5 times with 10ms delay before giving up.
+	const maxAttempts = 5;
+	const retryDelayMs = 10;
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		try {
+			const resolvedPath = _internals.validateSwarmPath(directory, filename);
+			return await readCachedTextFile(resolvedPath, async () => {
+				const file = bunFile(resolvedPath);
+				return await file.text();
+			});
+		} catch (err) {
+			// Only retry on ENOENT (file not found) — other errors should fail fast
+			const isNotFound = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
+			if (!isNotFound || attempt === maxAttempts - 1) {
+				return null;
+			}
+			// Wait before retrying
+			await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+		}
 	}
+	return null;
 }
 
 export function estimateTokens(text: string): number {

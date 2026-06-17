@@ -6,12 +6,15 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
+import { readCachedParsedFile } from '../utils/swarm-artifact-cache.js';
 import type {
 	ActionableDirectiveFields,
 	KnowledgeEntryBase,
 	RejectedLesson,
 	RetrievalOutcome,
 } from './knowledge-types.js';
+
+const KNOWLEDGE_JSONL_CACHE_NAMESPACE = 'knowledge-jsonl:normalized:v1';
 
 // ============================================================================
 // Path Resolvers
@@ -89,6 +92,16 @@ export function resolveHiveRejectedPath(): string {
 	return path.join(path.dirname(hivePath), 'shared-learnings-rejected.jsonl');
 }
 
+// Returns path to the hive-level knowledge events log (same directory as hive
+// knowledge). This is the shared, cross-project audit trail for mutations to the
+// hive store: it lives alongside the hive store so the store and its audit
+// history share one scope, and any project can read why a hive entry was
+// archived/quarantined/purged.
+export function resolveHiveEventsPath(): string {
+	const hivePath = resolveHiveKnowledgePath();
+	return path.join(path.dirname(hivePath), 'shared-knowledge-events.jsonl');
+}
+
 // ============================================================================
 // Read Functions
 // ============================================================================
@@ -98,25 +111,35 @@ export function resolveHiveRejectedPath(): string {
 // v2: each parsed entry is passed through normalizeEntry() so v1 entries get
 // optional v2 fields filled in WITHOUT mutating on-disk JSONL.
 export async function readKnowledge<T>(filePath: string): Promise<T[]> {
-	if (!existsSync(filePath)) return [];
-	const content = await readFile(filePath, 'utf-8');
-	const results: T[] = [];
-	for (const line of content.split('\n')) {
-		const trimmed = line.trim();
-		if (!trimmed) continue;
-		try {
-			const raw = JSON.parse(trimmed) as T;
-			results.push(normalizeEntry(raw));
-		} catch {
-			console.warn(
-				`[knowledge-store] Skipping corrupted JSONL line in ${filePath}: ${trimmed.slice(
-					0,
-					80,
-				)}`,
-			);
-		}
-	}
-	return results;
+	const resolvedPath = path.resolve(filePath);
+	const entries = await readCachedParsedFile<T[]>(
+		resolvedPath,
+		KNOWLEDGE_JSONL_CACHE_NAMESPACE,
+		async () => {
+			if (!existsSync(resolvedPath)) return null;
+			return await readFile(resolvedPath, 'utf-8');
+		},
+		(content) => {
+			const results: T[] = [];
+			for (const line of content.split('\n')) {
+				const trimmed = line.trim();
+				if (!trimmed) continue;
+				try {
+					const raw = JSON.parse(trimmed) as T;
+					results.push(normalizeEntry(raw));
+				} catch {
+					console.warn(
+						`[knowledge-store] Skipping corrupted JSONL line in ${resolvedPath}: ${trimmed.slice(
+							0,
+							80,
+						)}`,
+					);
+				}
+			}
+			return results;
+		},
+	);
+	return entries ?? [];
 }
 
 // v2: Normalize a parsed entry to the current shape in memory.
@@ -395,14 +418,16 @@ export async function appendKnowledgeWithCapEnforcement<T>(
 
 		// Enforce the cap if needed
 		if (updated.length > maxEntries) {
-			return updated.slice(updated.length - maxEntries);
+			return selectKnowledgeCapSurvivors(updated, maxEntries);
 		}
 		return updated;
 	});
 }
 
-// Enforce a FIFO max-entries cap on a JSONL file.
-// If the file exceeds `maxEntries`, the oldest entries are dropped.
+// Enforce a priority-aware max-entries cap on a JSONL file.
+// If the file exceeds `maxEntries`, inactive and low-outcome entries are
+// dropped first. Promoted entries are never evicted unless every entry is
+// promoted, because promoted knowledge has already escaped swarm-local TTL.
 // No-op when the file has fewer entries than the cap.
 // The full read-modify-write cycle is atomic under a directory lock to
 // prevent concurrent appendKnowledge from inserting entries that get
@@ -413,8 +438,67 @@ export async function enforceKnowledgeCap<T>(
 ): Promise<void> {
 	await transactKnowledge<T>(filePath, (entries) => {
 		if (entries.length <= maxEntries) return null;
-		return entries.slice(entries.length - maxEntries);
+		return selectKnowledgeCapSurvivors(entries, maxEntries);
 	});
+}
+
+interface KnowledgeCapCandidate<T> {
+	entry: T;
+	index: number;
+	status?: KnowledgeEntryBase['status'];
+	outcomeSignal: number;
+}
+
+function selectKnowledgeCapSurvivors<T>(entries: T[], maxEntries: number): T[] {
+	if (entries.length <= maxEntries) return entries;
+	if (maxEntries <= 0) return [];
+
+	const candidates = entries.map((entry, index): KnowledgeCapCandidate<T> => {
+		const maybeKnowledge = entry as Partial<KnowledgeEntryBase>;
+		return {
+			entry,
+			index,
+			status: maybeKnowledge.status,
+			outcomeSignal: computeOutcomeSignal(maybeKnowledge.retrieval_outcomes),
+		};
+	});
+	const allPromoted = candidates.every((c) => c.status === 'promoted');
+	const evictable = allPromoted
+		? candidates
+		: candidates.filter((c) => c.status !== 'promoted');
+	const targetDropCount = entries.length - maxEntries;
+	const dropCount = Math.min(targetDropCount, evictable.length);
+	if (dropCount <= 0) return entries;
+
+	const drop = new Set(
+		[...evictable]
+			.sort((a, b) => {
+				const inactiveDelta =
+					getKnowledgeCapStatusPriority(a.status) -
+					getKnowledgeCapStatusPriority(b.status);
+				if (inactiveDelta !== 0) return inactiveDelta;
+				const signalDelta = a.outcomeSignal - b.outcomeSignal;
+				if (signalDelta !== 0) return signalDelta;
+				return a.index - b.index;
+			})
+			.slice(0, dropCount)
+			.map((c) => c.index),
+	);
+
+	return candidates.filter((c) => !drop.has(c.index)).map((c) => c.entry);
+}
+
+function getKnowledgeCapStatusPriority(
+	status?: KnowledgeEntryBase['status'],
+): number {
+	if (
+		status === 'archived' ||
+		status === 'quarantined' ||
+		status === 'quarantined_unactionable'
+	) {
+		return 0;
+	}
+	return 1;
 }
 
 // Results from a sweep operation (aging or TODO removal)
@@ -783,6 +867,7 @@ export const _internals: {
 	resolveSwarmRejectedPath: typeof resolveSwarmRejectedPath;
 	resolveHiveKnowledgePath: typeof resolveHiveKnowledgePath;
 	resolveHiveRejectedPath: typeof resolveHiveRejectedPath;
+	resolveHiveEventsPath: typeof resolveHiveEventsPath;
 	readKnowledge: typeof readKnowledge;
 	readRejectedLessons: typeof readRejectedLessons;
 	appendKnowledge: typeof appendKnowledge;
@@ -798,6 +883,7 @@ export const _internals: {
 	findNearDuplicate: typeof findNearDuplicate;
 	computeConfidence: typeof computeConfidence;
 	computeOutcomeSignal: typeof computeOutcomeSignal;
+	selectKnowledgeCapSurvivors: typeof selectKnowledgeCapSurvivors;
 	inferTags: typeof inferTags;
 	bumpKnowledgeConfidenceBatch: typeof bumpKnowledgeConfidenceBatch;
 } = {
@@ -806,6 +892,7 @@ export const _internals: {
 	resolveSwarmRejectedPath,
 	resolveHiveKnowledgePath,
 	resolveHiveRejectedPath,
+	resolveHiveEventsPath,
 	readKnowledge,
 	readRejectedLessons,
 	appendKnowledge,
@@ -821,6 +908,7 @@ export const _internals: {
 	findNearDuplicate,
 	computeConfidence,
 	computeOutcomeSignal,
+	selectKnowledgeCapSurvivors,
 	inferTags,
 	bumpKnowledgeConfidenceBatch,
 };

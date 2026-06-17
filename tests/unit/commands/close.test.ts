@@ -14,6 +14,8 @@ import {
 } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { initLedger } from '../../../src/plan/ledger.js';
+import { derivePlanId } from '../../../src/plan/utils.js';
 
 /**
  * After /swarm close, plan.json is moved to the timestamped archive bundle and
@@ -42,6 +44,46 @@ function readArchivedPlanJson(testDirectory: string): {
 	return JSON.parse(readFileSync(archivedPlanPath, 'utf-8'));
 }
 
+type TestPlanInput = {
+	title?: string;
+	swarm?: string;
+	current_phase?: number;
+	phases: Array<{
+		id: number;
+		name: string;
+		status: string;
+		tasks: Array<Record<string, unknown> & { id: string; status?: string }>;
+	}>;
+};
+
+function canonicalPlan(input: TestPlanInput) {
+	return {
+		schema_version: '1.0.0',
+		swarm: input.swarm ?? 'test-swarm',
+		current_phase: input.current_phase ?? 1,
+		...input,
+		phases: input.phases.map((phase) => ({
+			...phase,
+			tasks: phase.tasks.map((task) => ({
+				phase: phase.id,
+				description: `Task ${task.id}`,
+				...task,
+				status: task.status === 'complete' ? 'completed' : task.status,
+			})),
+		})),
+	};
+}
+
+async function writeCanonicalPlan(testDirectory: string, input: TestPlanInput) {
+	const plan = canonicalPlan(input);
+	writeFileSync(
+		path.join(testDirectory, '.swarm', 'plan.json'),
+		JSON.stringify(plan),
+	);
+	await initLedger(testDirectory, derivePlanId(plan));
+	return plan;
+}
+
 // Mock dependencies before importing the module
 const mockExecuteWriteRetro = mock(async (_args: unknown, _directory: string) =>
 	JSON.stringify({
@@ -63,8 +105,12 @@ const mockPromoteToHive = mock(
 );
 
 let forceSkillReviewConfigError = false;
+let configLoadCallCount = 0;
 const mockLoadPluginConfigWithMeta = mock((_directory: string) => {
-	if (forceSkillReviewConfigError) throw new Error('bad config');
+	configLoadCallCount++;
+	if (forceSkillReviewConfigError && configLoadCallCount > 1) {
+		throw new Error('bad config');
+	}
 	return {
 		config: {
 			skill_improver: {
@@ -108,6 +154,7 @@ mock.module('../../../src/hooks/knowledge-curator.js', () => ({
 }));
 
 mock.module('../../../src/hooks/hive-promoter.js', () => ({
+	isHiveEligible: () => false,
 	promoteToHive: mockPromoteToHive,
 }));
 
@@ -183,10 +230,28 @@ function mockResetSwarmState(): void {
 	mockSwarmState.skillImproverAgentNames = [];
 }
 
+function mockResetSwarmStatePreservingSingletons(): void {
+	// Mirror the real implementation: save the 5 preserved singletons, run
+	// the full reset (increments resetSwarmStateCallCount + clears collections),
+	// then restore the singletons so assertions that verify survival pass.
+	const saved = {
+		opencodeClient: mockSwarmState.opencodeClient,
+		fullAutoEnabledInConfig: mockSwarmState.fullAutoEnabledInConfig,
+		curatorInitAgentNames: [...(mockSwarmState.curatorInitAgentNames || [])],
+		curatorPhaseAgentNames: [...(mockSwarmState.curatorPhaseAgentNames || [])],
+		skillImproverAgentNames: [
+			...(mockSwarmState.skillImproverAgentNames || []),
+		],
+	};
+	mockResetSwarmState();
+	Object.assign(mockSwarmState, saved);
+}
+
 mock.module('../../../src/state.js', () => ({
 	swarmState: mockSwarmState,
 	endAgentSession: () => {},
 	resetSwarmState: mockResetSwarmState,
+	resetSwarmStatePreservingSingletons: mockResetSwarmStatePreservingSingletons,
 }));
 
 // Import after mock setup
@@ -229,6 +294,7 @@ describe('handleCloseCommand', () => {
 		observedSkillReviewSignal = undefined;
 		observedSkillReviewAborted = false;
 		forceSkillReviewConfigError = false;
+		configLoadCallCount = 0;
 		resetSwarmStateCallCount = 0;
 		// Re-seed the mock state for each test so reset assertions are isolated.
 		mockSwarmState.opencodeClient = {
@@ -262,7 +328,7 @@ describe('handleCloseCommand', () => {
 
 	describe('Writes retrospective for in-progress phases', () => {
 		it('should call executeWriteRetro for each in-progress phase', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -281,11 +347,7 @@ describe('handleCloseCommand', () => {
 						],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			await handleCloseCommand(testDir, []);
 
@@ -301,7 +363,7 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should call executeWriteRetro for multiple in-progress phases', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -323,11 +385,7 @@ describe('handleCloseCommand', () => {
 						tasks: [],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			await handleCloseCommand(testDir, []);
 
@@ -362,13 +420,14 @@ describe('handleCloseCommand', () => {
 				{ phase_number: 0 },
 				testDir,
 				expect.any(Object),
+				expect.any(Object),
 			);
 		});
 	});
 
 	describe('Sets closed status', () => {
 		it('should set in-progress phases to closed status', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -381,22 +440,18 @@ describe('handleCloseCommand', () => {
 						],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			await handleCloseCommand(testDir, []);
 
 			const updatedPlan = readArchivedPlanJson(testDir);
 			expect(updatedPlan.phases[0].status).toBe('closed');
-			expect(updatedPlan.phases[0].tasks[0].status).toBe('complete');
+			expect(updatedPlan.phases[0].tasks[0].status).toBe('completed');
 			expect(updatedPlan.phases[0].tasks[1].status).toBe('closed');
 		});
 
 		it('should close pending phases that were never started', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -412,11 +467,7 @@ describe('handleCloseCommand', () => {
 						tasks: [{ id: '2.1', status: 'pending' }],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			const result = await handleCloseCommand(testDir, []);
 
@@ -433,7 +484,7 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should preserve completed (alias) phase status', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -449,11 +500,7 @@ describe('handleCloseCommand', () => {
 						tasks: [{ id: '2.1', status: 'in_progress' }],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			await handleCloseCommand(testDir, []);
 
@@ -464,7 +511,7 @@ describe('handleCloseCommand', () => {
 		});
 
 		it('should set complete phases to closed status', async () => {
-			const planData = {
+			await writeCanonicalPlan(testDir, {
 				title: 'Test Project',
 				phases: [
 					{
@@ -480,11 +527,7 @@ describe('handleCloseCommand', () => {
 						tasks: [{ id: '2.1', status: 'in_progress' }],
 					},
 				],
-			};
-			writeFileSync(
-				path.join(testDir, '.swarm', 'plan.json'),
-				JSON.stringify(planData),
-			);
+			});
 
 			await handleCloseCommand(testDir, []);
 
@@ -498,7 +541,7 @@ describe('handleCloseCommand', () => {
 
 	describe('Archives evidence', () => {
 		it('should call archiveEvidence with correct parameters', async () => {
-			const planData = {
+			const planData = canonicalPlan({
 				title: 'Test Project',
 				phases: [
 					{
@@ -508,7 +551,7 @@ describe('handleCloseCommand', () => {
 						tasks: [{ id: '1.1', status: 'complete' }],
 					},
 				],
-			};
+			});
 			writeFileSync(
 				path.join(testDir, '.swarm', 'plan.json'),
 				JSON.stringify(planData),
@@ -988,7 +1031,7 @@ describe('handleCloseCommand', () => {
 			});
 
 			it('AR2: After close, plan.json IS present in the archive bundle', async () => {
-				const planData = {
+				await writeCanonicalPlan(testDir, {
 					title: 'Test Project',
 					phases: [
 						{
@@ -998,11 +1041,7 @@ describe('handleCloseCommand', () => {
 							tasks: [{ id: '1.1', status: 'complete' }],
 						},
 					],
-				};
-				writeFileSync(
-					path.join(testDir, '.swarm', 'plan.json'),
-					JSON.stringify(planData),
-				);
+				});
 
 				await handleCloseCommand(testDir, []);
 
@@ -1244,6 +1283,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1267,6 +1307,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1297,6 +1338,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1411,6 +1453,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1455,6 +1498,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});
@@ -1516,6 +1560,7 @@ describe('handleCloseCommand', () => {
 					{ phase_number: 0 },
 					testDir,
 					expect.any(Object),
+					expect.any(Object),
 				);
 			});
 
@@ -1555,6 +1600,7 @@ describe('handleCloseCommand', () => {
 					'Test Project',
 					{ phase_number: 0 },
 					testDir,
+					expect.any(Object),
 					expect.any(Object),
 				);
 			});

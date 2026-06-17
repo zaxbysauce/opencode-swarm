@@ -10,6 +10,7 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import type { PluginConfig } from '../config';
 import {
+	AUTO_PROCEED_BANNER,
 	DEFAULT_SCORING_CONFIG,
 	FULL_AUTO_BANNER,
 	LEAN_TURBO_BANNER,
@@ -22,6 +23,20 @@ import { stripKnownSwarmPrefix } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
 import { getProfileForFile } from '../lang/detector';
 import { loadPlan } from '../plan/manager';
+import {
+	getAgentSession,
+	getResolvedAutoProceed,
+	hasActiveFullAuto,
+	hasActiveLeanTurbo,
+	hasActiveTurboMode,
+	swarmState,
+} from '../state';
+import {
+	readCachedParsedFileSync,
+	readCachedTextFileSync,
+} from '../utils/swarm-artifact-cache';
+
+const SPEC_STALENESS_CACHE_NAMESPACE = 'spec-staleness-json:v1';
 
 /**
  * Build the [spec-drift] advisory injected into the model's system prompt
@@ -65,19 +80,25 @@ function readSpecStalenessSnapshot(
 ): { specHash_plan: string; specHash_current: string | null } | null {
 	try {
 		const p = path.join(directory, '.swarm', 'spec-staleness.json');
-		if (!fs.existsSync(p)) return null;
-		const raw = fs.readFileSync(p, 'utf-8');
-		const parsed = JSON.parse(raw);
-		if (
-			typeof parsed?.specHash_plan === 'string' &&
-			(typeof parsed?.specHash_current === 'string' ||
-				parsed?.specHash_current === null)
-		) {
-			return {
-				specHash_plan: parsed.specHash_plan,
-				specHash_current: parsed.specHash_current,
-			};
-		}
+		return readCachedParsedFileSync(
+			p,
+			SPEC_STALENESS_CACHE_NAMESPACE,
+			() => (fs.existsSync(p) ? fs.readFileSync(p, 'utf-8') : null),
+			(raw) => {
+				const parsed = JSON.parse(raw);
+				if (
+					typeof parsed?.specHash_plan === 'string' &&
+					(typeof parsed?.specHash_current === 'string' ||
+						parsed?.specHash_current === null)
+				) {
+					return {
+						specHash_plan: parsed.specHash_plan,
+						specHash_current: parsed.specHash_current,
+					};
+				}
+				return null;
+			},
+		);
 	} catch {
 		/* malformed — fall through */
 	}
@@ -110,12 +131,6 @@ import {
 	formatDriftForContext,
 	getContextBudgetReport,
 } from '../services';
-import {
-	hasActiveFullAuto,
-	hasActiveLeanTurbo,
-	hasActiveTurboMode,
-	swarmState,
-} from '../state';
 import { telemetry } from '../telemetry';
 import { _internals as coChangeInternals } from '../tools/co-change-analyzer.js';
 import { warn } from '../utils';
@@ -731,6 +746,9 @@ export function createSystemEnhancerHook(
 						config.context_budget?.scoring?.enabled === true;
 
 					if (!scoringEnabled) {
+						// FR-006: The non-scoring branch below contains frozen legacy code (Path A).
+						// This duplication exists because the two paths diverged during a phased rollout.
+						// Path A is intentionally frozen and should not be modified. See .swarm/spec.md FR-006.
 						// Path A: EXACT LEGACY CODE - do not change
 						// Priority 0: Minimal phase header
 						let plan = null;
@@ -1059,11 +1077,14 @@ ${handoffContent}`;
 										'evidence',
 										`${taskId_ccp}.json`,
 									);
-									if (fs.existsSync(evidencePath)) {
-										const evidenceContent = fs.readFileSync(
-											evidencePath,
-											'utf-8',
-										);
+									const evidenceContent = readCachedTextFileSync(
+										evidencePath,
+										() =>
+											fs.existsSync(evidencePath)
+												? fs.readFileSync(evidencePath, 'utf-8')
+												: null,
+									);
+									if (evidenceContent !== null) {
 										const evidenceData = JSON.parse(evidenceContent) as {
 											bundle?: {
 												entries?: Array<{
@@ -1217,6 +1238,39 @@ ${handoffContent}`;
 								}
 								if (hasActiveLeanTurbo(sessionIdBanner)) {
 									tryInject(LEAN_TURBO_BANNER);
+								}
+							}
+
+							// v6.x: Auto-proceed banner injection for architect
+							const sessionIdAutoProceed = _input.sessionID;
+							if (sessionIdAutoProceed) {
+								const sessionAutoProceed =
+									getAgentSession(sessionIdAutoProceed);
+								if (
+									sessionAutoProceed &&
+									stripKnownSwarmPrefix(sessionAutoProceed.agentName) ===
+										'architect'
+								) {
+									// Defense in depth: the parent `if (isArchitect)` block at
+									// line 1190 already gates all banner injections. This
+									// redundant inner check is intentional — see PR #1258
+									// review history (Qwen3.6/Gemma-4 repeatedly flagged the
+									// absence of a per-banner guard even though the parent
+									// block makes it unreachable in practice). The check
+									// is a single condition move, not new behavior.
+									const resolvedAutoProceed = getResolvedAutoProceed(
+										sessionAutoProceed,
+										plan?.execution_profile?.auto_proceed,
+									);
+									const source =
+										sessionAutoProceed.autoProceedOverride !== undefined
+											? 'session'
+											: 'plan-or-default';
+									const banner = `${AUTO_PROCEED_BANNER}\n## ⏭️ AUTO_PROCEED STATUS:
+- auto-proceed: ${resolvedAutoProceed ? 'on' : 'off'}
+- source: ${source}
+- nudge: ${sessionAutoProceed.autoProceedNudgeDone ? 'true' : 'false'}`;
+									tryInject(banner);
 								}
 							}
 

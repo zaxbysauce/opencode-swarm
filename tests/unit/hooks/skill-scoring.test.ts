@@ -108,8 +108,8 @@ describe('computeSkillRelevanceScore', () => {
 
 	test('returns higher score for compliant skills', () => {
 		const nonCompliant = [
-			makeEntry({ complianceVerdict: 'violation' }),
-			makeEntry({ complianceVerdict: 'violation' }),
+			makeEntry({ complianceVerdict: 'violated' }),
+			makeEntry({ complianceVerdict: 'violated' }),
 		];
 		const compliant = [
 			makeEntry({ complianceVerdict: 'compliant' }),
@@ -537,7 +537,7 @@ describe('getSkillStats', () => {
 		const entries: SkillUsageEntry[] = [
 			makeEntry({ skillPath: 'test-skill', complianceVerdict: 'compliant' }),
 			makeEntry({ skillPath: 'test-skill', complianceVerdict: 'compliant' }),
-			makeEntry({ skillPath: 'test-skill', complianceVerdict: 'violation' }),
+			makeEntry({ skillPath: 'test-skill', complianceVerdict: 'violated' }),
 			makeEntry({ skillPath: 'test-skill', complianceVerdict: 'not_checked' }), // excluded
 		];
 		fs.writeFileSync(
@@ -943,7 +943,7 @@ describe('full round-trip: rankSkillsForContext with real temp log', () => {
 		const violationEntries = Array.from({ length: 3 }, (_, i) =>
 			makeEntry({
 				skillPath: 'skill-b',
-				complianceVerdict: 'violation',
+				complianceVerdict: 'violated',
 				id: `b-${i}`,
 			}),
 		);
