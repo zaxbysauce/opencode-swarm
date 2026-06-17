@@ -572,4 +572,163 @@ describe('knowledge_remove tool verification tests', () => {
 			);
 		});
 	});
+
+	// ========== Test 8: Promoted-entry deletion guard ==========
+	describe('Promoted-entry deletion guard', () => {
+		it('Prevents deletion of entries with status "promoted"', async () => {
+			// Create a promoted swarm entry directly
+			const { appendKnowledge } = await import(
+				'../../../src/hooks/knowledge-store.js'
+			);
+			const promotedEntry = {
+				id: '77777777-7777-7777-7777-777777777777',
+				tier: 'swarm' as const,
+				lesson: 'This entry has been promoted and should not be deletable',
+				category: 'process' as const,
+				tags: ['test', 'promoted'],
+				scope: 'global',
+				confidence: 0.8,
+				status: 'promoted' as const,
+				confirmed_by: [],
+				project_name: 'test-project',
+				retrieval_outcomes: {
+					shown_count: 10,
+					acknowledged_count: 8,
+					applied_explicit_count: 5,
+					ignored_count: 2,
+					violated_count: 0,
+					succeeded_after_shown_count: 4,
+					failed_after_shown_count: 1,
+				},
+				schema_version: 2,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				hive_eligible: true,
+			};
+
+			const knowledgePath = path.join(tmpDir, '.swarm', 'knowledge.jsonl');
+			await fs.mkdir(path.dirname(knowledgePath), { recursive: true });
+			await appendKnowledge(knowledgePath, promotedEntry);
+
+			// Verify the promoted entry exists
+			const entriesBeforeRemove = readKnowledgeEntries();
+			expect(entriesBeforeRemove).toHaveLength(1);
+			expect(entriesBeforeRemove[0].id).toBe(
+				'77777777-7777-7777-7777-777777777777',
+			);
+			expect(entriesBeforeRemove[0].status).toBe('promoted');
+
+			// Attempt to delete the promoted entry
+			const result = await knowledge_remove.execute(
+				{ id: '77777777-7777-7777-7777-777777777777' },
+				tmpDir,
+			);
+
+			const parsed = JSON.parse(result);
+			// Should fail with appropriate error message
+			expect(parsed.success).toBe(false);
+			expect(parsed.message).toBe(
+				'cannot delete promoted entry — this entry has been promoted to cross-project consensus',
+			);
+
+			// Verify the entry is still intact (not deleted)
+			const entriesAfterRemove = readKnowledgeEntries();
+			expect(entriesAfterRemove).toHaveLength(1);
+			expect(entriesAfterRemove[0].id).toBe(
+				'77777777-7777-7777-7777-777777777777',
+			);
+			expect(entriesAfterRemove[0].status).toBe('promoted');
+			expect(entriesAfterRemove[0].lesson).toBe(
+				'This entry has been promoted and should not be deletable',
+			);
+		});
+
+		it('Non-promoted entries can be deleted when other promoted entries exist', async () => {
+			// Create a mix of promoted and non-promoted entries
+			const { appendKnowledge } = await import(
+				'../../../src/hooks/knowledge-store.js'
+			);
+
+			const promotedEntry = {
+				id: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+				tier: 'swarm' as const,
+				lesson: 'Promoted entry that stays',
+				category: 'process' as const,
+				tags: ['promoted'],
+				scope: 'global',
+				confidence: 0.8,
+				status: 'promoted' as const,
+				confirmed_by: [],
+				project_name: 'test-project',
+				retrieval_outcomes: {
+					shown_count: 5,
+					acknowledged_count: 3,
+					applied_explicit_count: 2,
+					ignored_count: 0,
+					violated_count: 0,
+					succeeded_after_shown_count: 1,
+					failed_after_shown_count: 0,
+				},
+				schema_version: 2,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				hive_eligible: true,
+			};
+
+			const candidateEntry = {
+				id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
+				tier: 'swarm' as const,
+				lesson: 'Candidate entry that will be deleted',
+				category: 'tooling' as const,
+				tags: ['candidate'],
+				scope: 'global',
+				confidence: 0.5,
+				status: 'candidate' as const,
+				confirmed_by: [],
+				project_name: 'test-project',
+				retrieval_outcomes: {
+					shown_count: 1,
+					acknowledged_count: 0,
+					applied_explicit_count: 0,
+					ignored_count: 1,
+					violated_count: 0,
+					succeeded_after_shown_count: 0,
+					failed_after_shown_count: 0,
+				},
+				schema_version: 2,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				hive_eligible: false,
+			};
+
+			const knowledgePath = path.join(tmpDir, '.swarm', 'knowledge.jsonl');
+			await fs.mkdir(path.dirname(knowledgePath), { recursive: true });
+			await appendKnowledge(knowledgePath, promotedEntry);
+			await appendKnowledge(knowledgePath, candidateEntry);
+
+			// Verify both entries exist
+			let entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(2);
+
+			// Delete the non-promoted (candidate) entry
+			const result = await knowledge_remove.execute(
+				{ id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb' },
+				tmpDir,
+			);
+
+			const parsed = JSON.parse(result);
+			expect(parsed.success).toBe(true);
+			expect(parsed.removed).toBe(1);
+			expect(parsed.remaining).toBe(1);
+
+			// Verify only the promoted entry remains
+			entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(1);
+			expect(entries[0].id).toBe('aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+			expect(entries[0].status).toBe('promoted');
+		});
+	});
 });

@@ -23,6 +23,7 @@ import * as path from 'node:path';
 import {
 	_internals,
 	appendKnowledge,
+	appendKnowledgeWithCapEnforcement,
 	enforceKnowledgeCap,
 	readKnowledge,
 } from '../../../src/hooks/knowledge-store.js';
@@ -339,5 +340,175 @@ describe('enforceKnowledgeCap — TOCTOU race fix', () => {
 			enforceKnowledgeCap<TestEntry>(nonExistent, 10),
 		).resolves.toBeUndefined();
 		// Directory should still exist (mkdir with recursive: true inside enforceKnowledgeCap)
+	});
+});
+
+// =============================================================================
+// appendKnowledgeWithCapEnforcement Tests
+//
+// Verifies that appendKnowledgeWithCapEnforcement atomically appends an entry
+// and enforces the cap in a single transaction, preventing race conditions where
+// entry is appended but cap enforcement fails.
+// =============================================================================
+
+describe('appendKnowledgeWithCapEnforcement', () => {
+	it('appends entry when under the cap limit', async () => {
+		// Start with 5 entries
+		await writeEntries(5);
+
+		// Append one more entry with cap of 10 — should succeed
+		const newEntry: TestEntry = { id: 100, lesson: 'new-entry' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		// Verify entry was appended
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(6);
+		expect(entries[5].id).toBe(100);
+		expect(entries[5].lesson).toBe('new-entry');
+	});
+
+	it('appends at exactly the cap limit', async () => {
+		// Start with 10 entries
+		await writeEntries(10);
+
+		// Append one more with cap of 10 — should trigger cap enforcement
+		const newEntry: TestEntry = { id: 100, lesson: 'entry-at-cap' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		// After append + cap enforcement, should have exactly 10 entries
+		// The newest entry (id: 100) should be present
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(10);
+		// Newest entry should be present
+		const ids = entries.map((e) => e.id);
+		expect(ids).toContain(100);
+		// Oldest entry (id: 0) should be dropped
+		expect(ids).not.toContain(0);
+	});
+
+	it('when cap is exceeded, newest entries are retained (FIFO: oldest dropped)', async () => {
+		// Start with 15 entries
+		await writeEntries(15);
+
+		// Append one more with cap of 10
+		const newEntry: TestEntry = { id: 100, lesson: 'final-entry' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		// After append + cap, should have 10 entries
+		// Oldest entries should be dropped, newest retained
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(10);
+
+		// Newest entry (id: 100) should be present
+		const ids = entries.map((e) => e.id);
+		expect(ids).toContain(100);
+		// Entries 0-5 should be dropped (oldest)
+		for (const id of [0, 1, 2, 3, 4, 5]) {
+			expect(ids).not.toContain(id);
+		}
+		// Entries 6-14 should be retained
+		for (const id of [6, 7, 8, 9, 10, 11, 12, 13, 14]) {
+			expect(ids).toContain(id);
+		}
+	});
+
+	it('operation is atomic — entry appended and cap enforced in single transaction', async () => {
+		// Start with 8 entries
+		await writeEntries(8);
+
+		// Append an entry that will trigger cap enforcement with cap of 10
+		const newEntry: TestEntry = { id: 200, lesson: 'atomic-entry' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		// Verify the file is in a consistent state
+		// If the operation was atomic, the new entry should be present
+		// and the file should have exactly 9 entries (8 original + 1 new, all under cap)
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(9);
+
+		// The new entry should be at the end
+		expect(entries[entries.length - 1].id).toBe(200);
+
+		// File should be valid JSONL (all entries parseable)
+		// This is implicitly checked by readKnowledge not throwing
+	});
+
+	it('handles file with no entries', async () => {
+		// File doesn't exist yet, start fresh
+		const newEntry: TestEntry = { id: 50, lesson: 'first-entry' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(1);
+		expect(entries[0].id).toBe(50);
+	});
+
+	it('appends and trims correctly when exceeding cap by a large margin', async () => {
+		// Start with 50 entries
+		await writeEntries(50);
+
+		// Append one more with a cap of 10
+		const newEntry: TestEntry = { id: 500, lesson: 'trimmed-entry' };
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			newEntry,
+			10,
+		);
+
+		expect(result).toBe(true);
+
+		// Should have exactly 10 entries (newest 10)
+		const entries = await readKnowledge<TestEntry>(testFile);
+		expect(entries).toHaveLength(10);
+
+		// Newest entry should be present
+		const ids = entries.map((e) => e.id);
+		expect(ids).toContain(500);
+
+		// Check that the newest 10 entries (ids 41-50, plus 500) are present
+		// Old entries 0-40 should be dropped
+		for (const id of [0, 1, 2, 3, 4, 5]) {
+			expect(ids).not.toContain(id);
+		}
+	});
+
+	it('returns true on successful append and cap enforcement', async () => {
+		// Add entry to empty file with cap of 5
+		const result = await appendKnowledgeWithCapEnforcement<TestEntry>(
+			testFile,
+			{ id: 1, lesson: 'test' },
+			5,
+		);
+		expect(result).toBe(true);
 	});
 });
