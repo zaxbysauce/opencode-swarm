@@ -1,6 +1,9 @@
 import * as child_process from 'node:child_process';
 import path from 'node:path';
-import { GitBinaryMissingError } from '../utils/git-binary-missing-error.js';
+import {
+	GitBinaryMissingError,
+	isGitBinaryMissing,
+} from '../utils/git-binary-missing-error.js';
 import { warn } from '../utils/logger.js';
 
 const GIT_TIMEOUT_MS = 30_000;
@@ -35,15 +38,6 @@ function windowsGitCandidates(): string[] {
 	return unique(['git', ...installed]);
 }
 
-function isSpawnMissingGit(error: unknown): boolean {
-	return (
-		typeof error === 'object' &&
-		error !== null &&
-		'code' in error &&
-		(error as NodeJS.ErrnoException).code === 'ENOENT'
-	);
-}
-
 function errorMessage(err: unknown): string {
 	return err instanceof Error ? err.message : String(err);
 }
@@ -71,7 +65,7 @@ function gitExec(args: string[], cwd: string): string {
 			stdio: ['ignore', 'pipe', 'pipe'],
 		});
 		if (result.error) {
-			if (isSpawnMissingGit(result.error)) {
+			if (isGitBinaryMissing(result.error)) {
 				missingGitError ??= result.error;
 				continue;
 			}
