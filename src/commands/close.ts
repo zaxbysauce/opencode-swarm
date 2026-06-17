@@ -9,7 +9,7 @@ import {
 } from '../config/schema';
 import { archiveEvidence } from '../evidence/manager';
 import {
-	isGitRepo,
+	getGitRepositoryStatus,
 	resetToMainAfterMerge,
 	resetToRemoteBranch,
 } from '../git/branch';
@@ -971,10 +971,10 @@ export async function handleCloseCommand(
 	let gitAlignResult = '';
 	const prunedBranches: string[] = [];
 
-	const isGit = isGitRepo(directory);
-	if (isGit) {
+	const gitStatus = _internals.getGitRepositoryStatus(directory);
+	if (gitStatus.isRepo) {
 		// Try aggressive reset first (handles post-merge scenario with uncommitted changes)
-		const aggressiveResult = resetToMainAfterMerge(directory, {
+		const aggressiveResult = _internals.resetToMainAfterMerge(directory, {
 			pruneBranches,
 		});
 		if (aggressiveResult.success) {
@@ -989,7 +989,9 @@ export async function handleCloseCommand(
 			}
 		} else {
 			// Fallback to cautious reset (preserves uncommitted changes)
-			const alignResult = resetToRemoteBranch(directory, { pruneBranches });
+			const alignResult = _internals.resetToRemoteBranch(directory, {
+				pruneBranches,
+			});
 			gitAlignResult = alignResult.message;
 			prunedBranches.push(...alignResult.prunedBranches);
 
@@ -1003,7 +1005,14 @@ export async function handleCloseCommand(
 				warnings.push(w);
 			}
 		}
+	} else if (gitStatus.reason === 'git_unavailable') {
+		gitAlignResult = `Git executable unavailable — skipped git alignment: ${gitStatus.message}`;
+		warnings.push(gitAlignResult);
+	} else if (gitStatus.reason === 'git_error') {
+		gitAlignResult = `Git repository check failed — skipped git alignment: ${gitStatus.message}`;
+		warnings.push(gitAlignResult);
 	} else {
+		// gitStatus.reason === 'not_git_repo'
 		gitAlignResult = 'Not a git repository — skipped git alignment';
 	}
 
@@ -1148,5 +1157,8 @@ export const _internals = {
 	countSessionKnowledgeEntries,
 	CLOSE_SKILL_REVIEW_TIMEOUT_MS,
 	guaranteeAllPlansComplete,
+	getGitRepositoryStatus,
+	resetToMainAfterMerge,
+	resetToRemoteBranch,
 	copyDirRecursive,
 };

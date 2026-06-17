@@ -2,15 +2,12 @@
 
 ## What changed
 
-- **`gitExec` subprocess safety** — `src/git/branch.ts` now uses `stdio: ['ignore','pipe','pipe']` and `windowsHide: true`, and checks `result.error` before `result.status`. This eliminates false "Not a git repository" errors caused by piped stdin blocking git subprocesses on Windows.
-- **`checkpoint.ts` subprocess safety** — The same `gitExec` fix was applied to `src/tools/checkpoint.ts`. It also now passes an explicit `cwd` to git subprocesses instead of relying on inherited `process.cwd`.
-- **Help text correction** — `src/commands/registry.ts` and `docs/commands.md` were updated. `/swarm finalize` no longer claims "safe git ff-only to main"; it now accurately describes the destructive `git reset --hard` / `git clean -fd` alignment behavior.
+- **`checkpoint.ts` subprocess safety** — The same `gitExec` fix was applied to `src/tools/checkpoint.ts` (now uses `stdio: ['ignore','pipe','pipe']`, `windowsHide: true`, and checks `result.error` before `result.status`). It also now passes an explicit `cwd` to git subprocesses instead of relying on inherited `process.cwd`. The `src/git/branch.ts` `gitExec` already had this hardening on main.
+- **Help text correction** — `src/commands/registry.ts`, `docs/commands.md`, and `README.md` were updated. `/swarm finalize` no longer claims "safe git ff-only to main"; it now accurately describes the destructive `git reset --hard` / `git clean -fd` alignment behavior with a cautious fallback.
 
 ## Why
 
-The previous `stdio: ['pipe','pipe','pipe']` left stdin as a pipe, which on Windows can cause git subprocesses to block waiting for input. This produced a false "Not a git repository" error even in valid repositories. Checking `result.error` before `result.status` ensures spawn-level failures (ENOENT, permission errors, etc.) are surfaced correctly instead of being masked by a missing exit status.
-
-The `checkpoint.ts` explicit `cwd` fix removes reliance on inherited `process.cwd`, which is fragile in plugin-hosted contexts where the host process cwd may not be the project root.
+The `checkpoint.ts` `cwd` fix removes reliance on inherited `process.cwd`, which is fragile in plugin-hosted contexts where the host process cwd may not be the project root. `saveCheckpointRecord` was calling `isGitRepo()` and `getCurrentSha()` without a `directory` argument, so it would resolve to the wrong path in plugin-hosted contexts.
 
 The help-text correction prevents users from being misled about finalize's behavior. Finalize aligns the working tree with the approved plan using destructive git commands; describing it as a "safe ff-only merge" was inaccurate and could cause data loss.
 

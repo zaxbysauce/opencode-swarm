@@ -10,7 +10,7 @@ import * as child_process from 'node:child_process';
 import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { isGitRepo } from '../../../src/git/branch';
+import { getGitRepositoryStatus, isGitRepo } from '../../../src/git/branch';
 
 describe('Git branch integration tests (real git)', () => {
 	let gitDir: string;
@@ -70,8 +70,33 @@ describe('Git branch integration tests (real git)', () => {
 	});
 
 	test('isGitRepo returns true for a real git repository', () => {
+		// Make an initial commit so HEAD exists; getGitRepositoryStatus (which
+		// isGitRepo delegates to) requires a HEAD reference to confirm a repo.
+		child_process.spawnSync('git', ['commit', '--allow-empty', '-m', 'init'], {
+			cwd: gitDir,
+			encoding: 'utf-8',
+			timeout: 30_000,
+			stdio: ['ignore', 'pipe', 'pipe'],
+			windowsHide: true,
+		});
+
 		const result = isGitRepo(gitDir);
 		expect(result).toBe(true);
+	});
+
+	test('getGitRepositoryStatus reports isRepo true for a real git repository', () => {
+		// Same setup as the isGitRepo test, but exercises the new status API
+		// directly to confirm the underlying probe agrees with the wrapper.
+		child_process.spawnSync('git', ['commit', '--allow-empty', '-m', 'init'], {
+			cwd: gitDir,
+			encoding: 'utf-8',
+			timeout: 30_000,
+			stdio: ['ignore', 'pipe', 'pipe'],
+			windowsHide: true,
+		});
+
+		const status = getGitRepositoryStatus(gitDir);
+		expect(status.isRepo).toBe(true);
 	});
 
 	test('isGitRepo returns false for a non-git directory', () => {
