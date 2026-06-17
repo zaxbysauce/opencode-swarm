@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.78.8](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.7...v7.78.8) (2026-06-17)
+
+
+### Bug Fixes
+
+* **git:** correct finalize git detection and subprocess safety ([#1396](https://github.com/zaxbysauce/opencode-swarm/issues/1396)) ([b3fb3ce](https://github.com/zaxbysauce/opencode-swarm/commit/b3fb3ce6c3e697a40cd630065f63a14b8bb2d56f))
+
 ## [7.78.7](https://github.com/zaxbysauce/opencode-swarm/compare/v7.78.6...v7.78.7) (2026-06-17)
 
 
