@@ -1,4 +1,12 @@
-import { afterEach, describe, expect, mock, test } from 'bun:test';
+import {
+	afterAll,
+	afterEach,
+	beforeAll,
+	describe,
+	expect,
+	mock,
+	test,
+} from 'bun:test';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,6 +19,19 @@ import {
 } from '../../../src/tools/dispatch-lanes';
 
 const originalInternals = { ..._internals };
+
+// Workaround for Bun #32056: on Windows, a pending promise that leaves the
+// event loop idle prevents bun's per-test --timeout from firing. A 1s
+// keepalive interval ensures the event loop wakes regularly, allowing the
+// timeout mechanism to work correctly. Without this, the test file hangs
+// indefinitely on Windows CI runners.
+let _keepalive: ReturnType<typeof setInterval> | undefined;
+beforeAll(() => {
+	_keepalive = setInterval(() => {}, 1000);
+});
+afterAll(() => {
+	if (_keepalive) clearInterval(_keepalive);
+});
 
 function makeTempDir(): string {
 	return fs.realpathSync(
