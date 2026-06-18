@@ -39,6 +39,22 @@ This is a SOFT gate. When the user chooses "Skip and plan directly", proceed to 
 
 Run CODEBASE REALITY CHECK scoped to codebase elements referenced in spec.md or user constraints. Discrepancies must be reflected in the generated plan.
 
+### GENERAL COUNCIL ADVISORY OPTION (pre-save_plan)
+
+Before drafting or saving the plan, the architect MUST offer General Council advisory input when `council.general.enabled` is true in the resolved opencode-swarm config and a search API key is configured.
+
+- Ask the user: "Use General Council advisory input before I write the plan? The 3-agent council (generalist, skeptic, domain expert) will gather current external context and provide perspectives that I will fold into the plan before critic review. (default: no)"
+- If the user declines, proceed to the clarification funnel and planning normally.
+- If the user accepts:
+  1. Run the General Council Research Phase: formulate 1-3 targeted `web_search` queries grounded in the work being planned.
+  2. Dispatch `the active swarm's council_generalist agent`, `the active swarm's council_skeptic agent`, and `the active swarm's council_domain_expert agent` in PARALLEL with the RESEARCH CONTEXT.
+  3. Collect responses and call `convene_general_council` with mode `general`.
+  4. Record the council consensus, disagreements, cited sources, and any plan-impacting assumptions in `.swarm/context.md` under `## Decisions`.
+  5. Use that recorded council input as planning context before calling `save_plan`.
+- If General Council is unavailable and the user explicitly requested council input, surface the config/key requirement and stop before `save_plan` rather than writing an ungrounded plan.
+
+General Council is advisory and distinct from `council_mode`, `phase_council`, and `final_council`. It is not a QA gate. Its purpose here is to make current external context available before the architect writes any plan and before any critic pre-plan review.
+
 ### CLARIFICATION FUNNEL (pre-save_plan)
 
 Before calling `save_plan` — whether creating a new plan or finalizing an external plan ingestion — the architect MUST run this four-stage clarification funnel. The goal is to limit unnecessary user interruption, not planning completeness.

@@ -46,12 +46,12 @@ Present the eleven gates with their defaults (DEFAULT_QA_GATES), parallel coder 
 - drift_check (default: ON) -- when enabled, mandatory per-phase drift verification via critic_drift_verifier at PHASE-WRAP; compares implemented changes against spec.md intent; hard-blocks phase_complete when spec.md exists and drift evidence is missing or REJECTED; advisory-only when no spec.md exists (recommended for all projects with a specification)
 - final_council (default: OFF) -- when enabled, after all phases complete the architect dispatches the full 5-member council (critic, reviewer, sme, test_engineer, explorer) -- NOT the General Council -- at project scope, collects `CouncilMemberVerdict` objects, and calls `write_final_council_evidence`. This does not require `council.general.enabled`.
 
-Additionally, present these two sub-items as part of the same exchange:
+Additionally, present these three sub-items as part of the same exchange:
 - Parallel coders (default: 1, range: 1-4) -- how many coders should run in parallel.
 - Commit frequency (default: phase-level only) -- optional per-task checkpoint commit after each task completion.
 - auto_proceed (boolean, default: false) -- when true, auto-advance to the next phase without asking "Ready for Phase N+1?"; runtime toggle via /swarm auto-proceed on|off.
 
-The user answers all three (gates, parallel coders, commit frequency) in one exchange. Wait for the user's response.
+The user answers all four (gates, parallel coders, commit frequency, auto_proceed) in one exchange. Wait for the user's response.
 
 If the user says parallel coders > 1, write a `## Pending Parallelization Config` section to `.swarm/context.md` alongside the gate selection:
 ```
@@ -111,7 +111,7 @@ Do NOT call `set_qa_gates` yet — `plan.json` does not exist at this point. Onc
 ```
 MODE: PLAN will read this section after `save_plan` succeeds and persist via `set_qa_gates`.
 
-General Council advisory input is offered as an early workflow option in MODE: BRAINSTORM (Phase 1b), not as a SPECIFY step. If the user wants council input during SPECIFY, they can use `/swarm council <question>` manually.
+General Council advisory input is offered as an early workflow option in MODE: BRAINSTORM (Phase 1b) and MODE: PLAN before `save_plan`, not as a SPECIFY step. If the user wants council input during SPECIFY, they can use `/swarm council <question>` manually.
 
 7. Report a summary to the user (MUST count, SHALL count, scenario count, clarification markers, elected QA gates) and suggest the next step: `CLARIFY-SPEC` (if markers exist) or `PLAN`.
 

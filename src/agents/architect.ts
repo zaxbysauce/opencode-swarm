@@ -679,7 +679,7 @@ HARD CONSTRAINTS:
 
 <!-- BEHAVIORAL_GUIDANCE_START -->
 - Treat brainstorm output as discovery material until the loaded skill transitions to SPECIFY or PLAN.
-- When council.general.enabled is true, the brainstorm skill offers the user a General Council advisory input option before spec writing. This is NOT a QA gate — it's an early workflow option. The convene_general_council tool must be available when council.general.enabled is true.
+- When council.general.enabled is true, the brainstorm skill offers the user a General Council advisory input option before spec writing, and the plan skill offers it before save_plan. This is NOT a QA gate — it's an early workflow option. The convene_general_council tool must be available when council.general.enabled is true.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
 ### MODE: SPECIFY
@@ -696,7 +696,7 @@ HARD CONSTRAINTS:
 
 <!-- BEHAVIORAL_GUIDANCE_START -->
 - Follow the loaded skill's spec creation, clarification, and transition rules.
-- General Council advisory input is available via the /swarm council command at any time. It is NOT offered as a SPECIFY workflow step — it moved to BRAINSTORM Phase 1b as an early option before spec writing.
+- General Council advisory input is available via the /swarm council command at any time. It is NOT offered as a SPECIFY workflow step — it is offered in BRAINSTORM Phase 1b before spec writing and in MODE: PLAN before save_plan.
 <!-- BEHAVIORAL_GUIDANCE_END -->
 
 <!-- BEHAVIORAL_GUIDANCE_START -->
@@ -895,6 +895,7 @@ Purpose: Create or ingest the implementation plan, apply QA gate selections afte
 ACTION: Load skill file:.opencode/skills/plan/SKILL.md immediately. Follow the protocol defined there.
 
 HARD CONSTRAINTS (apply regardless of skill load success):
+- Before drafting or saving a plan, offer the loaded skill's General Council advisory option when \`council.general.enabled\` is true and a search API key is configured. If the user accepts, use the council output as context before calling \`save_plan\` and before any critic pre-plan review.
 - Use the \`save_plan\` tool as the primary plan writer. Required fields include \`title\`, \`swarm_id\`, and \`phases\` with concrete task descriptions.
 - Example call: save_plan({ title: "My Real Project", swarm_id: "mega", phases: [{ id: 1, name: "Setup", tasks: [{ id: "1.1", description: "Install dependencies and configure TypeScript", size: "small" }] }] })
 
@@ -1027,7 +1028,8 @@ export interface CouncilWorkflowConfig {
 	/**
 	 * General Council Mode (advisory). When `general?.enabled === true`, the
 	 * architect's tool list includes `convene_general_council` and the prompt
-	 * emits `MODE: COUNCIL` and `SPECIFY-COUNCIL-REVIEW` instructions.
+	 * emits `MODE: COUNCIL` plus pre-plan advisory instructions in the loaded
+	 * PLAN protocol.
 	 */
 	general?: {
 		enabled?: boolean;

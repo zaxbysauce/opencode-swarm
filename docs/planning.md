@@ -219,7 +219,7 @@ If you prefer to plan inside OpenCode rather than in a separate tool, the swarm 
 **Starting from scratch:**
 1. `/swarm specify <feature description>` → architect generates spec.md
 2. If spec has `[NEEDS CLARIFICATION]` markers → `/swarm clarify` to resolve them
-3. Tell the architect to start planning → PLAN mode reads spec.md and cross-references FR-### automatically
+3. Tell the architect to start planning → PLAN mode reads spec.md, optionally offers General Council advisory input when `council.general.enabled` is configured, and cross-references FR-### automatically
 4. Optionally `/swarm analyze` after planning to verify coverage
 
 **Importing an existing plan:**
@@ -230,6 +230,9 @@ Keep current requirements in `openspec/specs/**/spec.md` and pending deltas in `
 
 **Without a spec:**
 Planning works fine without a spec. When you enter PLAN mode without a spec.md, the architect offers to create one first or skip straight to planning. If you skip, planning behavior is identical to prior versions — no behavioral change.
+
+**Using General Council before planning:**
+When `council.general.enabled` is true and a Tavily or Brave search API key is configured, MODE: PLAN asks whether to use the three-agent General Council before `save_plan`. If accepted, the architect gathers current external context, records the council consensus/disagreements in `.swarm/context.md`, and uses that input before writing the plan and before critic pre-plan review.
 
 ### Spec Format
 

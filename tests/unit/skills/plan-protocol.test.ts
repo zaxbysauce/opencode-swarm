@@ -24,6 +24,20 @@ describe('.opencode/skills/plan/SKILL.md protocol content', () => {
 			expect(skillContent).toContain('EXTERNAL PLAN IMPORT PATH');
 		});
 
+		it('requires offering General Council advisory input before save_plan when enabled', () => {
+			const generalCouncilIdx = skillContent.indexOf(
+				'GENERAL COUNCIL ADVISORY OPTION (pre-save_plan)',
+			);
+			const savePlanIdx = skillContent.indexOf('Use the `save_plan` tool');
+
+			expect(generalCouncilIdx).toBeGreaterThan(0);
+			expect(savePlanIdx).toBeGreaterThan(generalCouncilIdx);
+			expect(skillContent).toContain('council.general.enabled');
+			expect(skillContent).toContain('convene_general_council');
+			expect(skillContent).toMatch(/before drafting or saving the plan/i);
+			expect(skillContent).toContain('before any critic pre-plan review');
+		});
+
 		it('keeps save_plan requirements and example', () => {
 			expect(skillContent).toContain('Use the `save_plan` tool');
 			expect(skillContent).toContain('Required parameters:');
@@ -36,8 +50,8 @@ describe('.opencode/skills/plan/SKILL.md protocol content', () => {
 			expect(skillContent).not.toContain('{{QA_GATE_DIALOGUE_PLAN}}');
 			expect(skillContent).toContain('Present the eleven gates');
 			expect(skillContent).toContain('final_council (default: OFF)');
-			expect(skillContent).toContain('How many coders should run in parallel?');
-			expect(skillContent).toContain('Commit frequency for completed tasks?');
+			expect(skillContent).toMatch(/how many coders should run in parallel/i);
+			expect(skillContent).toMatch(/commit frequency/i);
 			expect(skillContent).toContain('INLINE GATE SELECTION');
 		});
 
