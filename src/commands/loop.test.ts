@@ -1,5 +1,5 @@
-import { tmpdir } from 'node:os';
 import { describe, expect, test } from 'bun:test';
+import { tmpdir } from 'node:os';
 import { handleLoopCommand } from './loop.js';
 
 const TEST_DIR = tmpdir();
@@ -12,7 +12,11 @@ describe('handleLoopCommand', () => {
 	});
 
 	test('emits MODE: LOOP header with defaults and objective', async () => {
-		const result = await handleLoopCommand(TEST_DIR, ['add', 'rate', 'limiting']);
+		const result = await handleLoopCommand(TEST_DIR, [
+			'add',
+			'rate',
+			'limiting',
+		]);
 		expect(result.startsWith('[MODE: LOOP')).toBe(true);
 		expect(result).toContain('max_cycles=3');
 		expect(result).toContain('autonomy=checkpoint');
@@ -39,7 +43,11 @@ describe('handleLoopCommand', () => {
 		expect(tooHigh).toContain('Error:');
 		expect(tooHigh).toContain('--max-cycles');
 		expect(tooHigh).toContain('6');
-		const zero = await handleLoopCommand(TEST_DIR, ['obj', '--max-cycles', '0']);
+		const zero = await handleLoopCommand(TEST_DIR, [
+			'obj',
+			'--max-cycles',
+			'0',
+		]);
 		expect(zero).toContain('Error:');
 		expect(zero).toContain('--max-cycles');
 		expect(zero).toContain('0');
@@ -82,7 +90,11 @@ describe('handleLoopCommand', () => {
 	});
 
 	test('rejects invalid --depth', async () => {
-		const result = await handleLoopCommand(TEST_DIR, ['obj', '--depth', 'deep']);
+		const result = await handleLoopCommand(TEST_DIR, [
+			'obj',
+			'--depth',
+			'deep',
+		]);
 		expect(result).toContain('Error:');
 		expect(result).toContain('depth');
 	});
