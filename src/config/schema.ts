@@ -1428,12 +1428,13 @@ export type AuthorityConfig = z.infer<typeof AuthorityConfigSchema>;
 
 // General Council Mode configuration (advisory deliberation — distinct from the
 // verdict-based Work Complete Council below). Off by default. When enabled,
-// `/swarm council <question>` and the SPECIFY-COUNCIL-REVIEW gate convene a
-// fixed three-agent council (council_generalist / council_skeptic /
-// council_domain_expert). The architect runs a curated pre-search pass via
-// `web_search`, dispatches the three agents in parallel with the gathered
-// RESEARCH CONTEXT, routes disagreements back for one reconciliation round,
-// and synthesizes the final answer directly via inline output rules.
+// `/swarm council <question>`, `/swarm council --spec-review`, and the
+// MODE: PLAN pre-save advisory option convene a fixed three-agent council
+// (council_generalist / council_skeptic / council_domain_expert). The architect
+// runs a curated pre-search pass via `web_search`, dispatches the three agents
+// in parallel with the gathered RESEARCH CONTEXT, routes disagreements back for
+// one reconciliation round, and synthesizes the final answer directly via
+// inline output rules.
 //
 // Backward compatibility: `members`, `presets`, `moderator`, and
 // `moderatorModel` are retained on the schema but are no longer used at
@@ -1519,7 +1520,8 @@ export const CouncilConfigSchema = z
 			),
 		// General Council Mode (advisory). Optional — undefined means feature is
 		// not configured. When present and enabled: true, the architect can run
-		// `/swarm council` and the SPECIFY-COUNCIL-REVIEW gate.
+		// `/swarm council`, manual spec review, and the MODE: PLAN pre-save
+		// advisory option.
 		general: GeneralCouncilConfigSchema.optional(),
 	})
 	.strict();

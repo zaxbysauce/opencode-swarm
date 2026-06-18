@@ -27,7 +27,8 @@ This mode is ADVISORY. It does not block any other workflow and does not modify
 code, plans, or specs. The output is for the user (general mode) or for the spec
 being drafted (spec_review mode is available via `/swarm council --spec-review`
 for manual spec review). General Council advisory input is offered as an early
-workflow option in MODE: BRAINSTORM (Phase 1b).
+workflow option in MODE: BRAINSTORM (Phase 1b) and MODE: PLAN before
+`save_plan`.
 
 #### Pre-flight (always run first)
 

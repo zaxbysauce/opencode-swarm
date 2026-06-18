@@ -132,6 +132,8 @@ Enter architect BRAINSTORM mode: seven-phase planning workflow for new features 
 
 Enter architect MODE: COUNCIL — convene a fixed three-agent General Council (`council_generalist`, `council_skeptic`, `council_domain_expert`) for an advisory deliberation. The architect runs a web-search pre-pass and supplies all agents with a RESEARCH CONTEXT block; agents answer in parallel without individual web access. The architect routes any disagreements back for one targeted Round 2 reconciliation, then synthesizes the final answer directly using inline output rules (no separate moderator pass).
 
+When enabled in config, the same General Council advisory flow is also offered by BRAINSTORM before spec writing and by PLAN before `save_plan`, so current council input can inform plan writing before critic review.
+
 | Flag | Effect |
 |------|--------|
 | `--spec-review` | Switch to single-pass advisory mode. Can be invoked manually to fold council input into a draft spec — no Round 2 deliberation. |
