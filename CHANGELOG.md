@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.79.4](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.3...v7.79.4) (2026-06-18)
+
+
+### Bug Fixes
+
+* **npm:** update repository URL for provenance verification after repo move ([9a289de](https://github.com/ZaxbyHub/opencode-swarm/commit/9a289de1b512a29dc6bb0cffeb6afb1b8700001c))
+* **npm:** update repository URL for provenance verification after repo move ([e22794e](https://github.com/ZaxbyHub/opencode-swarm/commit/e22794eaf5f3b1b72f8b58839666f80174cbb6ff))
+
 ## [7.79.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.2...v7.79.3) (2026-06-18)
 
 
