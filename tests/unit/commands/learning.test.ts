@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
-import { handleLearningCommand } from '../../../src/commands/learning';
+import {
+	_internals,
+	handleLearningCommand,
+} from '../../../src/commands/learning';
+
+const originalComputeLearningMetrics = _internals.computeLearningMetrics;
 
 let tmp: string;
 
@@ -11,6 +16,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+	_internals.computeLearningMetrics = originalComputeLearningMetrics;
 	rmSync(tmp, { recursive: true, force: true });
 });
 
@@ -136,5 +142,55 @@ describe('handleLearningCommand', () => {
 			result.includes('Learning Summary') ||
 				result.includes('No learning data'),
 		).toBe(true);
+	});
+
+	it('returns a structured markdown timeout when metric computation hangs', async () => {
+		_internals.computeLearningMetrics = (_directory, options) =>
+			new Promise((_, reject) => {
+				options?.signal?.addEventListener('abort', () =>
+					reject(new Error('aborted')),
+				);
+			});
+
+		const result = await handleLearningCommand(tmp, ['--timeout-ms', '5']);
+
+		expect(result).toContain('LEARNING_METRICS_TIMEOUT');
+		expect(result).toContain('5ms');
+	});
+
+	it('returns a structured JSON timeout when metric computation hangs in JSON mode', async () => {
+		_internals.computeLearningMetrics = (_directory, options) =>
+			new Promise((_, reject) => {
+				options?.signal?.addEventListener('abort', () =>
+					reject(new Error('aborted')),
+				);
+			});
+
+		const result = await handleLearningCommand(tmp, [
+			'--json',
+			'--timeout-ms',
+			'5',
+		]);
+
+		const jsonStr = result
+			.replace('[LEARNING_JSON]\n', '')
+			.replace('\n[/LEARNING_JSON]', '');
+		const parsed = JSON.parse(jsonStr);
+		expect(parsed.ok).toBe(false);
+		expect(parsed.error.code).toBe('LEARNING_METRICS_TIMEOUT');
+		expect(parsed.error.timeout_ms).toBe(5);
+	});
+
+	it('uses the default timeout when --timeout-ms is invalid', async () => {
+		let observedSignal: AbortSignal | undefined;
+		_internals.computeLearningMetrics = async (_directory, options) => {
+			observedSignal = options?.signal;
+			return originalComputeLearningMetrics(_directory, options);
+		};
+
+		const result = await handleLearningCommand(tmp, ['--timeout-ms', 'nope']);
+
+		expect(result).toContain('Learning Summary');
+		expect(observedSignal).toBeDefined();
 	});
 });

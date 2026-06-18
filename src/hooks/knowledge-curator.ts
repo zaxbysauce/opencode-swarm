@@ -1,5 +1,6 @@
 /** Knowledge curator hook for opencode-swarm v6.17 two-tier knowledge system. */
 
+import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { appendFile, mkdir, readFile, writeFile } from 'node:fs/promises';
 import * as path from 'node:path';
@@ -109,6 +110,10 @@ function recordSeenRetroSection(
 	capSeenRetroSections();
 }
 
+function hashContent(content: string): string {
+	return createHash('sha1').update(content).digest('hex');
+}
+
 // ============================================================================
 // Internal helpers (NOT exported)
 // ============================================================================
@@ -212,10 +217,9 @@ function extractRetrospectiveSection(planContent: string): string | null {
 
 /**
  * Check if the retrospective section has changed since last seen.
- * Uses a simple hash: section.length + ':' + section.slice(0, 100)
  */
 function checkRetroChanged(sessionID: string, section: string): boolean {
-	const hash = `${section.length}:${section.slice(0, 100)}`;
+	const hash = hashContent(section);
 	const lastSeen = seenRetroSections.get(sessionID);
 
 	if (lastSeen?.value === hash) {
@@ -1159,7 +1163,7 @@ export function createKnowledgeCuratorHook(
 			if (lessons.length === 0) return;
 
 			// Idempotency check for evidence
-			const evidenceHash = `${lessons.length}:${lessons.slice(0, 3).join('|')}`;
+			const evidenceHash = hashContent(JSON.stringify(lessons));
 			if (lastSeenEvidence?.value === evidenceHash) {
 				return; // no change
 			}
@@ -1248,6 +1252,7 @@ export const _internals: {
 	createKnowledgeCuratorHook: typeof createKnowledgeCuratorHook;
 	seenRetroSections: typeof seenRetroSections;
 	recordSeenRetroSection: typeof recordSeenRetroSection;
+	hashContent: typeof hashContent;
 	capSeenRetroSections: typeof capSeenRetroSections;
 	MAX_TRACKED_RETRO_SECTIONS: number;
 } = {
@@ -1257,6 +1262,7 @@ export const _internals: {
 	createKnowledgeCuratorHook,
 	seenRetroSections,
 	recordSeenRetroSection,
+	hashContent,
 	capSeenRetroSections,
 	MAX_TRACKED_RETRO_SECTIONS,
 };

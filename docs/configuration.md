@@ -305,16 +305,22 @@ Optional knowledge-base curator that validates agent output against project know
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `enabled` | boolean | `false` | Master switch for Curator |
+| `enabled` | boolean | `true` | Master switch for Curator |
 | `init_enabled` | boolean | `true` | Run Curator at session start |
 | `phase_enabled` | boolean | `true` | Run Curator at phase boundaries |
+| `postmortem_enabled` | boolean | `true` | Run postmortem curator analysis during closeout |
 | `max_summary_tokens` | number | `2000` | Max tokens for Curator summary output |
 | `min_knowledge_confidence` | number | `0.7` | Minimum confidence threshold for knowledge entries |
 | `compliance_report` | boolean | `true` | Include compliance report in phase digest |
 | `suppress_warnings` | boolean | `true` | Suppress TUI warnings; emit events only |
 | `drift_inject_max_chars` | number | `500` | Max chars for drift report summary injected into architect context |
+| `llm_timeout_ms` | number | `300000` | Timeout for Curator init and phase LLM calls |
+| `skill_generation_enabled` | boolean | `true` | Enable curator-generated skill candidate output |
+| `skill_generation_mode` | `draft` \| `active` | `draft` | Controls whether skill candidates are drafted or promoted as active skills |
+| `min_skill_confidence` | number | `0.7` | Minimum confidence for generated skill candidates |
+| `min_skill_confirmations` | number | `2` | Minimum confirmations before skill promotion |
 
-Curator is optional and disabled by default. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` to track knowledge alignment and drift detection.
+Curator is enabled by default. Set `curator.enabled = false` to disable it. When enabled, it writes `.swarm/curator-summary.json` and `.swarm/drift-report-phase-N.json` to track knowledge alignment and drift detection. Curator uses directory-level knowledge locking for cross-file updates; this favors simple atomic consistency over per-file parallelism.
 
 ### Architectural supervision
 

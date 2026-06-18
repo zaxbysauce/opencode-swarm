@@ -48,7 +48,7 @@ Tasks: 3/5 complete
 Agents: 11 registered
 ```
 
-### `/swarm learning [--json] [--phase N]`
+### `/swarm learning [--json] [--phase N] [--timeout-ms N]`
 
 Show aggregate learning metrics computed from `.swarm/knowledge-events.jsonl` and the knowledge store:
 
@@ -65,6 +65,7 @@ A 3-line learning summary is automatically injected into the curator phase diges
 |------|--------|
 | `--json` | Output metrics as structured JSON in a `[LEARNING_JSON]...[/LEARNING_JSON]` envelope |
 | `--phase N` | Set the current phase number for never-applied threshold calculations |
+| `--timeout-ms N` | Bound metrics computation time; defaults to 30000 ms |
 
 ### `/swarm diagnose`
 

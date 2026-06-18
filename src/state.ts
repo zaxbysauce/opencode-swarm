@@ -33,9 +33,11 @@ import {
 	clearPendingCoderScope,
 	resetStandardWorktreeIsolationState,
 } from './hooks/delegation-gate.js';
+import { clearTrajectoryStepCounters } from './hooks/trajectory-step-state.js';
 import { loadPlanJsonOnly, updateTaskStatus } from './plan/manager.js';
 import { derivePlanId } from './plan/utils.js';
 import type { EscalationTracker } from './prm/escalation.js';
+import { clearTrajectoryCache } from './prm/trajectory-store.js';
 import type { PatternMatch } from './prm/types.js';
 import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
@@ -498,6 +500,8 @@ export function resetSwarmState(): void {
 	swarmState.pendingEvents = 0;
 	swarmState.lastBudgetPct = 0;
 	swarmState.agentSessions.clear();
+	clearTrajectoryCache();
+	clearTrajectoryStepCounters();
 	swarmState.pendingRehydrations.clear();
 	swarmState.opencodeClient = null;
 	swarmState.curatorInitAgentNames = [];

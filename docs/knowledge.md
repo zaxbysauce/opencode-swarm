@@ -449,7 +449,8 @@ skill revision writes anything. Rejected candidates are recorded in the bounded
 
 When `curator.skill_generation_enabled` is true (default), the curator's
 phase analysis can emit `skill_candidates` and `knowledge_application_findings`
-JSON blocks that are parsed strictly. Malformed JSON is silently dropped.
+JSON blocks that are parsed strictly. Malformed JSON is skipped without writes
+and reported through debug-gated curator diagnostics.
 High-confidence candidates (>= `curator.min_skill_confidence`) trigger
 `skill_generate` in **draft** mode; activation always requires a human or
 architect to call `skill_apply`.
