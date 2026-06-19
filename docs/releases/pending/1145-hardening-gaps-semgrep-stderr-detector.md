@@ -32,8 +32,9 @@ Five low-severity hardening gaps identified in the PR #1142 review are addressed
 - `tests/unit/lang/php-backend.test.ts`: six edge-case Laravel detection scenarios
   (capitalized Artisan, uppercase ARTISAN case-sensitivity, single signal, malformed composer.json,
   empty dir, two-signal without config/app.php).
-- `tests/unit/lang/detector.test.ts`: four adversarial cases (malformed package.json,
-  directory named `*.csproj`, circular symlink, TypeScript false-negative assertion).
+- `tests/unit/lang/detector.test.ts`: seven adversarial edge-cases (unreadable path, non-existent
+  directory, unknown extensions, glob-pattern file detection, malformed package.json,
+  directory named `*.csproj`, circular symlink).
 
 ## Migration
 

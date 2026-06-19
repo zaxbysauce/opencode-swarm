@@ -254,6 +254,10 @@ async function executeWithTimeout(
 			if (settled) return;
 			settled = true;
 			if (timeout) clearTimeout(timeout);
+			// Clear any pending SIGKILL escalation timer. On first settle() call,
+			// escalation is undefined, so this is a no-op; but the defensive clear
+			// ensures safety if settle() were ever called from multiple paths (it isn't,
+			// due to the settled guard above, but this makes the intent explicit).
 			if (escalation) clearTimeout(escalation);
 			const truncated = stdoutTruncated || stderrTruncated;
 			if (child.exitCode === null && child.signalCode === null) {
