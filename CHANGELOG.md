@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.79.7](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.6...v7.79.7) (2026-06-19)
+
+
+### Bug Fixes
+
+* **skill-generation:** filter undefined phase numbers and add maturity gate tests ([2d5354d](https://github.com/ZaxbyHub/opencode-swarm/commit/2d5354d79248a60f621be1209435b49f6a64fcf5))
+* **skill-generation:** implement outcome-based maturity gates for knowledge-to-skill compilation ([5afc75a](https://github.com/ZaxbyHub/opencode-swarm/commit/5afc75a9090bbf4085163ccefd5f2e41249f8441))
+
 ## [7.79.6](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.5...v7.79.6) (2026-06-19)
 
 
