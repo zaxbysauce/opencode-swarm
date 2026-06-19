@@ -1133,8 +1133,11 @@ export function createDelegationGateHook(
 		}
 
 		// Parallel slot cap: bound the number of concurrently-unreviewed coders to
-		// max_concurrent_tasks so the architect cannot outrun the review gates.
-		if (parallelModeActive && incomingCoderTaskId) {
+		// max_concurrent_tasks so the architect cannot outrun the review gates. The
+		// cap applies whenever parallel mode is active, independent of whether the
+		// incoming coder's task id is parseable — an unresolvable task id must not be
+		// a way to slip past the cap and oversubscribe in-flight coders (F-001).
+		if (parallelModeActive) {
 			let coderDelegatedCount = 0;
 			for (const s of session.taskWorkflowStates.values()) {
 				if (s === 'coder_delegated') coderDelegatedCount++;

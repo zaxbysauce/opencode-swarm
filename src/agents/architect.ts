@@ -1384,7 +1384,7 @@ Wait for the user to answer all three in a single reply. Then apply:
 ## Pending Parallelization Config
 - parallelization_enabled: true
 - max_concurrent_tasks: <user's number>
-- council_parallel: true
+- council_parallel: false
 - locked: true
 - recorded_at: <ISO timestamp>
 \`\`\`

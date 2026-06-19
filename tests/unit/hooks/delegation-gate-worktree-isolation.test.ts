@@ -212,6 +212,84 @@ describe('delegation gate standard worktree isolation', () => {
 		expect(createCalls).toEqual([]);
 	});
 
+	test('auto policy blocks the triggering coder when a sibling worktree is already in-flight (F-008)', async () => {
+		// First dispatch succeeds and stays in-flight (tracked, not yet merged back).
+		const handle: WorktreeHandle = {
+			worktreePath: path.join(tempDir, '..', 'wt-sibling'),
+			branchName: 'swarm/lane/parent-session/1.1',
+			purpose: 'lane',
+			id: '1.1',
+			sessionId: 'parent-session',
+		};
+		let provisionShouldFail = false;
+		_internals.provisionWorktree = async () =>
+			provisionShouldFail ? { error: 'branch already exists' } : handle;
+		swarmState.opencodeClient = {
+			session: {
+				create: async () => ({ data: { id: 'sibling-session' } }),
+			},
+		} as typeof swarmState.opencodeClient;
+
+		const hook = createDelegationGateHook(makeConfig('auto'), tempDir);
+		const firstArgs: Record<string, unknown> = {
+			subagent_type: 'coder',
+			description: 'Implement task 1.1',
+			prompt: 'TASK: 1.1 implement the lane work',
+		};
+		await hook.toolBefore(
+			{ tool: 'Task', sessionID: 'parent-session', callID: 'call-sibling' },
+			{ args: firstArgs },
+		);
+		expect(firstArgs.task_id).toBe('sibling-session');
+
+		// Second dispatch: provisioning now fails. A sibling worktree is in-flight,
+		// so the triggering coder must NOT silently run un-isolated in the main tree.
+		provisionShouldFail = true;
+		await expect(
+			hook.toolBefore(
+				{ tool: 'Task', sessionID: 'parent-session', callID: 'call-unsafe' },
+				{
+					args: {
+						subagent_type: 'coder',
+						description: 'Implement task 1.1 again',
+						prompt: 'TASK: 1.1 implement the lane work',
+					},
+				},
+			),
+		).rejects.toThrow(/STANDARD_WORKTREE_ISOLATION_UNSAFE/);
+	});
+
+	test('auto policy degrades gracefully when provisioning fails with no sibling in-flight (F-008)', async () => {
+		_internals.provisionWorktree = async () => ({
+			error: 'branch already exists',
+		});
+		swarmState.opencodeClient = {
+			session: { create: async () => ({ data: { id: 'unused' } }) },
+		} as typeof swarmState.opencodeClient;
+
+		const hook = createDelegationGateHook(makeConfig('auto'), tempDir);
+		const args: Record<string, unknown> = {
+			subagent_type: 'coder',
+			description: 'Implement task 1.1',
+			prompt: 'TASK: 1.1 implement the lane work',
+		};
+		// No sibling is in-flight, so the lone coder may degrade to un-isolated
+		// serial execution — the intended best-effort behavior.
+		await expect(
+			hook.toolBefore(
+				{ tool: 'Task', sessionID: 'parent-session', callID: 'call-degrade' },
+				{ args },
+			),
+		).resolves.toBeUndefined();
+		expect(args.task_id).toBeUndefined();
+		expect(ensureAgentSession('parent-session').maxConcurrencyOverride).toBe(1);
+		expect(
+			ensureAgentSession('parent-session').pendingAdvisoryMessages?.some((m) =>
+				m.includes('STANDARD_WORKTREE_PROVISION_FAILED'),
+			),
+		).toBe(true);
+	});
+
 	test('auto policy serializes before creating a worktree when dispatch tracking is full', async () => {
 		const provisionCalls: unknown[] = [];
 		const createCalls: unknown[] = [];
@@ -452,6 +530,28 @@ describe('delegation gate reviewer-gate parallel exemption (C4)', () => {
 		await expect(dispatchCoder(hook, 'parent-session', '1.3')).rejects.toThrow(
 			/PARALLEL_SLOTS_EXHAUSTED/,
 		);
+	});
+
+	test('parallel mode does not let an unparseable task id bypass the slot cap (F-001)', async () => {
+		writeMultiTaskPlan(tempDir, { parallel: true, maxConcurrent: 2 });
+		seedSession('parent-session', ['1.1', '1.2']); // slots exhausted
+		const hook = createDelegationGateHook(makeConfig('disabled'), tempDir);
+
+		// No task_id field and an ambiguous prompt → incomingCoderTaskId is null.
+		// The dispatch must still be blocked (by the reviewer gate or the slot cap),
+		// never allowed through to oversubscribe the in-flight coders.
+		await expect(
+			hook.toolBefore(
+				{ tool: 'Task', sessionID: 'parent-session', callID: 'call-ambiguous' },
+				{
+					args: {
+						subagent_type: 'coder',
+						description: 'do the thing',
+						prompt: 'fix the bug',
+					},
+				},
+			),
+		).rejects.toThrow(/PARALLEL_SLOTS_EXHAUSTED|REVIEWER_GATE_VIOLATION/);
 	});
 
 	test('serial mode still blocks any second coder while one awaits review', async () => {

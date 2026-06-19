@@ -36,6 +36,18 @@ This change makes parallel execution + worktree isolation first-class:
   dependency-ready task is allowed while others await review, bounded by
   `max_concurrent_tasks` (new `PARALLEL_SLOTS_EXHAUSTED` guard). Re-delegating the
   **same** unreviewed task is still blocked, and serial sessions are unchanged.
+  The slot cap applies whenever parallel mode is active, even when the incoming
+  coder's task id is not parseable, so an ambiguous dispatch cannot oversubscribe
+  in-flight coders.
+
+- **Isolation-failure safety under the `auto` policy**
+  (`src/hooks/delegation-gate/worktree-isolation.ts`): when worktree provisioning
+  or the lane session fails under the default best-effort (`auto`) policy, the
+  triggering coder no longer silently runs un-isolated in the main tree while
+  sibling coders are isolated in worktrees. If a sibling dispatch is in-flight,
+  the failing dispatch is blocked with `STANDARD_WORKTREE_ISOLATION_UNSAFE` so the
+  architect waits for in-flight coders to merge back; with no sibling in-flight it
+  still degrades gracefully to un-isolated serial execution.
 
 ## Why
 

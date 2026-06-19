@@ -12,6 +12,13 @@ const skillContent = readFileSync(SKILL_PATH, 'utf-8');
 const CLAUDE_SKILL_PATH = join(process.cwd(), '.claude/skills/plan/SKILL.md');
 const claudeSkillContent = readFileSync(CLAUDE_SKILL_PATH, 'utf-8');
 
+const earlyModeSkills = {
+	'specify (.opencode)': '.opencode/skills/specify/SKILL.md',
+	'specify (.claude)': '.claude/skills/specify/SKILL.md',
+	'brainstorm (.opencode)': '.opencode/skills/brainstorm/SKILL.md',
+	'brainstorm (.claude)': '.claude/skills/brainstorm/SKILL.md',
+} as const;
+
 describe('.opencode/skills/plan/SKILL.md protocol content', () => {
 	describe('frontmatter', () => {
 		it('declares the plan skill', () => {
@@ -88,5 +95,23 @@ describe('.opencode/skills/plan/SKILL.md protocol content', () => {
 				expect(skillContent.toLowerCase()).toContain(needle.toLowerCase());
 			}
 		});
+
+		// The specify/brainstorm skills also embed the parallel-coders question.
+		// They must teach the worktree concept (so the guidance does not drift away
+		// from the plan skill), but — because no plan exists yet at the SPECIFY /
+		// BRAINSTORM gate-selection step — they must defer the concrete count
+		// recommendation to plan time rather than telling the architect to inspect
+		// a plan that does not exist (F-006). A byte-identity check is intentionally
+		// avoided here because the brainstorm copies carry a pre-existing
+		// auto_proceed asymmetry unrelated to parallelization (F-005).
+		for (const [label, relPath] of Object.entries(earlyModeSkills)) {
+			it(`${label} teaches worktrees and defers the recommendation to plan time`, () => {
+				const content = readFileSync(join(process.cwd(), relPath), 'utf-8');
+				expect(content).toContain('isolated git worktree');
+				expect(content).toMatch(/do NOT overlap/i);
+				expect(content).toContain('not known until the plan is finalized');
+				expect(content).not.toContain('Inspect the plan and recommend a count');
+			});
+		}
 	});
 });
