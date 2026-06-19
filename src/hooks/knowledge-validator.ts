@@ -167,9 +167,13 @@ function normalizeText(text: string): string {
 }
 
 /**
- * Extract context words around a target word (bigrams/surrounding words).
- * Context window is 3 words before and after, excluding the negation word itself.
+ * Extract context words around each occurrence of a target word (single tokens within a window).
+ * Context window is 3 words before and after, excluding the target word itself.
  * Handles multi-word terms (e.g. "must not", "don't use") by scanning word slices.
+ *
+ * Note: this is an exact-word-match heuristic. Synonyms (e.g. "use" / "utilize")
+ * will not match across lessons. The 3-token window is bounded; more distant
+ * negation attachments will not be detected as contradictions.
  */
 function extractContextWords(
 	text: string,
@@ -177,33 +181,34 @@ function extractContextWords(
 	contextWindow = 3,
 ): Set<string> {
 	const words = text.split(' ');
+	const context = new Set<string>();
 
-	// Fast path: single-word term
+	// Single-word term: iterate every occurrence
 	if (!word.includes(' ')) {
-		const idx = words.indexOf(word);
-		if (idx === -1) return new Set();
-
-		const start = Math.max(0, idx - contextWindow);
-		const end = Math.min(words.length, idx + contextWindow + 1);
-
-		const context = new Set<string>();
-		for (let i = start; i < end; i++) {
-			if (i !== idx && words[i] && words[i].length > 0) {
-				context.add(words[i]);
+		let from = 0;
+		let idx = words.indexOf(word, from);
+		while (idx !== -1) {
+			const start = Math.max(0, idx - contextWindow);
+			const end = Math.min(words.length, idx + contextWindow + 1);
+			for (let i = start; i < end; i++) {
+				if (i !== idx && words[i] && words[i].length > 0) {
+					context.add(words[i]);
+				}
 			}
+			from = idx + 1;
+			idx = words.indexOf(word, from);
 		}
 		return context;
 	}
 
-	// Multi-word term: scan for the term as a contiguous word slice
+	// Multi-word term: scan contiguous word slices, accumulate across all matches
 	const termLen = word.split(' ').length;
-	for (let i = 0; i <= words.length - termLen; i++) {
+	let i = 0;
+	while (i <= words.length - termLen) {
 		const slice = words.slice(i, i + termLen).join(' ');
 		if (slice === word) {
 			const start = Math.max(0, i - contextWindow);
 			const end = Math.min(words.length, i + termLen + contextWindow);
-
-			const context = new Set<string>();
 			for (let j = start; j < end; j++) {
 				if (j < i || j >= i + termLen) {
 					if (words[j] && words[j].length > 0) {
@@ -211,11 +216,13 @@ function extractContextWords(
 					}
 				}
 			}
-			return context;
+			i += termLen;  // skip past this match
+		} else {
+			i += 1;
 		}
 	}
 
-	return new Set();
+	return context;
 }
 
 /**
@@ -1036,9 +1043,13 @@ export const _internals: {
 	auditEntryHealth: typeof auditEntryHealth;
 	quarantineEntry: typeof quarantineEntry;
 	restoreEntry: typeof restoreEntry;
+	extractContextWords: typeof extractContextWords;
+	hasSignificantOverlap: typeof hasSignificantOverlap;
 } = {
 	validateLesson,
 	auditEntryHealth,
 	quarantineEntry,
 	restoreEntry,
+	extractContextWords,
+	hasSignificantOverlap,
 };
