@@ -175,7 +175,9 @@ export function isSkillMaturityEligible(
 
 	// Count distinct phase numbers (not total confirmations)
 	const distinctPhases = new Set(
-		(entry.confirmed_by ?? []).map((c) => c.phase_number),
+		(entry.confirmed_by ?? [])
+			.map((c) => c.phase_number)
+			.filter((p): p is number => typeof p === 'number'),
 	).size;
 
 	// Must have sufficient confirmations (counting distinct phases) OR strong outcomes

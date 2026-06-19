@@ -453,25 +453,17 @@ architect to call `skill_apply`.
 
 ### Maturity gate
 
-An entry qualifies for skill compilation when **any** of these criteria are met:
+An entry passes the maturity gate according to the following decision logic:
 
-**1. Positive outcome track record** — Entry has been applied successfully (e.g., `applied_explicit_count >= 3` or `succeeded_after_shown_count >= 3`) with positive `computeOutcomeSignal > 0`. Singletons with strong positive outcomes can compile even with low confirmation count.
-
-**2. Multiple distinct phase confirmations** — Entry is confirmed in 2+ distinct phases. The default `min_skill_confirmations=2` uses distinct phase numbers, not total confirmation records, so an entry confirmed once in phase 1 and once in phase 2 qualifies.
-
-**3. High confidence** — Entry confidence >= `min_skill_confidence` (default 0.7). Entries without outcome history can enter the pipeline if confidence is adequate.
-
-**Blocking rule:** Entries with negative outcome signal (`computeOutcomeSignal < 0`) are rejected regardless of confirmations or confidence.
+1. **Negative outcome signal** — Entries with `computeOutcomeSignal < 0` are rejected regardless of confirmations or confidence.
+2. **Strong outcome bypass** — entries with a strong outcome record (`applied_explicit_count >= 3` or `succeeded_after_shown_count >= 3`) and a strictly positive outcome signal (`computeOutcomeSignal > 0`) bypass all remaining gates and are accepted regardless of confidence or confirmation count. Negative signals are still rejected by step 1 regardless of outcome record strength.
+3. **Legacy AND gates** — for entries that reach this step, confidence must be >= `min_skill_confidence` (unless a strong outcome record is present, which bypasses the confidence floor), and either distinct phases >= `min_skill_confirmations` or a strong outcome record is present. When no strong outcome record is present, both conditions must hold independently; neither alone is sufficient.
 
 **Configuration keys** (under `curator` config):
 - `min_skill_confidence`: Confidence floor for candidates (default `0.70`). Configurable via config schema.
-- `min_skill_confirmations`: Minimum distinct phases or strong outcomes threshold (default `2`). Configurable via config schema.
+- `min_skill_confirmations`: Minimum distinct phases required for non-strong entries (default `2`). Configurable via config schema.
 
-**Singleton promotion:** 1-entry clusters compile if the entry is:
-- A high/critical priority directive, OR
-- Has strong outcome record (applied/succeeded >= 3)
-
-This allows well-evidenced singletons to become skills even when they haven't accumulated multiple confirmations yet.
+**Singleton promotion** — After the maturity gate above, 1-entry clusters are evaluated for promotion by `isSkillSingletonEligible` during clustering. A singleton passes this post-maturity check if it is a high/critical priority directive **or** has a strong outcome record (`applied/succeeded >= 3`). This allows well-evidenced singletons to become skills even when they haven't accumulated multiple confirmations yet.
 
 See [Generated Skills](skills.md) for the generated-skill lifecycle and file
 layout.
