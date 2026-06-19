@@ -561,7 +561,9 @@ function parseV3BatchEnrichmentResponse(
 	if (parsed.length < expectedLength) {
 		missing.push(`expected ${expectedLength} items but got ${parsed.length}`);
 	} else if (parsed.length > expectedLength) {
-		missing.push(`got ${parsed.length} items but only first ${expectedLength} will be used; extras discarded`);
+		missing.push(
+			`got ${parsed.length} items but only first ${expectedLength} will be used; extras discarded`,
+		);
 	}
 	return { fields, missing };
 }
@@ -591,11 +593,7 @@ async function enrichLessonsToV3Batched(params: {
 		() => null as ActionableDirectiveFields | null,
 	);
 	const batchSize = params.batchSize ?? ENRICHMENT_BATCH_SIZE;
-	for (
-		let start = 0;
-		start < params.lessons.length;
-		start += batchSize
-	) {
+	for (let start = 0; start < params.lessons.length; start += batchSize) {
 		const batch = params.lessons.slice(start, start + batchSize);
 		const prompt = buildV3BatchEnrichmentPrompt(batch);
 		let userInput = prompt;
@@ -630,9 +628,10 @@ async function enrichLessonsToV3Batched(params: {
 					.map((fields, idx) => ({ fields, idx }))
 					.filter((item) => item.fields !== null)
 					.map((item) => item.idx + 1);
-				const preserveClause = resolvedList.length > 0
-					? `Preserve the already-valid entries for items ${resolvedList.join(', ')} exactly as you returned them previously. `
-					: '';
+				const preserveClause =
+					resolvedList.length > 0
+						? `Preserve the already-valid entries for items ${resolvedList.join(', ')} exactly as you returned them previously. `
+						: '';
 				userInput = `${prompt}\n\nRETRY: your last output still missed valid directives for items ${unresolved.join(
 					', ',
 				)}. ${retryHint} ${preserveClause}Return a full JSON array with valid entries for every item.`;
