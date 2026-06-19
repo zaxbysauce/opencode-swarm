@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.80.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.7...v7.80.0) (2026-06-19)
+
+
+### Features
+
+* **async:** add advisory lane dispatch ([bb668ee](https://github.com/ZaxbyHub/opencode-swarm/commit/bb668eeb13d7978e1f55bf15fa0aad4295cdcde7))
+* **parallel:** make parallel coders + worktree isolation first-class ([cf76234](https://github.com/ZaxbyHub/opencode-swarm/commit/cf76234757b9cf8f7237e9243ad2bdf06f6cd81f))
+
+
+### Bug Fixes
+
+* **knowledge:** batch curator enrichment and isolate enrichment quota usage ([d4d7498](https://github.com/ZaxbyHub/opencode-swarm/commit/d4d7498343c6975727db5d5db91e09c1815ba75d))
+* **knowledge:** wire enrichment batch_size through Zod schema and address review findings ([66b7f59](https://github.com/ZaxbyHub/opencode-swarm/commit/66b7f5902fa43cfe60f6b4f9308bb7692daa8d0e))
+
 ## [7.79.7](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.6...v7.79.7) (2026-06-19)
 
 
