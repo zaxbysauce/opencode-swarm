@@ -936,6 +936,22 @@ export const ContextMapConfigSchema = z.object({
 
 export type ContextMapConfig = z.infer<typeof ContextMapConfigSchema>;
 
+// Repo dependency-graph configuration (issue #1448)
+export const RepoGraphConfigSchema = z.object({
+	/**
+	 * Extra directory names to skip when the repo dependency graph is built,
+	 * in addition to the built-in defaults (node_modules, .git, dist, build,
+	 * out, coverage, .next, .nuxt, .cache, vendor, .svn, .hg, .svelte-kit).
+	 *
+	 * Matching is by directory basename at any depth — the same mechanism the
+	 * built-in defaults use — so `".svelte-kit"` excludes every `.svelte-kit`
+	 * directory in the workspace. Entries are not glob/path patterns.
+	 */
+	exclude_dirs: z.array(z.string().min(1)).default([]),
+});
+
+export type RepoGraphConfig = z.infer<typeof RepoGraphConfigSchema>;
+
 // Checkpoint configuration
 export const CheckpointConfigSchema = z
 	.object({
@@ -1984,6 +2000,9 @@ export const PluginConfigSchema = z.object({
 
 	// Context Map configuration (issue #1104, FR-006 — opt-in)
 	context_map: ContextMapConfigSchema.optional(),
+
+	// Repo dependency-graph configuration (issue #1448 — directory excludes)
+	repo_graph: RepoGraphConfigSchema.optional(),
 
 	// Evidence configuration
 	evidence: EvidenceConfigSchema.optional(),

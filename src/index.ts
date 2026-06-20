@@ -322,7 +322,9 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 	// Ensure .swarm/ exists before repo graph init tries to save the first graph.
 	initTelemetry(ctx.directory);
 
-	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory);
+	const repoGraphHook = createRepoGraphBuilderHook(ctx.directory, undefined, {
+		excludeDirs: config.repo_graph?.exclude_dirs,
+	});
 	queueMicrotask(() => {
 		const watchdog = setTimeout(() => {
 			log(
