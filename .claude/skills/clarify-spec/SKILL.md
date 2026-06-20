@@ -50,7 +50,7 @@ CLARIFY-SPEC handles **already-surfaced** `[NEEDS CLARIFICATION]` markers and sp
 However, before surfacing each marker question to the user, CLARIFY-SPEC MUST:
 
 1. **Consult `critic_sounding_board`** with the candidate marker question and surrounding spec context to check whether the question wording can be improved or the item can be resolved from existing context.
-2. **Apply the overconfidence guard:** If the critic supplies a `RESOLVE` verdict with a default answer, but that default is not directly supported by user request, spec, or recorded context, classify the item as `user_decision` rather than `self_resolved`.
+2. **Apply the Overconfidence guard:** If the critic supplies a `RESOLVE` verdict with a default answer, but that default is not directly supported by user request, spec, or recorded context, classify the item as `user_decision` rather than `self_resolved`.
 3. **Apply always-surface protection:** If the marker belongs to an always-surface category (scope boundaries, destructive behavior, security/privacy, backward compatibility, breaking API changes, new dependencies, deprecations, cross-platform impact, cost/performance tradeoffs, user-visible UX, rollout strategy, QA gates), the item MUST NOT receive `UNNECESSARY`/`DROP` from the critic — override to `APPROVED`/`ASK_USER`.
 
 Critic verdict mapping (see `src/agents/critic.ts` `SoundingBoardVerdict`): `UNNECESSARY`→DROP, `RESOLVE`→RESOLVE, `REPHRASE`→REPHRASE, `APPROVED`→ASK_USER.

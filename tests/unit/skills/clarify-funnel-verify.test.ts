@@ -190,7 +190,7 @@ describe('Task 1.2 — clarification funnel protocol', () => {
 				);
 				const content = readFileSync(skillPath, 'utf-8');
 				expect(content, `${slug} missing overconfidence guard`).toContain(
-					'overconfidence guard',
+					'Overconfidence guard',
 				);
 			}
 		});

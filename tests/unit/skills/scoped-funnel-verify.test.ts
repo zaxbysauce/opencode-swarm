@@ -55,7 +55,7 @@ describe('Scoped Funnel Protocol Verification (specify, brainstorm, issue-ingest
 				expect(
 					content,
 					`${skillSlug} missing overconfidence guard`,
-				).toContain('overconfidence guard');
+				).toContain('Overconfidence guard');
 			});
 
 			it('contains always-surface protection requirement', () => {
