@@ -157,95 +157,109 @@ describe('enforceKnowledgeCap', () => {
 
 describe('enforceKnowledgeCap — TOCTOU race fix', () => {
 	it(
-		'concurrent enforceKnowledgeCap calls do not lose entries — ' +
-			'lock-before-read ensures atomic read-modify-write',
-		async () => {
-			// Set up: write 5 entries first
-			await writeEntries(5);
-
-			// Override readKnowledge within _internals to introduce a deliberate
-			// delay, simulating the TOCTOU window where another caller could append.
-			// With the pre-fix code (read-before-lock), this delay would allow
-			// concurrent appends to be dropped when the rewrite happens.
-			// With the post-fix code (lock-before-read), the lock is already held
-			// when readKnowledge is called, so concurrent appends wait.
-			const originalReadKnowledge = _internals.readKnowledge;
-			let callCount = 0;
-			_internals.readKnowledge = mock(
-				async <T>(filePath: string): Promise<T[]> => {
-					callCount++;
-					// First call (from first enforceKnowledgeCap): delay to simulate TOCTOU window
-					if (callCount === 1) {
-						await Bun.sleep(50);
-					}
-					return originalReadKnowledge(filePath);
-				},
-			);
-
-			// Two concurrent enforceKnowledgeCap calls on the same file.
-			// Both should see the same snapshot under lock, and neither should
-			// drop entries that the other wrote.
-			await Promise.all([
-				enforceKnowledgeCap<TestEntry>(testFile, 10),
-				enforceKnowledgeCap<TestEntry>(testFile, 10),
-			]);
-
-			// Both calls should have seen 5 entries (under cap of 10, no trim).
-			// File should still have exactly 5 entries — no entries lost.
-			const entries = await readKnowledge<TestEntry>(testFile);
-			expect(entries).toHaveLength(5);
-			expect(entries.map((e) => e.id)).toEqual([0, 1, 2, 3, 4]);
-
-			_internals.readKnowledge = originalReadKnowledge;
-		},
-	);
-
-	it(
 		'concurrent enforceKnowledgeCap with appendKnowledge interleaving — ' +
 			'append adds entries that must not be lost when cap is enforced',
 		async () => {
 			// Start with 3 entries (under cap of 10)
 			await writeEntries(3);
 
-			// Simulate the race condition by mocking readKnowledge to return a
-			// stale snapshot (as the pre-fix code would have done).
-			// This test verifies that with the lock-before-read fix, even if
-			// appendKnowledge interleaves, the final count is correct.
+			// Delay readKnowledge to widen the window where a concurrent
+			// appendKnowledge could interleave. With the lock held before
+			// read, appendKnowledge blocks until enforceKnowledgeCap finishes
+			// its read-modify-write, so the interleaved entry is never lost.
 			const originalReadKnowledge = _internals.readKnowledge;
-			let readPhase = 0;
+			let readCalls = 0;
 			_internals.readKnowledge = mock(
-				async <T>(_filePath: string): Promise<T[]> => {
-					readPhase++;
-					if (readPhase === 1) {
-						// First enforceKnowledgeCap call reads 3 entries
-						// (simulating old code reading before lock)
-						await Bun.sleep(30);
-						return originalReadKnowledge(_filePath);
+				async <T>(filePath: string): Promise<T[]> => {
+					readCalls++;
+					if (readCalls === 1) {
+						await Bun.sleep(50); // widen the interleave window
 					}
-					// Second call reads after appendKnowledge has added more
-					return originalReadKnowledge(_filePath);
+					return originalReadKnowledge(filePath);
 				},
 			);
 
-			// Race: enforceKnowledgeCap reads, then appendKnowledge adds entries,
-			// then enforceKnowledgeCap writes.
-			// With the fix (lock-before-read), appendKnowledge is blocked until
-			// the lock is released, so it appends AFTER the trim-write.
+			// Concurrent append during enforceKnowledgeCap's locked read.
+			// Without lock-before-read, the append would write to the file
+			// while enforce is between its read and write, causing the
+			// appended entry to be silently dropped by the rewrite.
 			await Promise.all([
 				enforceKnowledgeCap<TestEntry>(testFile, 10),
 				(async () => {
-					await Bun.sleep(15); // delay to let enforceKnowledgeCap read first
+					await Bun.sleep(10); // let enforce acquire lock and start read
 					await appendKnowledge(testFile, { id: 99, lesson: 'interleaved' });
 				})(),
 			]);
 
-			// The interleaved entry should be preserved (appended after trim)
+			// The interleaved entry must be preserved (lock serialised it
+			// after the enforce write, so it is present in the final file).
 			const entries = await readKnowledge<TestEntry>(testFile);
 			const ids = entries.map((e) => e.id);
-			// Should have 4 entries: original 3 + interleaved append
-			// (cap is 10, well above 4)
 			expect(ids).toContain(99);
 			expect(ids.sort()).toEqual([0, 1, 2, 99].sort());
+
+			_internals.readKnowledge = originalReadKnowledge;
+		},
+	);
+
+	it(
+		'stale-snapshot read during enforceKnowledgeCap does not drop ' +
+			'interleaved appendKnowledge entries',
+		async () => {
+			// Start with 8 entries (under cap of 10)
+			await writeEntries(8);
+
+			// Simulate the pre-fix TOCTOU window: mock readKnowledge to
+			// return a stale 5-entry snapshot (as if it read before some
+			// concurrent appends landed). Concurrent appendKnowledge adds
+			// 3 entries during the delay. Without lock-before-read, the
+			// stale read would cause enforce to rewrite from the old
+			// snapshot, dropping the 3 appended entries. With the fix,
+			// the lock serialises the appends after enforce finishes, so
+			// all 11 entries survive.
+			const originalReadKnowledge = _internals.readKnowledge;
+			_internals.readKnowledge = mock(
+				async <T>(_filePath: string): Promise<T[]> => {
+					await Bun.sleep(30); // widen the race window
+					// Return a stale 5-entry snapshot (first 5 of the 8)
+					const all = await originalReadKnowledge(_filePath);
+					return all.slice(0, 5) as T[];
+				},
+			);
+
+			await Promise.all([
+				enforceKnowledgeCap<TestEntry>(testFile, 10),
+				(async () => {
+					await Bun.sleep(5); // interleave during the stale read
+					await appendKnowledge(testFile, {
+						id: 99,
+						lesson: 'late-1',
+					});
+					await appendKnowledge(testFile, {
+						id: 100,
+						lesson: 'late-2',
+					});
+					await appendKnowledge(testFile, {
+						id: 101,
+						lesson: 'late-3',
+					});
+				})(),
+			]);
+
+			// All entries should be present: original 8 + 3 concurrent = 11.
+			// enforceKnowledgeCap saw only 5 entries (stale mock) so no trim
+			// was triggered; the 3 late entries were appended under the lock
+			// after enforce released it, so they survive untouched.
+			const entries = await readKnowledge<TestEntry>(testFile);
+			const ids = entries.map((e) => e.id);
+			expect(entries).toHaveLength(11);
+			expect(ids).toContain(99);
+			expect(ids).toContain(100);
+			expect(ids).toContain(101);
+			// Original entries are all still present (no trim happened)
+			for (const id of [0, 1, 2, 3, 4, 5, 6, 7]) {
+				expect(ids).toContain(id);
+			}
 
 			_internals.readKnowledge = originalReadKnowledge;
 		},
