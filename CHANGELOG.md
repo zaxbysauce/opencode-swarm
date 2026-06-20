@@ -1,5 +1,18 @@
 # Changelog
 
+## [7.81.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.80.0...v7.81.0) (2026-06-20)
+
+
+### Features
+
+* **skills:** unify pr review and feedback flow ([e8f42f5](https://github.com/ZaxbyHub/opencode-swarm/commit/e8f42f5375f4cbe3b9370c5b11bb52e53e1f6c82))
+* **skills:** unify pr review and feedback flow ([51d8205](https://github.com/ZaxbyHub/opencode-swarm/commit/51d8205510b8fb916c6fe81538ec803c4f2ff4d4))
+
+
+### Performance Improvements
+
+* **ci:** skip CI for release-please PRs in both PR and merge-queue tiers ([4adb6f1](https://github.com/ZaxbyHub/opencode-swarm/commit/4adb6f13c27d670b7bcd92023fa820e0ee7a377a))
+
 ## [7.80.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.79.7...v7.80.0) (2026-06-19)
 
 
