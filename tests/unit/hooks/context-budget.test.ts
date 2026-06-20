@@ -1242,7 +1242,7 @@ describe('context-budget hook', () => {
 					parts: [{ type: 'text', text: 'user msg' }],
 				},
 				{
-					info: { role: 'assistant', toolName: 'read' },
+					info: { role: 'assistant', toolName: 'bash' },
 					parts: [{ type: 'text', text: originalOutput }],
 				}, // Large output, index 1
 				{
@@ -1298,7 +1298,7 @@ describe('context-budget hook', () => {
 					parts: [{ type: 'text', text: 'user' }],
 				},
 				{
-					info: { role: 'assistant', toolName: 'read' },
+					info: { role: 'assistant', toolName: 'bash' },
 					parts: [{ type: 'text', text: largeToolOutput }],
 				}, // Index 1, age = 4 > recent_window (3)
 				{
