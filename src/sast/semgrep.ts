@@ -266,7 +266,7 @@ async function executeWithTimeout(
 				} catch (e) {
 					// Only log non-ESRCH errors (ESRCH = process already gone, expected)
 					if (e instanceof Error && !e.message.includes('ESRCH')) {
-						// Process may already be gone or signal not supported
+						console.error('[semgrep] child.kill failed:', e.message);
 					}
 				}
 				escalation = setTimeout(() => {
@@ -275,7 +275,7 @@ async function executeWithTimeout(
 					} catch (e) {
 						// Only log non-ESRCH errors (ESRCH = process already gone, expected)
 						if (e instanceof Error && !e.message.includes('ESRCH')) {
-							// Process may already be gone or signal not supported
+							console.error('[semgrep] child.kill failed:', e.message);
 						}
 					}
 				}, KILL_GRACE_MS);
@@ -326,7 +326,7 @@ async function executeWithTimeout(
 				} catch (e) {
 					// Only log non-ESRCH errors (ESRCH = process already gone, expected)
 					if (e instanceof Error && !e.message.includes('ESRCH')) {
-						// Process may already be gone or signal not supported
+						console.error('[semgrep] child.kill failed:', e.message);
 					}
 				}
 			} else {
@@ -358,7 +358,7 @@ async function executeWithTimeout(
 				} catch (e) {
 					// Only log non-ESRCH errors (ESRCH = process already gone, expected)
 					if (e instanceof Error && !e.message.includes('ESRCH')) {
-						// Process may already be gone or signal not supported
+						console.error('[semgrep] child.kill failed:', e.message);
 					}
 				}
 			} else {

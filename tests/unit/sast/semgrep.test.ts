@@ -143,6 +143,11 @@ describe('executeWithTimeout subprocess hardening', () => {
 	});
 
 	it('kills child process when stdout overflows (overflow-kill)', async () => {
+		// Skip on Windows: this test relies on SIGTERM/SIGKILL escalation semantics
+		// which differ on Windows.
+		if (process.platform === 'win32') {
+			return;
+		}
 		// Child that writes to stdout faster than settle() can stop it.
 		// The overflow handler must call settle() and kill the child, not wait for close.
 		const script = writeScript(
