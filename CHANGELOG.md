@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.81.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.2...v7.81.3) (2026-06-20)
+
+
+### Bug Fixes
+
+* **sandbox:** address five advisory hardening findings ([7347fa3](https://github.com/ZaxbyHub/opencode-swarm/commit/7347fa3d30cec1ac1b248b6e795bae3f5b821571))
+
 ## [7.81.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.1...v7.81.2) (2026-06-20)
 
 
