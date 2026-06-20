@@ -578,6 +578,39 @@ Controls phase completion gating and validation.
 }
 ```
 
+## Repo Graph Configuration (`repo_graph`)
+
+Controls the repository dependency graph that the plugin builds on session start.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `exclude_dirs` | string[] | `[]` | Extra directory **names** to skip when scanning the workspace, in addition to the built-in defaults. |
+
+The graph scanner already skips common generated directories by default:
+`node_modules`, `.git`, `dist`, `build`, `out`, `coverage`, `.next`, `.nuxt`,
+`.cache`, `vendor`, `.svn`, `.hg`, and `.svelte-kit`. Use `exclude_dirs` to add
+your own (for example a custom generated-code or fixtures directory).
+
+Matching is by directory **basename at any depth** — the same mechanism the
+built-in defaults use — so `".svelte-kit"` skips every `.svelte-kit` directory
+in the workspace. Entries are directory names, **not** glob or path patterns.
+The exclude also applies to write-triggered incremental updates, so files under
+an excluded directory are never (re-)added to the graph.
+
+**Example** — exclude a generated-code directory and a docs build dir:
+
+```json
+{
+  "repo_graph": {
+    "exclude_dirs": ["generated", "site"]
+  }
+}
+```
+
+> Note: even without configuring `exclude_dirs`, a single unparseable or
+> minified file can no longer abort the whole graph build — such files are
+> skipped individually (issue #1448).
+
 ## Evidence Retention Configuration
 
 Controls evidence bundle archival for `/swarm finalize` and `/swarm archive`. The two commands use different defaults: finalize uses tighter retention (30 days / 10 bundles) to keep only recent evidence; archive targets long-term retention (90 days / 1000 bundles) for periodic cleanup.
