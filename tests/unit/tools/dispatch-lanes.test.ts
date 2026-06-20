@@ -1567,6 +1567,46 @@ describe('common_prompt (shared lane context)', () => {
 		expect(result.errors[0]).toContain(`max ${MAX_PROMPT_CHARS}`);
 	});
 
+	test('applyCommonPrompt passes when combined length equals the per-lane limit exactly', () => {
+		// common_prompt schema max = MAX_PROMPT_CHARS - separator(2) - 1 = 79997
+		// combined = 79997 + 2 + 1 = 80000 = MAX_PROMPT_CHARS, NOT > MAX_PROMPT_CHARS → passes
+		const common = 'a'.repeat(MAX_PROMPT_CHARS - 3); // 79997 chars
+		const result = _test_exports.applyCommonPrompt(
+			[{ id: 'x', agent: 'explorer', prompt: 'y' }],
+			common,
+		);
+		expect(result.ok).toBe(true);
+		if (!result.ok) return;
+		expect(result.lanes[0].prompt.length).toBe(MAX_PROMPT_CHARS); // exactly at limit
+	});
+
+	test('common_prompt schema rejects values exceeding the tightened max (79997)', async () => {
+		// 79998-char common_prompt is schema-invalid (max is MAX_PROMPT_CHARS - sep - 1 = 79997)
+		// so the executor must fail with invalid_args before any session is created
+		const directory = makeTempDir();
+		const ops: SessionOps = {
+			create: mock(async () => ({ data: { id: 'session' }, error: undefined })),
+			prompt: mock(async () => ({
+				data: { parts: [{ type: 'text' as const, text: 'done' }] },
+				error: undefined,
+			})),
+			delete: mock(async () => undefined),
+		};
+		_internals.getSessionOps = () => ops;
+
+		const result = await executeDispatchLanes(
+			{
+				common_prompt: 'a'.repeat(MAX_PROMPT_CHARS - 2), // 79998 chars — exceeds schema max of 79997
+				lanes: [{ id: 'x', agent: 'explorer', prompt: 'y' }],
+			},
+			directory,
+		);
+
+		expect(result.success).toBe(false);
+		expect(result.failure_class).toBe('invalid_args');
+		expect(ops.create).toHaveBeenCalledTimes(0);
+	});
+
 	test('executeDispatchLanes sends common_prompt + per-lane prompt to each lane', async () => {
 		const directory = makeTempDir();
 		let nextSession = 0;

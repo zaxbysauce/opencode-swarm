@@ -107,7 +107,7 @@ const DispatchLanesArgsSchema = z.object({
 	common_prompt: z
 		.string()
 		.min(1)
-		.max(MAX_PROMPT_CHARS)
+		.max(MAX_PROMPT_CHARS - COMMON_PROMPT_SEPARATOR.length - 1)
 		.optional()
 		.describe(
 			'Optional shared context prepended to every lane prompt. Send large shared context (PR diff, obligation ledger, scope) ONCE here instead of inlining the same blob into each lane prompt; this keeps the tool-call payload small and avoids malformed/truncated tool-call JSON. Combined common_prompt + per-lane prompt must not exceed the per-lane character limit.',
