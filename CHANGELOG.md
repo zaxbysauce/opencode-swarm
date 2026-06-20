@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.82.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.82.0...v7.82.1) (2026-06-20)
+
+
+### Bug Fixes
+
+* add Buffer.byteLength nullish guards + clarify doc gap mapping ([2c1a6af](https://github.com/ZaxbyHub/opencode-swarm/commit/2c1a6af73bf4cd4dd6cd7d7765fbd297cb6a965d))
+
 ## [7.82.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.4...v7.82.0) (2026-06-20)
 
 
