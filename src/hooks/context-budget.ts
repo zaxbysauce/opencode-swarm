@@ -435,13 +435,14 @@ function shouldMaskToolOutput(
 		return false;
 	}
 
-	// Exempt tools: retrieve_summary, task
-	// - retrieve_summary: already a summary, no value to mask
+	// Exempt retrieval tools and small read/task outputs.
 	// - task: results are already summarized by the agent that created the task call
 	const toolName = extractToolName(text);
 	if (
 		toolName &&
-		['retrieve_summary', 'task', 'read'].includes(toolName.toLowerCase())
+		['retrieve_summary', 'retrieve_lane_output', 'task', 'read'].includes(
+			toolName.toLowerCase(),
+		)
 	) {
 		return false;
 	}
