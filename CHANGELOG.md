@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.81.4](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.3...v7.81.4) (2026-06-20)
+
+
+### Bug Fixes
+
+* **prm,skills,learning:** resolve 5 defects from issue [#1417](https://github.com/ZaxbyHub/opencode-swarm/issues/1417) ([431f072](https://github.com/ZaxbyHub/opencode-swarm/commit/431f072e28467030b0b7e5a62bc67c5b612c2c27))
+
 ## [7.81.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.2...v7.81.3) (2026-06-20)
 
 
