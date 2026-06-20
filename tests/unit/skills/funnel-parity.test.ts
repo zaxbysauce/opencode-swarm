@@ -12,17 +12,22 @@ import { describe, expect, it } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-// Skills that contain the clarification funnel protocol
-const FUNNEL_SKILLS = [
+// Skills with FULL clarification funnel (all 5 categories, all protections required)
+const FULL_FUNNEL_SKILLS = [
 	'clarify',
 	'plan',
 	'specify',
 	'brainstorm',
 	'issue-ingest',
-	'clarify-spec',
 ];
 
-// Core funnel elements that must appear in all funnel-bearing skills
+// Skills with SCOPED funnel protocol (subset of funnel for specific use case)
+const SCOPED_FUNNEL_SKILLS = ['clarify-spec'];
+
+// All funnel-bearing skills (full + scoped)
+const ALL_FUNNEL_SKILLS = [...FULL_FUNNEL_SKILLS, ...SCOPED_FUNNEL_SKILLS];
+
+// Core funnel elements that must appear in all full-funnel skills
 const REQUIRED_FUNNEL_ELEMENTS = {
 	categories: [
 		'self_resolved',
@@ -33,7 +38,7 @@ const REQUIRED_FUNNEL_ELEMENTS = {
 	],
 	outcomes: ['UNNECESSARY', 'DROP', 'RESOLVE', 'REPHRASE', 'APPROVED', 'ASK_USER'],
 	protections: [
-		'overconfidence guard',
+		'Overconfidence guard', // Note: capital O as appears in skills
 		'always-surface',
 		'SoundingBoardVerdict',
 	],
@@ -55,10 +60,11 @@ describe('Cross-skill funnel parity verification', () => {
 		}
 	});
 
-	describe('Classification categories parity', () => {
+	describe('Classification categories parity (full-funnel skills only)', () => {
+		// Note: Scoped-funnel skills like clarify-spec don't enumerate all categories
 		for (const category of REQUIRED_FUNNEL_ELEMENTS.categories) {
-			it(`"${category}" appears in all funnel skills`, () => {
-				for (const skillSlug of FUNNEL_SKILLS) {
+			it(`"${category}" appears in all full-funnel skills`, () => {
+				for (const skillSlug of FULL_FUNNEL_SKILLS) {
 					const skillPath = join(
 						process.cwd(),
 						'.opencode/skills',
@@ -75,10 +81,10 @@ describe('Cross-skill funnel parity verification', () => {
 		}
 	});
 
-	describe('Critic outcomes parity', () => {
+	describe('Critic outcomes parity (all funnel skills)', () => {
 		for (const outcome of REQUIRED_FUNNEL_ELEMENTS.outcomes) {
 			it(`"${outcome}" appears in all funnel skills`, () => {
-				for (const skillSlug of FUNNEL_SKILLS) {
+				for (const skillSlug of ALL_FUNNEL_SKILLS) {
 					const skillPath = join(
 						process.cwd(),
 						'.opencode/skills',
@@ -95,10 +101,10 @@ describe('Cross-skill funnel parity verification', () => {
 		}
 	});
 
-	describe('Funnel protections parity', () => {
+	describe('Funnel protections parity (all funnel skills)', () => {
 		for (const protection of REQUIRED_FUNNEL_ELEMENTS.protections) {
 			it(`"${protection}" protection appears in all funnel skills`, () => {
-				for (const skillSlug of FUNNEL_SKILLS) {
+				for (const skillSlug of ALL_FUNNEL_SKILLS) {
 					const skillPath = join(
 						process.cwd(),
 						'.opencode/skills',
@@ -182,7 +188,7 @@ describe('Cross-skill funnel parity verification', () => {
 	});
 
 	describe('.opencode/.claude mirror parity', () => {
-		for (const skillSlug of FUNNEL_SKILLS) {
+		for (const skillSlug of ALL_FUNNEL_SKILLS) {
 			it(`${skillSlug} .claude mirror is byte-identical to .opencode version`, () => {
 				const opencodePath = join(
 					process.cwd(),
