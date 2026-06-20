@@ -18,6 +18,7 @@ import {
 	stripKnownSwarmPrefix,
 } from '../config/schema';
 import { listEvidenceTaskIds, loadEvidence } from '../evidence/manager';
+import { atomicWriteFile } from '../evidence/task-file.js';
 import { verifyFullAutoPhaseApproval } from '../full-auto/phase-approval';
 import { hasPassedAllGates } from '../gate-evidence';
 import {
@@ -1473,6 +1474,58 @@ export async function executePhaseComplete(
 		}
 
 		// Update plan.json phase status to complete via ledger-first savePlan
+		// Acquire lock on plan.json to prevent concurrent writes (F-03)
+		const planLockTaskId = `phase-complete-plan-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+		const planFilePath = 'plan.json';
+		let planLockResult: Awaited<ReturnType<typeof tryAcquireLock>> | undefined;
+		try {
+			planLockResult = await tryAcquireLock(
+				dir,
+				planFilePath,
+				agentName,
+				planLockTaskId,
+			);
+		} catch (error) {
+			// F-002: fail-closed on filesystem errors (not contention). The lock subsystem is
+			// in a bad state; writing without a lock on a read-modify-write file is unsafe.
+			// The pre-existing events.jsonl lock above uses soft-fail because events.jsonl is
+			// append-only; plan.json is RMW and needs fail-closed behavior.
+			return JSON.stringify({
+				success: false,
+				phase: args.phase,
+				status: 'incomplete' as const,
+				message: `Failed to acquire lock for plan.json: ${error instanceof Error ? error.message : String(error)}`,
+				agentsDispatched,
+				agentsMissing,
+				warnings,
+				errors: [error instanceof Error ? error.message : String(error)],
+				recovery_guidance:
+					'Resolve the filesystem issue (permissions, disk space, or .swarm/locks/ directory) and retry phase_complete.',
+			});
+		}
+		if (!planLockResult?.acquired) {
+			// F-001: hard-fail on contention, consistent with save-plan.ts:724-733 and
+			// update-task-status.ts:1114-1123. The tryAcquireLock retry config already
+			// handles transient contention (5 retries with exponential backoff), so a
+			// returned acquired: false after retries means real concurrent contention.
+			// plan.json is read-modify-write; proceeding without the lock creates a
+			// lost-update risk.
+			return JSON.stringify({
+				success: false,
+				phase: args.phase,
+				status: 'incomplete' as const,
+				message: `Plan write blocked: plan.json is locked by ${planLockResult.existing?.agent ?? 'another agent'}`,
+				agentsDispatched,
+				agentsMissing,
+				warnings,
+				errors: [
+					`Concurrent plan write detected — lock held by ${planLockResult.existing?.agent ?? 'another agent'} (task: ${planLockResult.existing?.taskId ?? 'unknown'})`,
+				],
+				recovery_guidance:
+					'Wait a moment and retry phase_complete. The lock will expire automatically if the holding agent fails.',
+			});
+		}
+
 		try {
 			const plan = await loadPlan(dir);
 			if (plan === null) {
@@ -1520,7 +1573,7 @@ export async function executePhaseComplete(
 					);
 					if (phaseObj) {
 						phaseObj.status = 'complete';
-						fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+						await atomicWriteFile(planPath, JSON.stringify(plan, null, 2));
 					}
 				} catch {
 					/* fallback failed */
@@ -1588,10 +1641,23 @@ export async function executePhaseComplete(
 				);
 				if (phaseObj) {
 					phaseObj.status = 'complete';
-					fs.writeFileSync(planPath, JSON.stringify(plan, null, 2), 'utf-8');
+					await atomicWriteFile(planPath, JSON.stringify(plan, null, 2));
 				}
 			} catch {
 				/* fallback failed */
+			}
+		} finally {
+			if (planLockResult?.acquired && planLockResult.lock._release) {
+				try {
+					await planLockResult.lock._release();
+				} catch (releaseError) {
+					logger.warn(
+						'[phase_complete] Plan lock release failed (non-blocking):',
+						releaseError instanceof Error
+							? releaseError.message
+							: String(releaseError),
+					);
+				}
 			}
 		}
 	}
