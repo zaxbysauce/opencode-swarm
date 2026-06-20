@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.81.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.1...v7.81.2) (2026-06-20)
+
+
+### Bug Fixes
+
+* canonicalize mock.target normalization, add allowlist O(1) lookup, extend tests ([7563de2](https://github.com/ZaxbyHub/opencode-swarm/commit/7563de222cb8bf500d623787ac743b6eced31a9b))
+
 ## [7.81.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.81.0...v7.81.1) (2026-06-20)
 
 
