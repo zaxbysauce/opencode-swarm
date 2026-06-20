@@ -572,4 +572,236 @@ describe('knowledge_remove tool verification tests', () => {
 			);
 		});
 	});
+
+	// ========== Test 8: Promoted-entry deletion guard (issue #1219 F-003) ==========
+	//
+	// PR #1207 added a guard in src/tools/knowledge-remove.ts:52 that refuses to
+	// delete any entry with status === 'promoted'. Promoted entries have escaped
+	// swarm-local TTL and represent cross-project consensus — removing them from
+	// swarm would be inconsistent with the cross-project truth.
+	//
+	// These tests directly exercise the guard by writing a promoted-status entry
+	// into the swarm knowledge file and attempting to delete it.
+	describe('Promoted-entry deletion guard (issue #1219 F-003)', () => {
+		// Helper that writes a single promoted-status entry directly into
+		// the swarm knowledge file (bypassing knowledge_add, which would never
+		// produce a 'promoted' status from the swarm-tier path).
+		async function writePromotedEntry(
+			id: string,
+			lesson: string,
+		): Promise<void> {
+			const { appendKnowledge } = await import(
+				'../../../src/hooks/knowledge-store.js'
+			);
+			const knowledgePath = path.join(tmpDir, '.swarm', 'knowledge.jsonl');
+			const entry = {
+				id,
+				tier: 'swarm' as const,
+				lesson,
+				category: 'process' as const,
+				tags: ['test', 'promoted-guard'],
+				scope: 'global',
+				confidence: 0.9,
+				status: 'promoted' as const,
+				confirmed_by: [],
+				project_name: '',
+				retrieval_outcomes: {
+					shown_count: 5,
+					acknowledged_count: 3,
+					applied_explicit_count: 2,
+					ignored_count: 0,
+					violated_count: 0,
+					succeeded_after_shown_count: 1,
+					failed_after_shown_count: 0,
+				},
+				schema_version: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				hive_eligible: true,
+			};
+			await fs.mkdir(path.dirname(knowledgePath), { recursive: true });
+			await appendKnowledge(knowledgePath, entry);
+		}
+
+		it('refuses to delete a promoted entry and returns a clear error', async () => {
+			const promotedId = 'aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa';
+			await writePromotedEntry(
+				promotedId,
+				'Promoted entry — must NOT be deleted by knowledge_remove',
+			);
+
+			// Verify the entry exists
+			const before = readKnowledgeEntries();
+			expect(before).toHaveLength(1);
+			expect(before[0].id).toBe(promotedId);
+			expect(before[0].status).toBe('promoted');
+
+			// Attempt to delete — must fail with a specific error
+			const result = await knowledge_remove.execute({ id: promotedId }, tmpDir);
+			const parsed = JSON.parse(result);
+
+			expect(parsed.success).toBe(false);
+			expect(parsed.error).toBeUndefined();
+			expect(parsed.message).toBe(
+				'cannot delete promoted entry — this entry has been promoted to cross-project consensus',
+			);
+
+			// The promoted entry must STILL be in the file unchanged
+			const after = readKnowledgeEntries();
+			expect(after).toHaveLength(1);
+			expect(after[0].id).toBe(promotedId);
+			expect(after[0].lesson).toBe(
+				'Promoted entry — must NOT be deleted by knowledge_remove',
+			);
+			expect(after[0].status).toBe('promoted');
+		});
+
+		it('does not delete the promoted entry when other deletable entries exist alongside it', async () => {
+			const promotedId = 'bbbbbbbb-bbbb-4bbb-bbbb-bbbbbbbbbbbb';
+
+			// Seed: one promoted entry, one normal (non-promoted) entry
+			await writePromotedEntry(promotedId, 'promoted — protected');
+			const addResult = await knowledge_add.execute(
+				{
+					lesson: 'normal entry — should be deletable',
+					category: 'process',
+					tags: ['test'],
+					applies_to_agents: ['coder'],
+					required_actions: ['delete this entry during cleanup'],
+				},
+				tmpDir,
+			);
+			const addParsed = JSON.parse(addResult);
+			expect(addParsed.success).toBe(true);
+
+			let entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(2);
+
+			// Attempt to delete the promoted entry — must fail
+			const promotedAttempt = await knowledge_remove.execute(
+				{ id: promotedId },
+				tmpDir,
+			);
+			const promotedParsed = JSON.parse(promotedAttempt);
+			expect(promotedParsed.success).toBe(false);
+			expect(promotedParsed.message).toBe(
+				'cannot delete promoted entry — this entry has been promoted to cross-project consensus',
+			);
+
+			// The normal entry should still be deletable
+			const normalAttempt = await knowledge_remove.execute(
+				{ id: addParsed.id },
+				tmpDir,
+			);
+			const normalParsed = JSON.parse(normalAttempt);
+			expect(normalParsed.success).toBe(true);
+			expect(normalParsed.removed).toBe(1);
+			expect(normalParsed.remaining).toBe(1);
+
+			// Promoted entry survives, normal entry is gone
+			entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(1);
+			expect(entries[0].id).toBe(promotedId);
+			expect(entries[0].status).toBe('promoted');
+		});
+
+		it('repeated attempts to delete the same promoted entry are idempotently rejected', async () => {
+			const promotedId = 'dddddddd-dddd-4ddd-dddd-dddddddddddd';
+			await writePromotedEntry(promotedId, 'promoted — repeated attempts');
+
+			// First attempt: refused with promoted-specific message
+			const first = await knowledge_remove.execute({ id: promotedId }, tmpDir);
+			const firstParsed = JSON.parse(first);
+			expect(firstParsed.success).toBe(false);
+			expect(firstParsed.message).toContain('cannot delete promoted entry');
+
+			// Second attempt: same outcome (no "not found" fallback — guard fires first)
+			const second = await knowledge_remove.execute({ id: promotedId }, tmpDir);
+			const secondParsed = JSON.parse(second);
+			expect(secondParsed.success).toBe(false);
+			expect(secondParsed.message).toContain('cannot delete promoted entry');
+
+			// Third attempt: still refused
+			const third = await knowledge_remove.execute({ id: promotedId }, tmpDir);
+			const thirdParsed = JSON.parse(third);
+			expect(thirdParsed.success).toBe(false);
+			expect(thirdParsed.message).toContain('cannot delete promoted entry');
+
+			// Entry still intact
+			const entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(1);
+			expect(entries[0].id).toBe(promotedId);
+		});
+
+		it('non-promoted status values do not trigger the guard', async () => {
+			// Verify the guard fires ONLY for status === 'promoted'.
+			// Other statuses (active, candidate, archived, etc.) must delete normally.
+			const knowledgePath = path.join(tmpDir, '.swarm', 'knowledge.jsonl');
+			const { appendKnowledge } = await import(
+				'../../../src/hooks/knowledge-store.js'
+			);
+
+			const activeId = 'eeeeeeee-eeee-4eee-eeee-eeeeeeeeeeee';
+			const archivedId = 'ffffffff-ffff-4fff-ffff-ffffffffffff';
+			const candidateId = '12121212-1212-4121-1212-121212121212';
+
+			const baseEntry = {
+				tier: 'swarm' as const,
+				category: 'process' as const,
+				tags: ['test', 'guard-negative'],
+				scope: 'global',
+				confidence: 0.5,
+				confirmed_by: [],
+				project_name: '',
+				retrieval_outcomes: {
+					shown_count: 0,
+					acknowledged_count: 0,
+					applied_explicit_count: 0,
+					ignored_count: 0,
+					violated_count: 0,
+					succeeded_after_shown_count: 0,
+					failed_after_shown_count: 0,
+				},
+				schema_version: 1,
+				created_at: new Date().toISOString(),
+				updated_at: new Date().toISOString(),
+				auto_generated: false,
+				hive_eligible: false,
+			};
+
+			await appendKnowledge(knowledgePath, {
+				...baseEntry,
+				id: activeId,
+				lesson: 'active entry',
+				status: 'active',
+			});
+			await appendKnowledge(knowledgePath, {
+				...baseEntry,
+				id: archivedId,
+				lesson: 'archived entry',
+				status: 'archived',
+			});
+			await appendKnowledge(knowledgePath, {
+				...baseEntry,
+				id: candidateId,
+				lesson: 'candidate entry',
+				status: 'candidate',
+			});
+
+			let entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(3);
+
+			// Each non-promoted status must delete normally
+			for (const id of [activeId, archivedId, candidateId]) {
+				const result = await knowledge_remove.execute({ id }, tmpDir);
+				const parsed = JSON.parse(result);
+				expect(parsed.success).toBe(true);
+				expect(parsed.removed).toBe(1);
+			}
+
+			entries = readKnowledgeEntries();
+			expect(entries).toHaveLength(0);
+		});
+	});
 });
