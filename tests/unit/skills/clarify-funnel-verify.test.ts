@@ -164,9 +164,10 @@ describe('Task 1.2 — clarification funnel protocol', () => {
 
 		for (const category of expectedCategories) {
 			it(`lists: "${category}"`, () => {
-				expect(content, `Missing always-surface category: ${category}`).toContain(
-					category,
-				);
+				expect(
+					content,
+					`Missing always-surface category: ${category}`,
+				).toContain(category);
 			});
 		}
 	});

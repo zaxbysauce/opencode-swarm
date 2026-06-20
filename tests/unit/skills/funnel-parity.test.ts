@@ -36,7 +36,14 @@ const REQUIRED_FUNNEL_ELEMENTS = {
 		'user_decision',
 		'deferred_nonblocking',
 	],
-	outcomes: ['UNNECESSARY', 'DROP', 'RESOLVE', 'REPHRASE', 'APPROVED', 'ASK_USER'],
+	outcomes: [
+		'UNNECESSARY',
+		'DROP',
+		'RESOLVE',
+		'REPHRASE',
+		'APPROVED',
+		'ASK_USER',
+	],
 	protections: [
 		'Overconfidence guard', // Note: capital O as appears in skills
 		'always-surface',
@@ -92,10 +99,9 @@ describe('Cross-skill funnel parity verification', () => {
 						'SKILL.md',
 					);
 					const content = readFileSync(skillPath, 'utf-8');
-					expect(
-						content,
-						`${skillSlug} missing outcome: ${outcome}`,
-					).toContain(outcome);
+					expect(content, `${skillSlug} missing outcome: ${outcome}`).toContain(
+						outcome,
+					);
 				}
 			});
 		}
@@ -148,10 +154,7 @@ describe('Cross-skill funnel parity verification', () => {
 		});
 
 		it('plan skill contains always-surface section', () => {
-			const skillPath = join(
-				process.cwd(),
-				'.opencode/skills/plan/SKILL.md',
-			);
+			const skillPath = join(process.cwd(), '.opencode/skills/plan/SKILL.md');
 			const content = readFileSync(skillPath, 'utf-8');
 			expect(content).toContain('Always-Surface Categories');
 		});
@@ -173,10 +176,7 @@ describe('Cross-skill funnel parity verification', () => {
 					process.cwd(),
 					'.opencode/skills/clarify/SKILL.md',
 				);
-				const planPath = join(
-					process.cwd(),
-					'.opencode/skills/plan/SKILL.md',
-				);
+				const planPath = join(process.cwd(), '.opencode/skills/plan/SKILL.md');
 				const clarifyContent = readFileSync(clarifyPath, 'utf-8');
 				const planContent = readFileSync(planPath, 'utf-8');
 

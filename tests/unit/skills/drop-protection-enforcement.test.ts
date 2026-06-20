@@ -34,15 +34,11 @@ describe('DROP Protection Mechanical Enforcement Documentation', () => {
 		});
 
 		it('clarify skill documents override behavior when critic attempts DROP', () => {
-			expect(clarifyContent).toContain(
-				'override to `APPROVED`/`ASK_USER`',
-			);
+			expect(clarifyContent).toContain('override to `APPROVED`/`ASK_USER`');
 		});
 
 		it('plan skill documents override behavior when critic attempts DROP', () => {
-			expect(planContent).toContain(
-				'override to `APPROVED`/`ASK_USER`',
-			);
+			expect(planContent).toContain('override to `APPROVED`/`ASK_USER`');
 		});
 
 		it('clarify skill has "Mechanical Enforcement of DROP Protection" section', () => {
@@ -66,21 +62,15 @@ describe('DROP Protection Mechanical Enforcement Documentation', () => {
 		const clarifyContent = readFileSync(clarifyPath, 'utf-8');
 
 		it('documents validation at decision-packet assembly time', () => {
-			expect(clarifyContent).toContain(
-				'decision-packet assembly code',
-			);
+			expect(clarifyContent).toContain('decision-packet assembly code');
 		});
 
 		it('specifies warning log emission requirement', () => {
-			expect(clarifyContent).toContain(
-				'warning log',
-			);
+			expect(clarifyContent).toContain('warning log');
 		});
 
 		it('explains failure modes prevented by enforcement', () => {
-			expect(clarifyContent).toContain(
-				'failure mode',
-			);
+			expect(clarifyContent).toContain('failure mode');
 		});
 
 		it('references src/agents/critic.ts as relevant code location', () => {
@@ -89,7 +79,13 @@ describe('DROP Protection Mechanical Enforcement Documentation', () => {
 	});
 
 	describe('Always-surface categories protection across all skills', () => {
-		const skillSlugs = ['clarify', 'plan', 'specify', 'brainstorm', 'issue-ingest'];
+		const skillSlugs = [
+			'clarify',
+			'plan',
+			'specify',
+			'brainstorm',
+			'issue-ingest',
+		];
 
 		for (const skillSlug of skillSlugs) {
 			it(`${skillSlug} skill documents always-surface protection requirement`, () => {
@@ -126,10 +122,7 @@ describe('DROP Protection Mechanical Enforcement Documentation', () => {
 		});
 
 		it('plan skill specifies override target: APPROVED/ASK_USER', () => {
-			const planPath = join(
-				process.cwd(),
-				'.opencode/skills/plan/SKILL.md',
-			);
+			const planPath = join(process.cwd(), '.opencode/skills/plan/SKILL.md');
 			const content = readFileSync(planPath, 'utf-8');
 			const stage3Start = content.indexOf(
 				'#### Stage 3: Consult Critic Sounding Board',

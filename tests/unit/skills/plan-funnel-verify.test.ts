@@ -80,7 +80,7 @@ describe('plan SKILL.md Clarification Funnel verification', () => {
 
 	it('5 — "Always-Surface Categories" section present with all 13 categories', () => {
 		expect(opencodeContent).toContain('#### Always-Surface Categories');
-		
+
 		const expectedCategories = [
 			'Scope boundaries',
 			'Data loss or destructive behavior',
@@ -96,11 +96,12 @@ describe('plan SKILL.md Clarification Funnel verification', () => {
 			'Optional QA gates or stricter enforcement modes',
 			'Any choice that changes whether the work is advisory vs hard-blocking',
 		];
-		
+
 		for (const category of expectedCategories) {
-			expect(opencodeContent, `Missing always-surface category: ${category}`).toContain(
-				category,
-			);
+			expect(
+				opencodeContent,
+				`Missing always-surface category: ${category}`,
+			).toContain(category);
 		}
 	});
 

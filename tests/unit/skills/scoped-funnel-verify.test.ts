@@ -63,10 +63,9 @@ describe('Scoped and Abbreviated Funnel Protocol Verification', () => {
 			});
 
 			it('contains overconfidence guard reference', () => {
-				expect(
-					content,
-					`${skillSlug} missing overconfidence guard`,
-				).toContain('Overconfidence guard');
+				expect(content, `${skillSlug} missing overconfidence guard`).toContain(
+					'Overconfidence guard',
+				);
 			});
 
 			it('contains always-surface protection requirement', () => {
@@ -84,10 +83,9 @@ describe('Scoped and Abbreviated Funnel Protocol Verification', () => {
 			});
 
 			it('contains SoundingBoardVerdict reference', () => {
-				expect(
-					content,
-					`${skillSlug} missing SoundingBoardVerdict`,
-				).toContain('SoundingBoardVerdict');
+				expect(content, `${skillSlug} missing SoundingBoardVerdict`).toContain(
+					'SoundingBoardVerdict',
+				);
 			});
 
 			it('contains assumptions recording requirement', () => {
@@ -98,30 +96,14 @@ describe('Scoped and Abbreviated Funnel Protocol Verification', () => {
 			});
 
 			it('explicitly mentions the four funnel outcomes (UNNECESSARY/DROP, RESOLVE, REPHRASE, APPROVED/ASK_USER)', () => {
-				expect(
-					content,
-					`${skillSlug} missing UNNECESSARY`,
-				).toContain('UNNECESSARY');
-				expect(
-					content,
-					`${skillSlug} missing DROP`,
-				).toContain('DROP');
-				expect(
-					content,
-					`${skillSlug} missing RESOLVE`,
-				).toContain('RESOLVE');
-				expect(
-					content,
-					`${skillSlug} missing REPHRASE`,
-				).toContain('REPHRASE');
-				expect(
-					content,
-					`${skillSlug} missing APPROVED`,
-				).toContain('APPROVED');
-				expect(
-					content,
-					`${skillSlug} missing ASK_USER`,
-				).toContain('ASK_USER');
+				expect(content, `${skillSlug} missing UNNECESSARY`).toContain(
+					'UNNECESSARY',
+				);
+				expect(content, `${skillSlug} missing DROP`).toContain('DROP');
+				expect(content, `${skillSlug} missing RESOLVE`).toContain('RESOLVE');
+				expect(content, `${skillSlug} missing REPHRASE`).toContain('REPHRASE');
+				expect(content, `${skillSlug} missing APPROVED`).toContain('APPROVED');
+				expect(content, `${skillSlug} missing ASK_USER`).toContain('ASK_USER');
 			});
 		});
 	}
