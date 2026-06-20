@@ -4,10 +4,10 @@
  * Verification and adversarial tests for src/lang/detector.ts
  */
 
+import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { afterEach, beforeEach, describe, expect, it } from 'bun:test';
 import {
 	detectProjectLanguages,
 	getProfileForFile,
