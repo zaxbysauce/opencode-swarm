@@ -48,7 +48,10 @@ import {
 export { resetStandardWorktreeIsolationState };
 
 import { _internals as _wtiInternals } from './delegation-gate/worktree-isolation';
-import { recordWorktreeMergeFailure } from './delegation-gate/worktree-merge-status';
+import {
+	initDurableStatusPath,
+	recordWorktreeMergeFailure,
+} from './delegation-gate/worktree-merge-status';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
@@ -893,6 +896,9 @@ export function createDelegationGateHook(
 		output: unknown,
 	) => Promise<void>;
 } {
+	// Initialize durable worktree merge-back status before any coders dispatch
+	initDurableStatusPath(directory);
+
 	const enabled =
 		(config.hooks as Record<string, unknown> | undefined)?.delegation_gate !==
 		false;

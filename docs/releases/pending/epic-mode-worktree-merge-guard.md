@@ -10,10 +10,14 @@
   the task as satisfied — silently advancing the plan past work that never
   reached the main tree.
 - New leaf module `src/hooks/delegation-gate/worktree-merge-status.ts`: a
-  process-local registry that bridges worktree isolation (writer) and Epic
+  **durable** registry that bridges worktree isolation (writer) and Epic
   Mode Rule 2 (reader) without creating an import cycle. It records a
   `partial`/`failed` outcome keyed by plan task id, and clears it when a
-  later re-dispatch of the same task merges cleanly.
+  later re-dispatch of the same task merges cleanly. State is stored both
+  in-memory (fast path) AND persisted atomically to
+  `.swarm/worktree-merge-status.json`, so a plugin restart after a failed
+  merge-back does not lose the failure record and cannot cause a false
+  Rule 2 completion marker to be committed.
 - `finishStandardWorktreeDispatch` (and the hard-throw path in
   `delegation-gate.ts`) record the merge-back outcome into the registry;
   `updateTaskStatus` consults it before firing Rule 2. The merge-back is
