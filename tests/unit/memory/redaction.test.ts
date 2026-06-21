@@ -47,6 +47,25 @@ describe('memory redaction', () => {
 		expect(redactSecrets(text)).toBe(text);
 	});
 
+	// FR-09 / DD-06: env_secret requires letter-starting prefix segment
+	// (intentional tightening — numeric-starting env vars like 1_PASSWORD
+	// no longer match to reduce URL false positives like ?key=)
+	test('env_secret does not match numeric-starting env var 0_PASSWORD=', () => {
+		const text = '0_PASSWORD=somepassword';
+		expect(findSecrets(text).filter((f) => f.type === 'env_secret')).toEqual(
+			[],
+		);
+		expect(redactSecrets(text)).toBe(text);
+	});
+
+	test('env_secret does not match numeric-starting env var 123_TOKEN=', () => {
+		const text = '123_TOKEN=abcdefgh';
+		expect(findSecrets(text).filter((f) => f.type === 'env_secret')).toEqual(
+			[],
+		);
+		expect(redactSecrets(text)).toBe(text);
+	});
+
 	// Positive: prefixed env secrets must still match
 	test('env_secret matches API_KEY=', () => {
 		const text = 'API_KEY=abcdefgh';
