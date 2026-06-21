@@ -49,13 +49,13 @@
  */
 
 import type { LeanTurboConfig } from '../../config/schema';
+import { pathsConflict } from './conflicts';
 import {
-	isPathSafe,
-	normalizePath,
-	pathsConflict,
-	readTaskScopes,
-} from './conflicts';
-import { assessTaskRisk, type TaskRiskAssessment } from './risk';
+	getReadyTasks,
+	makeDependencySatisfactionChecker,
+	type PlanPhase,
+	runPartitionPreflight,
+} from './partition-common';
 import type {
 	LeanTurboCounters,
 	LeanTurboDegradedTask,
@@ -74,28 +74,9 @@ export {
 	readTaskScopes,
 } from './conflicts';
 
-// ─── Plan JSON Types ─────────────────────────────────────────────────────────
-
-/**
- * A single task within a plan phase.
- * Matches the structure stored in .swarm/plan.json.
- */
-export interface PlanTask {
-	id: string;
-	description: string;
-	status: 'pending' | 'in_progress' | 'completed' | 'blocked';
-	depends?: string[];
-	files_touched?: string[];
-}
-
-/**
- * A phase within a plan, containing multiple tasks.
- */
-export interface PlanPhase {
-	id: number;
-	name: string;
-	tasks: PlanTask[];
-}
+// Re-export plan types from partition-common for backward compatibility
+// with consumers that import them from `planner` (e.g. lean-turbo-plan-lanes.ts).
+export type { PlanPhase, PlanTask } from './partition-common';
 
 // ─── Output Types ────────────────────────────────────────────────────────────
 
@@ -124,50 +105,6 @@ export interface LeanTurboLanePlan {
 	crossLaneDependencies: Record<string, string[]>;
 }
 
-/**
- * Get the files for a task, validating and normalizing them.
- *
- * NOTE: Symlink containment is NOT enforced at planning time.
- * Symlinks are resolved by the lock system at lock acquisition time.
- * This allows tasks to declare scopes with symlinks for convenience,
- * but ensures actual file safety is validated before execution.
- *
- * @param files - Raw array of file paths
- * @param directory - Project root directory
- * @returns Tuple of [validFiles, invalidCount]
- */
-function getValidatedFiles(
-	files: string[],
-	directory: string,
-): [string[], number] {
-	const validFiles: string[] = [];
-	let invalidCount = 0;
-
-	for (const file of files) {
-		// Prepend directory to paths that are NOT already absolute (don't start with / or a drive letter)
-		// This ensures relative paths like 'src/a.ts' become project-root-relative like '/repo/src/a.ts'
-		// while preserving any absolute paths that are already under the project directory
-		let pathToCheck: string;
-		if (file.startsWith('/') || file.match(/^[a-zA-Z]:/)) {
-			// Absolute path - use as-is (will be validated by isPathSafe)
-			pathToCheck = file;
-		} else {
-			// Relative path - prepend directory to make it project-root-relative
-			pathToCheck = `${directory}/${file}`;
-		}
-
-		if (!isPathSafe(pathToCheck)) {
-			invalidCount++;
-			continue;
-		}
-
-		const normalized = normalizePath(pathToCheck);
-		validFiles.push(normalized);
-	}
-
-	return [validFiles, invalidCount];
-}
-
 // ─── Main Planning Function ──────────────────────────────────────────────────
 
 /**
@@ -185,6 +122,15 @@ function getValidatedFiles(
  * @param plan - The full plan object (from .swarm/plan.json)
  * @param config - Lean Turbo configuration
  * @param scopes - Optional pre-loaded scopes map (taskId -> file paths)
+ * @param isUpstreamCommitted - Optional Rule-3 predicate (greenfield-smart
+ *        redesign). When supplied, a cross-batch dependency (a `depends:`
+ *        upstream not present in this planning call's task set — typically
+ *        completed in a prior phase) is treated as satisfied **only** if
+ *        the predicate returns `true`. Production callers build this from
+ *        `buildIsUpstreamCommitted(directory)` so the check resolves to
+ *        "is there a `swarm(task <id>)` commit in HEAD". When undefined
+ *        the planner falls back to its legacy behavior (cross-batch deps
+ *        are implicitly satisfied) for backward compatibility.
  * @returns Complete lane plan with lanes, degraded tasks, and counters
  */
 export function planLeanTurboLanes(
@@ -193,6 +139,7 @@ export function planLeanTurboLanes(
 	plan: { phases: PlanPhase[] },
 	config: LeanTurboConfig,
 	scopes?: Record<string, string[]>,
+	isUpstreamCommitted?: (taskId: string) => boolean,
 ): LeanTurboLanePlan {
 	const phase = plan.phases.find((p) => p.id === phaseNumber);
 
@@ -207,152 +154,14 @@ export function planLeanTurboLanes(
 		return createEmptyPlan(phaseNumber, '');
 	}
 
-	// Step 1: Resolve scopes for all tasks
-	type TaskWithScope = {
-		task: PlanTask;
-		files: string[];
-		hasDeclaredScope: boolean;
-		hasInvalidScope: boolean;
-	};
-
-	const tasksWithScopes: TaskWithScope[] = [];
-
-	for (const task of pendingTasks) {
-		let files: string[] = [];
-		let hasDeclaredScope = false;
-
-		// Try provided scopes first
-		if (scopes && task.id in scopes) {
-			files = scopes[task.id];
-			hasDeclaredScope = true;
-		} else {
-			// Try reading from scope file
-			const scopeFiles = readTaskScopes(directory, task.id);
-			if (scopeFiles !== null) {
-				files = scopeFiles;
-				hasDeclaredScope = true;
-			}
-		}
-
-		// Fall back to files_touched if not requiring declared scope
-		if (!hasDeclaredScope && !config.require_declared_scope) {
-			files = task.files_touched ?? [];
-			hasDeclaredScope = false; // Using plan fallback, not declared
-		}
-
-		// Validate and normalize paths, tracking invalid entries
-		const [validFiles, invalidCount] = getValidatedFiles(files, directory);
-		const hasInvalidScope = invalidCount > 0;
-
-		tasksWithScopes.push({
-			task,
-			files: validFiles,
-			hasDeclaredScope,
-			hasInvalidScope,
-		});
-	}
-
-	// Step 2: Classify tasks and detect conflicts
-	type ClassifiedTask = {
-		task: PlanTask;
-		files: string[];
-		hasDeclaredScope: boolean;
-		category: TaskRiskAssessment['category'];
-		conflictReason?: string;
-	};
-
-	const classifiedTasks: ClassifiedTask[] = [];
-
-	for (const tws of tasksWithScopes) {
-		const assessment = assessTaskRisk(
-			tws.files,
-			tws.hasDeclaredScope,
-			tws.hasInvalidScope,
-			config,
-		);
-
-		classifiedTasks.push({
-			task: tws.task,
-			files: tws.files,
-			hasDeclaredScope: tws.hasDeclaredScope,
-			category: assessment.category,
-			conflictReason: assessment.reason,
-		});
-	}
-
-	// Step 3: Topological sort with cycle detection
-	// Uses Kahn's algorithm with fail-closed cycle handling
-	const taskMap = new Map<string, ClassifiedTask>();
-	for (const ct of classifiedTasks) {
-		taskMap.set(ct.task.id, ct);
-	}
-
-	// Build in-degree map and adjacency list
-	const inDegree = new Map<string, number>();
-	const adjacency = new Map<string, string[]>();
-
-	for (const ct of classifiedTasks) {
-		inDegree.set(ct.task.id, 0);
-		adjacency.set(ct.task.id, []);
-	}
-
-	for (const ct of classifiedTasks) {
-		const deps = ct.task.depends ?? [];
-		for (const dep of deps) {
-			// Only consider dependencies that exist in our task set
-			if (taskMap.has(dep)) {
-				adjacency.get(dep)!.push(ct.task.id);
-				inDegree.set(ct.task.id, (inDegree.get(ct.task.id) ?? 0) + 1);
-			}
-		}
-	}
-
-	// Kahn's algorithm with cycle detection
-	const sortedTasks: ClassifiedTask[] = [];
-	const tasksInCycle = new Set<string>();
-
-	// Start with tasks that have no dependencies (in-degree 0)
-	const queue: string[] = [];
-	for (const [taskId, degree] of inDegree) {
-		if (degree === 0) {
-			queue.push(taskId);
-		}
-	}
-
-	// Sort queue lexicographically for deterministic ordering
-	queue.sort((a, b) => a.localeCompare(b));
-
-	while (queue.length > 0) {
-		const current = queue.shift()!;
-		const task = taskMap.get(current)!;
-		sortedTasks.push(task);
-
-		for (const neighbor of adjacency.get(current) ?? []) {
-			const newDegree = (inDegree.get(neighbor) ?? 0) - 1;
-			inDegree.set(neighbor, newDegree);
-			if (newDegree === 0) {
-				// Insert in sorted position to maintain lexicographic order
-				const insertIdx = queue.findIndex(
-					(id) => id.localeCompare(neighbor) > 0,
-				);
-				if (insertIdx === -1) {
-					queue.push(neighbor);
-				} else {
-					queue.splice(insertIdx, 0, neighbor);
-				}
-			}
-		}
-	}
-
-	// Detect cycle: any task with in-degree > 0 is part of a cycle
-	for (const [taskId, degree] of inDegree) {
-		if (degree > 0) {
-			tasksInCycle.add(taskId);
-		}
-	}
-
-	// If cycle detected, fail-closed: serialize all tasks in the cycle
-	// These will be moved from sortedTasks to serializedTasks later
+	// Steps 1–3: scope resolution + risk classification + topological sort.
+	// Shared with the wave planner; see `partition-common.ts`.
+	const { sortedTasks, taskMap, tasksInCycle } = runPartitionPreflight(
+		directory,
+		pendingTasks,
+		config,
+		scopes,
+	);
 
 	// Step 4: Build lanes using greedy assignment
 	const lanes: LeanTurboLane[] = [];
@@ -376,40 +185,18 @@ export function planLeanTurboLanes(
 		taskToLane.set(taskId, -1);
 	}
 
-	// Helper: check if all dependencies of a task are already assigned
-	// A dependency is satisfied if it's in assignedTasks (either serialized or in a lane)
-	const allDependenciesSatisfied = (task: ClassifiedTask): boolean => {
-		const deps = task.task.depends ?? [];
-		for (const dep of deps) {
-			// Only check dependencies that exist in our task set
-			if (taskMap.has(dep) && !assignedTasks.has(dep)) {
-				return false;
-			}
-		}
-		return true;
-	};
-
-	// Helper: find tasks whose dependencies are all satisfied but haven't been assigned yet
-	// Returns tasks sorted lexicographically for determinism within the same dependency wave
-	const getReadyTasks = (): ClassifiedTask[] => {
-		const ready: ClassifiedTask[] = [];
-		for (const classified of sortedTasks) {
-			if (
-				!assignedTasks.has(classified.task.id) &&
-				allDependenciesSatisfied(classified)
-			) {
-				ready.push(classified);
-			}
-		}
-		// Sort lexicographically for deterministic ordering within dependency waves
-		ready.sort((a, b) => a.task.id.localeCompare(b.task.id));
-		return ready;
-	};
+	// Dependency-satisfaction predicate: shared with the wave planner.
+	// Rule 3 (greenfield-smart) is encoded by the predicate when supplied.
+	const isSatisfied = makeDependencySatisfactionChecker(
+		taskMap,
+		assignedTasks,
+		isUpstreamCommitted,
+	);
 
 	// Process tasks in waves: each wave only includes tasks whose dependencies are satisfied
 	// This ensures B (depending on A) is never in a parallel lane with A
 	while (true) {
-		const readyTasks = getReadyTasks();
+		const readyTasks = getReadyTasks(sortedTasks, assignedTasks, isSatisfied);
 		if (readyTasks.length === 0) {
 			break;
 		}
@@ -599,6 +386,71 @@ export function planLeanTurboLanes(
 	// 2. Within each wave, tasks are added to lanes in that sorted order
 	// 3. Final lexicographic sort was removed to preserve dependency ordering
 
+	// Rule 3 leftover-cleanup. When `isUpstreamCommitted` rejects a task's
+	// cross-batch dep, `getReadyTasks()` will keep skipping that task forever
+	// (the dep isn't going to commit during this dispatch) and the wave loop
+	// will eventually terminate with the task unassigned. We must surface
+	// those — silently dropping a planned task is the worst possible
+	// outcome.
+	//
+	// Reason attribution matters: a task can be left over because (a) a
+	// cross-batch upstream wasn't committed (Rule-3 specific) OR (b) an
+	// in-batch upstream wasn't assigned to a wave (already-degraded /
+	// already-serialized / cycle-broken). Attributing every leftover to
+	// Rule 3 misleads the architect into chasing the wrong fix. So we
+	// inspect each leftover's deps and choose the most-specific reason.
+	//
+	// Skipped when the predicate is not supplied (legacy Lean Turbo path)
+	// because legacy semantics guarantee no leftovers from the dep-check
+	// branch.
+	if (isUpstreamCommitted) {
+		for (const classified of sortedTasks) {
+			if (assignedTasks.has(classified.task.id)) continue;
+			const deps = classified.task.depends ?? [];
+			const uncommittedCrossBatch: string[] = [];
+			const unassignedInBatch: string[] = [];
+			for (const dep of deps) {
+				if (taskMap.has(dep)) {
+					if (!assignedTasks.has(dep)) unassignedInBatch.push(dep);
+				} else if (!isUpstreamCommitted(dep)) {
+					uncommittedCrossBatch.push(dep);
+				}
+			}
+			let reason: string;
+			if (uncommittedCrossBatch.length > 0) {
+				// Rule-3 specific reason; list the offending deps so the
+				// architect can commit them and re-run.
+				const sample = uncommittedCrossBatch.slice(0, 3).join(', ');
+				const more =
+					uncommittedCrossBatch.length > 3
+						? `, +${uncommittedCrossBatch.length - 3} more`
+						: '';
+				reason = `cross-batch upstream not committed (greenfield-smart Rule 3): ${sample}${more}`;
+			} else if (unassignedInBatch.length > 0) {
+				// In-batch dep was never assigned (degraded/serialized/cycle).
+				// Surface that instead of mislabeling as Rule-3.
+				const sample = unassignedInBatch.slice(0, 3).join(', ');
+				const more =
+					unassignedInBatch.length > 3
+						? `, +${unassignedInBatch.length - 3} more`
+						: '';
+				reason = `unresolved in-batch dependency: ${sample}${more}`;
+			} else {
+				// No identifiable blocker — should be unreachable. Surface
+				// generically so the task is never silently dropped.
+				reason = 'planning leftover (no identifiable blocker)';
+			}
+			degradedTasks.push({
+				taskId: classified.task.id,
+				reason,
+				files: classified.files,
+				requiredMode: 'balanced',
+			});
+			assignedTasks.add(classified.task.id);
+			taskToLane.set(classified.task.id, -1);
+		}
+	}
+
 	// Generate degradation summary if all tasks degraded
 	let degradationSummary: string | undefined;
 	if (
@@ -606,7 +458,17 @@ export function planLeanTurboLanes(
 		degradedTasks.length + serializedTasks.length === pendingTasks.length
 	) {
 		const reasons = Array.from(new Set(degradedTasks.map((t) => t.reason)));
-		degradationSummary = `All ${pendingTasks.length} tasks degraded. Reasons: ${reasons.join(', ')}. Consider running in standard (serial) mode.`;
+		const rule3Count = degradedTasks.filter((t) =>
+			t.reason.includes('greenfield-smart Rule 3'),
+		).length;
+		// If Rule-3 dominates the degradations, lead with a targeted
+		// remediation — "consider running in serial mode" is misleading when
+		// the actual fix is "ensure upstream phases produced git commits".
+		if (rule3Count > 0 && rule3Count >= degradedTasks.length / 2) {
+			degradationSummary = `All ${pendingTasks.length} tasks degraded. ${rule3Count} blocked by greenfield-smart Rule 3 — cross-batch upstream(s) not in git history. Remediation: verify Epic Mode commit-on-completion is succeeding for upstream phases, or commit those tasks manually before re-running.`;
+		} else {
+			degradationSummary = `All ${pendingTasks.length} tasks degraded. Reasons: ${reasons.join(', ')}. Consider running in standard (serial) mode.`;
+		}
 	}
 
 	// Build counters

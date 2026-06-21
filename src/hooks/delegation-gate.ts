@@ -48,6 +48,7 @@ import {
 export { resetStandardWorktreeIsolationState };
 
 import { _internals as _wtiInternals } from './delegation-gate/worktree-isolation';
+import { recordWorktreeMergeFailure } from './delegation-gate/worktree-merge-status';
 import { deleteStoredInputArgs, getStoredInputArgs } from './guardrails';
 import { normalizeToolName } from './normalize-tool-name';
 import { validateSwarmPath } from './utils';
@@ -1432,15 +1433,28 @@ export function createDelegationGateHook(
 				standardWorktreeByCallID.delete(input.callID);
 				await finishStandardWorktreeDispatch(directory, standardDispatch).catch(
 					(err) => {
+						const reason = err instanceof Error ? err.message : String(err);
 						logger.warn(
-							`[delegation-gate] standard worktree merge-back failed for ${standardDispatch.taskId}: ${err instanceof Error ? err.message : String(err)}`,
+							`[delegation-gate] standard worktree merge-back failed for ${standardDispatch.taskId}: ${reason}`,
+						);
+						// A thrown merge-back is a hard failure: the task's work
+						// did not land. Record it so Epic Rule 2 skips the
+						// completion marker (same contract as the partial/failed
+						// returns inside finishStandardWorktreeDispatch).
+						recordWorktreeMergeFailure(
+							standardDispatch.planTaskId ?? standardDispatch.taskId,
+							{
+								outcome: 'failed',
+								stage: 'merge-back',
+								message: reason,
+							},
 						);
 						const dispatchSession = ensureAgentSession(
 							standardDispatch.parentSessionID,
 						);
 						dispatchSession.pendingAdvisoryMessages ??= [];
 						dispatchSession.pendingAdvisoryMessages.push(
-							`STANDARD_WORKTREE_MERGE_FAILED: task ${standardDispatch.taskId} preserved at ${standardDispatch.handle.worktreePath}; reason: ${err instanceof Error ? err.message : String(err)}.`,
+							`STANDARD_WORKTREE_MERGE_FAILED: task ${standardDispatch.taskId} preserved at ${standardDispatch.handle.worktreePath}; reason: ${reason}.`,
 						);
 					},
 				);

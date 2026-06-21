@@ -20,6 +20,10 @@ import {
 	provisionWorktree,
 	removeWorktree,
 } from '../../worktree';
+import {
+	clearWorktreeMergeStatus,
+	recordWorktreeMergeFailure,
+} from './worktree-merge-status';
 
 // INVARIANT: this cap MUST stay strictly above the `max_concurrent_tasks`
 // schema ceiling (currently clamped to <= 64 in execution-profile-schema). The
@@ -256,7 +260,14 @@ export async function finishStandardWorktreeDispatch(
 			directory,
 			getMergeStrategy({ merge_strategy: dispatch.mergeStrategy }),
 		);
+		// Key the merge-back status by the plan task id (which equals the
+		// `taskId` Epic Rule 2 sees in `updateTaskStatus`); fall back to the
+		// dispatch taskId for non-plan dispatches.
+		const statusKey = dispatch.planTaskId ?? dispatch.taskId;
 		if ('merged' in mergeResult && mergeResult.merged) {
+			// Clean merge supersedes any earlier failure for this task so a
+			// successful re-dispatch re-enables Rule 2's marker commit.
+			clearWorktreeMergeStatus(statusKey);
 			await _internals
 				.removeWorktree(dispatch.handle.worktreePath, directory)
 				.catch(() => {});
@@ -266,6 +277,11 @@ export async function finishStandardWorktreeDispatch(
 			return;
 		}
 		if ('partial' in mergeResult) {
+			recordWorktreeMergeFailure(statusKey, {
+				outcome: 'partial',
+				stage: mergeResult.stage,
+				message: mergeResult.message,
+			});
 			const session = ensureAgentSession(dispatch.parentSessionID);
 			session.pendingAdvisoryMessages ??= [];
 			session.pendingAdvisoryMessages.push(
@@ -275,6 +291,11 @@ export async function finishStandardWorktreeDispatch(
 		}
 
 		if ('failed' in mergeResult) {
+			recordWorktreeMergeFailure(statusKey, {
+				outcome: 'failed',
+				stage: mergeResult.stage,
+				message: mergeResult.message,
+			});
 			const session = ensureAgentSession(dispatch.parentSessionID);
 			session.pendingAdvisoryMessages ??= [];
 			session.pendingAdvisoryMessages.push(

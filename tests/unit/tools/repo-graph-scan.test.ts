@@ -8,7 +8,6 @@ import {
 	buildWorkspaceGraph,
 	clearCache,
 	createEmptyGraph,
-	GRAPH_SCHEMA_VERSION,
 	resolveModuleSpecifier,
 	upsertNode,
 	validateWorkspace,
@@ -416,7 +415,7 @@ export const file2 = 'f2';`,
 
 		const graph = buildWorkspaceGraph(workspacePath);
 
-		expect(graph.schema_version).toBe(GRAPH_SCHEMA_VERSION);
+		expect(graph.schema_version).toBe('1.0.0');
 		expect(graph.metadata.generator).toBe('repo-graph');
 		expect(graph.metadata.nodeCount).toBe(2);
 		expect(graph.metadata.edgeCount).toBe(1);
@@ -608,7 +607,7 @@ describe('createEmptyGraph', () => {
 	test('creates empty graph with correct structure', () => {
 		const graph = createEmptyGraph('my-workspace');
 
-		expect(graph.schema_version).toBe(GRAPH_SCHEMA_VERSION);
+		expect(graph.schema_version).toBe('1.0.0');
 		expect(graph.workspaceRoot).toBe('my-workspace');
 		expect(graph.nodes).toEqual({});
 		expect(graph.edges).toEqual([]);

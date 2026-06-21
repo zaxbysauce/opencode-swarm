@@ -54,6 +54,11 @@ describe('toolPolicy classification snapshot — no regression', () => {
 		'pr status',
 		'learning',
 		'post-mortem',
+		// guardrail diagnostics (pre-existing 'agent' commands not previously
+		// enumerated here — registry is the source of truth, both carry
+		// toolPolicy: 'agent')
+		'guardrail explain',
+		'guardrail-log',
 	]);
 
 	const EXPECTED_HUMAN_ONLY = new Set<string>([
@@ -83,11 +88,13 @@ describe('toolPolicy classification snapshot — no regression', () => {
 		'codebase-review',
 		'concurrency',
 		'council',
+		'coupling',
 		'curate',
 		'dark-matter',
 		'deep-dive',
 		'deep-research',
 		'design-docs',
+		'epic',
 		'finalize',
 		'full-auto',
 		'handoff',
@@ -103,14 +110,14 @@ describe('toolPolicy classification snapshot — no regression', () => {
 		'write-retro',
 	]);
 
-	test("'agent' bucket contains exactly the expected 31 commands", () => {
+	test("'agent' bucket contains exactly the expected 33 commands", () => {
 		const actual = new Set<string>();
 		for (const [name, entry] of Object.entries(COMMAND_REGISTRY)) {
 			if ((entry as CommandEntry).toolPolicy === 'agent') {
 				actual.add(name);
 			}
 		}
-		expect(actual.size).toBe(31);
+		expect(actual.size).toBe(33);
 		for (const name of EXPECTED_AGENT) {
 			expect(actual.has(name)).toBe(true);
 		}
@@ -158,7 +165,7 @@ describe('toolPolicy classification snapshot — no regression', () => {
 				actual.add(name);
 			}
 		}
-		expect(actual.size).toBe(25);
+		expect(actual.size).toBe(27);
 		for (const name of EXPECTED_NONE) {
 			expect(actual.has(name)).toBe(true);
 		}

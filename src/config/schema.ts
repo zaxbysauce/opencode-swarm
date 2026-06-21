@@ -1662,11 +1662,125 @@ export const LeanTurboConfigSchema = z.object({
 
 export type LeanTurboConfig = z.infer<typeof LeanTurboConfigSchema>;
 
+/**
+ * Epic mode — co-change-aware conflict detection settings.
+ *
+ * Epic mode is an additive layer that composes Lean Turbo (it never modifies it).
+ * Capability A surfaces git co-change history as an extra conflict signal so
+ * pairs of files that historically change together can be treated as conflicting
+ * even when path-based rules would not catch the coupling.
+ *
+ * With `cochange.enabled: false` (the default), no Epic-mode code runs in any
+ * existing flow — behavior is identical to upstream Lean Turbo.
+ */
+export const EpicConfigSchema = z
+	.object({
+		cochange: z
+			.object({
+				/** Master gate for the co-change conflict signal. Default off; opt-in. */
+				enabled: z.boolean().default(false),
+				/**
+				 * NPMI floor for considering a file pair "historically co-changing".
+				 * Range matches co_change_analyzer's npmi range [-1, 1]. The analyzer's
+				 * discovery default is 0.5; the Epic default is set higher (0.6) so the
+				 * signal only escalates clearly-coupled pairs, not borderline ones.
+				 */
+				threshold: z.number().min(-1).max(1).default(0.6),
+				/**
+				 * Minimum raw co-change count required before NPMI is even considered.
+				 * Filters out small-sample-size pairs whose NPMI is statistically noisy.
+				 * The analyzer's discovery default is 3; Epic uses 5 for conservatism.
+				 */
+				min_co_changes: z.number().int().min(1).default(5),
+			})
+			.strict()
+			.optional(),
+		/**
+		 * Epic mode activation settings (Capability C). When `enabled`, the
+		 * `/swarm epic` command and the architect-facing flow
+		 * (`epic_decide_phase` → `epic_plan_waves` → `Task` per wave) become
+		 * usable; they compute `p` over the plan, gate on the activation
+		 * threshold + hot modules + greenfield rule, and either dispatch via
+		 * the wave planner (when promoted) or fall back to the standard
+		 * serial path (when demoted). Default off — opt-in.
+		 */
+		mode: z
+			.object({
+				/** Master gate for Epic Mode activation. Default off; opt-in. */
+				enabled: z.boolean().default(false),
+				/**
+				 * Activation threshold for `p` (the coupling coefficient computed
+				 * over the plan). Plans with `p <= activation_threshold` are
+				 * eligible for parallel promotion; plans above this threshold are
+				 * forced serial. Conservative default — most plans below this are
+				 * genuinely parallelizable.
+				 */
+				activation_threshold: z.number().min(0).max(1).default(0.3),
+				/**
+				 * Greenfield rule (brief §4.2). Co-change history with fewer than
+				 * this many commits is treated as too sparse to trust; the plan is
+				 * forced serial regardless of `p`. Matches `co_change_analyzer`'s
+				 * own minimum-commits floor.
+				 */
+				min_commits_for_signal: z.number().int().min(1).default(20),
+			})
+			.strict()
+			.optional(),
+		/**
+		 * Epic Mode calibration (Capability D). Outcome-based self-tuning.
+		 * After every task completion `epic_record_divergence` appends a
+		 * record to `.swarm/epic/divergence.jsonl` comparing declared scope
+		 * to actual files modified. On every `epic_decide_phase` the
+		 * calibration engine consumes any new records and adjusts two knobs:
+		 *
+		 *   - `activationThresholdOverride` — tightens (toward zero) on
+		 *     divergence; loosens (toward `mode.activation_threshold`) only
+		 *     after `loosen_window` consecutive clean tasks. Capped by the
+		 *     static config value — calibration can never relax past static.
+		 *
+		 *   - `hotModuleAdditions` — monotonically grows. Files written
+		 *     without being declared are added permanently (a one-way
+		 *     ratchet — auto-loosening here would defeat the safety guarantee).
+		 *
+		 * State persists at `.swarm/epic/calibration.json`. Default `enabled`
+		 * matches the rest of Epic Mode — on when the parent config is
+		 * present, defaults are conservative.
+		 */
+		calibration: z
+			.object({
+				/** Master gate. When false, the calibration engine never runs and the static knobs are always used. */
+				enabled: z.boolean().default(true),
+				/**
+				 * Floor for the activation threshold. Calibration never tightens
+				 * below this — even after many divergent tasks. Below ~0.05 the
+				 * gate becomes too strict for Epic Mode to ever promote.
+				 */
+				floor_threshold: z.number().min(0).max(1).default(0.05),
+				/** Per-divergent-task tightening step (subtracted from current threshold). */
+				tighten_step: z.number().min(0).max(1).default(0.02),
+				/** Per-loosening-event step (added toward the static config value). */
+				loosen_step: z.number().min(0).max(1).default(0.01),
+				/**
+				 * Consecutive clean tasks required before the engine loosens the
+				 * threshold by `loosen_step`. After loosening the counter resets,
+				 * so a full window must elapse again before the next loosening.
+				 */
+				loosen_window: z.number().int().min(1).default(10),
+			})
+			.strict()
+			.optional(),
+	})
+	.strict();
+
+export type EpicConfig = z.infer<typeof EpicConfigSchema>;
+
 export const StandardTurboConfigSchema = z.object({
 	/** Turbo execution strategy. standard = current behavior, lean = constrained parallel. */
 	strategy: z.literal('standard'),
 	/** Lean-mode configuration. Only used when strategy is 'lean'. */
 	lean: LeanTurboConfigSchema.optional(),
+	/** Epic-mode configuration. Additive overlay — composes Lean Turbo without modifying it. */
+	epic: EpicConfigSchema.optional(),
 });
 
 export const LeanTurboStrategyConfigSchema = z.object({
@@ -1674,6 +1788,8 @@ export const LeanTurboStrategyConfigSchema = z.object({
 	strategy: z.literal('lean'),
 	/** Lean-mode configuration. Only used when strategy is 'lean'. */
 	lean: LeanTurboConfigSchema,
+	/** Epic-mode configuration. Additive overlay — composes Lean Turbo without modifying it. */
+	epic: EpicConfigSchema.optional(),
 });
 
 export const TurboConfigSchema = z.discriminatedUnion('strategy', [

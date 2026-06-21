@@ -67,10 +67,15 @@ import {
 	type Task,
 	type TaskStatus,
 } from '../config/plan-schema';
+import { isGitRepo } from '../git/branch';
+import { getWorktreeMergeFailure } from '../hooks/delegation-gate/worktree-merge-status';
 import { readSwarmFileAsync } from '../hooks/utils';
 import { emit } from '../telemetry.js';
+import { isEpicModeActiveForProject } from '../turbo/epic/state.js';
+import { commitTaskCompletion } from '../turbo/epic/task-commit.js';
+import { readTaskScopes } from '../turbo/lean/conflicts.js';
 import type { SpecStaleDetectedEvent } from '../types/events';
-import { warn } from '../utils';
+import { criticalWarn, warn } from '../utils';
 import { bunHash, bunWrite } from '../utils/bun-compat';
 import { isSpecStale } from '../utils/spec-hash';
 import { readCachedParsedFile } from '../utils/swarm-artifact-cache';
@@ -122,10 +127,20 @@ export const _internals: {
 	loadPlan: typeof loadPlan;
 	loadPlanJsonOnly: typeof loadPlanJsonOnly;
 	regeneratePlanMarkdown: typeof regeneratePlanMarkdown;
+	isGitRepo: typeof isGitRepo;
+	isEpicModeActiveForProject: typeof isEpicModeActiveForProject;
+	readTaskScopes: typeof readTaskScopes;
+	commitTaskCompletion: typeof commitTaskCompletion;
+	getWorktreeMergeFailure: typeof getWorktreeMergeFailure;
 } = {
 	loadPlan,
 	loadPlanJsonOnly,
 	regeneratePlanMarkdown,
+	isGitRepo,
+	isEpicModeActiveForProject,
+	readTaskScopes,
+	commitTaskCompletion,
+	getWorktreeMergeFailure,
 };
 
 /** @internal Test seam for snapshot retry helper */
@@ -1725,6 +1740,87 @@ export async function updateTaskStatus(
 			await savePlan(directory, updatedPlan, {
 				preserveCompletedStatuses: false,
 			});
+			// Rule 2 of the greenfield-smart redesign: auto-commit on task
+			// completion. Centralized here (rather than in the
+			// `update_task_status` tool) because BOTH callers route through
+			// this function:
+			//
+			//   - `executeUpdateTaskStatus` (the tool entry).
+			//   - `advanceTaskStateAndPersist` (the council/reviewer/test_engineer
+			//     completion path in `src/hooks/delegation-gate.ts`).
+			//
+			// Hooking here covers every legitimate completion in one place,
+			// closing the silent-bypass holes (sessionless callers, sub-agent
+			// sessions, delegation-gate paths).
+			//
+			// Project-scoped Epic check: the architect's session toggles Epic
+			// via `/swarm epic on`, but sub-agents dispatched via `Task` run
+			// in their own sessions and don't see that flag. The project-scoped
+			// `isEpicModeActiveForProject` answers the only question that
+			// matters here: "is the project running under Epic right now?".
+			//
+			// Non-fatal contract: the plan ledger is authoritative per
+			// AGENTS.md #5. A failing commit must never block the durable
+			// status update — that's why this block is wrapped in its own
+			// try/catch separate from the savePlan retry loop.
+			if (
+				status === 'completed' &&
+				_internals.isGitRepo(directory) &&
+				_internals.isEpicModeActiveForProject(directory)
+			) {
+				// Worktree-isolation guard: when a Task-dispatched coder ran in
+				// an isolated git worktree and its merge-back FAILED (or only
+				// partially landed), the task's changes are NOT in the main
+				// tree. Firing the Rule 2 marker here would let Rule 3's
+				// `swarm(task <id>):` git-log scan treat the task as satisfied
+				// and advance the plan past work that never merged. Skip the
+				// commit and surface the stranded worktree. The merge-back runs
+				// (and records its outcome) inside the coder's `tool.execute.after`
+				// hook, which is awaited before the architect's turn that calls
+				// this function — so the status is always settled by now.
+				const mergeFailure = _internals.getWorktreeMergeFailure(taskId);
+				if (mergeFailure) {
+					criticalWarn(
+						`[plan/manager] Rule 2 auto-commit SKIPPED for ${taskId}: worktree merge-back ${mergeFailure.outcome} at stage '${mergeFailure.stage}'. The task's changes are NOT in the main tree, so no completion marker is written (Rule 3 must not treat this task as satisfied). Resolve the preserved worktree, then re-run the task. Detail: ${mergeFailure.message}`,
+					);
+					return updatedPlan;
+				}
+				try {
+					let taskDescription: string | undefined;
+					for (const phase of updatedPlan.phases) {
+						const found = phase.tasks.find((t) => t.id === taskId);
+						if (found) {
+							taskDescription = found.description;
+							break;
+						}
+					}
+					// Scope source: `.swarm/scopes/scope-<id>.json`, written
+					// by `declare_scope` at task dispatch. We do NOT fall
+					// back to the plan-ledger's `files_touched` field — the
+					// ledger replay path in `loadPlan` overrides savePlan
+					// mutations, making that source unreliable. When no
+					// scope file exists, `commitTaskCompletion` produces a
+					// marker-only `--allow-empty` commit — preserving Rule 3
+					// evidence without sweeping in any sibling lane's
+					// working-tree changes.
+					const canonicalScope = _internals.readTaskScopes(directory, taskId);
+					await _internals.commitTaskCompletion(
+						directory,
+						taskId,
+						taskDescription,
+						canonicalScope ?? undefined,
+					);
+				} catch (commitErr) {
+					// commitTaskCompletion catches its own errors; this is
+					// belt-and-suspenders for any unexpected throw from
+					// scope lookup or the seam itself. Elevated to criticalWarn
+					// — the operator must see Rule 2 failures that bypass
+					// `commitTaskCompletion`'s own try/catch.
+					criticalWarn(
+						`[plan/manager] Rule 2 auto-commit for ${taskId} threw (non-fatal): ${commitErr instanceof Error ? commitErr.message : String(commitErr)}`,
+					);
+				}
+			}
 			return updatedPlan;
 		} catch (error) {
 			if (

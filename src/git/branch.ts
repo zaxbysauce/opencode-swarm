@@ -50,19 +50,53 @@ function isNotGitRepositoryMessage(message: string): boolean {
 }
 
 /**
- * Execute git command safely
+ * Execute git command safely.
+ *
+ * Non-interactive enforcement (AGENTS.md #3): three defenses ensure git
+ * cannot block on a TTY prompt — GPG passphrase, credential helper,
+ * "are you sure?" rebase confirmation, etc.
+ *
+ *  1. `stdio: ['ignore', ...]` closes the child's stdin. A prompt has
+ *     no input source, so git/GPG/credential-helper sees EOF.
+ *  2. `GIT_TERMINAL_PROMPT=0` tells git itself to refuse any prompt
+ *     attempt outright rather than falling back to the controlling
+ *     terminal (some prompts route through git, not the child).
+ *  3. `-c commit.gpgsign=false -c tag.gpgsign=false` prepended to every
+ *     command. Closes the SILENT-failure path where a developer/CI host
+ *     has `commit.gpgsign=true` globally and no GPG agent — without (3),
+ *     defenses (1)+(2) merely turn the prompt-hang into an immediate
+ *     non-zero exit, which `commitTaskCompletion` catches as
+ *     `commit-failed` non-fatally. Result: every Epic Rule 2 commit
+ *     silently fails, predecessor-evidence never accumulates, every
+ *     phase demotes. (3) forces the underlying git subcommand to skip
+ *     signing entirely. This is the single source of truth for
+ *     non-interactive git, so the hardening covers every caller
+ *     (current and future) uniformly.
  */
 function gitExec(args: string[], cwd: string): string {
 	let missingGitError: unknown;
 
+	// Scope the `gpgsign=false` overrides to the only subcommands they
+	// affect — `commit` and `tag`. Applying them to `branch`/`reset`/`log`
+	// would be a harmless no-op but would perturb callers (and tests) that
+	// assert on exact positional args. `GIT_TERMINAL_PROMPT=0` and the
+	// closed stdin (defenses 1 + 2) stay global since they are env/stdio,
+	// not argv. Defense 3 covers Epic Rule 2's `commit --allow-empty`.
+	const subcommand = args[0];
+	const hardenedArgs =
+		subcommand === 'commit' || subcommand === 'tag'
+			? ['-c', 'commit.gpgsign=false', '-c', 'tag.gpgsign=false', ...args]
+			: args;
+
 	for (const command of windowsGitCandidates()) {
-		const result = child_process.spawnSync(command, args, {
+		const result = child_process.spawnSync(command, hardenedArgs, {
 			cwd,
 			encoding: 'utf-8',
 			timeout: GIT_TIMEOUT_MS,
 			windowsHide: true,
 			maxBuffer: GIT_MAX_BUFFER_BYTES,
 			stdio: ['ignore', 'pipe', 'pipe'],
+			env: { ...process.env, GIT_TERMINAL_PROMPT: '0' },
 		});
 		if (result.error) {
 			if (isGitBinaryMissing(result.error)) {

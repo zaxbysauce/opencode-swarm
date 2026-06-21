@@ -75,6 +75,7 @@ import {
 	swarmState,
 } from '../state';
 import { telemetry } from '../telemetry';
+import { isEpicModeActiveForProject } from '../turbo/epic/state';
 import { _internals as leanPhaseInternals } from '../turbo/lean/phase-ready';
 import * as logger from '../utils/logger';
 import { createSwarmTool } from './create-tool';
@@ -803,8 +804,19 @@ export async function executePhaseComplete(
 		}
 	}
 
-	// Lean Turbo phase readiness gate (outside standard Turbo bypass)
-	if (hasActiveLeanTurbo(sessionID)) {
+	// Lean Turbo phase readiness gate (outside standard Turbo bypass).
+	//
+	// Epic Mode escape: when Epic Mode is active for this project, the
+	// architect dispatched coders directly via the `Task` tool (per
+	// `epic_plan_waves` + EPIC_MODE_BANNER step 5) and never instantiated
+	// `LeanTurboRunner`. As a result, no `runState` with
+	// `strategy: 'lean', status: 'running'` exists on disk — the Lean
+	// readiness gate would block with "No active Lean Turbo session" even
+	// though every wave's tasks completed. Skip the Lean gate in that case
+	// and rely on per-task `update_task_status` + the standard reviewer
+	// path to provide phase-end quality control.
+	const epicActiveForProject = isEpicModeActiveForProject(dir);
+	if (hasActiveLeanTurbo(sessionID) && !epicActiveForProject) {
 		// Extract lean config for phase readiness checks (phase_reviewer, phase_critic, etc.)
 		const leanConfig = config?.turbo?.lean;
 		const leanPhaseReadyConfig = leanConfig

@@ -88,3 +88,6 @@ src/utils/logger
 src/utils/path-security
 src/utils/spec-hash
 
+
+# drift-detection-test-only
+src/does-not-exist
