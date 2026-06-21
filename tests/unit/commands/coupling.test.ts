@@ -118,6 +118,24 @@ describe('handleCouplingCommand — argument parsing', () => {
 		expect(out).toContain('--threshold must be a number in [-1, 1]');
 	});
 
+	test('accepts --threshold at the inclusive NPMI bounds (1.0 and -1.0)', async () => {
+		// NPMI legitimately ranges [-1, 1]; the bounds are INCLUSIVE — 1.0 is
+		// perfect co-occurrence, -1.0 perfect avoidance. Both must parse, not
+		// be rejected as out-of-range. Guards against a future `>=`/`<=` typo
+		// that would exclude the maximal-coupling values.
+		_internals.loadPlanJsonOnly = (async () => makePlan()) as never;
+		_internals.getCoChangePairs = (async () => []) as never;
+		for (const bound of ['1.0', '-1.0', '1', '-1']) {
+			const out = await handleCouplingCommand(tmpDir, [
+				'--threshold',
+				bound,
+				'--format',
+				'json',
+			]);
+			expect(out).not.toContain('must be a number in [-1, 1]');
+		}
+	});
+
 	test('rejects --format other than markdown|json', async () => {
 		const out = await handleCouplingCommand(tmpDir, ['--format', 'xml']);
 		expect(out).toContain("--format must be 'markdown' or 'json'");

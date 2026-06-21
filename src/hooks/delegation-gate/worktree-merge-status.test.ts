@@ -60,11 +60,15 @@ describe('worktree-merge-status registry — in-memory', () => {
 			stage: 'auto-commit',
 			message: 'first',
 		});
+		expect(_internals.failuresByTask.size).toBe(1);
 		recordWorktreeMergeFailure('2.4', {
 			outcome: 'failed',
 			stage: 'merge',
 			message: 'second',
 		});
+		// Overwrite, not append: the map must not grow, and the first value
+		// must no longer be retrievable.
+		expect(_internals.failuresByTask.size).toBe(1);
 		expect(getWorktreeMergeFailure('2.4')).toEqual({
 			outcome: 'failed',
 			stage: 'merge',
