@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.87.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.87.0...v7.87.1) (2026-06-21)
+
+
+### Bug Fixes
+
+* **memory:** memory system correctness & hygiene — FTS schema, lifecycle init, secret patterns, scoring pins ([a646497](https://github.com/ZaxbyHub/opencode-swarm/commit/a64649734ee707b02176cc5fdc24ebbaca5b3e64))
+
 ## [7.87.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.86.0...v7.87.0) (2026-06-21)
 
 
