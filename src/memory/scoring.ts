@@ -17,6 +17,25 @@ export interface RecallScoringDiagnostics {
 	belowThresholdCount: number;
 }
 
+/**
+ * Recall scoring weight coefficients. Sum is 1.13 (scores are an unnormalised
+ * weighted sum; may exceed 1.0). minScore thresholds in DEFAULT_MEMORY_CONFIG
+ * are calibrated against these weights.
+ *
+ * Pinned by tests/unit/memory/scoring.test.ts to detect drift.
+ */
+export const SCORING_WEIGHTS = {
+	textOverlap: 0.38,
+	tagOverlap: 0.16,
+	fileOverlap: 0.12,
+	symbolOverlap: 0.08,
+	taskTermOverlap: 0.08,
+	scopeSpecificityBoost: 0.12,
+	kindProfileBoost: 0.06,
+	roleBoost: 0.05,
+	confidence: 0.08,
+} as const;
+
 interface RecallScoringContext {
 	taskTokens?: Set<string>;
 	queryTokens: Set<string>;
@@ -194,15 +213,16 @@ function scoreMemoryRecordDetailed(
 	}
 
 	const score =
-		textOverlap * 0.38 +
-		tagOverlap * 0.16 +
-		fileOverlap * 0.12 +
-		symbolOverlap * 0.08 +
-		taskTermOverlap * 0.08 +
-		scopeSpecificityBoost(record.scope) * 0.12 +
-		kindProfileBoost(record.kind, request) * 0.06 +
-		roleBoost * 0.05 +
-		record.confidence * 0.08;
+		textOverlap * SCORING_WEIGHTS.textOverlap +
+		tagOverlap * SCORING_WEIGHTS.tagOverlap +
+		fileOverlap * SCORING_WEIGHTS.fileOverlap +
+		symbolOverlap * SCORING_WEIGHTS.symbolOverlap +
+		taskTermOverlap * SCORING_WEIGHTS.taskTermOverlap +
+		scopeSpecificityBoost(record.scope) *
+			SCORING_WEIGHTS.scopeSpecificityBoost +
+		kindProfileBoost(record.kind, request) * SCORING_WEIGHTS.kindProfileBoost +
+		roleBoost * SCORING_WEIGHTS.roleBoost +
+		record.confidence * SCORING_WEIGHTS.confidence;
 
 	const reasonParts = [
 		textOverlap > 0 ? `text_overlap=${textOverlap.toFixed(2)}` : null,

@@ -291,69 +291,73 @@ async function recallForAgent(input: {
 		},
 		{ config: input.config },
 	);
-	const resolvedConfig = resolveMemoryConfig(input.config);
-	if (!gateway.isEnabled()) {
-		await logInjectionSkipped(input, 'disabled');
-		return null;
-	}
-	if (!resolvedConfig.recall.injection.enabled) {
-		await logInjectionSkipped(input, 'disabled');
-		return null;
-	}
-	const scopes = gateway.deriveAllowedScopes();
-	const planInput: MemoryRecallPlannerInput = {
-		userGoal: compactText(input.userGoal),
-		runId: input.sessionID ?? 'unknown',
-		agentRole: input.agentRole,
-		agentId: input.agentId,
-		agentTask: compactText(input.agentTask),
-		touchedFiles: extractTouchedFiles(input.agentTask),
-	};
-	const plan = buildMemoryRecallPlan(planInput, { scopes });
-	plan.maxItems = resolvedConfig.recall.injection.maxItems;
-	plan.tokenBudget = resolvedConfig.recall.injection.tokenBudget;
-	await input.appendRunLog(input.directory, input.sessionID, {
-		event: 'recall_requested',
-		runId: input.sessionID ?? 'unknown',
-		agentRole: input.agentRole,
-		agentId: input.agentId,
-		metadata: {
+	try {
+		const resolvedConfig = resolveMemoryConfig(input.config);
+		if (!gateway.isEnabled()) {
+			await logInjectionSkipped(input, 'disabled');
+			return null;
+		}
+		if (!resolvedConfig.recall.injection.enabled) {
+			await logInjectionSkipped(input, 'disabled');
+			return null;
+		}
+		const scopes = gateway.deriveAllowedScopes();
+		const planInput: MemoryRecallPlannerInput = {
+			userGoal: compactText(input.userGoal),
+			runId: input.sessionID ?? 'unknown',
+			agentRole: input.agentRole,
+			agentId: input.agentId,
+			agentTask: compactText(input.agentTask),
+			touchedFiles: extractTouchedFiles(input.agentTask),
+		};
+		const plan = buildMemoryRecallPlan(planInput, { scopes });
+		plan.maxItems = resolvedConfig.recall.injection.maxItems;
+		plan.tokenBudget = resolvedConfig.recall.injection.tokenBudget;
+		await input.appendRunLog(input.directory, input.sessionID, {
+			event: 'recall_requested',
+			runId: input.sessionID ?? 'unknown',
+			agentRole: input.agentRole,
+			agentId: input.agentId,
+			metadata: {
+				kinds: plan.kinds,
+				maxItems: plan.maxItems,
+				tokenBudget: plan.tokenBudget,
+				scopeTypes: plan.scopes.map((scope) => scope.type),
+			},
+		});
+		const recallInput: RecallMemoryInput = {
+			query: plan.query,
+			task: planInput.agentTask,
+			mode: 'injection',
+			scopes: plan.scopes,
 			kinds: plan.kinds,
 			maxItems: plan.maxItems,
 			tokenBudget: plan.tokenBudget,
-			scopeTypes: plan.scopes.map((scope) => scope.type),
-		},
-	});
-	const recallInput: RecallMemoryInput = {
-		query: plan.query,
-		task: planInput.agentTask,
-		mode: 'injection',
-		scopes: plan.scopes,
-		kinds: plan.kinds,
-		maxItems: plan.maxItems,
-		tokenBudget: plan.tokenBudget,
-		minScore: resolvedConfig.recall.injection.minScore,
-		requireQuerySignal: resolvedConfig.recall.injection.requireQuerySignal,
-	};
-	const bundle = await gateway.recall(recallInput);
-	await input.appendRunLog(input.directory, input.sessionID, {
-		event: 'recall_returned',
-		runId: input.sessionID ?? 'unknown',
-		agentRole: input.agentRole,
-		agentId: input.agentId,
-		bundleId: bundle.id,
-		memoryIds: bundle.items.map((item) => item.record.id),
-		scores: bundle.items.map((item) => item.score),
-		tokenEstimate: bundle.tokenEstimate,
-	});
-	if (bundle.items.length === 0) {
-		await logInjectionSkipped(
-			input,
-			bundle.diagnostics?.injectionSkipReason ?? 'no_results',
-			bundle,
-		);
+			minScore: resolvedConfig.recall.injection.minScore,
+			requireQuerySignal: resolvedConfig.recall.injection.requireQuerySignal,
+		};
+		const bundle = await gateway.recall(recallInput);
+		await input.appendRunLog(input.directory, input.sessionID, {
+			event: 'recall_returned',
+			runId: input.sessionID ?? 'unknown',
+			agentRole: input.agentRole,
+			agentId: input.agentId,
+			bundleId: bundle.id,
+			memoryIds: bundle.items.map((item) => item.record.id),
+			scores: bundle.items.map((item) => item.score),
+			tokenEstimate: bundle.tokenEstimate,
+		});
+		if (bundle.items.length === 0) {
+			await logInjectionSkipped(
+				input,
+				bundle.diagnostics?.injectionSkipReason ?? 'no_results',
+				bundle,
+			);
+		}
+		return { bundle, scopes };
+	} finally {
+		await gateway.dispose?.();
 	}
-	return { bundle, scopes };
 }
 
 async function logInjectionSkipped(
@@ -429,7 +433,8 @@ function isCuratorAgent(agentRole: string): boolean {
 	return (
 		agentRole === 'curator' ||
 		agentRole === 'curator_init' ||
-		agentRole === 'curator_phase'
+		agentRole === 'curator_phase' ||
+		agentRole === 'curator_postmortem'
 	);
 }
 

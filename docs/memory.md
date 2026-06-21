@@ -180,12 +180,20 @@ Durable memories cannot use `run` or `agent` scope. `scratch` memories are ephem
 Recall is deterministic lexical scoring:
 
 ```text
-token overlap        45%
-tag overlap          20%
-scope specificity    15%
-kind profile         10%
-confidence           10%
+text overlap           38%
+tag overlap            16%
+file overlap           12%
+symbol overlap          8%
+task-term overlap       8%
+scope specificity      12%
+kind profile            6%
+role boost              5%
+confidence              8%
+                       ----
+sum                   1.13
 ```
+
+(Weights are an unnormalised weighted sum and may exceed 1.0; `minScore` thresholds are empirical tuning parameters, not probabilities. Default thresholds in `DEFAULT_MEMORY_CONFIG` are calibrated against these actual weights.)
 
 The recall prompt block always labels memory as untrusted:
 

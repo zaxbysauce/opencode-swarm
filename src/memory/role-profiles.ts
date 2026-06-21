@@ -101,7 +101,12 @@ export function normalizeMemoryAgentRole(
 	) {
 		return 'security';
 	}
-	if (base === 'curator_init' || base === 'curator_phase') return 'curator';
+	if (
+		base === 'curator_init' ||
+		base === 'curator_phase' ||
+		base === 'curator_postmortem'
+	)
+		return 'curator';
 	if (base === 'docs') return 'sme';
 	if (
 		base === 'architect' ||

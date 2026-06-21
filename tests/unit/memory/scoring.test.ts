@@ -6,6 +6,7 @@ import {
 	type RecallRequest,
 } from '../../../src/memory';
 import {
+	SCORING_WEIGHTS,
 	scoreMemoryRecord,
 	scoreMemoryRecordsWithDiagnostics,
 } from '../../../src/memory/scoring';
@@ -167,5 +168,35 @@ describe('memory scoring', () => {
 			preScoredFilteredCount: 1,
 			noSignalCount: 0,
 		});
+	});
+});
+
+describe('SCORING_WEIGHTS pinned', () => {
+	test('textOverlap is 0.38', () => {
+		expect(SCORING_WEIGHTS.textOverlap).toBe(0.38);
+	});
+	test('tagOverlap is 0.16', () => {
+		expect(SCORING_WEIGHTS.tagOverlap).toBe(0.16);
+	});
+	test('fileOverlap is 0.12', () => {
+		expect(SCORING_WEIGHTS.fileOverlap).toBe(0.12);
+	});
+	test('symbolOverlap is 0.08', () => {
+		expect(SCORING_WEIGHTS.symbolOverlap).toBe(0.08);
+	});
+	test('taskTermOverlap is 0.08', () => {
+		expect(SCORING_WEIGHTS.taskTermOverlap).toBe(0.08);
+	});
+	test('scopeSpecificityBoost is 0.12', () => {
+		expect(SCORING_WEIGHTS.scopeSpecificityBoost).toBe(0.12);
+	});
+	test('kindProfileBoost is 0.06', () => {
+		expect(SCORING_WEIGHTS.kindProfileBoost).toBe(0.06);
+	});
+	test('roleBoost is 0.05', () => {
+		expect(SCORING_WEIGHTS.roleBoost).toBe(0.05);
+	});
+	test('confidence is 0.08', () => {
+		expect(SCORING_WEIGHTS.confidence).toBe(0.08);
 	});
 });

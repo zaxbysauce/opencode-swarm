@@ -398,7 +398,23 @@ function parseEvaluateArgs(
 						'Usage: /swarm memory evaluate [--json] [--fixtures <directory>]',
 				};
 			}
-			fixtureDirectory = path.resolve(directory, next);
+			const resolvedFixtures = path.resolve(directory, next);
+			const canonical = path.normalize(resolvedFixtures) + path.sep;
+			const allowedRootA = path.normalize(directory) + path.sep;
+			const allowedRootB =
+				path.normalize(
+					path.join(PACKAGE_ROOT, 'tests', 'fixtures', 'memory-recall'),
+				) + path.sep;
+			if (
+				!canonical.startsWith(allowedRootA) &&
+				!canonical.startsWith(allowedRootB)
+			) {
+				return {
+					error:
+						'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+				};
+			}
+			fixtureDirectory = resolvedFixtures;
 			i++;
 			continue;
 		}

@@ -1,4 +1,4 @@
-import { describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import type {
 	CuratorMemoryDecision,
 	MemoryLifecycleHookOptions,
@@ -748,5 +748,44 @@ describe('memory lifecycle injection', () => {
 				}),
 			]),
 		);
+	});
+
+	test('recallForAgent calls gateway.dispose on all paths', async () => {
+		const disposeSpy = mock();
+		const bundle = makeBundle(
+			makeRecord('test_pattern', 'Run focused tests with bun --smol test.'),
+		);
+		const hooks = createMemoryLifecycleHooks({
+			directory: 'C:/repo-a',
+			config: { enabled: true },
+			getActiveAgentName: () => 'mega_test_engineer',
+			createGateway: () => ({
+				isEnabled: () => true,
+				deriveAllowedScopes: () => allowedScopes,
+				recall: async () => bundle,
+				propose: async () => {
+					throw new Error('unexpected');
+				},
+				dispose: disposeSpy,
+			}),
+			appendRunLog: async () => {},
+		});
+		const output = {
+			messages: [
+				{
+					info: { role: 'system', sessionID: 'session-a' },
+					parts: [{ type: 'text', text: 'You are Test Engineer.' }],
+				},
+				{
+					info: { role: 'user', sessionID: 'session-a' },
+					parts: [{ type: 'text', text: 'TASK: verify tests/unit/memory' }],
+				},
+			],
+		};
+
+		await hooks.messagesTransform({ sessionID: 'session-a' }, output);
+
+		expect(disposeSpy).toHaveBeenCalled();
+		expect(disposeSpy).toHaveBeenCalledTimes(1);
 	});
 });

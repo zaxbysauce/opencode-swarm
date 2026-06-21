@@ -146,6 +146,72 @@ describe('/swarm memory commands', () => {
 		).resolves.toBe(usage);
 	});
 
+	test('--fixtures rejects path traversal outside directory', async () => {
+		const result = await handleMemoryEvaluateCommand(tmpDir, [
+			'--fixtures',
+			'../../etc',
+		]);
+
+		expect(result).toBe(
+			'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+		);
+	});
+
+	test('--fixtures accepts path inside directory', async () => {
+		const fixturesDir = path.join(tmpDir, 'my-fixtures');
+		await fs.mkdir(fixturesDir, { recursive: true });
+
+		const result = await handleMemoryEvaluateCommand(tmpDir, [
+			'--fixtures',
+			'./my-fixtures',
+		]);
+
+		expect(result).not.toBe(
+			'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+		);
+		expect(result).toContain('Swarm Memory Recall Evaluation');
+	});
+
+	test('--fixtures accepts default bundled fixtures path', async () => {
+		const result = await handleMemoryEvaluateCommand(tmpDir, []);
+
+		expect(result).not.toBe(
+			'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+		);
+		expect(result).toContain('Swarm Memory Recall Evaluation');
+		expect(result).toContain('Fixtures:');
+	});
+
+	test('--fixtures rejects absolute path outside allowed roots', async () => {
+		const outsideDir = path.join(path.dirname(tmpDir), 'outside-allowed-root');
+		const result = await handleMemoryEvaluateCommand(tmpDir, [
+			'--fixtures',
+			outsideDir,
+		]);
+
+		expect(result).toBe(
+			'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+		);
+	});
+
+	test('--fixtures rejects prefix-collision attack', async () => {
+		// Create a directory that shares a prefix with tmpDir but is not a child
+		// e.g. if tmpDir is /tmp/abc, /tmp/abcdef is a prefix collision
+		const parentDir = path.dirname(tmpDir);
+		const siblingDir = path.join(parentDir, path.basename(tmpDir) + 'sibling');
+		await fs.mkdir(siblingDir, { recursive: true });
+
+		// The sibling path should be rejected because it doesn't start with tmpDir + sep
+		const result = await handleMemoryEvaluateCommand(tmpDir, [
+			'--fixtures',
+			`..${path.sep}${path.basename(tmpDir)}sibling`,
+		]);
+
+		expect(result).toBe(
+			'--fixtures <directory> must resolve under the project directory or the bundled tests/fixtures/memory-recall directory',
+		);
+	});
+
 	test('pending lists pending proposals and rejected proposal reasons', async () => {
 		const provider = new SQLiteMemoryProvider(tmpDir, {
 			enabled: true,

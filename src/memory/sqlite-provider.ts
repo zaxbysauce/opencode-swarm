@@ -72,6 +72,16 @@ interface Migration {
 	sql: string;
 }
 
+// FTS shadow table migration. Version 3 is used because version 2 is
+// already occupied by LEGACY_JSONL_MIGRATION_VERSION (legacy JSONL import
+// marker — see src/memory/jsonl-migration.ts:9). schema_migrations.version
+// is INTEGER PRIMARY KEY, so two migrations cannot share a version number.
+// Stale schema_migrations rows with version=3 from prior inits (when this
+// was an out-of-band marker stamped by initializeFtsIndex) are TOLERATED
+// WITHOUT CLEANUP — they happen to align with the new in-array version 3,
+// so runMigrations sees MAX(version) >= 3 and skips re-applying. The
+// hasMigration(FTS_SCHEMA_MIGRATION_NAME) name-guard plus CREATE VIRTUAL
+// TABLE IF NOT EXISTS in the else branch make this safe.
 const FTS_SCHEMA_MIGRATION_VERSION = 3;
 const FTS_SCHEMA_MIGRATION_NAME = 'create_memory_fts5_shadow_index';
 const FTS_TABLE_NAME = 'memory_items_fts';
@@ -119,7 +129,7 @@ const FTS_INSERT_COLUMNS = [
 	...FTS_INDEX_COLUMNS.map((column) => column.name),
 ];
 
-const MIGRATIONS: Migration[] = [
+export const MIGRATIONS: Migration[] = [
 	{
 		version: 1,
 		name: 'create_memory_provider_tables',
@@ -165,6 +175,15 @@ const MIGRATIONS: Migration[] = [
 			);
 			CREATE INDEX IF NOT EXISTS idx_memory_recall_usage_bundle
 				ON memory_recall_usage(bundle_id);
+		`,
+	},
+	{
+		version: 3,
+		name: 'create_memory_fts5_shadow_index',
+		sql: `
+			CREATE VIRTUAL TABLE IF NOT EXISTS ${FTS_TABLE_NAME} USING fts5(
+				${ftsCreateColumnsSql()}
+			);
 		`,
 	},
 ];
@@ -214,6 +233,7 @@ export class SQLiteMemoryProvider
 	private readonly rootDirectory: string;
 	private readonly config: MemoryConfig;
 	private initialized = false;
+	private initPromise: Promise<void> | null = null;
 	private db: Database | null = null;
 	private ftsAvailable = false;
 	private memories = new Map<string, MemoryRecord>();
@@ -259,6 +279,16 @@ export class SQLiteMemoryProvider
 
 	async initialize(): Promise<void> {
 		if (this.initialized) return;
+		if (!this.initPromise) {
+			this.initPromise = this.doInitialize().catch((err) => {
+				this.initPromise = null;
+				throw err;
+			});
+		}
+		return this.initPromise;
+	}
+
+	private async doInitialize(): Promise<void> {
 		const dbPath = this.databasePath();
 		mkdirSync(path.dirname(dbPath), { recursive: true });
 		const Db = loadDatabaseCtor();
@@ -530,6 +560,7 @@ export class SQLiteMemoryProvider
 		this.db = null;
 		this.ftsAvailable = false;
 		this.initialized = false;
+		this.initPromise = null;
 		this.lastAutomaticJsonlMigration = null;
 	}
 
@@ -720,15 +751,6 @@ export class SQLiteMemoryProvider
 		try {
 			if (!this.hasMigration(FTS_SCHEMA_MIGRATION_NAME)) {
 				this.recreateFtsIndex();
-				this.markMigration(
-					FTS_SCHEMA_MIGRATION_VERSION,
-					FTS_SCHEMA_MIGRATION_NAME,
-				);
-				this.insertEvent(
-					'migration',
-					String(FTS_SCHEMA_MIGRATION_VERSION),
-					FTS_SCHEMA_MIGRATION_NAME,
-				);
 			} else {
 				db.run(`CREATE VIRTUAL TABLE IF NOT EXISTS ${FTS_TABLE_NAME} USING fts5(
 					${ftsCreateColumnsSql()}
@@ -1152,16 +1174,74 @@ export class SQLiteMemoryProvider
 	}
 
 	private requireDb(): Database {
-		if (!this.db) throw new Error('SQLite memory provider is not initialized');
+		if (!this.db)
+			throw new MemoryValidationError(
+				'SQLite memory provider is not initialized',
+				'provider_not_initialized',
+			);
 		return this.db;
 	}
 }
 
+// Naive split-on-';' was replaced with a stateful parser that respects single-quoted
+// string literals and `--` line comments. Double-quoted SQLite identifiers are NOT in
+// scope for Phase 1 (current migrations use only single-quoted strings); document as
+// future work.
 function splitSql(sql: string): string[] {
-	return sql
-		.split(';')
-		.map((statement) => statement.trim())
-		.filter(Boolean);
+	const statements: string[] = [];
+	let current = '';
+	let inSingleQuote = false;
+	let inLineComment = false;
+
+	for (let i = 0; i < sql.length; i++) {
+		const char = sql[i];
+		const next = sql[i + 1];
+
+		if (inLineComment) {
+			if (char === '\n') {
+				inLineComment = false;
+			}
+			continue; // skip comment chars entirely (they don't appear in statement output)
+		}
+
+		if (inSingleQuote) {
+			if (char === "'" && next === "'") {
+				current += "''"; // SQLite escaped single quote
+				i++; // consume both characters
+				continue;
+			}
+			current += char;
+			if (char === "'") {
+				inSingleQuote = false;
+			}
+			continue;
+		}
+
+		// Not in quote or comment
+		if (char === '-' && next === '-') {
+			inLineComment = true;
+			i++; // consume the second '-'
+			continue;
+		}
+		if (char === "'") {
+			inSingleQuote = true;
+			current += char;
+			continue;
+		}
+		if (char === ';') {
+			const trimmed = current.trim();
+			if (trimmed) statements.push(trimmed);
+			current = '';
+			continue;
+		}
+		current += char;
+	}
+
+	// Handle trailing statement without semicolon
+	const trimmed = current.trim();
+	if (trimmed) statements.push(trimmed);
+
+	return statements;
 }
 
 const FTS_STOP_WORDS = new Set([
@@ -1269,6 +1349,7 @@ function rerankWithFts(
 }
 
 export const _test_exports = {
+	splitSql,
 	buildFtsQuery,
 	extractFtsTerms,
 	FTS_SCHEMA_MIGRATION_NAME,
