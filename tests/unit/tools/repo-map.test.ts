@@ -421,6 +421,7 @@ describe('repo_map: callers / dead_exports', () => {
 		expect(r.success).toBe(true);
 		expect(r.schemaSupported).toBe(true);
 		const symbols = r.candidates.map((c) => c.symbol);
+		expect(r.candidates.length).toBe(1);
 		expect(symbols).toContain('orphan');
 		expect(symbols).not.toContain('add');
 	});
