@@ -32,6 +32,15 @@ describe('isSchemaVersionAtLeast', () => {
 		expect(isSchemaVersionAtLeast(undefined, '1.1.0')).toBe(false);
 		expect(isSchemaVersionAtLeast('1.1', '1.1.0')).toBe(true);
 	});
+
+	test('pre-release suffix is truncated to numeric part (1.1.0-alpha treated as 1.1.0)', () => {
+		// parseInt('0-alpha', 10) = 0 (stops at '-'); Number.isFinite(0) = true.
+		// Pre-release graphs pass the same gate as their stable counterpart.
+		// In practice GRAPH_SCHEMA_VERSION is always a plain numeric semver, so
+		// this case arises only in test/dev environments.
+		expect(isSchemaVersionAtLeast('1.1.0-alpha', '1.1.0')).toBe(true);
+		expect(isSchemaVersionAtLeast('1.0.0-rc1', '1.1.0')).toBe(false);
+	});
 });
 
 describe('builder: usedSymbols + exportLines', () => {
