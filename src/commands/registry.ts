@@ -28,8 +28,6 @@ import {
 } from './evidence.js';
 import { handleExportCommand } from './export.js';
 import { handleFullAutoCommand } from './full-auto.js';
-import { handleGuardrailExplain } from './guardrail-explain.js';
-import { handleGuardrailLog } from './guardrail-log.js';
 import { handleHandoffCommand } from './handoff.js';
 import { handleHistoryCommand } from './history.js';
 import { handleIssueCommand } from './issue.js';
@@ -436,7 +434,10 @@ export const COMMAND_REGISTRY = {
 		deprecated: true,
 	},
 	'guardrail explain': {
-		handler: (ctx) => handleGuardrailExplain(ctx.directory, ctx.args),
+		handler: async (ctx) => {
+			const { handleGuardrailExplain } = await import('./guardrail-explain.js');
+			return handleGuardrailExplain(ctx.directory, ctx.args);
+		},
 		description:
 			'Dry-run: show what the guardrails would do to a command or write target (executes nothing)',
 		category: 'diagnostics',
@@ -444,7 +445,10 @@ export const COMMAND_REGISTRY = {
 		toolNoArgs: false,
 	},
 	'guardrail-log': {
-		handler: (ctx) => handleGuardrailLog(ctx.directory, ctx.args),
+		handler: async (ctx) => {
+			const { handleGuardrailLog } = await import('./guardrail-log.js');
+			return handleGuardrailLog(ctx.directory, ctx.args);
+		},
 		description:
 			'Read the guardrail decision log (use --blocks-only for blocks)',
 		category: 'diagnostics',
