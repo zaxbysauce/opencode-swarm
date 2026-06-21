@@ -288,6 +288,11 @@ export interface AgentSessionState {
 	 *  When set, overrides the plan's execution_profile.max_concurrent_tasks
 	 *  for delegation-gate guidance. Cleared on session reset. */
 	maxConcurrencyOverride?: number;
+	/** Whether Epic Mode (additive overlay above Lean Turbo) is active for
+	 *  this session. Durable mirror lives in `.swarm/epic-state.json`; this
+	 *  in-memory flag matches what `src/turbo/epic/state.ts` persists and is
+	 *  what `hasActiveEpicMode(sessionID)` reads on the hot path. */
+	epicModeActive?: boolean;
 
 	// Auto-proceed session overrides (Phase 1)
 	/** Session-scoped override for execution_profile.auto_proceed.
@@ -642,6 +647,8 @@ export function startAgentSession(
 		leanTurboActive: false,
 		leanTurboCurrentPhase: undefined,
 		maxConcurrencyOverride: undefined,
+		// Epic Mode (additive overlay above Lean Turbo)
+		epicModeActive: false,
 		// QA Gate Profile session overrides
 		qaGateSessionOverrides: {},
 		// Full Auto Mode (Phase 2)
@@ -890,6 +897,10 @@ export function ensureAgentSession(
 		}
 		if (session.leanTurboCurrentPhase === undefined) {
 			session.leanTurboCurrentPhase = undefined;
+		}
+		// Epic Mode migration safety
+		if (session.epicModeActive === undefined) {
+			session.epicModeActive = false;
 		}
 		// QA Gate Profile session overrides migration safety
 		if (session.qaGateSessionOverrides === undefined) {
@@ -1803,6 +1814,28 @@ export function hasActiveLeanTurbo(sessionID?: string): boolean {
 }
 
 /**
+ * Check if Epic Mode is active for a specific session or ANY session.
+ * Mirrors `hasActiveLeanTurbo` but reads `session.epicModeActive`. The flag
+ * is set by `enableEpicMode` (and by `/swarm turbo epic on`) and cleared by
+ * `disableEpicMode` (and `/swarm turbo epic off`). The durable mirror is
+ * `.swarm/epic-state.json` — see `src/turbo/epic/state.ts`. Epic Mode does
+ * NOT require `turboStrategy === 'lean'`; it composes Lean Turbo internally
+ * inside `epic_run_phase`.
+ */
+export function hasActiveEpicMode(sessionID?: string): boolean {
+	if (sessionID) {
+		const session = swarmState.agentSessions.get(sessionID);
+		return session?.epicModeActive === true;
+	}
+	for (const [_sessionId, session] of swarmState.agentSessions) {
+		if (session.epicModeActive === true) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Resolves the effective auto_proceed value for a session.
  * Session override (autoProceedOverride) takes precedence over the plan default.
  * Accepts `boolean | undefined` for the plan default so callers can pass
@@ -1966,6 +1999,7 @@ export const _internals: {
 	hasActiveFullAuto: typeof hasActiveFullAuto;
 	hasActiveTurboMode: typeof hasActiveTurboMode;
 	hasActiveLeanTurbo: typeof hasActiveLeanTurbo;
+	hasActiveEpicMode: typeof hasActiveEpicMode;
 	buildRehydrationCache: typeof buildRehydrationCache;
 	applyRehydrationCache: typeof applyRehydrationCache;
 	rehydrateSessionFromDisk: typeof rehydrateSessionFromDisk;
@@ -1984,6 +2018,7 @@ export const _internals: {
 	hasActiveFullAuto,
 	hasActiveTurboMode,
 	hasActiveLeanTurbo,
+	hasActiveEpicMode,
 	buildRehydrationCache,
 	applyRehydrationCache,
 	rehydrateSessionFromDisk,

@@ -650,6 +650,27 @@ export const TOOL_METADATA = {
 			'Revoke a previously promoted external skill. Returns a disabled message when external_skills.curation_enabled is false.',
 		agents: [],
 	},
+	epic_decide_phase: {
+		description:
+			'Compute the Epic Mode verdict for a phase WITHOUT dispatching coders. Runs preflight + calibration + the three gates (p-threshold, hot-module, greenfield), persists the decision, and returns the verdict so the architect can dispatch waves via the visible Task tool (promote) or fall back to per-task serial (demote). Pair with `epic_plan_waves` to get the wave plan when promoted. Use when /swarm epic is on for the session.',
+		agents: ['architect'],
+	},
+	epic_plan_waves: {
+		description:
+			"Partition a phase's pending tasks into ordered concurrent waves for Epic Mode dispatch. " +
+			'A wave is a set of tasks with mutually disjoint declared scopes and all dependencies satisfied by prior waves. ' +
+			'Returns `{ waves: [{ waveId, taskIds, files }, ...], serializedTasks, degradedTasks }`. ' +
+			'For each wave in order, the architect dispatches one `Task(subagent_type="coder", ...)` per `taskId` — all in one assistant message — so the wave runs concurrently and each coder appears as a visible subagent. ' +
+			'Wait for the wave to finish before dispatching the next. ' +
+			'Pair with `epic_decide_phase` (called first; this tool is only relevant on a `promote` verdict). ' +
+			'Preflight reject reasons: `no-plan`, `no-phase`, `phase-empty`, `phase-already-complete`, `scopes-missing` (call `declare_scope` for `missingScopes`), `git-failed` (transient — retry), `planner-error`.',
+		agents: ['architect'],
+	},
+	epic_record_divergence: {
+		description:
+			"After every `update_task_status(completed)`, record the task's declared-vs-actual divergence to .swarm/epic/divergence.jsonl. Feeds Epic Mode's self-calibration loop (Capability D). Best-effort: never blocks.",
+		agents: ['architect'],
+	},
 } satisfies Record<string, ToolMeta>;
 
 /** Union type of all valid tool names (the metadata keys). */

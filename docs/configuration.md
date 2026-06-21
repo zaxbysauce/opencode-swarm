@@ -884,6 +884,64 @@ The execution profile (per-plan, set during QA GATE SELECTION or via `save_plan`
 
 **Auto-proceed:** When `true`, the swarm advances from one phase to the next without asking for confirmation. The session override (`/swarm auto-proceed on|off`) always takes precedence over the plan default. The architect sees the effective value via an injected `AUTO PROCEED STATUS` banner. The first-boundary nudge offers to enable it once per session when the plan default is `false` and no session override is set.
 
+### `turbo.epic` — Epic Mode settings
+
+Epic Mode is an optional execution mode that augments Lean Turbo with autonomous, coupling-aware lane planning. With these keys at their defaults, no Epic-mode code runs and behavior is identical to Lean Turbo alone. See [Epic Mode](modes.md#epic-mode-preview) for the design.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cochange.enabled` | boolean | `false` | Master gate for the co-change conflict signal. With this off, the module is dormant and no Epic-mode code runs in any flow. |
+| `cochange.threshold` | number | `0.6` | NPMI floor (range `[-1, 1]`) for a file pair to be treated as historically co-changing. Stricter than `co_change_analyzer`'s discovery default (`0.5`). |
+| `cochange.min_co_changes` | number | `5` | Minimum raw co-change count required before NPMI is considered, to suppress small-sample noise. Stricter than the analyzer's discovery default (`3`). |
+
+`turbo.epic` is independent of `turbo.strategy` — the keys are accepted under both `"standard"` and `"lean"` strategies. The block is purely additive; omitting it leaves Lean Turbo, Turbo, and Full-Auto behavior unchanged.
+
+**Example** — Enable the co-change signal with conservative defaults:
+
+```json
+{
+  "turbo": {
+    "strategy": "lean",
+    "lean": { "max_parallel_coders": 4 },
+    "epic": {
+      "cochange": {
+        "enabled": true,
+        "threshold": 0.6,
+        "min_co_changes": 5
+      }
+    }
+  }
+}
+```
+
+### `turbo.epic.mode` — Epic Mode activation gate (Capability C, preview)
+
+Epic Mode auto-decides per plan whether to invoke Lean Turbo's parallel planner or fall back to serial, based on the coupling coefficient `p`. See [Epic Mode (preview)](modes.md#capability-c--activation-gate-and-the-epic-mode-itself) for the design.
+
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `mode.enabled` | boolean | `false` | Master gate for Epic Mode activation. When off, no Epic-mode runtime code runs. |
+| `mode.activation_threshold` | number | `0.3` | Plan-wide `p` ceiling. Plans with `p ≤ activation_threshold` are eligible for parallel promotion; plans above are forced serial. |
+| `mode.min_commits_for_signal` | number | `20` | Greenfield rule. A co-change history with fewer than this many commits is treated as too sparse — promotion is blocked regardless of `p`. |
+
+**Example** — Enable Epic Mode with a strict threshold and dense-history requirement:
+
+```json
+{
+  "turbo": {
+    "strategy": "lean",
+    "epic": {
+      "mode": {
+        "enabled": true,
+        "activation_threshold": 0.2,
+        "min_commits_for_signal": 50
+      },
+      "cochange": { "enabled": true }
+    }
+  }
+}
+```
+
 ## QA gates reference
 
 The QA gate profile (per-plan, persisted in the project DB) controls which quality gates fire during a plan's execution. Configure interactively via the gate-selection dialogue surfaced in MODE: SPECIFY step 5b, MODE: BRAINSTORM Phase 6, or the MODE: PLAN inline path. Programmatic configuration via `set_qa_gates` (architect-only) or `/swarm qa-gates enable <gate>...`.

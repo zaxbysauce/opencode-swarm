@@ -1130,6 +1130,11 @@ export async function executeUpdateTaskStatus(
 		);
 
 		if (args.status === 'completed') {
+			// Rule 2 auto-commit fires inside `plan/manager.updateTaskStatus`
+			// after savePlan succeeds (see plan/manager.ts for rationale).
+			// Centralizing it there covers both this tool entry AND the
+			// council/reviewer completion path in `delegation-gate.ts`, so do
+			// NOT add a duplicate commit hook here.
 			for (const [_sessionId, session] of swarmState.agentSessions) {
 				if (!(session.taskWorkflowStates instanceof Map)) {
 					continue;

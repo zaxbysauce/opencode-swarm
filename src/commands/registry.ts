@@ -15,6 +15,7 @@ import { handleConcurrencyCommand } from './concurrency.js';
 import { handleConfigCommand } from './config.js';
 import { handleConsolidateCommand } from './consolidate.js';
 import { handleCouncilCommand } from './council.js';
+import { handleCouplingCommand } from './coupling.js';
 import { handleCurateCommand } from './curate.js';
 import { handleDarkMatterCommand } from './dark-matter.js';
 import { handleDeepDiveCommand } from './deep-dive.js';
@@ -22,6 +23,7 @@ import { handleDeepResearchCommand } from './deep-research.js';
 import { handleDesignDocsCommand } from './design-docs.js';
 import { handleDiagnoseCommand } from './diagnose.js';
 import { handleDoctorCommand, handleDoctorToolsCommand } from './doctor.js';
+import { handleEpicCommand } from './epic.js';
 import {
 	handleEvidenceCommand,
 	handleEvidenceSummaryCommand,
@@ -605,6 +607,26 @@ export const COMMAND_REGISTRY = {
 		category: 'utility',
 		toolPolicy: 'restricted',
 	},
+	coupling: {
+		handler: (ctx) => handleCouplingCommand(ctx.directory, ctx.args),
+		description:
+			'Measure plan coupling (p) and rank modules driving conflicts (Epic mode preview)',
+		details:
+			"Computes the coupling coefficient p = (conflicting task pairs) / (total task pairs) over the current plan, using Epic mode's combined path + co-change conflict signal. Surfaces per-module contention and a ranked decoupling roadmap. Read-only: runs independent of `turbo.epic.cochange.enabled` so it can be used as a what-if diagnostic before opting into the runtime signal.",
+		args: '--phase <n>, --threshold <-1..1>, --min-co-changes <n>, --format markdown|json, --persist',
+		category: 'diagnostics',
+		toolPolicy: 'none',
+	},
+	epic: {
+		handler: (ctx) => handleEpicCommand(ctx.directory, ctx.args, ctx.sessionID),
+		description:
+			'Toggle Epic Mode (autonomous coupling-aware parallel activation) and inspect its decisions',
+		details:
+			'Epic Mode is an additive overlay that composes Lean Turbo. When on, the architect follows the transparent decide-then-dispatch wave flow: declare_scope (per pending task) → epic_decide_phase → epic_plan_waves → for each wave in order, dispatch one Task per taskId in the wave, ALL in one assistant message (each concurrent coder appears as a visible subagent the user can click into) → epic_record_divergence. epic_decide_phase computes the plan-wide coupling coefficient p and gates parallel promotion on p + a hot-module check + a greenfield rule. epic_plan_waves partitions promoted phases into ordered concurrent groups (waves) that respect dependency order and scope disjointness. Subcommands: on, off, status, decide (read-only what-if), last (most recent decision from durable evidence log), calibration (Capability D state: learned threshold + hot modules + recent divergent tasks). Bare /swarm epic shows status. Decision rationale persists to .swarm/evidence/epic-promotions.jsonl after every epic_decide_phase invocation.',
+		args: 'on | off | status | decide | last | calibration',
+		category: 'diagnostics',
+		toolPolicy: 'none',
+	},
 	'dark-matter': {
 		handler: (ctx) => handleDarkMatterCommand(ctx.directory, ctx.args),
 		description: 'Detect hidden file couplings via co-change NPMI analysis',
@@ -1056,13 +1078,14 @@ export const COMMAND_REGISTRY = {
 		handler: (ctx) =>
 			handleTurboCommand(ctx.directory, ctx.args, ctx.sessionID),
 		description:
-			'Toggle Turbo Mode strategy for the active session [on|off|lean|standard|status]',
-		args: 'on, off, lean, standard, status',
+			'Toggle Turbo Mode strategy for the active session [on|off|lean|standard|epic|status]',
+		args: 'on, off, lean, standard, epic, status',
 		details:
-			'Toggles Turbo Mode for the current session. Supports two strategies:\n' +
+			'Toggles Turbo Mode for the current session. Supports three strategies:\n' +
 			'\n' +
 			'**Standard turbo** — skips non-critical QA gates for faster iteration.\n' +
 			'**Lean turbo** — parallel lane execution with per-lane reviewer gates and file-lock conflict detection.\n' +
+			'**Epic** — additive overlay above Lean Turbo. Auto-decides per-plan parallel-vs-serial via the coupling coefficient `p` and three gates (p-threshold, hot-module, greenfield). When `/swarm turbo epic on` is selected, Lean Turbo is also enabled — Epic dispatches Lean Turbo when it promotes.\n' +
 			'\n' +
 			'Subcommands:\n' +
 			'  turbo on           — enable turbo (uses lean when config turbo.strategy is "lean", otherwise standard)\n' +
@@ -1072,9 +1095,12 @@ export const COMMAND_REGISTRY = {
 			'  turbo lean         — toggle Lean Turbo on/off\n' +
 			'  turbo standard on  — force standard turbo (disables lean even if config says lean)\n' +
 			'  turbo standard off — disable all turbo modes (standard + lean)\n' +
+			'  turbo epic on      — enable Lean Turbo + Epic Mode together (autonomous decision)\n' +
+			'  turbo epic off     — disable both Lean Turbo and Epic Mode\n' +
+			'  turbo epic         — toggle Epic Mode (+ Lean Turbo) on/off\n' +
 			'  turbo status       — show detailed status including active strategy and lanes\n' +
 			'\n' +
-			'Session-scoped — resets on new session.',
+			'Session-scoped — resets on new session. `/swarm epic` remains as the epic-only toggle that does not also flip Lean Turbo session state.',
 		category: 'utility',
 		toolPolicy: 'none',
 	},
