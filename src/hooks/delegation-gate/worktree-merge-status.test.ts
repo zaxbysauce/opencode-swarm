@@ -264,4 +264,30 @@ describe('worktree-merge-status registry — lookup does not clobber live map', 
 			.filter((f) => f.includes('worktree-merge-status.json.tmp'));
 		expect(stray).toEqual([]);
 	});
+
+	it('switching to a DIFFERENT project directory reloads that project state', () => {
+		// Project A has a recorded failure.
+		const dirA = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-merge-dirA-'));
+		fs.mkdirSync(path.join(dirA, '.swarm'), { recursive: true });
+		initDurableStatusPath(dirA);
+		recordWorktreeMergeFailure('a.1', FAILURE_STUB);
+
+		// Project B is clean (no failures recorded).
+		const dirB = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-merge-dirB-'));
+		fs.mkdirSync(path.join(dirB, '.swarm'), { recursive: true });
+
+		try {
+			// Switch to B: the path differs, so the init guard must NOT skip —
+			// it reloads B's (empty) durable state, not leak A's into B.
+			initDurableStatusPath(dirB);
+			expect(getWorktreeMergeFailure('a.1')).toBeUndefined();
+
+			// Switch back to A: A's failure must be restored from disk.
+			initDurableStatusPath(dirA);
+			expect(getWorktreeMergeFailure('a.1')).toEqual(FAILURE_STUB);
+		} finally {
+			fs.rmSync(dirA, { recursive: true, force: true });
+			fs.rmSync(dirB, { recursive: true, force: true });
+		}
+	});
 });
