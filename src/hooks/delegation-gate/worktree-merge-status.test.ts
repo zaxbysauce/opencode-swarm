@@ -199,3 +199,69 @@ describe('worktree-merge-status registry — durability (restart survival)', () 
 		expect(getWorktreeMergeFailure('x.3')).toEqual(FAILURE_STUB);
 	});
 });
+
+describe('worktree-merge-status registry — lookup does not clobber live map', () => {
+	let tmpDir: string;
+
+	afterEach(() => {
+		_internals.resetForTest();
+		if (tmpDir) {
+			try {
+				fs.rmSync(tmpDir, { recursive: true });
+			} catch {}
+		}
+	});
+
+	function makeTmpDir(): string {
+		tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wt-merge-clobber-'));
+		fs.mkdirSync(path.join(tmpDir, '.swarm'), { recursive: true });
+		return tmpDir;
+	}
+
+	it('after all entries resolved then a new failure recorded, repeated lookups stay consistent', () => {
+		const dir = makeTmpDir();
+		initDurableStatusPath(dir);
+
+		// Record then resolve so the in-memory map goes empty (the foot-gun
+		// condition: a size===0 lazy-load would re-read disk on every lookup).
+		recordWorktreeMergeFailure('y.1', FAILURE_STUB);
+		clearWorktreeMergeStatus('y.1');
+		expect(_internals.failuresByTask.size).toBe(0);
+
+		// New failure after the map emptied.
+		recordWorktreeMergeFailure('y.2', FAILURE_STUB);
+
+		// Many lookups must keep returning the live value, never clobbered by
+		// a disk reload.
+		for (let i = 0; i < 5; i++) {
+			expect(getWorktreeMergeFailure('y.2')).toEqual(FAILURE_STUB);
+		}
+		// A lookup for an empty/unknown key must not wipe the live entry.
+		expect(getWorktreeMergeFailure('does-not-exist')).toBeUndefined();
+		expect(getWorktreeMergeFailure('y.2')).toEqual(FAILURE_STUB);
+	});
+
+	it('re-init on the SAME path is a no-op and does not reload over live state', () => {
+		const dir = makeTmpDir();
+		initDurableStatusPath(dir);
+		recordWorktreeMergeFailure('z.1', FAILURE_STUB);
+
+		// Re-init same path: guard should skip reload; live entry preserved.
+		initDurableStatusPath(dir);
+		expect(getWorktreeMergeFailure('z.1')).toEqual(FAILURE_STUB);
+	});
+
+	it('does not leave stray .tmp files after writes', () => {
+		const dir = makeTmpDir();
+		initDurableStatusPath(dir);
+		recordWorktreeMergeFailure('w.1', FAILURE_STUB);
+		recordWorktreeMergeFailure('w.2', FAILURE_STUB);
+		clearWorktreeMergeStatus('w.1');
+
+		const swarmDir = path.join(dir, '.swarm');
+		const stray = fs
+			.readdirSync(swarmDir)
+			.filter((f) => f.includes('worktree-merge-status.json.tmp'));
+		expect(stray).toEqual([]);
+	});
+});
