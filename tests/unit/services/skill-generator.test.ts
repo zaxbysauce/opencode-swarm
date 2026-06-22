@@ -626,6 +626,94 @@ describe('isSkillMaturityEligible — phase number filtering', () => {
 	});
 });
 
+describe('isSkillMaturityEligible — high-priority directive path (issue #1477)', () => {
+	const oneConfirmation = [
+		{
+			phase_number: 1,
+			confirmed_at: '2025-01-01T00:00:00.000Z',
+			project_name: 'test',
+		},
+	];
+	const twoConfirmations = [
+		...oneConfirmation,
+		{
+			phase_number: 2,
+			confirmed_at: '2025-01-01T00:00:00.000Z',
+			project_name: 'test',
+		},
+	];
+	const opts = { minConfidence: 0.7, minConfirmations: 2 };
+	const noOutcomes = {
+		applied_count: 0,
+		succeeded_after_count: 0,
+		failed_after_count: 0,
+	};
+
+	function entryWith(
+		priority: 'low' | 'medium' | 'high' | 'critical',
+		confidence: number,
+		confirmed_by: Array<{
+			phase_number?: number;
+			confirmed_at: string;
+			project_name: string;
+		}> = oneConfirmation,
+		retrieval_outcomes: Record<string, number> = noOutcomes,
+	) {
+		return {
+			...makeEligibilityEntry(),
+			directive_priority: priority,
+			confidence,
+			confirmed_by,
+			retrieval_outcomes,
+		};
+	}
+
+	it('high-priority + 1 distinct phase + 0.6 confidence → eligible (the unblock)', () => {
+		expect(isSkillMaturityEligible(entryWith('high', 0.6), opts)).toBe(true);
+	});
+
+	it('critical-priority + 1 distinct phase + 0.6 confidence → eligible', () => {
+		expect(isSkillMaturityEligible(entryWith('critical', 0.6), opts)).toBe(true);
+	});
+
+	it('medium-priority + 1 phase + 0.6 → still blocked (targeted, not a blanket loosening)', () => {
+		expect(isSkillMaturityEligible(entryWith('medium', 0.6), opts)).toBe(false);
+	});
+
+	it('low-priority + 1 phase + 0.6 → still blocked', () => {
+		expect(isSkillMaturityEligible(entryWith('low', 0.6), opts)).toBe(false);
+	});
+
+	it('high-priority below the 0.6 confidence floor → blocked', () => {
+		expect(isSkillMaturityEligible(entryWith('high', 0.55), opts)).toBe(false);
+	});
+
+	it('high-priority with zero distinct phases → blocked (needs ≥1 confirmation)', () => {
+		expect(isSkillMaturityEligible(entryWith('high', 0.6, []), opts)).toBe(false);
+	});
+
+	it('high-priority with a net-negative outcome record → blocked (negative gate precedes the path)', () => {
+		const negative = {
+			applied_count: 0,
+			succeeded_after_count: 0,
+			failed_after_count: 0,
+			failed_after_shown_count: 3,
+		};
+		expect(
+			isSkillMaturityEligible(
+				entryWith('high', 0.6, oneConfirmation, negative),
+				opts,
+			),
+		).toBe(false);
+	});
+
+	it('high-priority at the ordinary 0.7/2-phase bar is still eligible (no regression)', () => {
+		expect(
+			isSkillMaturityEligible(entryWith('high', 0.7, twoConfirmations), opts),
+		).toBe(true);
+	});
+});
+
 describe('jaccardSimilarity', () => {
 	it('identical sets return 1.0', () => {
 		expect(jaccardSimilarity(['a', 'b', 'c'], ['a', 'b', 'c'])).toBe(1.0);

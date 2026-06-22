@@ -8,6 +8,7 @@ import { readFile } from 'node:fs/promises';
 import * as path from 'node:path';
 import { atomicWriteFile } from '../evidence/task-file.js';
 import { warn } from '../utils/logger.js';
+import { recordKnowledgeEvent } from './knowledge-events.js';
 import {
 	jaccardBigram,
 	normalize,
@@ -16,7 +17,6 @@ import {
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
 	transactFile,
-	transactKnowledge,
 	wordBigrams,
 } from './knowledge-store.js';
 import type {
@@ -566,60 +566,31 @@ export async function updateRetrievalOutcome(
 			return;
 		}
 
-		// Update swarm entries atomically (CF-2 fix: transactKnowledge acquires the
-		// lock before reading so concurrent appends are not lost by the rewrite).
-		const swarmPath = resolveSwarmKnowledgePath(directory);
-		const foundInSwarm = new Set<string>();
-
-		await transactKnowledge<SwarmKnowledgeEntry>(swarmPath, (entries) => {
-			let mutated = false;
-			for (const entry of entries) {
-				if (shownIds!.includes(entry.id)) {
-					// v2: applied_count is FROZEN — do NOT auto-increment from "shown".
-					// Use shown_count (already bumped by recordKnowledgeShown) and the
-					// new succeeded_after_shown_count / failed_after_shown_count for
-					// post-phase outcome attribution.
-					const ro = entry.retrieval_outcomes as unknown as Record<
-						string,
-						unknown
-					>;
-					if (phaseSucceeded) {
-						ro.succeeded_after_shown_count =
-							((ro.succeeded_after_shown_count as number) ?? 0) + 1;
-					} else {
-						ro.failed_after_shown_count =
-							((ro.failed_after_shown_count as number) ?? 0) + 1;
-					}
-					mutated = true;
-					foundInSwarm.add(entry.id);
-				}
-			}
-			return mutated ? entries : null;
-		});
-
-		// Update hive entries for IDs not found in swarm, atomically (CF-2 fix).
-		const remainingIds = shownIds.filter((id) => !foundInSwarm.has(id));
-		if (remainingIds.length > 0) {
-			const hivePath = resolveHiveKnowledgePath();
-			await transactKnowledge<HiveKnowledgeEntry>(hivePath, (hiveEntries) => {
-				let mutated = false;
-				for (const entry of hiveEntries) {
-					if (remainingIds.includes(entry.id)) {
-						const ro = entry.retrieval_outcomes as unknown as Record<
-							string,
-							unknown
-						>;
-						if (phaseSucceeded) {
-							ro.succeeded_after_shown_count =
-								((ro.succeeded_after_shown_count as number) ?? 0) + 1;
-						} else {
-							ro.failed_after_shown_count =
-								((ro.failed_after_shown_count as number) ?? 0) + 1;
-						}
-						mutated = true;
-					}
-				}
-				return mutated ? hiveEntries : null;
+		// Attribute the phase outcome to each shown entry by appending an immutable
+		// `'outcome'` event (issue #1477). The event log is the SINGLE source of
+		// truth for shown→outcome counters: `recomputeCounters` folds these events
+		// into the per-entry rollup, which `effectiveRetrievalOutcomes` then
+		// surfaces to the maturity gate, search ranking, the curator, and learning
+		// metrics. We intentionally do NOT also mutate `entry.retrieval_outcomes`
+		// here — a second writer would be double-counted by the additive merge and
+		// was the prior root cause of "outcomes written but never read" (the
+		// always-zero event rollup overwrote the entry counts on read). Emitting an
+		// event also works for ids that are no longer present in either store
+		// without a read-modify-write of the knowledge files. Fail-open:
+		// `recordKnowledgeEvent` swallows + warns on I/O failure.
+		const outcome: 'success' | 'failure' = phaseSucceeded
+			? 'success'
+			: 'failure';
+		const evidenceSummary = `${phaseInfo} ${
+			phaseSucceeded ? 'succeeded' : 'failed'
+		} after entry was shown`;
+		for (const id of shownIds) {
+			await _internals.recordKnowledgeEvent(directory, {
+				type: 'outcome',
+				knowledge_id: id,
+				phase: phaseInfo,
+				outcome,
+				evidence_summary: evidenceSummary,
 			});
 		}
 
@@ -709,9 +680,11 @@ export const _internals: {
 	updateRetrievalOutcome: typeof updateRetrievalOutcome;
 	scoreDirectiveAgainstContext: typeof scoreDirectiveAgainstContext;
 	transactShownFile: typeof transactShownFile;
+	recordKnowledgeEvent: typeof recordKnowledgeEvent;
 } = {
 	readMergedKnowledge,
 	updateRetrievalOutcome,
 	scoreDirectiveAgainstContext,
 	transactShownFile,
+	recordKnowledgeEvent,
 };

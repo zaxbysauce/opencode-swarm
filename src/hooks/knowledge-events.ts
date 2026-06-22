@@ -944,6 +944,24 @@ export function effectiveRetrievalOutcomes(
 	return {
 		...base,
 		...rollup,
+		// Outcome counts are ADDITIVE, not rollup-overwrite (issue #1477): `base`
+		// holds frozen historical counts that were written directly into the entry
+		// before shown→outcome attribution was event-sourced; `rollup` holds the
+		// event-derived counts. After the move to event sourcing the entry is never
+		// mutated for these counters again, so each outcome lives in exactly one of
+		// the two sources — summing counts each exactly once AND preserves
+		// pre-migration history without a data migration. A plain spread would let
+		// the (production-zero) rollup clobber real historical entry counts, which
+		// was the root cause of the "outcomes never accrue" stall. Only these two
+		// counts were ever written to the entry; partial_after_shown_count is
+		// event-only and correctly rides the spread above. All non-count fields keep
+		// rollup precedence (they were always events/legacy-authoritative).
+		succeeded_after_shown_count:
+			(base.succeeded_after_shown_count ?? 0) +
+			(rollup.succeeded_after_shown_count ?? 0),
+		failed_after_shown_count:
+			(base.failed_after_shown_count ?? 0) +
+			(rollup.failed_after_shown_count ?? 0),
 	};
 }
 
