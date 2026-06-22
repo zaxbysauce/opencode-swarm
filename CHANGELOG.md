@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.87.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.87.2...v7.87.3) (2026-06-22)
+
+
+### Bug Fixes
+
+* **knowledge:** unblock skill maturity + accrue outcomes ([#1477](https://github.com/ZaxbyHub/opencode-swarm/issues/1477)) ([4c4c810](https://github.com/ZaxbyHub/opencode-swarm/commit/4c4c8100a8a64965533676c438e4f4ab115bfd31))
+
 ## [7.87.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.87.1...v7.87.2) (2026-06-22)
 
 
