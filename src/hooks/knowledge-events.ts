@@ -623,10 +623,26 @@ async function readCounterBaseline(
 ): Promise<Map<string, CounterRollup>> {
 	const filePath = resolveKnowledgeCounterBaselinePath(directory);
 	if (!existsSync(filePath)) return new Map();
-	const raw = JSON.parse(await readFile(filePath, 'utf-8')) as Record<
-		string,
-		CounterRollup
-	>;
+	let raw: Record<string, CounterRollup>;
+	try {
+		raw = JSON.parse(await readFile(filePath, 'utf-8')) as Record<
+			string,
+			CounterRollup
+		>;
+	} catch (err) {
+		// Fail open SCOPED to the baseline (issue #1477 follow-up): a corrupted
+		// baseline must not propagate to readKnowledgeCounterRollups' outer catch,
+		// which would discard the LIVE event log too — and post-event-sourcing the
+		// live log is where all new outcomes accrue. Dropping only the folded
+		// historical baseline lets recomputeCounters still replay live events, so
+		// outcome accrual (and skill maturation) survives a corrupt baseline file.
+		warn(
+			`[knowledge-events] corrupted counter baseline at ${filePath}; ignoring folded baseline and replaying live events only: ${
+				err instanceof Error ? err.message : String(err)
+			}`,
+		);
+		return new Map();
+	}
 	const map = new Map<string, CounterRollup>();
 	for (const [id, rollup] of Object.entries(raw)) {
 		map.set(id, normalizeRollupTimestamps(cloneRollup(rollup)));

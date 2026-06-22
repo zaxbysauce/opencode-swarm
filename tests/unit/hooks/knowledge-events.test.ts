@@ -21,8 +21,10 @@ import {
 	resolveKnowledgeCounterBaselinePath,
 	resolveKnowledgeEventsPath,
 } from '../../../src/hooks/knowledge-events';
-import type { RetrievalOutcome } from '../../../src/hooks/knowledge-types';
-import type { KnowledgeApplicationRecord } from '../../../src/hooks/knowledge-types';
+import type {
+	KnowledgeApplicationRecord,
+	RetrievalOutcome,
+} from '../../../src/hooks/knowledge-types';
 
 function tmp(): string {
 	const dir = join(
@@ -241,6 +243,31 @@ describe('knowledge-events: append + read', () => {
 		const rollups = await readKnowledgeCounterRollups(dir);
 		expect(rollups.get('old')?.shown_count).toBe(MAX_EVENT_LOG_ENTRIES + 5);
 		expect(rollups.get('new')?.shown_count).toBe(1);
+	});
+
+	it('survives a corrupted counter baseline by replaying live events (issue #1477)', async () => {
+		// A corrupt baseline must not nuke the live event log — that is where all
+		// post-event-sourcing outcomes live, so losing it would zero every entry's
+		// outcome signal and stall skill maturation.
+		await appendKnowledgeEvent(dir, {
+			type: 'outcome',
+			trace_id: 't-live',
+			knowledge_id: 'k-live',
+			outcome: 'success',
+			evidence_summary: 'phase passed',
+			session_id: 's',
+			agent: 'coder',
+		} as unknown as KnowledgeEvent);
+
+		// Corrupt the baseline file on disk.
+		const baselinePath = resolveKnowledgeCounterBaselinePath(dir);
+		mkdirSync(join(dir, '.swarm'), { recursive: true });
+		writeFileSync(baselinePath, '{ this is not valid json', 'utf-8');
+
+		const rollups = await readKnowledgeCounterRollups(dir);
+		// Live event survived the corrupt baseline (scoped fail-open), rather than
+		// the outer catch returning an empty map and discarding everything.
+		expect(rollups.get('k-live')?.succeeded_after_shown_count).toBe(1);
 	});
 
 	it('memoizes counter rollups while isolating callers and invalidating on writes', async () => {
