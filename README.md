@@ -1105,7 +1105,7 @@ Control how tool outputs are summarized for LLM context.
 | `/swarm pr-feedback [<pr-url\|owner/repo#N\|N>] [instructions...]` | Ingest and close known PR feedback (review comments, CI failures, conflicts) without a fresh review |
 | `/swarm pr subscribe <pr-url\|owner/repo#N\|N>` | Subscribe current session to PR monitoring (session-scoped); requires `pr_monitor.enabled: true` |
 | `/swarm pr unsubscribe <pr-url\|owner/repo#N\|N>` | Remove session's subscription to a PR |
-| `/swarm pr status` | List active PR subscriptions for current session with relative timestamps |
+| `/swarm pr status` | List active PR subscriptions for current session with relative timestamps (the `bunx opencode-swarm run pr status` CLI has no session context, so it lists subscriptions across all sessions) |
 | `/swarm deep-dive <scope> [--profile <name>] [--max-explorers <n>]` | Read-only codebase audit with parallel explorers, dual reviewers, and critic challenge |
 | `/swarm design-docs <description> [--out <dir>] [--lang <name>] [--update]` | Generate or sync language-agnostic design docs (requires `design_docs.enabled`) |
 | `/swarm dark-matter` | Detect hidden file couplings from co-change history |

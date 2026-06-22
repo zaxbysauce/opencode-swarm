@@ -900,7 +900,12 @@ export const COMMAND_REGISTRY = {
 	},
 	'pr status': {
 		handler: (ctx) =>
-			handlePrMonitorStatusCommand(ctx.directory, ctx.args, ctx.sessionID),
+			handlePrMonitorStatusCommand(
+				ctx.directory,
+				ctx.args,
+				ctx.sessionID,
+				ctx.source,
+			),
 		description: 'Show PR monitor subscription status for the current session',
 		args: '',
 		details:
@@ -913,7 +918,12 @@ export const COMMAND_REGISTRY = {
 	// See the 'pr-subscribe' alias note above.
 	'pr-status': {
 		handler: (ctx) =>
-			handlePrMonitorStatusCommand(ctx.directory, ctx.args, ctx.sessionID),
+			handlePrMonitorStatusCommand(
+				ctx.directory,
+				ctx.args,
+				ctx.sessionID,
+				ctx.source,
+			),
 		description: 'Show PR monitor subscription status for the current session',
 		aliasOf: 'pr status',
 		deprecated: true,

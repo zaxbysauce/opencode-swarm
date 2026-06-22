@@ -72,6 +72,21 @@ export async function handlePrSubscribeCommand(
 		].join('\n');
 	}
 
+	// PR monitoring is session-scoped: the subscription is keyed by the active
+	// session id. Without a live session (e.g. the `bunx opencode-swarm run`
+	// CLI, which has no session context) there is nothing to scope the
+	// subscription to. Fail clearly here instead of letting the store-layer
+	// `sessionID is required` throw surface as an opaque "Failed to subscribe"
+	// error, and never imply success (issue #1484).
+	if (!sessionID || sessionID.trim() === '') {
+		return [
+			'Error: Cannot subscribe — no active session.',
+			'',
+			'PR subscriptions are session-scoped and require a live OpenCode session.',
+			'Subscribe from inside OpenCode; the bunx CLI has no session context.',
+		].join('\n');
+	}
+
 	const repoFullName = `${prInfo.owner}/${prInfo.repo}`;
 	const prUrl = `https://github.com/${prInfo.owner}/${prInfo.repo}/pull/${prInfo.number}`;
 

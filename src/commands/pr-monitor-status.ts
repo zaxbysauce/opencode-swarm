@@ -58,38 +58,59 @@ export async function handlePrMonitorStatusCommand(
 	directory: string,
 	_args: string[],
 	sessionID: string,
+	source?: 'cli' | 'chat',
 ): Promise<string> {
 	const allActive = await _internals.listActive(directory);
-	const sessionSubs = allActive.filter(
-		(record) => record.sessionID === sessionID,
-	);
 
-	if (sessionSubs.length === 0) {
-		return 'No active PR subscriptions for this session.';
+	// Subscriptions are session-scoped, but the `bunx opencode-swarm run pr
+	// status` CLI path has no session context (it passes sessionID ''), so a
+	// session-equality filter there always yields zero rows and falsely reports
+	// "no subscriptions" even when subscriptions exist (issue #1484). For the
+	// human CLI ONLY, list every active subscription across sessions so the CLI
+	// is a usable verifier. Every other caller — TUI, chat, and the agent-facing
+	// `swarm_command` tool (source 'chat') — stays session-scoped, so an agent
+	// can never be handed a cross-session dump even if its sessionID is empty.
+	const allSessions = source === 'cli';
+	const subs = allSessions
+		? allActive
+		: allActive.filter((record) => record.sessionID === sessionID);
+
+	if (subs.length === 0) {
+		return allSessions
+			? 'No active PR subscriptions.'
+			: 'No active PR subscriptions for this session.';
 	}
 
 	const lines: string[] = [];
-	lines.push(`PR Monitor Status — Session: ${sessionID}`);
+	lines.push(
+		allSessions
+			? 'PR Monitor Status — all sessions'
+			: `PR Monitor Status — Session: ${sessionID}`,
+	);
 	lines.push('');
 
 	const totalActive = allActive.length;
-	lines.push(`Active subscriptions (${sessionSubs.length}):`);
+	lines.push(`Active subscriptions (${subs.length}):`);
 
-	for (let i = 0; i < sessionSubs.length; i++) {
-		const sub = sessionSubs[i];
+	for (let i = 0; i < subs.length; i++) {
+		const sub = subs[i];
 		const index = i + 1;
 		lines.push(`  ${index}. ${sub.repoFullName}#${sub.prNumber}`);
 		lines.push(`     URL: ${sub.prUrl}`);
+		// Disambiguate ownership only in the cross-session (CLI) listing.
+		if (allSessions) {
+			lines.push(`     Session: ${sub.sessionID}`);
+		}
 		lines.push(`     Last checked: ${formatRelativeTime(sub.lastCheckedAt)}`);
 		lines.push(`     Watching: ${sub.isWatching ? 'yes' : 'no'}`);
 		lines.push(`     Errors: ${sub.errorCount}`);
-		if (i < sessionSubs.length - 1) {
+		if (i < subs.length - 1) {
 			lines.push('');
 		}
 	}
 
 	lines.push('');
-	if (totalActive !== sessionSubs.length) {
+	if (!allSessions && totalActive !== subs.length) {
 		lines.push(`Total active across all sessions: ${totalActive}`);
 	}
 

@@ -452,6 +452,110 @@ describe('handlePrMonitorStatusCommand', () => {
 			expect(result).not.toContain('Total active across all sessions');
 		});
 	});
+	// Regression for issue #1484: the CLI `run pr status` path has no session
+	// context (sessionID ''), so a session filter falsely reported "no
+	// subscriptions". With source 'cli', list every active subscription across
+	// sessions; all other callers stay session-scoped.
+	describe('CLI source (source="cli") — cross-session listing', () => {
+		test('lists subscriptions from all sessions with per-record session id', async () => {
+			mockListActive.mockImplementation(() =>
+				Promise.resolve([
+					{
+						correlationId: 'ses_real::owner/repo::1',
+						sessionID: 'ses_real',
+						prNumber: 1,
+						repoFullName: 'owner/repo',
+						prUrl: 'https://github.com/owner/repo/pull/1',
+						lastCheckedAt: Date.now() - 60_000,
+						isWatching: true,
+						hasUnaddressedEvents: false,
+						status: 'active' as const,
+						createdAt: Date.now() - 120_000,
+						updatedAt: Date.now() - 60_000,
+						errorCount: 0,
+					},
+					{
+						correlationId: 'ses_other::other/repo::2',
+						sessionID: 'ses_other',
+						prNumber: 2,
+						repoFullName: 'other/repo',
+						prUrl: 'https://github.com/other/repo/pull/2',
+						lastCheckedAt: Date.now() - 60_000,
+						isWatching: true,
+						hasUnaddressedEvents: false,
+						status: 'active' as const,
+						createdAt: Date.now() - 120_000,
+						updatedAt: Date.now() - 60_000,
+						errorCount: 0,
+					},
+				]),
+			);
+
+			// CLI passes sessionID '' — pre-fix this filtered to zero rows.
+			const result = await handlePrMonitorStatusCommand(
+				tempDir,
+				[],
+				'',
+				'cli',
+			);
+
+			expect(result).toContain('PR Monitor Status — all sessions');
+			expect(result).toContain('Active subscriptions (2):');
+			expect(result).toContain('owner/repo#1');
+			expect(result).toContain('other/repo#2');
+			// Cross-session listing discloses the owning session per record.
+			expect(result).toContain('Session: ses_real');
+			expect(result).toContain('Session: ses_other');
+			// Session-scoped artifacts must not appear in the CLI listing.
+			expect(result).not.toContain('Total active across all sessions');
+		});
+
+		test('empty store returns the generic no-subscriptions message', async () => {
+			mockListActive.mockImplementation(() => Promise.resolve([]));
+
+			const result = await handlePrMonitorStatusCommand(
+				tempDir,
+				[],
+				'',
+				'cli',
+			);
+
+			expect(result).toBe('No active PR subscriptions.');
+		});
+
+		test('non-CLI source with empty sessionID stays session-scoped (no leak)', async () => {
+			mockListActive.mockImplementation(() =>
+				Promise.resolve([
+					{
+						correlationId: 'ses_other::other/repo::2',
+						sessionID: 'ses_other',
+						prNumber: 2,
+						repoFullName: 'other/repo',
+						prUrl: 'https://github.com/other/repo/pull/2',
+						lastCheckedAt: Date.now() - 60_000,
+						isWatching: true,
+						hasUnaddressedEvents: false,
+						status: 'active' as const,
+						createdAt: Date.now() - 120_000,
+						updatedAt: Date.now() - 60_000,
+						errorCount: 0,
+					},
+				]),
+			);
+
+			// e.g. the agent `swarm_command` tool path (source 'chat') with an
+			// empty sessionID must NOT receive a cross-session dump.
+			const result = await handlePrMonitorStatusCommand(
+				tempDir,
+				[],
+				'',
+				'chat',
+			);
+
+			expect(result).toBe('No active PR subscriptions for this session.');
+			expect(result).not.toContain('other/repo#2');
+		});
+	});
 });
 
 // ---------------------------------------------------------------------------

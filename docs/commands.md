@@ -772,7 +772,7 @@ When you type a two-word command like `/swarm config doctor`, Swarm tries the co
 | `/swarm evidence summary` | `/swarm evidence-summary` | |
 | `/swarm pr subscribe` | `/swarm pr-subscribe` | TUI shim (deprecated) |
 | `/swarm pr unsubscribe` | `/swarm pr-unsubscribe` | TUI shim (deprecated) |
-| `/swarm pr status` | `/swarm pr-status` | TUI shim (deprecated) |
+| `/swarm pr status` | `/swarm pr-status` | TUI shim (deprecated). In a session (TUI/chat) it is session-scoped; the `bunx opencode-swarm run pr status` CLI has no session context and lists all sessions. |
 | `/swarm sdd status` | `/swarm sdd-status` | TUI shim (deprecated) |
 | `/swarm sdd validate` | `/swarm sdd-validate` | TUI shim (deprecated) |
 | `/swarm sdd project` | `/swarm sdd-project` | TUI shim (deprecated) |

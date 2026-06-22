@@ -445,8 +445,13 @@ describe('pr-subscribe adversarial security tests', () => {
 		});
 	});
 
-	describe('4 — empty sessionID', () => {
-		test('empty sessionID is passed through to subscribe (no handler validation)', async () => {
+	describe('4 — no active session (empty sessionID)', () => {
+		// Regression for issue #1484: a session-less caller (e.g. the bunx CLI,
+		// which passes sessionID '') must get a clear "no active session" error,
+		// not a success message and not the opaque store-layer
+		// "Failed to subscribe … sessionID is required" throw. subscribe() must
+		// not be invoked.
+		test('empty sessionID returns a clear no-session error and does not subscribe', async () => {
 			mockSubscribe.mockImplementation(() => Promise.resolve({}));
 
 			const result = await handlePrSubscribeCommand(
@@ -455,28 +460,41 @@ describe('pr-subscribe adversarial security tests', () => {
 				'', // empty sessionID
 			);
 
-			expect(result).toContain('Subscribed to');
-			expect(mockSubscribe).toHaveBeenCalledWith(
-				tempDir,
-				expect.objectContaining({
-					sessionID: '',
-					prNumber: 123,
-					repoFullName: 'owner/repo',
-				}),
-			);
+			expect(result).toContain('Cannot subscribe — no active session.');
+			expect(result).not.toContain('Subscribed to');
+			expect(mockSubscribe).not.toHaveBeenCalled();
 		});
 
-		test('whitespace-only sessionID is passed through', async () => {
+		test('whitespace-only sessionID returns the no-session error and does not subscribe', async () => {
 			mockSubscribe.mockImplementation(() => Promise.resolve({}));
 
-			await handlePrSubscribeCommand(tempDir, ['owner/repo#456'], '   ');
-
-			expect(mockSubscribe).toHaveBeenCalledWith(
+			const result = await handlePrSubscribeCommand(
 				tempDir,
-				expect.objectContaining({
-					sessionID: '   ',
-				}),
+				['owner/repo#456'],
+				'   ',
 			);
+
+			expect(result).toContain('Cannot subscribe — no active session.');
+			expect(result).not.toContain('Subscribed to');
+			expect(mockSubscribe).not.toHaveBeenCalled();
+		});
+
+		test('invalid PR reference is reported before the no-session check', async () => {
+			mockSubscribe.mockImplementation(() => Promise.resolve({}));
+
+			// PR-ref validation runs first, so an invalid ref wins over the
+			// no-session error even when the sessionID is also empty. Either way,
+			// subscribe() is never called.
+			const result = await handlePrSubscribeCommand(
+				tempDir,
+				['not-a-pr-ref'],
+				'',
+			);
+
+			expect(result).toContain('is not a valid PR reference');
+			expect(result).not.toContain('Cannot subscribe — no active session.');
+			expect(result).not.toContain('Subscribed to');
+			expect(mockSubscribe).not.toHaveBeenCalled();
 		});
 	});
 
