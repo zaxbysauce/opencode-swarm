@@ -593,7 +593,7 @@ async function finalize(
 		deduped: result.deduped,
 		proposed: result.proposed,
 		memoriesDecayed: result.memoriesDecayed,
-		skipped: result.errored,
+		errored: result.errored,
 		processedProposalIds: Array.from(processedProposalIds),
 	});
 }

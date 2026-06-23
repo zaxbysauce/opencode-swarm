@@ -22,7 +22,7 @@ export interface ConsolidationLogRecord {
 	deduped: number;
 	proposed: number;
 	memoriesDecayed: number;
-	skipped: number;
+	errored: number;
 	processedProposalIds: string[];
 }
 

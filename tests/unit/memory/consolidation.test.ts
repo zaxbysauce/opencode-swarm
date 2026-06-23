@@ -304,7 +304,7 @@ describe('runConsolidationPass', () => {
 			deduped: 0,
 			proposed: 0,
 			memoriesDecayed: 0,
-			skipped: 0,
+			errored: 0,
 			processedProposalIds: [],
 		};
 		const { deps } = makeDeps(gw, { priorLog: [prior] });
@@ -516,7 +516,7 @@ describe('runConsolidationPass', () => {
 			deduped: 0,
 			proposed: 0,
 			memoriesDecayed: 0,
-			skipped: 0,
+			errored: 0,
 			processedProposalIds: [alreadyDone.id],
 		};
 		const { deps, appended } = makeDeps(gw, { facts: [], priorLog: [prior] });

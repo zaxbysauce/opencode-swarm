@@ -24,7 +24,7 @@ function record(phaseNumber: number): ConsolidationLogRecord {
 		deduped: 0,
 		proposed: 0,
 		memoriesDecayed: 3,
-		skipped: 0,
+		errored: 0,
 		processedProposalIds: ['prop_aaaaaaaaaaaaaaaa'],
 	};
 }

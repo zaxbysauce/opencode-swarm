@@ -83,7 +83,7 @@ export async function handleMemoryConsolidationLogCommand(
 			`- Clusters: \`${record.clusterCount}\` (deferred \`${record.clustersDeferred}\`)`,
 			`- Decisions applied: \`${record.decisionsEmitted}\` (added \`${record.added}\`, superseded \`${record.superseded}\`)`,
 			`- Contradictions: \`${record.contradictionsDetected}\` | Deduped: \`${record.deduped}\` | Proposed: \`${record.proposed}\``,
-			`- Memories decayed: \`${record.memoriesDecayed}\` | Errored: \`${record.skipped}\``,
+			`- Memories decayed: \`${record.memoriesDecayed}\` | Errored: \`${record.errored}\``,
 			`- Processed proposals: \`${record.processedProposalIds.length}\``,
 		);
 	}
