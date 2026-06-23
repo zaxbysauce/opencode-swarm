@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.88.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.1...v7.88.2) (2026-06-23)
+
+
+### Bug Fixes
+
+* **pr-monitor:** make CLI pr status visible across sessions ([5cbdac1](https://github.com/ZaxbyHub/opencode-swarm/commit/5cbdac1a34edc7de2205552d37b934265897ff77))
+
 ## [7.88.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.0...v7.88.1) (2026-06-23)
 
 
