@@ -80,6 +80,7 @@ export async function handleMemoryConsolidationLogCommand(
 		lines.push(
 			'',
 			`### Phase ${record.phaseNumber} — ${record.completedAt}`,
+			`- Run: \`${record.runId ?? 'unknown'}\``,
 			`- Clusters: \`${record.clusterCount}\` (deferred \`${record.clustersDeferred}\`)`,
 			`- Decisions applied: \`${record.decisionsEmitted}\` (added \`${record.added}\`, superseded \`${record.superseded}\`)`,
 			`- Contradictions: \`${record.contradictionsDetected}\` | Deduped: \`${record.deduped}\` | Proposed: \`${record.proposed}\``,

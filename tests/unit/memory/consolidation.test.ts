@@ -636,6 +636,35 @@ describe('runConsolidationPass', () => {
 		expect(gw.applied).toHaveLength(0);
 	});
 
+	test('evidence-required kind WITH real file evidence is auto-applied (not downgraded)', async () => {
+		const gw = new FakeGateway();
+		// Seed proposal carries a real file evidence ref (makeProposal default).
+		const seed = makeProposal(
+			'prop_aaaaaaaaaaaaaaab',
+			'a security observation',
+		);
+		expect(seed.evidenceRefs).toContain('src/a.ts');
+		gw.seedProposals = [seed];
+		const { deps } = makeDeps(gw, {
+			facts: [
+				{
+					text: 'The token endpoint must reject expired JWTs.',
+					kind: 'security_note',
+					confidence: 0.95,
+				},
+			],
+		});
+		const r = await runConsolidationPass(
+			{ directory: '/tmp/x', phaseNumber: 14, config: baseConfig },
+			deps,
+		);
+		// Real evidence present → not downgraded; auto-applied via the pipeline.
+		expect(r.proposed).toBe(0);
+		expect(r.added).toBe(1);
+		expect(gw.applied).toHaveLength(1);
+		expect(gw.applied[0].action).toBe('add');
+	});
+
 	test('deduplicates identical distilled fact texts within a single pass', async () => {
 		const gw = new FakeGateway();
 		gw.seedProposals = [

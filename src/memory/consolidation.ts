@@ -600,6 +600,7 @@ async function finalize(
 	});
 	await deps.appendLog({
 		phaseNumber,
+		runId,
 		startedAt,
 		completedAt,
 		clusterCount: result.clusterCount,

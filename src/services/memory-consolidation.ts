@@ -48,6 +48,11 @@ const runningByDirectory = new Map<
 export async function runMemoryConsolidation(
 	req: MemoryConsolidationRequest,
 ): Promise<MemoryConsolidationOutcome> {
+	// Coalesce by directory, not by phase: the memory store is shared per
+	// directory, so two passes must never write it concurrently. If a pass is
+	// already in flight when a later phase completes, that later phase is
+	// intentionally coalesced into the running one — its still-pending proposals
+	// carry over and are consolidated by the next pass (no loss, just deferral).
 	const existing = runningByDirectory.get(req.directory);
 	if (existing) return existing;
 	const run = (async (): Promise<MemoryConsolidationOutcome> => {

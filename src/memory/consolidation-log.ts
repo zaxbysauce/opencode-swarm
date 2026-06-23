@@ -11,6 +11,10 @@ import { validateSwarmPath } from '../hooks/utils';
  */
 export interface ConsolidationLogRecord {
 	phaseNumber: number;
+	/** Session/run that produced this pass, for multi-session observability.
+	 * Idempotency remains keyed on phaseNumber (the memory store is per
+	 * directory), so this is informational only. */
+	runId?: string;
 	startedAt: string;
 	completedAt: string;
 	clusterCount: number;
