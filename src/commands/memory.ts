@@ -49,7 +49,7 @@ export async function handleMemoryCommand(
 		'- `/swarm memory import` - import `.swarm/memory/{memories,proposals}.jsonl` into SQLite',
 		'- `/swarm memory migrate` - run the one-time legacy JSONL to SQLite migration',
 		'- `/swarm memory evaluate --json` - run the golden recall evaluation fixtures and emit a JSON report',
-		'- `/swarm memory consolidation-log` - summarize recent episodic→semantic consolidation passes',
+		'- `/swarm memory consolidation-log [--limit <n>]` - summarize recent episodic→semantic consolidation passes (max 50 per query)',
 	].join('\n');
 }
 
@@ -58,7 +58,8 @@ export async function handleMemoryConsolidationLogCommand(
 	args: string[],
 ): Promise<string> {
 	const parsed = parseMaintenanceArgs(args, {
-		usage: 'Usage: /swarm memory consolidation-log [--limit <n>]',
+		usage:
+			'Usage: /swarm memory consolidation-log [--limit <n>]  (max 50 records per query)',
 		allowConfirm: false,
 	});
 	if ('error' in parsed) return parsed.error;

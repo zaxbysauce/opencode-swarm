@@ -453,6 +453,20 @@ describe('runConsolidationPass', () => {
 		expect(r.clustersDeferred).toBe(2);
 	});
 
+	test('empty proposal list → zero clusters, pass completes without error and records log', async () => {
+		const gw = new FakeGateway();
+		gw.seedProposals = [];
+		const { deps, appended } = makeDeps(gw, { facts: [] });
+		const r = await runConsolidationPass(
+			{ directory: '/tmp/x', phaseNumber: 99, config: baseConfig },
+			deps,
+		);
+		expect(r.skipped).toBe(false);
+		expect(r.clusterCount).toBe(0);
+		expect(r.added).toBe(0);
+		expect(appended).toHaveLength(1);
+	});
+
 	test('no LLM delegate → decay-only pass still records and is idempotent', async () => {
 		const gw = new FakeGateway();
 		// A decaying-kind memory (todo) created long ago with no expiry yet.
