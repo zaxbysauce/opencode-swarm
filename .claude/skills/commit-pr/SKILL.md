@@ -272,9 +272,11 @@ patterns. For example:
 // Wrong — triggers push protection:
 const stripeKey = 'sk_live_' + '1234567890abcdefghijklmn'
 
-// Right — string concatenation avoids the literal pattern:
-const stripeKey = 'sk_live_' + 'abcdefghijklmnopqrst'
+// Right — split the literal so it never appears verbatim in source:
+const stripeKey = 'sk_' + 'live_' + '1234567890abcdefghijklmn'
 ```
+
+> **Note:** This scan is a best-effort heuristic. It will not catch deliberately obfuscated patterns (e.g., base64 or hex encoding, runtime string assembly). For genuinely sensitive keys, use environment variables or a secret store — never commit credentials to source.
 
 #### Canonical remote resolution
 

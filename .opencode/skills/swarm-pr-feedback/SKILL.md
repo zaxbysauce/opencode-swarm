@@ -134,8 +134,14 @@ tree:
   filesystem (`Read`/`Glob`/`Grep`), and fixes must land on the PR branch — without a
   checkout you would verify and patch the base branch's code instead. Record the
   `base_ref..head_ref` range for diff-scoped inspection.
-- If no PR reference was provided (a pasted-feedback session on the current branch),
-  confirm the current branch is the intended PR branch before editing.
+ - If no PR reference was provided (a pasted-feedback session on the current branch),
+   confirm the current branch is the intended PR branch before editing.
+
+When a verification lane result includes `output_ref`, treat `output` as a
+preview and call `retrieve_lane_output` before using it to classify, resolve,
+disprove, or group feedback items. If the result is `output_degraded`,
+`transcript_incomplete`, or truncated without a usable ref, keep the affected
+ledger items as `NEEDS_MORE_EVIDENCE` or re-dispatch a narrower read-only lane.
 
 ## Pre-flight: Dirty Worktree Handling
 

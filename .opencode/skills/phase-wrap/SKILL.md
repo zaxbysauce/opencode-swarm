@@ -135,7 +135,7 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
 | `test_engineer` | Always | Test verification (test_engineer) |
 | `docs` | When `require_docs: true` in QA gate profile | Documentation updates |
 
-If any required agent is missing, `phase_complete` returns `{ status: 'incomplete', reason: 'MISSING_REQUIRED_AGENTS', agentsMissing: [...] }` and the phase is not closed. Dispatch each agent during normal task execution (not only inside optional Phase/Final Councils in steps 5.65/5.7) so the closeout gate is satisfied.
+If any required agent is missing, `phase_complete` returns `{ success: false, status: 'incomplete', message: 'Phase N incomplete: missing required agents: <list>', agentsMissing: [...] }` and the phase is not closed. Dispatch each agent during normal task execution (not only inside optional Phase/Final Councils in steps 5.65/5.7) so the closeout gate is satisfied.
 
 The `docs` agent is only required when `require_docs: true` in the effective QA gate profile (visible via `get_qa_gate_profile`). For most small plans and feedback cycles, `docs` is NOT required and can be skipped. For multi-task implementation plans, `docs` is typically required.
 

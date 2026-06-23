@@ -1,4 +1,6 @@
-## skills: PR feedback gotchas — dirty worktree, push protection, canonical remote
+# PR feedback gotchas
+
+### skills: PR feedback gotchas — dirty worktree, push protection, canonical remote
 
 Captures 3 operational lessons from PR #1472 review (memory system Phase 1) that were hitting every agent during PR feedback workflows.
 
