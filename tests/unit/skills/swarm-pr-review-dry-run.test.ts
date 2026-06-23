@@ -1,6 +1,6 @@
 /**
  * Tests verifying that the parser produces the exact response shapes
- * documented in the swarm-pr-review SKILL.md dry-run example (lines 866-1014).
+ * documented in the swarm-pr-review SKILL.md dry-run example (lines 866-1050).
  *
  * These tests are NOT about the parser's internal logic (covered by
  * candidate-parser.test.ts). They verify field-by-field alignment

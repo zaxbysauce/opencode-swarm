@@ -641,6 +641,27 @@ Use this pattern for:
 - **Do not use `sleep` or `setTimeout` for synchronization.** Use explicit signals, resolved promises, or `Bun.sleep()` with tight bounds.
 - **Do not spawn `cat /dev/zero`, `yes`, or other infinite-output commands.** Use `sleep 30` for "blocking command" tests.
 
+## Documented-Example Regression Tests
+
+When a SKILL.md (or other agent-facing document) contains an **executable example** — a tool invocation with concrete arguments, a parser output with specific field values, a protocol transcript, or any output whose shape and values are runnable — write a test that executes the actual implementation on synthetic data and compares the result **field by field** to the documented example. Place the test file at `tests/unit/skills/<skill-name>-dry-run.test.ts` (or the analogous path for the tool/parser being tested).
+
+**Why this matters:** Documented examples drift from the runtime they describe, and the drift is often subtle enough to survive casual review. Common failure modes include field-name drift (`ok` present vs. absent; `parse_errors: 0` vs. `parse_errors: 2`), refusal-shape drift (`invocation_envelope: null` in the example when the real shape is populated), value-level drift (`row_index: 1` 1-indexed in prose when the parser emits 0-indexed), and field-presence drift (new required fields added to an interface but omitted from the example). A field-by-field comparison test catches all of these on every CI run.
+
+**Concrete protocol:**
+
+1. Locate the executable example in the SKILL.md (tool call, parser output, protocol transcript, etc.).
+2. Construct synthetic data that matches the example's input shape.
+3. Run the actual implementation (parser, tool, protocol handler) on the synthetic data.
+4. Assert field-by-field equality between the actual output and the documented example using `bun:test`'s `toEqual` (deep-equality). Do not use loose string matching.
+5. Iterate the example (or fix the implementation) until every field matches with field-level precision.
+
+> **Working example:** `tests/unit/skills/swarm-pr-review-dry-run.test.ts` exercises the `swarm-pr-review` SKILL.md dry-run transcript (lines 866–1050) against the live `parse_lane_candidates` implementation. That test survived four review cycles to align the documentation with runtime output. Drift caught during those cycles included: `invocation_envelope.parse_errors` was `0` in the example but actually `2` (FR-017 both-discriminators detection); `invocation_envelope` was `null` on refusal in the example but actually populated; `sidecar_write_error: undefined` is not valid JSON and had to be replaced with an explicit value; `parse_error_details` field paths and message strings did not match the parser source.
+
+**When NOT to use this pattern:**
+- Skills without executable examples (pure conceptual guidance with no runnable artifact).
+- Examples that are intentionally schematic ("the response looks roughly like this") rather than literal.
+- Documentation that is auto-generated from source — drift is impossible by construction in that case.
+
 ## Cross-Platform Requirements
 
 > **See also**: [Cross-Platform Test Patterns](#cross-platform-test-patterns) above for detailed
