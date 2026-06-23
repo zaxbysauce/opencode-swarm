@@ -126,14 +126,31 @@ The tool will automatically write the retrospective to \`.swarm/evidence/retro-{
    - If `auto-proceed: off` AND `nudge: false`: after the user confirms the phase transition, suggest enabling auto-proceed. Use the swarm_command tool to record the user's answer: `swarm_command({ command: "auto-proceed", args: ["on"] })` for yes, `swarm_command({ command: "auto-proceed", args: ["off"] })` for no. Either call sets nudge to true and prevents re-nudging.
    - If `auto-proceed: off` AND `nudge: true`: Ask "Ready for Phase [N+1]?" and wait for user confirmation before proceeding.
 
+5.59. **Required agent dispatch for phase_complete**: Before calling `phase_complete`, the architect MUST have dispatched each of the active swarm's standard agents at least once during this phase. By default, `phase_complete` requires these agents:
+
+| Agent | When required | Where dispatched during normal task execution |
+|---|---|---|
+| `coder` | Always | Task implementation (coder) |
+| `reviewer` | Always | Task review (reviewer) |
+| `test_engineer` | Always | Test verification (test_engineer) |
+| `docs` | When `require_docs: true` in QA gate profile | Documentation updates |
+
+If any required agent is missing, `phase_complete` returns `{ status: 'incomplete', reason: 'MISSING_REQUIRED_AGENTS', agentsMissing: [...] }` and the phase is not closed. Dispatch each agent during normal task execution (not only inside optional Phase/Final Councils in steps 5.65/5.7) so the closeout gate is satisfied.
+
+The `docs` agent is only required when `require_docs: true` in the effective QA gate profile (visible via `get_qa_gate_profile`). For most small plans and feedback cycles, `docs` is NOT required and can be skipped. For multi-task implementation plans, `docs` is typically required.
+
+The `coder` and `test_engineer` agents are required because every phase that modifies source code or tests must have at least one implementation and one test-verification delegation. For pure documentation or retrospective phases, these may be waived by the user explicitly.
+
+This is a hard enforcement mechanism, not a suggestion. `phase_complete` will not return `status: success` if any required agent is missing from `agentsDispatched`.
+
 CATASTROPHIC VIOLATION CHECK — ask yourself at EVERY phase boundary (MODE: PHASE-WRAP):
-"Have I delegated to the active swarm's reviewer agent at least once this phase?"
-If the answer is NO: you have a catastrophic process violation.
+"Have I delegated to each of the active swarm's required agents (coder, reviewer, test_engineer, plus docs if required) at least once this phase?"
+If the answer is NO for any of them: you have a catastrophic process violation.
 STOP. Do not proceed to the next phase. Inform the user:
-"⛔ PROCESS VIOLATION: Phase [N] completed with zero reviewer-agent delegations in the active swarm.
-All code changes in this phase are unreviewed. Recommend retrospective review before proceeding."
-This is not optional. Zero active-swarm reviewer calls in a phase is always a violation.
-There is no project where code ships without review.
+"⛔ PROCESS VIOLATION: Phase [N] completed with missing required-agent delegations in the active swarm: [list missing agents].
+All code changes in this phase are unreviewed/untested/undocumented. Recommend retrospective review before proceeding."
+This is not optional. Missing required-agent calls in a phase is always a violation.
+There is no project where code ships without review, tests, and required documentation.
 
 ### Blockers
 Mark [BLOCKED] in plan.md, skip to next unblocked task, inform user.
