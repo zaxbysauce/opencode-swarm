@@ -265,6 +265,7 @@ export class SQLiteMemoryProvider
 	private proposals = new Map<string, MemoryProposal>();
 	private lastAutomaticJsonlMigration: SQLiteJsonlImportResult | null = null;
 	private recallCountSinceLastCompaction = 0;
+	private isCompacting = false;
 
 	constructor(rootDirectory: string, config: Partial<MemoryConfig> = {}) {
 		this.rootDirectory = rootDirectory;
@@ -448,8 +449,15 @@ export class SQLiteMemoryProvider
 		);
 		this.recallCountSinceLastCompaction++;
 		const threshold = this.config.maintenance?.autoCompactEveryNRecalls ?? 50;
-		if (threshold > 0 && this.recallCountSinceLastCompaction >= threshold) {
+		if (
+			threshold > 0 &&
+			this.recallCountSinceLastCompaction >= threshold &&
+			!this.isCompacting
+		) {
+			// Counter is intentionally reset BEFORE compaction runs. If compaction fails,
+			// the next trigger fires after N more recalls. This avoids tight retry loops.
 			this.recallCountSinceLastCompaction = 0;
+			this.isCompacting = true;
 			void this.compactMaintenance({ dryRun: false })
 				.then((result) => {
 					const rowsInspected =
@@ -478,6 +486,9 @@ export class SQLiteMemoryProvider
 					if (process.env.OPENCODE_SWARM_DEBUG === '1') {
 						console.debug(`[memory] auto-compaction failed: ${err}`);
 					}
+				})
+				.finally(() => {
+					this.isCompacting = false;
 				});
 		}
 	}

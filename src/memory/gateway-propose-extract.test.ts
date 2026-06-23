@@ -336,6 +336,73 @@ describe('extractSymbols via propose()', () => {
 			expect(symbols).not.toContain(`func${i}`);
 		}
 	});
+
+	test('extractFilePaths: expanded directory paths (lib/, config/, examples/, internal/, cmd/, pkg/) → metadata.files includes them', async () => {
+		// Regression: FILE_PATH_REGEX was expanded to match additional directory roots
+		// that the original regex did not cover. These paths must be extracted.
+		const gateway = createMemoryGateway(createTestContext(), {
+			provider: mockProvider.provider,
+			config: { enabled: true },
+		});
+		const proposal = await gateway.propose({
+			operation: 'add',
+			kind: 'code_pattern' as MemoryKind,
+			text: 'expanded dirs pattern',
+			rationale: 'expanded directory paths',
+			evidenceRefs: [
+				'lib/utils.ts',
+				'config/app.json',
+				'examples/demo.ts',
+				'internal/handler.ts',
+				'cmd/main.go',
+				'pkg/api.go',
+			],
+		});
+		expect(proposal.proposedRecord).toBeDefined();
+		const files = proposal.proposedRecord!.metadata['files'] as string[];
+		expect(files).toContain('lib/utils.ts');
+		expect(files).toContain('config/app.json');
+		expect(files).toContain('examples/demo.ts');
+		expect(files).toContain('internal/handler.ts');
+		expect(files).toContain('cmd/main.go');
+		expect(files).toContain('pkg/api.go');
+	});
+
+	test('extractSymbols: min-length filter — short identifiers (< 3 chars) NOT extracted', async () => {
+		// Regression: extractSymbols now filters out identifiers shorter than 3 characters.
+		// Previously, very short tokens like "x", "y", "id" were included as symbols.
+		// Valid 3+ char identifiers must still be extracted.
+		const gateway = createMemoryGateway(createTestContext(), {
+			provider: mockProvider.provider,
+			config: { enabled: true },
+		});
+		const proposal = await gateway.propose({
+			operation: 'add',
+			kind: 'code_pattern' as MemoryKind,
+			text: 'min-length filter test',
+			rationale: 'short identifiers',
+			evidenceRefs: [
+				'x',
+				'y',
+				'id',
+				'ok',
+				'getUserData',
+				'MemoryProvider',
+				'config',
+			],
+		});
+		expect(proposal.proposedRecord).toBeDefined();
+		const symbols = proposal.proposedRecord!.metadata['symbols'] as string[];
+		// Short identifiers must NOT appear
+		expect(symbols).not.toContain('x');
+		expect(symbols).not.toContain('y');
+		expect(symbols).not.toContain('id');
+		expect(symbols).not.toContain('ok');
+		// Valid 3+ char identifiers MUST appear
+		expect(symbols).toContain('getUserData');
+		expect(symbols).toContain('MemoryProvider');
+		expect(symbols).toContain('config');
+	});
 });
 
 describe('SC-016: fileOverlap scoring via scoreMemoryRecord', () => {

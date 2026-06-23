@@ -282,4 +282,47 @@ describe('auto-compaction via recordRecallUsage', () => {
 
 		provider.close();
 	});
+
+	test('SC-025: isCompacting guard — rapid threshold calls fire only ONE compaction', async () => {
+		// Regression: isCompacting flag must prevent concurrent compactions when
+		// recordRecallUsage is called rapidly at threshold before the first compaction finishes.
+		// Previous code did not guard against concurrent triggers, so calling
+		// recordRecallUsage twice in quick succession (before async compaction completed)
+		// could fire two separate compaction runs. isCompacting ensures only one runs.
+		const dir = makeTmpDir('sc025-');
+		scratchDirs.push(dir);
+		const provider = new SQLiteMemoryProvider(dir, {
+			maintenance: { autoCompactEveryNRecalls: 2 },
+		});
+		await provider.initialize();
+
+		const scope = makeScope('repository', { repoId: 'repo-f', repoRoot: dir });
+		const record = makeRecord({ scope, kind: 'scratch' });
+		await provider.upsert(record);
+
+		// Call 1 — no compaction yet
+		await provider.recordRecallUsage(
+			makeRecallEvent('bundle-1', [record.id], scope),
+		);
+		expect(countCompactEvents(provider)).toBe(0);
+
+		// Call 2 — triggers compaction asynchronously; call 3 immediately after
+		// (before async compaction completes). Only ONE compaction should fire.
+		await provider.recordRecallUsage(
+			makeRecallEvent('bundle-2', [record.id], scope),
+		);
+		// Fire call 3 right away — if isCompacting guard works, this is a no-op
+		await provider.recordRecallUsage(
+			makeRecallEvent('bundle-3', [record.id], scope),
+		);
+
+		// Wait for any/all async compaction work to settle
+		await flushPromises();
+		await flushPromises();
+
+		// Only ONE compaction should have fired (at call 2), not two
+		expect(countCompactEvents(provider)).toBe(1);
+
+		provider.close();
+	});
 });

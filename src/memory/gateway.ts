@@ -649,7 +649,7 @@ function inferTags(text: string): string[] {
 }
 
 const FILE_PATH_REGEX =
-	/\b(?:src|tests|test|docs|scripts|packages)\/[A-Za-z0-9._/@+-]+/g;
+	/\b(?:src|tests|test|docs|scripts|packages|lib|config|examples|internal|cmd|pkg|bin|tools|cli|api|server|client|app|core|utils|hooks|services|commands|agents|memory)\/[A-Za-z0-9._/@+-]+/g;
 
 const RESERVED_IDENTIFIERS = new Set([
 	'const',
@@ -723,8 +723,11 @@ function extractFilePaths(refs: string[]): string[] {
 }
 
 /**
- * Extract symbol-like identifiers (function/class/method names) from
- * evidence refs using a camelCase/dotted heuristic, filtering reserved words.
+ * Extract identifier-like tokens from evidence refs using a camelCase/dotted
+ * heuristic, filtering reserved words. Tokens are broadly matched — any
+ * valid identifier of 3+ characters — to maximize recall signal coverage.
+ * False positives (variable names, common words) are acceptable given the
+ * low scoring weight (0.08) and dedup/cap at 20 entries.
  */
 function extractSymbols(refs: string[]): string[] {
 	const seen = new Set<string>();
@@ -735,7 +738,7 @@ function extractSymbols(refs: string[]): string[] {
 		const matches = ref.match(identRegex);
 		if (!matches) continue;
 		for (const m of matches) {
-			if (!seen.has(m) && !RESERVED_IDENTIFIERS.has(m)) {
+			if (m.length >= 3 && !seen.has(m) && !RESERVED_IDENTIFIERS.has(m)) {
 				seen.add(m);
 				symbols.push(m);
 				if (symbols.length >= 20) return symbols;
