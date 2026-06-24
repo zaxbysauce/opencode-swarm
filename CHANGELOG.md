@@ -1,5 +1,20 @@
 # Changelog
 
+## [7.89.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.4...v7.89.0) (2026-06-24)
+
+
+### Features
+
+* **knowledge:** tie multiple swarms together via a shared knowledge link ([39fff68](https://github.com/ZaxbyHub/opencode-swarm/commit/39fff682eed9141f953a2965f7e94968bfba46e8))
+
+
+### Bug Fixes
+
+* **knowledge:** add com0 and lpt0 to Windows reserved device name filter ([0fa3b37](https://github.com/ZaxbyHub/opencode-swarm/commit/0fa3b373578ba400ca9b1b9902b9320bcbe39edd))
+* **knowledge:** canonicalize shared store path; add defensive close-stage warning ([ca43705](https://github.com/ZaxbyHub/opencode-swarm/commit/ca43705e0d36b35413e3a94b44145adac195933f))
+* **knowledge:** prevent concurrent merge race and FIFO eviction overflow ([9b1d521](https://github.com/ZaxbyHub/opencode-swarm/commit/9b1d5217f41237dce4cdeb5274242475bb554486))
+* **knowledge:** restore link-aware budget read resilience; doc/comment accuracy ([e030642](https://github.com/ZaxbyHub/opencode-swarm/commit/e030642a37bf5c522225a3844aae3eb44ca4e4d0))
+
 ## [7.88.4](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.3...v7.88.4) (2026-06-24)
 
 
