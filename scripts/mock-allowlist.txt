@@ -91,3 +91,6 @@ src/utils/spec-hash
 
 # drift-detection-test-only
 src/does-not-exist
+
+# drift-detection-test-only
+src/does-not-exist
