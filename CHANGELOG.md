@@ -1,5 +1,13 @@
 # Changelog
 
+## [7.88.4](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.3...v7.88.4) (2026-06-24)
+
+
+### Bug Fixes
+
+* **skills:** add existence validation to skill_generate compile path ([08c47b8](https://github.com/ZaxbyHub/opencode-swarm/commit/08c47b8002d0ca596a62ce68a5d0645b2c16ba61))
+* **skills:** surface phantom IDs, add tests, ship release fragment ([f3d5cc5](https://github.com/ZaxbyHub/opencode-swarm/commit/f3d5cc528cc6b97c28931ae5ca8fdfd741afa561))
+
 ## [7.88.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.88.2...v7.88.3) (2026-06-24)
 
 
