@@ -39,6 +39,75 @@ Resolved platform-specifically:
 
 Rejected hive lessons: `shared-learnings-rejected.jsonl` next to the main file.
 
+### Link tier (shared across worktrees)
+
+An opt-in knowledge store shared between worktrees of the same project (or
+between similar projects that share a link name). Lives beside the hive store:
+
+```
+<dataDir>/links/<linkId>/
+  knowledge.jsonl
+  knowledge-rejected.jsonl
+  knowledge-retractions.jsonl
+  ...
+```
+
+Each linked worktree keeps a pointer at `.swarm/link.json`:
+
+```json
+{ "linkId": "<id>", "linkedAt": "<ISO-8601>" }
+```
+
+#### Commands
+
+| Command | Purpose |
+|---------|---------|
+| `/swarm link [name\|status]` | Link this worktree. Default name is the project hash (all worktrees of one repo share a store). Supply a name to tie similar projects together. |
+| `/swarm link status` | Show current link state. |
+| `/swarm unlink [--no-copy]` | Unlink. By default, copies shared lessons back to the local swarm store first; `--no-copy` skips that copy. |
+
+#### Auto-detection
+
+At session start, if multiple worktrees for the same project are detected, the
+Architect emits a one-time, non-blocking suggestion to link. The suggestion is
+suppressed after the first display per session.
+
+#### Shared vs per-worktree files
+
+When linked, the following files are **redirected** to the shared store:
+
+- `knowledge.jsonl`
+- `knowledge-rejected.jsonl`
+- `knowledge-retractions.jsonl`
+- Counter baseline
+- Quarantine
+- Unactionable queue
+- Application log
+
+The following remain **per-worktree** (not redirected):
+
+- `.knowledge-shown.json`
+- Plan (`.swarm/plan.json`, `.swarm/plan.md`)
+- Evidence (`.swarm/evidence/`)
+
+#### Caveats
+
+- **2-second cache TTL.** Cross-process writes by another linked worktree may
+  not be visible for up to 2 seconds. If you just wrote a lesson and another
+  worktree queries immediately, it may see the prior state.
+- **Manual cleanup.** `<dataDir>/links/` accumulates one directory per linkId.
+  After all peers unlink, the shared store is **not** auto-deleted. Prune
+  abandoned stores manually:
+  ```
+  rm -rf <dataDir>/links/<old-link-id>/
+  ```
+- **Outcome-history reset.** When a worktree first links, outcome-history
+  counters in the shared store re-accrue from zero. This is a documented
+  "self-healing ranking effect" — prior per-worktree counters do not carry
+  over, so the shared store's confidence signal starts fresh.
+- **Close-stage behavior.** `/swarm close` skips archiving shared
+  knowledge-family artifacts when linked, because peers may still be active.
+
 ---
 
 ## Entry Schema

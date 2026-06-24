@@ -1532,6 +1532,16 @@ async function initializeOpenCodeSwarm(ctx: Parameters<Plugin>[0]) {
 					description:
 						'Use /swarm doctor tools to run tool registration coherence check',
 				},
+				'swarm-link': {
+					template: '/swarm link $ARGUMENTS',
+					description:
+						'Use /swarm link to link this worktree to a shared knowledge store [name|status]',
+				},
+				'swarm-unlink': {
+					template: '/swarm unlink $ARGUMENTS',
+					description:
+						'Use /swarm unlink to unlink this worktree from the shared knowledge store [--no-copy]',
+				},
 			};
 
 			log('Config applied', {
