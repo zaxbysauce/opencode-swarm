@@ -191,6 +191,12 @@ export async function handleLinkCommand(
 		createdAt: new Date().toISOString(),
 		source: 'manual',
 	};
+	// Ordering is deliberate: merge BEFORE writing the pointer. The merge is
+	// idempotent and deduped, so if writeLinkPointer fails the worktree stays
+	// unlinked while the local lessons are safely already in the shared store —
+	// re-running `/swarm link` simply skips the duplicates and writes the pointer.
+	// The reverse order (pointer first) would, on a merge failure, leave the
+	// worktree linked to a shared store missing its local lessons, which is worse.
 	try {
 		await writeLinkPointer(directory, pointer);
 	} catch (error) {

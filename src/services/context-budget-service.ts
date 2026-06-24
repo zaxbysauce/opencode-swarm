@@ -6,19 +6,43 @@
  * warnings when approaching budget limits.
  */
 
-import { readFile } from 'node:fs/promises';
 import { resolveSwarmKnowledgePath } from '../hooks/knowledge-store';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
-import { bunWrite } from '../utils/bun-compat';
+import { bunFile, bunWrite } from '../utils/bun-compat';
 import { validateDirectory } from '../utils/path-security';
+import { readCachedTextFile } from '../utils/swarm-artifact-cache';
 
-/** Read a file's text, returning '' on any error (link-aware knowledge reads). */
+/**
+ * Read a knowledge file's text by absolute (link-aware) path, returning '' on
+ * any error. Mirrors `readSwarmFileAsync`'s resilience so routing through the
+ * shared link store does not silently drop it:
+ * - ENOENT retry (5×10ms) for the macOS/APFS rename-visibility race that can
+ *   make a read immediately after an atomic write transiently see ENOENT —
+ *   without it, a budget report can undercount knowledge tokens to zero.
+ * - stamp-cached reads so a large shared knowledge store is not re-read from
+ *   disk on every (frequent) budget report.
+ *
+ * Unlike `readSwarmFileAsync`, this takes an already-resolved absolute path so
+ * it can point at the shared link store (`resolveSwarmKnowledgePath`) when the
+ * worktree is linked.
+ */
 async function readFileOrEmpty(filePath: string): Promise<string> {
-	try {
-		return await readFile(filePath, 'utf-8');
-	} catch {
-		return '';
+	const maxAttempts = 5;
+	const retryDelayMs = 10;
+	for (let attempt = 0; attempt < maxAttempts; attempt++) {
+		try {
+			const text = await readCachedTextFile(filePath, async () =>
+				bunFile(filePath).text(),
+			);
+			return text ?? '';
+		} catch (err) {
+			// Only retry on ENOENT (rename-visibility race); other errors fail to ''.
+			const isNotFound = (err as NodeJS.ErrnoException)?.code === 'ENOENT';
+			if (!isNotFound || attempt === maxAttempts - 1) return '';
+			await new Promise((resolve) => setTimeout(resolve, retryDelayMs));
+		}
 	}
+	return '';
 }
 
 /**

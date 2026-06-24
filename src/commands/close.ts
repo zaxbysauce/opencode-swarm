@@ -308,6 +308,16 @@ const ACTIVE_STATE_TO_CLEAN = [
  * peers may still be active, and the shared store is durable with its own
  * lifecycle (curation/hive-promotion already run on it, link-aware, during
  * close). When the worktree is NOT linked these are handled normally (local).
+ *
+ * Scope: this set lists exactly the knowledge-family files that close otherwise
+ * archives/cleans — i.e. the intersection with `ARCHIVE_ARTIFACTS` /
+ * `ACTIVE_STATE_TO_CLEAN`. The other redirected files (retractions, counters,
+ * quarantine, unactionable, application, knowledge-events) appear in neither
+ * list, so close never touches them and they need no guard here. Note the two
+ * stages cover different members: the archive-stage guard fires for both
+ * `knowledge.jsonl` and `knowledge-rejected.jsonl` (both in `ARCHIVE_ARTIFACTS`),
+ * while the clean-stage guard is only reachable for `knowledge-rejected.jsonl`
+ * (`ACTIVE_STATE_TO_CLEAN` has no `knowledge.jsonl`).
  */
 const KNOWLEDGE_FAMILY_ARTIFACTS = new Set([
 	'knowledge.jsonl',

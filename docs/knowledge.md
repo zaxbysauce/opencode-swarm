@@ -55,7 +55,7 @@ between similar projects that share a link name). Lives beside the hive store:
 Each linked worktree keeps a pointer at `.swarm/link.json`:
 
 ```json
-{ "linkId": "<id>", "linkedAt": "<ISO-8601>" }
+{ "version": 1, "linkId": "<id>", "createdAt": "<ISO-8601>", "source": "manual" }
 ```
 
 #### Commands

@@ -255,9 +255,12 @@ export function resolveKnowledgeStoreDir(directory: string): string {
 	try {
 		const pointer = readLinkPointer(directory);
 		if (pointer) {
-			// path.resolve() canonicalizes the shared store path (removes any relative
-			// components, resolves symlinks in the base dir) so callers never operate
-			// on a non-canonical path even if the data directory has unexpected shape.
+			// path.resolve() canonicalizes the shared store path — makes it absolute
+			// and collapses any '.'/'..' segments — so callers never operate on a
+			// non-canonical path even if the data directory has unexpected shape.
+			// NOTE: path.resolve() does NOT resolve symlinks (that needs
+			// fs.realpathSync); traversal safety is enforced by sanitizeLinkId on the
+			// linkId, not by this call.
 			linkDir = path.resolve(resolveLinkDir(pointer.linkId));
 		}
 	} catch {
