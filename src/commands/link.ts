@@ -28,7 +28,6 @@ import {
 } from '../hooks/knowledge-link.js';
 import {
 	findNearDuplicate,
-	readKnowledge,
 	transactKnowledge,
 } from '../hooks/knowledge-store.js';
 import type { KnowledgeEntryBase } from '../hooks/knowledge-types.js';
