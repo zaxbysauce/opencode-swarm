@@ -10,6 +10,7 @@ import {
 	type RecentEscalation,
 	readRecentEscalations,
 } from '../hooks/knowledge-escalator';
+import { resolveUnactionablePath } from '../hooks/knowledge-validator';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { loadPlan } from '../plan/manager';
 import {
@@ -223,8 +224,10 @@ export async function getStatusData(
 
 	// #1234 Part 3: surface learning-loop queue depths in /swarm status.
 	status.pendingProposals = await countProposals(directory);
+	// Link-aware: when this worktree shares a knowledge store, report the shared
+	// unactionable queue depth (resolveUnactionablePath redirects when linked).
 	status.unactionableQueueDepth = await safeLineCount(
-		validateSwarmPath(directory, 'knowledge-unactionable.jsonl'),
+		resolveUnactionablePath(directory),
 	);
 	status.insightCandidatesPending = await safeLineCount(
 		validateSwarmPath(directory, 'insight-candidates.jsonl'),

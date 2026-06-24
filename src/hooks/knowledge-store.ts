@@ -7,6 +7,7 @@ import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
 import { readCachedParsedFile } from '../utils/swarm-artifact-cache.js';
+import { resolveKnowledgeStoreDir } from './knowledge-link.js';
 import type {
 	ActionableDirectiveFields,
 	KnowledgeEntryBase,
@@ -42,19 +43,27 @@ export function getPlatformConfigDir(): string {
 	}
 }
 
-// Returns path to .swarm/knowledge.jsonl in the project directory
+// Returns path to knowledge.jsonl for the project directory. Redirects to the
+// shared link store when the worktree is linked (resolveKnowledgeStoreDir);
+// otherwise byte-identical to <directory>/.swarm/knowledge.jsonl.
 export function resolveSwarmKnowledgePath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge.jsonl');
+	return path.join(resolveKnowledgeStoreDir(directory), 'knowledge.jsonl');
 }
 
-// Returns path to .swarm/knowledge-rejected.jsonl in the project directory
+// Returns path to knowledge-rejected.jsonl (link-aware).
 export function resolveSwarmRejectedPath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-rejected.jsonl');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-rejected.jsonl',
+	);
 }
 
-// Returns path to .swarm/knowledge-retractions.jsonl in the project directory
+// Returns path to knowledge-retractions.jsonl (link-aware).
 export function resolveSwarmRetractionsPath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-retractions.jsonl');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-retractions.jsonl',
+	);
 }
 
 // Cross-platform resolver — inlined 15-line implementation (NO env-paths dependency)

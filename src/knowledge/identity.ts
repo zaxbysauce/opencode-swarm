@@ -42,18 +42,24 @@ export function resolveIdentityPath(projectHash: string): string {
 /**
  * Derive a deterministic project hash from a directory.
  * Uses git remote URL if available, otherwise falls back to absolute path.
+ *
+ * Worktrees of the same repository share a git remote, so they derive the same
+ * hash — which is what lets `/swarm link` (with no name) tie them to one shared
+ * knowledge store by default.
  */
-function _deriveProjectHash(directory: string): string {
+export function deriveProjectHash(directory: string): string {
 	const absolutePath = path.resolve(directory);
 	let hashInput: string;
 
 	try {
-		// Try to get git remote URL
+		// Try to get git remote URL. Bounded with a timeout (Invariant 3 — no
+		// unbounded subprocess); a missing/hung remote falls back to the path.
 		const remoteUrl = child_process
 			.execSync('git remote get-url origin', {
 				cwd: directory,
 				encoding: 'utf-8',
 				stdio: ['pipe', 'pipe', 'ignore'],
+				timeout: 1500,
 			})
 			.trim();
 		hashInput = remoteUrl.length > 0 ? remoteUrl : absolutePath;

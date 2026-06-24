@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { KnowledgeConfigSchema } from '../config/schema.js';
+import { resolveKnowledgeStoreDir } from '../hooks/knowledge-link.js';
 import {
 	migrateContextToKnowledge,
 	migrateHiveKnowledgeLegacy,
@@ -107,8 +108,7 @@ export async function handleKnowledgeRestoreCommand(
 
 	try {
 		const quarantinePath = join(
-			directory,
-			'.swarm',
+			resolveKnowledgeStoreDir(directory),
 			'knowledge-quarantined.jsonl',
 		);
 		const entries = await readKnowledge<KnowledgeEntryBase>(quarantinePath);

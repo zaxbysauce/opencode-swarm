@@ -28,6 +28,7 @@ import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
 import { warn } from '../utils/logger.js';
+import { resolveKnowledgeStoreDir } from './knowledge-link.js';
 import type {
 	KnowledgeApplicationRecord,
 	RetrievalOutcome,
@@ -214,14 +215,20 @@ export const RECEIPT_EVENT_TYPES: ReadonlySet<string> = new Set([
 // Paths
 // ============================================================================
 
-/** Returns `.swarm/knowledge-events.jsonl` for the given project directory. */
+/** Returns the knowledge-events.jsonl path (link-aware via resolveKnowledgeStoreDir). */
 export function resolveKnowledgeEventsPath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-events.jsonl');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-events.jsonl',
+	);
 }
 
-/** Returns `.swarm/knowledge-counter-baseline.json` for folded event counters. */
+/** Returns the knowledge-counter-baseline.json path (link-aware). */
 export function resolveKnowledgeCounterBaselinePath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-counter-baseline.json');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-counter-baseline.json',
+	);
 }
 
 // Defined locally to avoid importing from knowledge-store.ts, which tests mock.
@@ -248,9 +255,12 @@ export function resolveHiveEventsPath(): string {
 	return path.join(dir, 'shared-knowledge-events.jsonl');
 }
 
-/** Returns `.swarm/knowledge-application.jsonl` for legacy v2 audit records. */
+/** Returns the knowledge-application.jsonl path for legacy v2 audit records (link-aware). */
 export function resolveLegacyApplicationLogPath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-application.jsonl');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-application.jsonl',
+	);
 }
 
 // ============================================================================

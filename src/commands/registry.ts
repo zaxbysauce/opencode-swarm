@@ -42,6 +42,7 @@ import {
 	handleKnowledgeUnactionableCommand,
 } from './knowledge.js';
 import { handleLearningCommand } from './learning.js';
+import { handleLinkCommand } from './link.js';
 import { handleLoopCommand } from './loop.js';
 import {
 	handleMemoryCommand,
@@ -80,6 +81,7 @@ import { handleSpecifyCommand } from './specify.js';
 import { handleStatusCommand } from './status.js';
 import { handleSyncPlanCommand } from './sync-plan.js';
 import { handleTurboCommand } from './turbo.js';
+import { handleUnlinkCommand } from './unlink.js';
 import { handleWriteRetroCommand } from './write-retro.js';
 
 // Inline help handler to avoid circular dependency with index.ts
@@ -1026,6 +1028,31 @@ export const COMMAND_REGISTRY = {
 		details:
 			'show: display spec-level, session-override, and effective QA gates for the current plan. enable: persist gate(s) into the locked-once profile (architect; rejected after critic approval lock). override: session-only ratchet-tighter enable. Valid gates: reviewer, test_engineer, council_mode, sme_enabled, critic_pre_plan, hallucination_guard, sast_enabled, mutation_test, phase_council, drift_check, final_council.',
 		category: 'config',
+		toolPolicy: 'none',
+	},
+	link: {
+		handler: (ctx) => handleLinkCommand(ctx.directory, ctx.args),
+		description: 'Tie this worktree to a shared swarm knowledge store [name]',
+		details:
+			'Links the current worktree to a shared knowledge store so multiple swarms working on the same project (e.g. separate git worktrees) pool their lessons instead of each keeping an isolated .swarm/knowledge.jsonl. With no name, ties all worktrees of the same repo via the project hash; with a name, ties any worktrees/repos that use the same name. Existing local lessons are merged (deduped) into the shared store. Use `/swarm link status` to inspect.',
+		args: '[<name> | status]',
+		category: 'utility',
+		toolPolicy: 'none',
+	},
+	'link status': {
+		handler: (ctx) => handleLinkCommand(ctx.directory, ['status']),
+		description: 'Show whether this worktree shares knowledge via a link',
+		subcommandOf: 'link',
+		category: 'utility',
+		toolPolicy: 'none',
+	},
+	unlink: {
+		handler: (ctx) => handleUnlinkCommand(ctx.directory, ctx.args),
+		description: 'Stop sharing swarm knowledge for this worktree [--no-copy]',
+		details:
+			'Unlinks the current worktree from its shared knowledge store and returns it to a local .swarm/knowledge.jsonl. By default the shared lessons are copied back into the local store (deduped) so nothing is lost; pass --no-copy to skip the copy-back.',
+		args: '[--no-copy]',
+		category: 'utility',
 		toolPolicy: 'none',
 	},
 	promote: {

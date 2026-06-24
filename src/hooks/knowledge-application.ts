@@ -12,6 +12,7 @@ import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
 import { warn } from '../utils/logger.js';
+import { resolveKnowledgeStoreDir } from './knowledge-link.js';
 import {
 	resolveHiveKnowledgePath,
 	resolveSwarmKnowledgePath,
@@ -29,7 +30,11 @@ import type {
 // ============================================================================
 
 export function resolveApplicationLogPath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-application.jsonl');
+	// Link-aware: redirect to the shared store dir when the worktree is linked.
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-application.jsonl',
+	);
 }
 
 export const MAX_LEGACY_APPLICATION_LOG_ENTRIES = 5000;

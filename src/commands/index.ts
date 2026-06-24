@@ -72,6 +72,7 @@ export {
 	handleKnowledgeUnactionableCommand,
 } from './knowledge';
 export { handleLearningCommand } from './learning';
+export { handleLinkCommand } from './link';
 export {
 	handleMemoryCommand,
 	handleMemoryExportCommand,
@@ -116,6 +117,7 @@ export {
 	SWARM_COMMAND_TOOL_COMMANDS,
 } from './tool-policy.js';
 export { handleTurboCommand } from './turbo';
+export { handleUnlinkCommand } from './unlink';
 export { handleWriteRetroCommand } from './write-retro';
 
 export function buildHelpText(): string {

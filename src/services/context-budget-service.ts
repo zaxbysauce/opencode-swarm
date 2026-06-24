@@ -6,9 +6,20 @@
  * warnings when approaching budget limits.
  */
 
+import { readFile } from 'node:fs/promises';
+import { resolveSwarmKnowledgePath } from '../hooks/knowledge-store';
 import { readSwarmFileAsync, validateSwarmPath } from '../hooks/utils';
 import { bunWrite } from '../utils/bun-compat';
 import { validateDirectory } from '../utils/path-security';
+
+/** Read a file's text, returning '' on any error (link-aware knowledge reads). */
+async function readFileOrEmpty(filePath: string): Promise<string> {
+	try {
+		return await readFile(filePath, 'utf-8');
+	} catch {
+		return '';
+	}
+}
 
 /**
  * Context budget report with detailed token breakdown
@@ -225,12 +236,11 @@ export async function getContextBudgetReport(
 	const planCursorContent = await getPlanCursorContent(directory);
 	const planCursorTokens = estimateTokens(planCursorContent);
 
-	// Read knowledge content
-	const knowledgeContent = await readSwarmFileAsync(
-		directory,
-		'knowledge.jsonl',
+	// Read knowledge content (link-aware: reflects the shared store when linked).
+	const knowledgeContent = await readFileOrEmpty(
+		resolveSwarmKnowledgePath(directory),
 	);
-	const knowledgeTokens = estimateTokens(knowledgeContent || '');
+	const knowledgeTokens = estimateTokens(knowledgeContent);
 
 	// Read run memory content
 	const runMemoryContent = await readSwarmFileAsync(

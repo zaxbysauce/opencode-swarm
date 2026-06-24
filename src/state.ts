@@ -40,6 +40,7 @@ import type { EscalationTracker } from './prm/escalation.js';
 import { clearTrajectoryCache } from './prm/trajectory-store.js';
 import type { PatternMatch } from './prm/types.js';
 import { recordSessionStart } from './session/session-start-store.js';
+import { maybeSuggestWorktreeLink } from './session/worktree-link-suggestion.js';
 import { AgentRunContext } from './state/agent-run-context.js';
 import { telemetry } from './telemetry.js';
 import * as logger from './utils/logger';
@@ -685,6 +686,12 @@ export function startAgentSession(
 		} catch {
 			// non-fatal — fail-open
 		}
+		// Advisory: if this repo has multiple worktrees and this one is unlinked,
+		// suggest `/swarm link`. Deferred off the init critical path and never
+		// awaited (Invariant 1); fully fail-open internally.
+		queueMicrotask(() => {
+			void maybeSuggestWorktreeLink(directory, sessionId);
+		});
 	}
 
 	telemetry.sessionStarted(sessionId, agentName);

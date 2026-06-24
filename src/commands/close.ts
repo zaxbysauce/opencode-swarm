@@ -20,6 +20,7 @@ import { createCuratorLLMDelegate } from '../hooks/curator-llm-factory';
 import { runCuratorPostMortem } from '../hooks/curator-postmortem';
 import { checkHivePromotions } from '../hooks/hive-promoter';
 import { curateAndStoreSwarm } from '../hooks/knowledge-curator';
+import { isLinked } from '../hooks/knowledge-link';
 import {
 	readKnowledge,
 	resolveSwarmKnowledgePath,
@@ -299,6 +300,19 @@ const ACTIVE_STATE_TO_CLEAN = [
 	'swarm.db-shm',
 	'swarm.db-wal',
 ];
+
+/**
+ * Knowledge-family artifacts whose backing store redirects to a shared link
+ * directory when the worktree is linked (`.swarm/link.json`). A single
+ * worktree's `/swarm close` must NOT archive or delete the cohort-shared store —
+ * peers may still be active, and the shared store is durable with its own
+ * lifecycle (curation/hive-promotion already run on it, link-aware, during
+ * close). When the worktree is NOT linked these are handled normally (local).
+ */
+const KNOWLEDGE_FAMILY_ARTIFACTS = new Set([
+	'knowledge.jsonl',
+	'knowledge-rejected.jsonl',
+]);
 
 /**
  * Active-state directories to archive and clean after archiving.
@@ -928,9 +942,24 @@ export async function runArchiveStage(ctx: CloseStageContext): Promise<void> {
 		// swarm.db itself is handled by copySqliteSafe below.
 		const WAL_SIDECAR_FILES = new Set(['swarm.db-shm', 'swarm.db-wal']);
 
+		// When linked, the knowledge family lives in the shared link store, which
+		// is cohort-owned. Do not archive or clean it from a single worktree's
+		// close — surface one note and leave the shared lifecycle untouched.
+		const linkedKnowledgeShared = isLinked(ctx.directory);
+		if (linkedKnowledgeShared) {
+			ctx.warnings.push(
+				'Worktree is linked: shared knowledge (knowledge.jsonl, knowledge-rejected.jsonl) lives in the link store and is not archived or cleaned by /swarm close. Manage it via the link.',
+			);
+		}
+
 		for (const artifact of ARCHIVE_ARTIFACTS) {
 			// Skip WAL sidecars — they are ephemeral and not user data.
 			if (WAL_SIDECAR_FILES.has(artifact)) {
+				continue;
+			}
+
+			// Skip cohort-shared knowledge artifacts when linked (see note above).
+			if (linkedKnowledgeShared && KNOWLEDGE_FAMILY_ARTIFACTS.has(artifact)) {
 				continue;
 			}
 
@@ -1093,8 +1122,14 @@ export async function runCleanStage(
 	// Only delete active-state files that were successfully copied to the archive.
 	// This prevents data loss when a partial archive succeeds for some files but
 	// fails for others — only the backed-up files are safe to remove.
+	const linkedKnowledgeShared = isLinked(ctx.directory);
 	if (ctx.archivedActiveStateFiles.size > 0) {
 		for (const artifact of ACTIVE_STATE_TO_CLEAN) {
+			// Never delete cohort-shared knowledge state from a single worktree's
+			// close (it was deliberately not archived above; peers may be active).
+			if (linkedKnowledgeShared && KNOWLEDGE_FAMILY_ARTIFACTS.has(artifact)) {
+				continue;
+			}
 			if (!ctx.archivedActiveStateFiles.has(artifact)) {
 				// This file was NOT successfully archived — do not delete it.
 				// Include the failure reason when one was recorded (e.g. EBUSY,

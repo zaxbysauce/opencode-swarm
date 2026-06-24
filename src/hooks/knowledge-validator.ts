@@ -5,10 +5,13 @@ import * as path from 'node:path';
 import lockfile from 'proper-lockfile';
 import { atomicWriteFile } from '../evidence/task-file.js';
 import { warn } from '../utils/logger.js';
+import { resolveKnowledgeStoreDir } from './knowledge-link.js';
 import {
 	findNearDuplicate,
 	inferTags,
 	readKnowledge,
+	resolveSwarmKnowledgePath,
+	resolveSwarmRejectedPath,
 	transactKnowledge,
 } from './knowledge-store.js';
 import type {
@@ -691,9 +694,12 @@ export function validateActionability(
 	return { actionable: false, reason };
 }
 
-/** Returns `.swarm/knowledge-unactionable.jsonl` for the given directory. */
+/** Returns the knowledge-unactionable.jsonl path for the given directory (link-aware). */
 export function resolveUnactionablePath(directory: string): string {
-	return path.join(directory, '.swarm', 'knowledge-unactionable.jsonl');
+	return path.join(
+		resolveKnowledgeStoreDir(directory),
+		'knowledge-unactionable.jsonl',
+	);
 }
 
 /** One quarantined-unactionable record. */
@@ -825,21 +831,16 @@ export async function quarantineEntry(
 		// biome-ignore lint/suspicious/noControlCharactersInRegex: intentional — strips control characters from user-supplied input
 		.replace(/[\x00-\x08\x0b-\x0c\x0e-\x1f\x7f\x0d]/g, '');
 
-	// 2. Build paths
-	const knowledgePath = path.join(directory, '.swarm', 'knowledge.jsonl');
+	// 2. Build paths (link-aware: redirect to the shared store when linked).
+	const knowledgePath = resolveSwarmKnowledgePath(directory);
 	const quarantinePath = path.join(
-		directory,
-		'.swarm',
+		resolveKnowledgeStoreDir(directory),
 		'knowledge-quarantined.jsonl',
 	);
-	const rejectedPath = path.join(
-		directory,
-		'.swarm',
-		'knowledge-rejected.jsonl',
-	);
-	const swarmDir = path.join(directory, '.swarm');
+	const rejectedPath = resolveSwarmRejectedPath(directory);
+	const swarmDir = resolveKnowledgeStoreDir(directory);
 
-	// 3. Ensure .swarm dir exists
+	// 3. Ensure store dir exists
 	await mkdir(swarmDir, { recursive: true });
 
 	// 4. Acquire lock FIRST, then read and write (all inside lock)
@@ -941,19 +942,12 @@ export async function restoreEntry(
 		return;
 	}
 
-	// 1. Build paths (same as quarantineEntry)
-	const knowledgePath = path.join(directory, '.swarm', 'knowledge.jsonl');
-	const quarantinePath = path.join(
-		directory,
-		'.swarm',
-		'knowledge-quarantined.jsonl',
-	);
-	const rejectedPath = path.join(
-		directory,
-		'.swarm',
-		'knowledge-rejected.jsonl',
-	);
-	const swarmDir = path.join(directory, '.swarm');
+	// 1. Build paths (same as quarantineEntry; link-aware via resolveKnowledgeStoreDir).
+	const storeDir = resolveKnowledgeStoreDir(directory);
+	const knowledgePath = resolveSwarmKnowledgePath(directory);
+	const quarantinePath = path.join(storeDir, 'knowledge-quarantined.jsonl');
+	const rejectedPath = resolveSwarmRejectedPath(directory);
+	const swarmDir = storeDir;
 
 	// 2. Ensure .swarm dir exists
 	await mkdir(swarmDir, { recursive: true });

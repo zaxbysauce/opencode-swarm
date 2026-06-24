@@ -20,6 +20,7 @@ import { loadPlanJsonOnly } from '../plan/manager.js';
 import { derivePlanId } from '../plan/utils.js';
 import type { CuratorLLMDelegate } from './curator.js';
 import { readKnowledgeEvents } from './knowledge-events.js';
+import { resolveKnowledgeStoreDir } from './knowledge-link.js';
 import { readKnowledge, resolveSwarmKnowledgePath } from './knowledge-store.js';
 import type { KnowledgeEntryBase } from './knowledge-types.js';
 import { readSwarmFileAsync, validateSwarmPath } from './utils.js';
@@ -554,8 +555,7 @@ export async function runCuratorPostMortem(
 			proposals = proposals.slice(0, MAX_PROPOSALS);
 		}
 		const unactionablePath = path.join(
-			directory,
-			'.swarm',
+			resolveKnowledgeStoreDir(directory),
 			'knowledge-unactionable.jsonl',
 		);
 		let unactionable = readJsonlFile(unactionablePath, MAX_UNACTIONABLE);

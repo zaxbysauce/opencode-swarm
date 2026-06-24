@@ -17,6 +17,7 @@
  */
 import { afterEach, beforeEach, describe, expect, it, mock } from 'bun:test';
 import {
+	existsSync,
 	mkdirSync,
 	mkdtempSync,
 	readdirSync,
@@ -362,6 +363,64 @@ describe('runArchiveStage', () => {
 		expect(ctx.archiveDir.length).toBeGreaterThan(0);
 	});
 
+	// Regression: a linked worktree must NOT archive the cohort-shared knowledge
+	// family (it has its own lifecycle; peers may be active). This is the
+	// scenario whose absence let the close.ts split-brain ship undetected.
+	it('skips cohort-shared knowledge artifacts when the worktree is linked', async () => {
+		writeArtifact('knowledge.jsonl', '{"id":"k1"}\n');
+		writeArtifact('knowledge-rejected.jsonl', '{"id":"r1"}\n');
+		writeArtifact('events.jsonl', '');
+		// Declare this worktree linked (isLinked reads link.json fresh).
+		writeArtifact(
+			'link.json',
+			JSON.stringify({
+				version: 1,
+				linkId: 'close-link',
+				createdAt: '2026-01-01T00:00:00.000Z',
+				source: 'manual',
+			}),
+		);
+
+		const ctx = buildBaseCtx() as any;
+		await runArchiveStage(ctx);
+
+		// Knowledge family is NOT in the archive bundle…
+		expect(existsSync(path.join(ctx.archiveDir, 'knowledge.jsonl'))).toBe(
+			false,
+		);
+		expect(
+			existsSync(path.join(ctx.archiveDir, 'knowledge-rejected.jsonl')),
+		).toBe(false);
+		// …and knowledge-rejected.jsonl is NOT marked for cleanup…
+		expect(
+			(ctx.archivedActiveStateFiles as Set<string>).has(
+				'knowledge-rejected.jsonl',
+			),
+		).toBe(false);
+		// …and a note explains why.
+		expect((ctx.warnings as string[]).some((w) => w.includes('linked'))).toBe(
+			true,
+		);
+		// A non-knowledge artifact is still archived normally.
+		expect(existsSync(path.join(ctx.archiveDir, 'events.jsonl'))).toBe(true);
+	});
+
+	it('archives knowledge-rejected.jsonl normally when NOT linked', async () => {
+		writeArtifact('knowledge-rejected.jsonl', '{"id":"r1"}\n');
+
+		const ctx = buildBaseCtx() as any;
+		await runArchiveStage(ctx);
+
+		expect(
+			existsSync(path.join(ctx.archiveDir, 'knowledge-rejected.jsonl')),
+		).toBe(true);
+		expect(
+			(ctx.archivedActiveStateFiles as Set<string>).has(
+				'knowledge-rejected.jsonl',
+			),
+		).toBe(true);
+	});
+
 	it('runs archiveEvidence with the test directory as first argument (observable)', async () => {
 		writeArtifact('plan.json', '{}');
 
@@ -619,6 +678,39 @@ describe('runCleanStage', () => {
 		// plan.json and events.jsonl should be in cleanedFiles
 		expect(result.cleanedFiles).toContain('plan.json');
 		expect(result.cleanedFiles).toContain('events.jsonl');
+	});
+
+	it('does NOT delete cohort-shared knowledge-rejected.jsonl when linked', async () => {
+		writeArtifact('plan.json', '{}');
+		writeArtifact('knowledge-rejected.jsonl', '{"id":"r1"}\n');
+		writeArtifact(
+			'link.json',
+			JSON.stringify({
+				version: 1,
+				linkId: 'close-link',
+				createdAt: '2026-01-01T00:00:00.000Z',
+				source: 'manual',
+			}),
+		);
+
+		// Seed both as "archived" — proving the clean stage skips the shared
+		// knowledge family even if it were marked archived (defense in depth).
+		const ctx = buildBaseCtx({
+			archivedActiveStateFiles: new Set([
+				'plan.json',
+				'knowledge-rejected.jsonl',
+			]),
+			archivedActiveStateDirs: new Set<string>(),
+		}) as any;
+
+		const result = await runCleanStage(ctx);
+
+		// Shared rejected log is preserved; the local plan.json is cleaned normally.
+		expect(existsSync(path.join(swarmDir(), 'knowledge-rejected.jsonl'))).toBe(
+			true,
+		);
+		expect(result.cleanedFiles).not.toContain('knowledge-rejected.jsonl');
+		expect(result.cleanedFiles).toContain('plan.json');
 	});
 
 	it('pushes a warning when no active-state files were archived (preserve-all guard)', async () => {
