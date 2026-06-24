@@ -85,6 +85,33 @@ function makeMemory(
 	};
 }
 
+// Like makeMemory but with createdAt = now (recent), so the natural half-life
+// is in the future and the upgrade-safety guard (isPastDecayHorizon) does not skip.
+function makeRecentMemory(
+	text: string,
+	kind: MemoryRecord['kind'] = 'project_fact',
+): MemoryRecord {
+	const base = {
+		scope: { type: 'repository' as const, repoId: 'r' },
+		kind,
+		text,
+	};
+	return {
+		id: createMemoryId(base),
+		scope: base.scope,
+		kind,
+		text,
+		tags: [],
+		confidence: 0.6,
+		stability: 'durable',
+		source: { type: 'file', filePath: 'src/a.ts' },
+		createdAt: new Date().toISOString(),
+		updatedAt: new Date().toISOString(),
+		contentHash: computeMemoryContentHash(base),
+		metadata: {},
+	};
+}
+
 class FakeGateway implements ConsolidationGateway {
 	enabled = true;
 	seedProposals: MemoryProposal[] = [];
@@ -256,10 +283,12 @@ describe('deriveDecision', () => {
 		expect(plan.type).toBe('dedup');
 	});
 	test('contradiction with existing durable target → supersede', () => {
-		const existing = makeMemory('Deploys happen on Friday');
+		// Use non-overlapping text so the contradiction path fires (dedup check
+		// now precedes contradiction; if Jaccard overlap >= threshold, dedup wins).
+		const existing = makeMemory('Friday is the deployment day');
 		const plan = deriveDecision(
 			{
-				text: 'Deploys now happen on Monday only',
+				text: 'All deployments now run on Mondays exclusively',
 				kind: 'project_fact',
 				confidence: 0.9,
 				contradictsMemoryId: existing.id,
@@ -469,8 +498,9 @@ describe('runConsolidationPass', () => {
 
 	test('no LLM delegate → decay-only pass still records and is idempotent', async () => {
 		const gw = new FakeGateway();
-		// A decaying-kind memory (todo) created long ago with no expiry yet.
-		const todo = makeMemory(
+		// A decaying-kind memory (todo) created recently so the upgrade-safety
+		// guard (isPastDecayHorizon) does not skip it.
+		const todo = makeRecentMemory(
 			'Refactor the recall planner module someday.',
 			'todo',
 		);
@@ -592,9 +622,9 @@ describe('runConsolidationPass', () => {
 			return record;
 		};
 		gw.memories = [
-			makeMemory('First decaying todo.', 'todo'),
-			makeMemory('Second decaying todo.', 'todo'),
-			makeMemory('Third decaying todo.', 'todo'),
+			makeRecentMemory('First decaying todo.', 'todo'),
+			makeRecentMemory('Second decaying todo.', 'todo'),
+			makeRecentMemory('Third decaying todo.', 'todo'),
 		];
 		const { deps, appended } = makeDeps(gw, { llm: false });
 		const r = await runConsolidationPass(

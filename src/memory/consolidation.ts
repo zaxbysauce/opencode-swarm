@@ -6,7 +6,7 @@ import {
 } from './config';
 import type { ConsolidationLogRecord } from './consolidation-log';
 import { CURATOR_PROMOTED_MEMORY_MAX_TEXT_LENGTH } from './curator-decision-helpers';
-import { computeDecayExpiry } from './decay';
+import { computeDecayExpiry, isPastDecayHorizon } from './decay';
 import type { ProposeMemoryInput } from './gateway';
 import type { MemoryRunLogEvent } from './run-log';
 import { clusterByJaccard, jaccard, tokenize } from './scoring';
@@ -179,6 +179,18 @@ export function deriveDecision(
 		fact.text.length <= CURATOR_PROMOTED_MEMORY_MAX_TEXT_LENGTH &&
 		fact.confidence >= options.autoApplyMinConfidence;
 
+	// Dedup check precedes contradiction so that a fact that overlaps with one
+	// memory AND is typed as contradicting another is treated as a near-duplicate
+	// (dedup, no-op) rather than superseding the unrelated memory.
+	const factTokens = tokenize(fact.text);
+	for (const memory of existing) {
+		if (
+			jaccard(factTokens, tokenize(memory.text)) >= options.jaccardThreshold
+		) {
+			return { type: 'dedup', fact, duplicateOf: memory.id };
+		}
+	}
+
 	if (fact.contradictsMemoryId) {
 		const target = existing.find((m) => m.id === fact.contradictsMemoryId);
 		if (target && eligible) {
@@ -192,15 +204,6 @@ export function deriveDecision(
 				? 'contradiction not auto-appliable (kind/length/confidence)'
 				: 'contradiction target not found',
 		};
-	}
-
-	const factTokens = tokenize(fact.text);
-	for (const memory of existing) {
-		if (
-			jaccard(factTokens, tokenize(memory.text)) >= options.jaccardThreshold
-		) {
-			return { type: 'dedup', fact, duplicateOf: memory.id };
-		}
 	}
 
 	if (!eligible) {
@@ -476,7 +479,7 @@ async function executePlan(
 
 	if (effectiveType === 'proposal') {
 		await deps.gateway.propose({
-			operation: 'add',
+			operation: plan.type === 'supersede' ? 'supersede' : 'add',
 			kind: plan.fact.kind,
 			text: plan.fact.text,
 			rationale:
@@ -484,6 +487,9 @@ async function executePlan(
 					? `${rationale}: ${plan.reason}`
 					: `${rationale}: evidence-required kind lacks real evidence source`,
 			evidenceRefs,
+			...(plan.type === 'supersede'
+				? { targetMemoryId: plan.oldMemoryId }
+				: {}),
 		});
 		result.proposed++;
 		return;
@@ -547,6 +553,10 @@ async function applyDecay(
 	for (const memory of memories) {
 		if (deps.signal?.aborted) break;
 		if (memory.metadata.deleted === true || memory.supersededBy) continue;
+		// Upgrade-safety guard: a record written before decay was introduced may
+		// be older than its natural half-life. Skipping it on the first consolidation
+		// pass prevents silent auto-expiry of pre-existing records.
+		if (isPastDecayHorizon(memory, halfLives, now)) continue;
 		const nextExpiry = computeDecayExpiry(memory, halfLives, now);
 		if (!nextExpiry) continue;
 		try {

@@ -1,6 +1,9 @@
 import { describe, expect, test } from 'bun:test';
 import { DEFAULT_DECAY_HALF_LIFE_DAYS } from '../../../src/memory/config';
-import { computeDecayExpiry } from '../../../src/memory/decay';
+import {
+	computeDecayExpiry,
+	isPastDecayHorizon,
+} from '../../../src/memory/decay';
 
 const DAY = 24 * 60 * 60 * 1000;
 
@@ -74,5 +77,57 @@ describe('computeDecayExpiry', () => {
 				DEFAULT_DECAY_HALF_LIFE_DAYS,
 			),
 		).toBeUndefined();
+	});
+});
+
+describe('isPastDecayHorizon (upgrade-safety guard)', () => {
+	const FUTURE = new Date('2099-01-01T00:00:00.000Z');
+	const PAST = new Date('2000-01-01T00:00:00.000Z');
+
+	test('returns true for a record older than its half-life (upgrade scenario)', () => {
+		// Record created 2000-01-01; todo kind has 30d half-life; the natural
+		// half-life date (2000-01-31) is well in the past. isPastDecayHorizon
+		// returns true so applyDecay skips it.
+		expect(
+			isPastDecayHorizon(
+				{ kind: 'todo', createdAt: PAST.toISOString() },
+				DEFAULT_DECAY_HALF_LIFE_DAYS,
+				FUTURE,
+			),
+		).toBe(true);
+	});
+
+	test('returns false for a record younger than its half-life', () => {
+		// Record created 1 day ago; todo has 30d half-life; in the future.
+		const recent = new Date(
+			FUTURE.getTime() - 24 * 60 * 60 * 1000,
+		).toISOString();
+		expect(
+			isPastDecayHorizon(
+				{ kind: 'todo', createdAt: recent },
+				DEFAULT_DECAY_HALF_LIFE_DAYS,
+				FUTURE,
+			),
+		).toBe(false);
+	});
+
+	test('returns false for no-decay kinds (half-life 0)', () => {
+		expect(
+			isPastDecayHorizon(
+				{ kind: 'project_fact', createdAt: PAST.toISOString() },
+				DEFAULT_DECAY_HALF_LIFE_DAYS,
+				FUTURE,
+			),
+		).toBe(false);
+	});
+
+	test('returns false for scratch kind', () => {
+		expect(
+			isPastDecayHorizon(
+				{ kind: 'scratch', createdAt: PAST.toISOString() },
+				DEFAULT_DECAY_HALF_LIFE_DAYS,
+				FUTURE,
+			),
+		).toBe(false);
 	});
 });

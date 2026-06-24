@@ -1211,8 +1211,11 @@ export const MemoryConfigSchema = z.object({
 	/** Reflection / consolidation pass (issue #1464, Phase 3). */
 	consolidation: z
 		.object({
-			/** Run episodic→semantic consolidation at phase_complete. */
-			enabled: z.boolean().default(true),
+			/** Run episodic→semantic consolidation at phase_complete.
+			 * Default to false: consolidation makes LLM calls and auto-applies
+			 * memory records. Users who opt in to memory should explicitly enable
+			 * consolidation to opt in to this sub-feature. */
+			enabled: z.boolean().default(false),
 			/** Max LLM-distilled clusters processed per pass (cost control). */
 			maxClustersPerPass: z.number().int().min(1).max(100).default(10),
 			/** Jaccard token-overlap threshold for lexical clustering. */
@@ -1254,7 +1257,7 @@ export const MemoryConfigSchema = z.object({
 				}),
 		})
 		.default({
-			enabled: true,
+			enabled: false,
 			maxClustersPerPass: 10,
 			jaccardThreshold: 0.3,
 			autoApplyMinConfidence: 0.6,

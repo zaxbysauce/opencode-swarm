@@ -41,3 +41,22 @@ export function computeDecayExpiry(
 	if (memory.expiresAt === candidate) return undefined;
 	return candidate;
 }
+
+/**
+ * Check whether a record's natural half-life date is in the past (i.e., the record
+ * is older than its decay horizon). Used to guard against upgrade-time auto-expiry
+ * when migrating from pre-decay code: a record written under a previous config
+ * without decay should not be silently expired on the first consolidation pass.
+ */
+export function isPastDecayHorizon(
+	memory: Pick<MemoryRecord, 'kind' | 'createdAt'>,
+	halfLifeDays: Record<MemoryKind, number>,
+	now: Date = new Date(),
+): boolean {
+	if (memory.kind === 'scratch') return false;
+	const halfLife = halfLifeDays[memory.kind] ?? 0;
+	if (halfLife <= 0) return false;
+	const created = Date.parse(memory.createdAt);
+	if (!Number.isFinite(created)) return false;
+	return created + halfLife * MS_PER_DAY <= now.getTime();
+}
