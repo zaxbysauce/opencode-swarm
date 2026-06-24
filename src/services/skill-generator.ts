@@ -672,10 +672,17 @@ export async function generateSkills(
 		// frontmatter at compile time.
 		let missingSourceIds: string[] = [];
 		if (req.mode === 'active') {
+			// Stamp ALL requested source IDs (not just the ones that survived
+			// filtering into the cluster) so that phantom IDs absent from both
+			// swarm and hive are surfaced in missingSourceKnowledgeIds and the
+			// frontmatter's missing_source_knowledge_ids block.
+			const idsToStamp = req.sourceKnowledgeIds?.length
+				? req.sourceKnowledgeIds
+				: cluster.entries.map((e) => e.id);
 			const { missing } = await stampSourceEntries(
 				req.directory,
 				cluster.slug,
-				cluster.entries.map((e) => e.id),
+				idsToStamp,
 			);
 			missingSourceIds = missing;
 			if (missingSourceIds.length > 0) {
