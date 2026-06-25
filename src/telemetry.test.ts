@@ -4,10 +4,10 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import {
 	_internals,
-	ROTATION_CHECK_INTERVAL,
 	addTelemetryListener,
 	emit,
 	initTelemetry,
+	ROTATION_CHECK_INTERVAL,
 	resetTelemetryForTesting,
 	rotateTelemetryIfNeeded,
 	type TelemetryEvent,
@@ -412,18 +412,26 @@ describe('emit rotation wiring — regression: rotateTelemetryIfNeeded was never
 		}
 	});
 
-	test('emit() rotation actually bounds telemetry.jsonl size end-to-end', async () => {
+	test('emit() triggers rotateTelemetryIfNeeded() which renames the file and re-opens a stream (wiring verification, requires pre-populated file)', async () => {
 		initTelemetry(tempDir);
 		await sleep(100);
 
 		const telemetryPath = getTelemetryPath(tempDir);
 		const rotatedPath = getRotatedPath(tempDir);
 
-		// Pre-populate the file beyond a small rotation threshold so that the
-		// first rotation check inside emit() actually rotates.
+		// Pre-populate the file beyond a small rotation threshold. This is
+		// required because Node/Bun WriteStream buffers data in memory and does
+		// not flush to disk before rotateTelemetryIfNeeded reads the file size
+		// via fs.statSync. Without pre-population, the on-disk size would be
+		// smaller than the buffered size and rotation would not fire.
 		fs.appendFileSync(telemetryPath, 'x'.repeat(200) + os.EOL);
 
-		// Use a small threshold so the pre-populated data triggers rotation
+		// Use a small threshold so the pre-populated data triggers rotation.
+		// NOTE: This test cannot directly prove that "stream-driven growth
+		// triggers rotation" without changing production code to use a sync
+		// write path or awaiting stream flush before the stat check. The
+		// pre-population works around WriteStream buffering to verify the
+		// wiring: counter-throttle fires, file is renamed, and stream reopens.
 		const original = _internals.rotateTelemetryIfNeeded;
 		_internals.rotateTelemetryIfNeeded = () => rotateTelemetryIfNeeded(100);
 
