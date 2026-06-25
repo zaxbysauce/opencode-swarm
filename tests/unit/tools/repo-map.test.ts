@@ -426,3 +426,116 @@ describe('repo_map: callers / dead_exports', () => {
 		expect(symbols).not.toContain('add');
 	});
 });
+
+describe('repo_map: context_pack', () => {
+	it('happy path: returns spans for a symbol with callers (1.2.0 graph)', async () => {
+		// Build creates a 1.2.0 graph with exportRanges + symbolEdges.
+		await call({ action: 'build' });
+		const out = await call({
+			action: 'context_pack',
+			file: 'src/util.ts',
+			symbol: 'add',
+		});
+		const r = JSON.parse(out) as {
+			success: boolean;
+			schemaSupported: boolean;
+			spans: Array<{ file: string }>;
+			estimatedTokens: number;
+			target: { file: string; symbol: string };
+		};
+		expect(r.success).toBe(true);
+		expect(r.schemaSupported).toBe(true);
+		expect(r.spans.length).toBeGreaterThan(0);
+		expect(r.estimatedTokens).toBeGreaterThan(0);
+		// Target file should be workspace-relative.
+		expect(r.target.file).toBe('src/util.ts');
+		// Spans should have workspace-relative paths (no leading slash on POSIX, no drive letter on Windows).
+		for (const span of r.spans) {
+			expect(span.file).not.toMatch(/^[A-Z]:|^\//);
+		}
+	});
+
+	it('missing file: rejects context_pack without file', async () => {
+		await call({ action: 'build' });
+		const out = await call({ action: 'context_pack', symbol: 'add' });
+		const r = JSON.parse(out) as { success: boolean; error: string };
+		expect(r.success).toBe(false);
+		expect(r.error).toBe('context_pack requires `file`');
+	});
+
+	it('missing symbol: rejects context_pack without symbol', async () => {
+		await call({ action: 'build' });
+		const out = await call({ action: 'context_pack', file: 'src/util.ts' });
+		const r = JSON.parse(out) as { success: boolean; error: string };
+		expect(r.success).toBe(false);
+		expect(r.error).toBe('context_pack requires `symbol` (the exported name)');
+	});
+
+	it('unknown action: rejects bogus action', async () => {
+		const out = await call({ action: 'bogus' });
+		const r = JSON.parse(out) as { success: boolean; error: string };
+		expect(r.success).toBe(false);
+		expect(r.error).toContain('unknown action');
+	});
+
+	it('schema fallback: returns empty spans on a 1.1.0 graph', async () => {
+		// Build a proper 1.2.0 graph first.
+		await call({ action: 'build' });
+
+		// Overwrite with a synthetic 1.1.0 graph (no symbolEdges, no exportRanges).
+		// loadGraph uses mtime to detect external changes and will re-read the file.
+		const graphPath = path.join(tmp, '.swarm', 'repo-graph.json');
+		const graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8')) as {
+			schema_version: string;
+			symbolEdges?: unknown[];
+			nodes: Record<string, { exportRanges?: unknown }>;
+		};
+		graph.schema_version = '1.1.0';
+		delete graph.symbolEdges;
+		for (const node of Object.values(graph.nodes)) {
+			delete node.exportRanges;
+		}
+		// Touch the file to update mtime so loadGraph re-reads it.
+		fs.writeFileSync(graphPath, JSON.stringify(graph), 'utf-8');
+
+		const out = await call({
+			action: 'context_pack',
+			file: 'src/util.ts',
+			symbol: 'add',
+		});
+		const r = JSON.parse(out) as {
+			success: boolean;
+			schemaSupported: boolean;
+			spans: unknown[];
+			note?: string;
+		};
+		expect(r.success).toBe(true);
+		expect(r.schemaSupported).toBe(false);
+		expect(r.spans).toEqual([]);
+		expect(r.note).toBe('rebuild with repo_map action="build"');
+	});
+});
+
+describe('repo_map: context_pack target-not-found', () => {
+	it('returns empty spans with note when file is not in 1.2.0 graph', async () => {
+		// Build a proper 1.2.0 graph.
+		await call({ action: 'build' });
+
+		// Call context_pack with a file that does NOT exist in the graph.
+		const out = await call({
+			action: 'context_pack',
+			file: 'src/does-not-exist.ts',
+			symbol: 'NonExistent',
+		});
+		const r = JSON.parse(out) as {
+			success: boolean;
+			schemaSupported: boolean;
+			spans: unknown[];
+			note?: string;
+		};
+		expect(r.success).toBe(true);
+		expect(r.schemaSupported).toBe(true);
+		expect(r.spans).toEqual([]);
+		expect(r.note).toBe('Target file not found in graph');
+	});
+});

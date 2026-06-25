@@ -88,6 +88,10 @@ actions include:
   Both rely on conservative, regex-based usage analysis (TS/JS/Python) recorded
   at graph schema 1.1.0; see `docs/repo-graph-call-graph.md` for scope and
   limitations.
+- `context_pack` returns a token-budgeted, symbol-level source slice (definition
+  + transitive callers/callees) built on tree-sitter extraction across all **12**
+  first-class languages (schema 1.2.0). See `docs/repo-graph-symbol-graph.md` for
+  design and limitations.
 
 The ontology extractor is intentionally conservative. It records detected facts
 and "detected missing guard" findings; it does not claim formal security proofs.

@@ -12,16 +12,17 @@ import { existsSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import * as logger from '../../utils/logger';
+import { containsControlChars } from '../../utils/path-security';
 import {
 	addEdge,
 	buildWorkspaceGraphAsync,
-	scanFile,
+	scanFileAsync,
 	upsertNode,
 } from './builder';
 import { getCachedMtime } from './cache';
 import { resetQueryCache } from './query';
 import { getGraphPath, loadGraph, saveGraph } from './storage';
-import type { RepoGraph } from './types';
+import type { RepoGraph, SymbolEdge } from './types';
 import { normalizeGraphPath, updateGraphMetadata } from './types';
 
 /**
@@ -76,14 +77,37 @@ export async function updateGraphForFiles(
 				(e) => normalizeGraphPath(e.source) !== normalizedPath,
 			);
 
-			// Scan the file
-			const result = scanFile(rawFilePath, absoluteRoot, maxFileSize);
+			// Remove stale OUTGOING symbolEdges from this file before re-scanning.
+			// Incoming edges (toFile === changedFile) come from consumers' refs and
+			// cannot be rebuilt by rescanning only the provider; leave them in place.
+			if (graph.symbolEdges) {
+				graph.symbolEdges = graph.symbolEdges.filter(
+					(se) => normalizeGraphPath(se.fromFile) !== normalizedPath,
+				);
+			}
+
+			// Scan the file asynchronously to get node, edges, and symbolEdges
+			const result = await scanFileAsync(
+				rawFilePath,
+				absoluteRoot,
+				maxFileSize,
+			);
 
 			if (result.node) {
+				// Sanitize imports: strip control-char specifiers that tree-sitter
+				// may return raw (mirrors parseFileImports filtering in the sync path).
+				const sanitizedImports = result.node.imports.filter(
+					(imp) => !containsControlChars(imp),
+				);
+				const sanitizedNode: typeof result.node = {
+					...result.node,
+					imports: sanitizedImports,
+				};
+
 				// Remove old node if present
 				delete graph.nodes[normalizedPath];
-				// Add updated node
-				upsertNode(graph, result.node);
+				// Add updated node (carries exportRanges when present)
+				upsertNode(graph, sanitizedNode);
 
 				// Add new edges (avoiding duplicates)
 				for (const edge of result.edges) {
@@ -97,6 +121,26 @@ export async function updateGraphForFiles(
 						addEdge(graph, edge);
 					}
 				}
+
+				// Add new symbolEdges (avoiding duplicates)
+				if (result.symbolEdges.length > 0) {
+					if (!graph.symbolEdges) {
+						graph.symbolEdges = [];
+					}
+					const existingKeys = new Set(
+						graph.symbolEdges.map(
+							(se) =>
+								`${se.fromFile}\u0000${se.fromSymbol}\u0000${se.toFile}\u0000${se.toSymbol}`,
+						),
+					);
+					for (const symbolEdge of result.symbolEdges) {
+						const key = `${symbolEdge.fromFile}\u0000${symbolEdge.fromSymbol}\u0000${symbolEdge.toFile}\u0000${symbolEdge.toSymbol}`;
+						if (!existingKeys.has(key)) {
+							graph.symbolEdges.push(symbolEdge);
+							existingKeys.add(key);
+						}
+					}
+				}
 			}
 		} else {
 			// File was deleted - remove its node and all edges referencing it
@@ -106,12 +150,21 @@ export async function updateGraphForFiles(
 					normalizeGraphPath(e.source) !== normalizedPath &&
 					normalizeGraphPath(e.target) !== normalizedPath,
 			);
+			// Remove stale symbolEdges referencing the deleted file
+			if (graph.symbolEdges) {
+				graph.symbolEdges = graph.symbolEdges.filter(
+					(se) =>
+						normalizeGraphPath(se.fromFile) !== normalizedPath &&
+						normalizeGraphPath(se.toFile) !== normalizedPath,
+				);
+			}
 		}
 
 		updatedPaths.add(normalizedPath);
 	}
 
-	// Validate that all edge sources and targets have corresponding nodes
+	// Validate that all edge sources and targets have corresponding nodes.
+	// Also prune stale symbolEdges whose fromFile or toFile node no longer exists.
 	let validationFailed = false;
 	for (const edge of graph.edges) {
 		const normalizedSource = normalizeGraphPath(edge.source);
@@ -120,6 +173,18 @@ export async function updateGraphForFiles(
 			validationFailed = true;
 			break;
 		}
+	}
+
+	if (graph.symbolEdges && graph.symbolEdges.length > 0) {
+		const validSymbolEdges: SymbolEdge[] = [];
+		for (const symbolEdge of graph.symbolEdges) {
+			const normalizedFromFile = normalizeGraphPath(symbolEdge.fromFile);
+			const normalizedToFile = normalizeGraphPath(symbolEdge.toFile);
+			if (graph.nodes[normalizedFromFile] && graph.nodes[normalizedToFile]) {
+				validSymbolEdges.push(symbolEdge);
+			}
+		}
+		graph.symbolEdges = validSymbolEdges;
 	}
 
 	if (validationFailed) {
@@ -155,6 +220,11 @@ export async function updateGraphForFiles(
 		} catch {
 			// If we can't stat the file, proceed with the save anyway.
 		}
+	}
+
+	// Only keep symbolEdges when non-empty (matches buildWorkspaceGraphAsync behavior)
+	if (graph.symbolEdges && graph.symbolEdges.length === 0) {
+		delete graph.symbolEdges;
 	}
 
 	// Update metadata and save

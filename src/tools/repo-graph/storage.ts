@@ -11,7 +11,11 @@ import * as fsPromises from 'node:fs/promises';
 import * as path from 'node:path';
 import { validateSwarmPath } from '../../hooks/utils';
 import * as logger from '../../utils/logger';
-import { validateSymlinkBoundary } from '../../utils/path-security';
+import {
+	containsControlChars,
+	containsPathTraversal,
+	validateSymlinkBoundary,
+} from '../../utils/path-security';
 import {
 	clearCache,
 	getCachedGraph,
@@ -129,6 +133,39 @@ function validateLoadedGraph(parsed: RepoGraph): void {
 			new Error('repo-graph.json missing or invalid metadata'),
 			{ code: 'CORRUPTION' },
 		);
+	}
+	if (parsed.symbolEdges !== undefined) {
+		if (!Array.isArray(parsed.symbolEdges)) {
+			throw Object.assign(
+				new Error('repo-graph.json symbolEdges must be an array'),
+				{ code: 'CORRUPTION' },
+			);
+		}
+		for (const entry of parsed.symbolEdges) {
+			if (
+				typeof entry !== 'object' ||
+				entry === null ||
+				typeof entry.fromFile !== 'string' ||
+				typeof entry.fromSymbol !== 'string' ||
+				typeof entry.toFile !== 'string' ||
+				typeof entry.toSymbol !== 'string' ||
+				entry.fromFile === '' ||
+				entry.fromSymbol === '' ||
+				entry.toFile === '' ||
+				entry.toSymbol === '' ||
+				containsControlChars(entry.fromFile) ||
+				containsControlChars(entry.fromSymbol) ||
+				containsControlChars(entry.toFile) ||
+				containsControlChars(entry.toSymbol) ||
+				containsPathTraversal(entry.fromFile) ||
+				containsPathTraversal(entry.toFile)
+			) {
+				throw Object.assign(
+					new Error('repo-graph.json contains invalid symbolEdges entry'),
+					{ code: 'CORRUPTION' },
+				);
+			}
+		}
 	}
 }
 

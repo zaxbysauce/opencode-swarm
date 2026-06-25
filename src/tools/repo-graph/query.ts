@@ -2,6 +2,8 @@ import * as path from 'node:path';
 import type {
 	BlastRadiusResult,
 	CallerReference,
+	ContextPackResult,
+	ContextPackSpan,
 	DeadExportCandidate,
 	DeadExportsResult,
 	FileOntology,
@@ -12,6 +14,7 @@ import type {
 	LocalizationBlock,
 	PackageBoundarySummary,
 	RepoGraph,
+	SymbolEdge,
 	SymbolReference,
 } from './types';
 import { isSchemaVersionAtLeast, normalizeGraphPath } from './types';
@@ -456,6 +459,165 @@ export function getLocalizationContext(
 		exportedSymbolsUsedExternally: externalSymbols,
 		blastRadius: blast,
 		summary,
+	};
+}
+
+export function getContextPack(
+	graph: RepoGraph,
+	file: string,
+	symbol: string,
+	options: { maxDepth?: number; maxTokens?: number } = {},
+): ContextPackResult {
+	if (!isSchemaVersionAtLeast(graph.schema_version, '1.2.0')) {
+		return {
+			schemaSupported: false,
+			target: { file, symbol },
+			spans: [],
+			truncated: false,
+			estimatedTokens: 0,
+			note: 'rebuild with repo_map action="build"',
+		};
+	}
+
+	const maxDepth = options.maxDepth ?? 2;
+	const maxTokens = options.maxTokens ?? 4000;
+
+	// Resolve the input file to the graph node's absolute filePath using the
+	// same resolution logic as every other query function (getGraphNode handles
+	// workspace-relative AND absolute inputs). graph.nodes keys and symbolEdges
+	// index keys are absolute normalized paths, so a relative input like
+	// 'src/foo.ts' must be resolved to its absolute filePath before lookup.
+	const targetNode = getGraphNode(graph, file);
+	if (!targetNode) {
+		return {
+			schemaSupported: true,
+			target: { file, symbol },
+			spans: [],
+			truncated: false,
+			estimatedTokens: 0,
+			note: 'Target file not found in graph',
+		};
+	}
+	const targetFile = normalizeGraphPath(targetNode.filePath);
+
+	// Build per-call symbol-edge indexes: forward (outgoing callees) and
+	// reverse (incoming callers), keyed by normalized file + symbol.
+	const forward = new Map<string, SymbolEdge[]>();
+	const reverse = new Map<string, SymbolEdge[]>();
+	const symbolEdges = graph.symbolEdges ?? [];
+	for (const edge of symbolEdges) {
+		const fromKey = `${normalizeGraphPath(edge.fromFile)}\0${edge.fromSymbol}`;
+		const toKey = `${normalizeGraphPath(edge.toFile)}\0${edge.toSymbol}`;
+		const fromEdges = forward.get(fromKey);
+		if (fromEdges) fromEdges.push(edge);
+		else forward.set(fromKey, [edge]);
+		const toEdges = reverse.get(toKey);
+		if (toEdges) toEdges.push(edge);
+		else reverse.set(toKey, [edge]);
+	}
+
+	// BFS both directions from the target symbol up to maxDepth inclusive.
+	const targetKey = `${targetFile}\0${symbol}`;
+	const visited = new Map<string, number>(); // key -> first-encountered depth
+	const queue: { key: string; depth: number }[] = [
+		{ key: targetKey, depth: 0 },
+	];
+	visited.set(targetKey, 0);
+	const reached: { file: string; symbol: string; depth: number }[] = [];
+
+	while (queue.length > 0) {
+		const { key, depth } = queue.shift()!;
+		const [curFile, curSymbol] = key.split('\0', 2);
+		reached.push({ file: curFile, symbol: curSymbol, depth });
+
+		if (depth >= maxDepth) continue;
+
+		// Forward: follow edges where this symbol is the source (callees).
+		const outEdges = forward.get(key) ?? [];
+		for (const edge of outEdges) {
+			const nextKey = `${normalizeGraphPath(edge.toFile)}\0${edge.toSymbol}`;
+			if (!visited.has(nextKey)) {
+				visited.set(nextKey, depth + 1);
+				queue.push({ key: nextKey, depth: depth + 1 });
+			}
+		}
+
+		// Reverse: follow edges where this symbol is the target (callers).
+		const inEdges = reverse.get(key) ?? [];
+		for (const edge of inEdges) {
+			const nextKey = `${normalizeGraphPath(edge.fromFile)}\0${edge.fromSymbol}`;
+			if (!visited.has(nextKey)) {
+				visited.set(nextKey, depth + 1);
+				queue.push({ key: nextKey, depth: depth + 1 });
+			}
+		}
+	}
+
+	// Heuristic: ~12 tokens per line for full spans, ~10 tokens for signature spans.
+	const TOKENS_PER_LINE = 12;
+	const TOKENS_PER_SIGNATURE = 10;
+
+	// Build spans from exportRanges, attaching depth for ordering.
+	const spansWithDepth: { span: ContextPackSpan; depth: number }[] = [];
+	for (const { file: symFile, symbol: sym, depth: d } of reached) {
+		const node = graph.nodes[symFile];
+		const range = node?.exportRanges?.[sym];
+		if (!range) continue;
+
+		const mode: 'full' | 'signature' =
+			d === 0 ? 'full' : d < maxDepth ? 'full' : 'signature';
+
+		spansWithDepth.push({
+			span: {
+				file: symFile,
+				symbol: sym,
+				startLine: range.startLine,
+				endLine: range.endLine,
+				mode,
+			},
+			depth: d,
+		});
+	}
+
+	// Relevance order: target first, then ascending depth, then file, then symbol.
+	spansWithDepth.sort((a, b) => {
+		const aIsTarget =
+			a.span.file === targetFile && a.span.symbol === symbol ? 0 : 1;
+		const bIsTarget =
+			b.span.file === targetFile && b.span.symbol === symbol ? 0 : 1;
+		if (aIsTarget !== bIsTarget) return aIsTarget - bIsTarget;
+		if (a.depth !== b.depth) return a.depth - b.depth;
+		const fileCmp = a.span.file.localeCompare(b.span.file);
+		if (fileCmp !== 0) return fileCmp;
+		return a.span.symbol.localeCompare(b.span.symbol);
+	});
+
+	// Apply token budget; keep at least the target span if present.
+	let estimatedTokens = 0;
+	const finalSpans: ContextPackSpan[] = [];
+	let truncated = false;
+
+	for (const { span } of spansWithDepth) {
+		const spanTokens =
+			span.mode === 'full'
+				? (span.endLine - span.startLine + 1) * TOKENS_PER_LINE
+				: TOKENS_PER_SIGNATURE;
+
+		if (finalSpans.length > 0 && estimatedTokens + spanTokens > maxTokens) {
+			truncated = true;
+			break;
+		}
+
+		finalSpans.push(span);
+		estimatedTokens += spanTokens;
+	}
+
+	return {
+		schemaSupported: true,
+		target: { file: targetFile, symbol },
+		spans: finalSpans,
+		truncated,
+		estimatedTokens,
 	};
 }
 

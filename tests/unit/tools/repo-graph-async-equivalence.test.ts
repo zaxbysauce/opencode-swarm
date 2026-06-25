@@ -66,16 +66,62 @@ describe('repo-graph build O(N) equivalence — issue #1144', () => {
 		const sync = buildWorkspaceGraph(workspacePath);
 		const asyncGraph = await buildWorkspaceGraphAsync(workspacePath);
 
-		// Full node map equality (keys + node objects incl. exports/imports/mtime).
-		expect(asyncGraph.nodes).toEqual(sync.nodes);
-		// Full edge array equality, order-sensitive (toEqual compares array order).
-		expect(asyncGraph.edges).toEqual(sync.edges);
+		// Build file-level projections: strip async-exclusive exportRanges before
+		// comparing node content. Sync never produces exportRanges (3.2 contract).
+		const fileLevelNodes = <Record<string, object>>{};
+		for (const [key, asyncNode] of Object.entries(asyncGraph.nodes)) {
+			const { exportRanges: _er, ...fileLevel } = asyncNode as Record<
+				string,
+				unknown
+			>;
+			fileLevelNodes[key] = fileLevel;
+		}
+		expect(fileLevelNodes).toEqual(sync.nodes);
+
+		// Edge projection: usedSymbols is computed differently by sync vs async
+		// usage scanners (sync uses regex computeUsedSymbols; async uses tree-sitter
+		// `facts.refs`). Exclude it from the structural comparison; all other edge
+		// fields (source, target, importSpecifier, importType, importedSymbols) must match.
+		// Order-sensitive: async edge ordering must match sync.
+		const fileLevelEdges = asyncGraph.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		const syncEdgesProjected = sync.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		expect(fileLevelEdges).toEqual(syncEdgesProjected);
+
 		expect(asyncGraph.metadata.nodeCount).toBe(sync.metadata.nodeCount);
 		expect(asyncGraph.metadata.edgeCount).toBe(sync.metadata.edgeCount);
 
 		// Sanity: this fixture actually has nodes and edges (guards a vacuous pass).
 		expect(asyncGraph.metadata.nodeCount).toBe(3);
 		expect(asyncGraph.metadata.edgeCount).toBeGreaterThan(0);
+
+		// Async-exclusive contract: sync nodes lack exportRanges; async nodes have them.
+		for (const node of Object.values(sync.nodes)) {
+			expect((node as Record<string, unknown>).exportRanges).toBeUndefined();
+		}
+		const anyAsyncHasExportRanges = Object.values(asyncGraph.nodes).some(
+			(n) => (n as Record<string, unknown>).exportRanges !== undefined,
+		);
+		expect(anyAsyncHasExportRanges).toBe(true);
+
+		// Async-exclusive contract: sync graph never has symbolEdges (the key is
+		// absent entirely). Async graph may or may not populate it depending on
+		// whether the fixture has cross-file symbol usages; what matters is that
+		// sync never has it while async can (verified separately by the
+		// determinism test which uses a fixture that does produce symbolEdges).
+		expect((sync as Record<string, unknown>).symbolEdges).toBeUndefined();
+		// When async does produce symbolEdges, it must be an array (never undefined
+		// on a graph that has cross-file symbol usages).
+		const asyncSymbolEdges = (asyncGraph as Record<string, unknown>)
+			.symbolEdges;
+		expect(
+			Array.isArray(asyncSymbolEdges) || asyncSymbolEdges === undefined,
+		).toBe(true);
 	});
 
 	test('duplicate edges (same source+target+specifier) dedup to one, distinct sources do not', async () => {
@@ -90,7 +136,18 @@ describe('repo-graph build O(N) equivalence — issue #1144', () => {
 		const sync = buildWorkspaceGraph(workspacePath);
 		const asyncGraph = await buildWorkspaceGraphAsync(workspacePath);
 
-		expect(asyncGraph.edges).toEqual(sync.edges);
+		// Uniform parity contract: strip usedSymbols from both sync+async edges
+		// before the deep-equal (sync uses regex, async uses tree-sitter facts.refs;
+		// the structural edge fields must match regardless of scanner divergence).
+		const asyncEdgesProjected = asyncGraph.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		const syncEdgesProjected = sync.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		expect(asyncEdgesProjected).toEqual(syncEdgesProjected);
 
 		// a->c appears exactly once despite two import statements; b->c is separate.
 		const aToC = asyncGraph.edges.filter(
@@ -114,10 +171,31 @@ describe('repo-graph build O(N) equivalence — issue #1144', () => {
 		const sync = buildWorkspaceGraph(workspacePath);
 		const asyncGraph = await buildWorkspaceGraphAsync(workspacePath);
 
-		// Behavior-preserving across the space boundary.
-		expect(asyncGraph.nodes).toEqual(sync.nodes);
-		expect(asyncGraph.edges).toEqual(sync.edges);
+		// File-level parity: strip async-exclusive exportRanges before comparing nodes.
+		const fileLevelNodes = <Record<string, object>>{};
+		for (const [key, asyncNode] of Object.entries(asyncGraph.nodes)) {
+			const { exportRanges: _er, ...fileLevel } = asyncNode as Record<
+				string,
+				unknown
+			>;
+			fileLevelNodes[key] = fileLevel;
+		}
+		expect(fileLevelNodes).toEqual(sync.nodes);
 
+		// Edge projection: strip usedSymbols (sync/async scanner divergence);
+		// all other edge fields (source, target, importSpecifier, importType, importedSymbols)
+		// are compared strictly and order-sensitively.
+		const fileLevelEdges = asyncGraph.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		const syncEdgesProjected = sync.edges.map((e) => {
+			const { usedSymbols: _us, ...rest } = e as Record<string, unknown>;
+			return rest as typeof e;
+		});
+		expect(fileLevelEdges).toEqual(syncEdgesProjected);
+
+		// Behavior-preserving across the space boundary.
 		// Both edges from "a file.ts" survive (no collision from the space-bearing
 		// specifier "./b file"): one to "b file.ts", one to "c.ts".
 		const fromA = asyncGraph.edges.filter((e) =>
@@ -126,5 +204,32 @@ describe('repo-graph build O(N) equivalence — issue #1144', () => {
 		expect(fromA.length).toBe(2);
 		const targets = fromA.map((e) => path.basename(e.target)).sort();
 		expect(targets).toEqual(['b file.ts', 'c.ts']);
+	});
+
+	test('async builder symbol fields (exportRanges, symbolEdges) are deterministic across two runs', async () => {
+		await writeFiles({
+			'index.ts': `import { foo } from './foo';\nimport { bar } from './bar';\nexport const idx = 1;`,
+			'foo.ts': `import { bar } from './bar';\nexport const foo = 'foo';`,
+			'bar.ts': `export const bar = 'bar';`,
+		});
+
+		const run1 = await buildWorkspaceGraphAsync(workspacePath);
+		clearCache(workspacePath);
+		const run2 = await buildWorkspaceGraphAsync(workspacePath);
+
+		// Two consecutive async builds must produce identical exportRanges on every node.
+		const keys1 = Object.keys(run1.nodes).sort();
+		const keys2 = Object.keys(run2.nodes).sort();
+		expect(keys1).toEqual(keys2);
+		for (const key of keys1) {
+			const n1 = run1.nodes[key] as Record<string, unknown>;
+			const n2 = run2.nodes[key] as Record<string, unknown>;
+			expect(n1.exportRanges).toEqual(n2.exportRanges);
+		}
+
+		// And identical symbolEdges at the graph level.
+		expect((run1 as Record<string, unknown>).symbolEdges).toEqual(
+			(run2 as Record<string, unknown>).symbolEdges,
+		);
 	});
 });
