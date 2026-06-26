@@ -11,6 +11,7 @@ import {
 	buildWorkspaceGraphAsync,
 	getBlastRadius,
 	getCallers,
+	getContextPack,
 	getDeadExports,
 	getDependencies,
 	getFileOntology,
@@ -58,6 +59,7 @@ const VALID_ACTIONS = [
 	'preflight_packet',
 	'callers',
 	'dead_exports',
+	'context_pack',
 ] as const;
 
 type RepoMapAction = (typeof VALID_ACTIONS)[number];
@@ -155,9 +157,10 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 		'"ontology" (file roles/routes/data/security/findings), "package_boundaries" (inferred package/layer boundaries), ' +
 		'"preflight_packet" (bounded ontology packet for planning), ' +
 		'"callers" (files that reference an exported symbol, call-site granularity; needs file+symbol), ' +
-		'"dead_exports" (advisory: exported symbols with no detected in-repo reference). ' +
+		'"dead_exports" (advisory: exported symbols with no detected in-repo reference; results are review candidates, not delete directives), ' +
+		'"context_pack" (token-budgeted slice of source spans for a target symbol — definition + transitive callers/callees; advisory/conservative; needs file+symbol; uses max_depth for traversal depth, top_n for span cap). ' +
 		'Use this before refactoring shared modules to avoid breaking unseen consumers. ' +
-		'Note: "callers"/"dead_exports" use conservative regex analysis (TS/JS/Python) and cannot see ' +
+		'Note: "callers"/"dead_exports"/"context_pack" use conservative regex analysis (TS/JS/Python) and cannot see ' +
 		'dynamic dispatch or namespace/barrel re-export usage; "dead_exports" results are review candidates, not delete directives.',
 	args: {
 		action: z
@@ -173,9 +176,10 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				'preflight_packet',
 				'callers',
 				'dead_exports',
+				'context_pack',
 			])
 			.describe(
-				'Query action: "build" | "importers" | "dependencies" | "blast_radius" | "localization" | "key_files" | "ontology" | "package_boundaries" | "preflight_packet" | "callers" | "dead_exports"',
+				'Query action: "build" | "importers" | "dependencies" | "blast_radius" | "localization" | "key_files" | "ontology" | "package_boundaries" | "preflight_packet" | "callers" | "dead_exports" | "context_pack"',
 			),
 		file: z
 			.string()
@@ -193,7 +197,7 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			.string()
 			.optional()
 			.describe(
-				'Exported symbol name. Restricts consumers on action="importers"; required for action="callers".',
+				'Exported symbol name. Restricts consumers on action="importers"; required for action="callers"/"context_pack".',
 			),
 		top_n: z
 			.number()
@@ -202,7 +206,7 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			.max(100)
 			.optional()
 			.describe(
-				'For action="key_files"/"package_boundaries": entries to return (default 10). For action="dead_exports": max candidates (default 100).',
+				'For action="key_files"/"package_boundaries": entries to return (default 10). For action="dead_exports": max candidates (default 100). For action="context_pack": max spans returned (default ~40 via token budget).',
 			),
 		max_depth: z
 			.number()
@@ -210,7 +214,9 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 			.min(1)
 			.max(10)
 			.optional()
-			.describe('For action="blast_radius": max BFS depth (default 3).'),
+			.describe(
+				'For action="blast_radius": max BFS depth (default 3). For action="context_pack": traversal depth (default 2).',
+			),
 	},
 	async execute(
 		args: unknown,
@@ -368,6 +374,54 @@ export const repo_map: ReturnType<typeof createSwarmTool> = createSwarmTool({
 				count: callers.length,
 				callers,
 				stale,
+			});
+		}
+
+		if (action === 'context_pack') {
+			if (a.symbol === undefined) {
+				return err(
+					action,
+					'context_pack requires `symbol` (the exported name)',
+				);
+			}
+			const sErr = validateSymbol(a.symbol);
+			if (sErr) return err(action, `invalid symbol: ${sErr}`);
+			const raw = getContextPack(graph, target, a.symbol, {
+				maxDepth: a.max_depth ?? 2,
+				maxTokens: 4000,
+			});
+			// Normalize absolute paths to workspace-relative (Phase 4 SME caveat).
+			// If the input is already relative (e.g. from a pre-1.2.0 graph fallback
+			// that returns the original target), pass it through unchanged —
+			// path.relative(directory, relativePath) would resolve against
+			// the process's current working directory.
+			const toRel = (p: string) => {
+				if (!path.isAbsolute(p)) return p.replace(/\\/g, '/');
+				try {
+					return path.relative(directory, p).replace(/\\/g, '/');
+				} catch {
+					return p;
+				}
+			};
+			const normalizedTarget = { ...raw.target, file: toRel(raw.target.file) };
+			const normalizedSpans = raw.spans
+				.map((s) => ({ ...s, file: toRel(s.file) }))
+				.filter((s) => s.file.length > 0);
+			const truncated =
+				raw.truncated ||
+				(a.top_n !== undefined && normalizedSpans.length > a.top_n);
+			const cappedSpans =
+				a.top_n !== undefined
+					? normalizedSpans.slice(0, a.top_n)
+					: normalizedSpans;
+			return ok(action, {
+				target: normalizedTarget,
+				spans: cappedSpans,
+				truncated,
+				estimatedTokens: raw.estimatedTokens,
+				stale,
+				schemaSupported: raw.schemaSupported,
+				...(raw.note ? { note: raw.note } : {}),
 			});
 		}
 

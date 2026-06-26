@@ -21,8 +21,14 @@ export const REPO_GRAPH_FILENAME = 'repo-graph.json';
  * versions (1.0.0) still load — but `dead_exports` requires >= 1.1.0 data and
  * self-gates via {@link isSchemaVersionAtLeast} rather than relying on the
  * loader (which only checks that a version string is present, not its value).
+ *
+ * 1.2.0 adds per-node `exportRanges` (1-based inclusive line spans for each
+ * exported symbol) and the top-level `symbolEdges` array (direct symbol-to-
+ * symbol reference edges). Both fields are optional, so 1.0.0 and 1.1.0 graphs
+ * still load without corruption. New queries may use these fields to provide
+ * more precise context-packing and symbol-level navigation.
  */
-export const GRAPH_SCHEMA_VERSION = '1.1.0';
+export const GRAPH_SCHEMA_VERSION = '1.2.0';
 
 /**
  * Compare dotted numeric version strings (e.g. '1.1.0' >= '1.1.0').
@@ -191,6 +197,14 @@ export interface GraphNode {
 	 * `dead_exports` candidates at a location.
 	 */
 	exportLines?: Record<string, number>;
+	/**
+	 * 1-based inclusive line span for each exported symbol, keyed by symbol
+	 * name. Present on graphs built at schema >= 1.2.0; absent on older
+	 * graphs. Used for precise context-packing around a symbol.
+	 * Each span value uses `startLine` / `endLine` to match the codebase
+	 * convention (see `ContextPackSpan` and `FileSymbolFacts`).
+	 */
+	exportRanges?: Record<string, { startLine: number; endLine: number }>;
 	/** Imported module specifiers */
 	imports: string[];
 	/** Language/extension of the file */
@@ -244,6 +258,56 @@ export interface SymbolReference {
 	file: string;
 	line?: number;
 	importedAs: string;
+}
+
+/**
+ * A symbol-level reference edge: one exported symbol in one file directly
+ * references (calls / uses) an exported symbol in another file.
+ *
+ * Present in graphs built at schema >= 1.2.0. These edges are finer-grained
+ * than {@link GraphEdge} (which tracks file-level imports) and enable
+ * precise context-packing and symbol navigation queries.
+ */
+export interface SymbolEdge {
+	/** Resolved absolute path of the source file (matches `GraphNode.filePath` keys). */
+	fromFile: string;
+	/** Enclosing top-level declaration in the source file, or `'<module>'` for module-scope references. */
+	fromSymbol: string;
+	/** Resolved absolute path of the target file. */
+	toFile: string;
+	/** Exported symbol referenced in the target file. */
+	toSymbol: string;
+}
+
+/**
+ * A contiguous line span inside a source file, used by context-packing to
+ * extract the relevant region around a symbol without reading the whole file.
+ */
+export interface ContextPackSpan {
+	file: string;
+	symbol: string;
+	startLine: number;
+	endLine: number;
+	mode: 'full' | 'signature';
+}
+
+/**
+ * Result of a context-pack query: the set of spans needed to understand
+ * how a target symbol is used across the workspace.
+ */
+export interface ContextPackResult {
+	/** False when the graph predates schema 1.2.0 (rebuild required for full results). */
+	schemaSupported: boolean;
+	/** The symbol whose usage context was requested. */
+	target: { file: string; symbol: string };
+	/** Deduped, budget-ordered spans covering usage sites. */
+	spans: ContextPackSpan[];
+	/** True when the span budget was exhausted before all sites could be returned. */
+	truncated: boolean;
+	/** Rough token estimate for the returned spans (sum of span sizes × a fixed multiplier). */
+	estimatedTokens: number;
+	/** Optional human-readable note about scope or limitations. */
+	note?: string;
 }
 
 /**
@@ -342,6 +406,8 @@ export interface RepoGraph {
 		nodeCount: number;
 		edgeCount: number;
 	};
+	/** Symbol-level reference edges (schema >= 1.2.0; absent on older graphs). */
+	symbolEdges?: SymbolEdge[];
 }
 
 /**

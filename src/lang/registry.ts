@@ -1,5 +1,5 @@
 import { extname } from 'node:path';
-import { loadGrammar, type Parser } from './runtime';
+import type { Parser } from './runtime';
 
 export const _internals: {
 	getLanguageForExtension: typeof getLanguageForExtension;
@@ -157,6 +157,7 @@ export async function getParserForFile(
 	}
 
 	try {
+		const { loadGrammar } = await import('./runtime.js');
 		return await loadGrammar(language.id);
 	} catch {
 		return null;

@@ -397,6 +397,159 @@ describe('validateGraphNode', () => {
 			'ontology.findings.code must be lower_snake_case',
 		);
 	});
+
+	// ---- exportRanges additive-validator tests (schema 1.2.0) ----
+
+	test('accepts node with valid exportRanges (1-based inclusive spans)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo', 'bar'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: {
+				foo: { startLine: 1, endLine: 5 },
+				bar: { startLine: 10, endLine: 20 },
+			},
+		};
+		expect(() => validateGraphNode(node)).not.toThrow();
+	});
+
+	test('rejects node with exportRanges containing negative startLine', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: -1, endLine: 5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges value must have positive integer startLine and endLine (1-based)',
+		);
+	});
+
+	test('rejects node with exportRanges containing negative endLine', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: 1, endLine: -5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges value must have positive integer startLine and endLine (1-based)',
+		);
+	});
+
+	test('rejects node with exportRanges containing startLine 0 (0 is not a valid 1-based line)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: 0, endLine: 5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges value must have positive integer startLine and endLine (1-based)',
+		);
+	});
+
+	test('rejects node with exportRanges containing endLine 0 (0 is not a valid 1-based line)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: 1, endLine: 0 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges value must have positive integer startLine and endLine (1-based)',
+		);
+	});
+
+	test('rejects node with exportRanges containing non-integer startLine (e.g. 3.5)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: 3.5, endLine: 5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges value must have positive integer startLine and endLine (1-based)',
+		);
+	});
+
+	test('rejects node with non-object exportRanges value', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			// @ts-expect-error — intentionally malformed
+			exportRanges: { foo: 'notobject' },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges values must be objects',
+		);
+	});
+
+	test('rejects node with exportRanges key containing control character', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			// @ts-expect-error — intentionally malformed
+			exportRanges: { 'foo\x00bar': { startLine: 1, endLine: 5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'exportRanges key contains control characters',
+		);
+	});
+
+	test('accepts node without exportRanges (back-compat — older graphs)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: [],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			// exportRanges intentionally absent
+		};
+		expect(() => validateGraphNode(node)).not.toThrow();
+	});
+
+	test('rejects node with inverted exportRanges (startLine > endLine)', () => {
+		const node: GraphNode = {
+			filePath: '/abs/path.ts',
+			moduleName: 'src/path.ts',
+			exports: ['foo'],
+			imports: [],
+			language: 'ts',
+			mtime: '123',
+			exportRanges: { foo: { startLine: 10, endLine: 5 } },
+		};
+		expect(() => validateGraphNode(node)).toThrow(
+			'Invalid node: exportRanges value must have startLine <= endLine',
+		);
+	});
 });
 
 describe('validateGraphEdge', () => {
@@ -1736,5 +1889,313 @@ describe('buildWorkspaceGraph — issue #1448: resilience + directory excludes',
 		// Without the exclude, the directory IS indexed (proves the option is wired).
 		const included = buildWorkspaceGraph(tmp);
 		expect(hasFile(included, 'generated/thing.ts')).toBe(true);
+	});
+});
+
+describe('symbolEdges additive-validator tests (schema 1.2.0)', () => {
+	// Uses the same temp-dir + loadGraph pattern as "structured corruption handling"
+
+	test('loadGraph accepts graph with valid symbolEdges (all 4 string fields)', async () => {
+		const workspaceName = 'symboledges-valid';
+		const tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			await fs.promises.mkdir(path.dirname(graphPath), { recursive: true });
+			const validGraph: RepoGraph = {
+				schema_version: '1.2.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {
+					'/test/a.ts': {
+						filePath: '/test/a.ts',
+						moduleName: 'a',
+						exports: ['fnA'],
+						imports: [],
+						language: 'ts',
+						mtime: '123',
+					},
+					'/test/b.ts': {
+						filePath: '/test/b.ts',
+						moduleName: 'b',
+						exports: ['fnB'],
+						imports: [],
+						language: 'ts',
+						mtime: '456',
+					},
+				},
+				edges: [],
+				symbolEdges: [
+					{
+						fromFile: '/test/a.ts',
+						fromSymbol: 'fnA',
+						toFile: '/test/b.ts',
+						toSymbol: 'fnB',
+					},
+				],
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 2,
+					edgeCount: 0,
+				},
+			};
+			await fs.promises.writeFile(
+				graphPath,
+				JSON.stringify(validGraph),
+				'utf-8',
+			);
+
+			const loaded = await loadGraph(workspaceName);
+			expect(loaded).not.toBeNull();
+			expect(loaded?.symbolEdges).toHaveLength(1);
+			expect(loaded?.symbolEdges?.[0].fromSymbol).toBe('fnA');
+			expect(loaded?.symbolEdges?.[0].toSymbol).toBe('fnB');
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				await fs.promises.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	});
+
+	test('loadGraph throws when symbolEdges entry is missing toSymbol', async () => {
+		const workspaceName = 'symboledges-missing';
+		const tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			await fs.promises.mkdir(path.dirname(graphPath), { recursive: true });
+			const badGraph = {
+				schema_version: '1.2.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {},
+				edges: [],
+				symbolEdges: [
+					{
+						fromFile: '/test/a.ts',
+						fromSymbol: 'fnA',
+						toFile: '/test/b.ts',
+						// toSymbol intentionally missing
+					},
+				],
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 0,
+					edgeCount: 0,
+				},
+			};
+			await fs.promises.writeFile(graphPath, JSON.stringify(badGraph), 'utf-8');
+
+			await expect(loadGraph(workspaceName)).rejects.toThrow(
+				'repo-graph.json contains invalid symbolEdges entry',
+			);
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				await fs.promises.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	});
+
+	test('loadGraph throws when symbolEdges is not an array', async () => {
+		const workspaceName = 'symboledges-notarray';
+		const tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			await fs.promises.mkdir(path.dirname(graphPath), { recursive: true });
+			const badGraph = {
+				schema_version: '1.2.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {},
+				edges: [],
+				symbolEdges: 'not-an-array',
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 0,
+					edgeCount: 0,
+				},
+			};
+			await fs.promises.writeFile(graphPath, JSON.stringify(badGraph), 'utf-8');
+
+			await expect(loadGraph(workspaceName)).rejects.toThrow(
+				'repo-graph.json symbolEdges must be an array',
+			);
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				await fs.promises.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	});
+
+	test('loadGraph throws when symbolEdges entry contains path traversal in fromFile', async () => {
+		const workspaceName = 'symboledges-traversal';
+		const tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			await fs.promises.mkdir(path.dirname(graphPath), { recursive: true });
+			const badGraph = {
+				schema_version: '1.2.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {},
+				edges: [],
+				symbolEdges: [
+					{
+						fromFile: '../../etc/passwd',
+						fromSymbol: 'fnA',
+						toFile: '/test/b.ts',
+						toSymbol: 'fnB',
+					},
+				],
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 0,
+					edgeCount: 0,
+				},
+			};
+			await fs.promises.writeFile(graphPath, JSON.stringify(badGraph), 'utf-8');
+
+			await expect(loadGraph(workspaceName)).rejects.toThrow(
+				'repo-graph.json contains invalid symbolEdges entry',
+			);
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				await fs.promises.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	});
+
+	test('loadGraph accepts graph without symbolEdges (back-compat — older graphs)', async () => {
+		const workspaceName = 'symboledges-absent';
+		const tempDir = await fs.promises.mkdtemp(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			await fs.promises.mkdir(path.dirname(graphPath), { recursive: true });
+			// 1.0.0 graph — no symbolEdges field at all
+			const compatGraph: RepoGraph = {
+				schema_version: '1.0.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {},
+				edges: [],
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 0,
+					edgeCount: 0,
+				},
+			};
+			await fs.promises.writeFile(
+				graphPath,
+				JSON.stringify(compatGraph),
+				'utf-8',
+			);
+
+			const loaded = await loadGraph(workspaceName);
+			expect(loaded).not.toBeNull();
+			expect(loaded?.schema_version).toBe('1.0.0');
+			expect(loaded?.symbolEdges).toBeUndefined();
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				await fs.promises.rm(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
+	});
+
+	test('loadGraphSync accepts graph with valid symbolEdges', () => {
+		const workspaceName = 'symboledges-sync-valid';
+		const tempDir = fs.mkdtempSync(
+			path.join(os.tmpdir(), 'repo-graph-symboledges-sync-'),
+		);
+		const originalCwd = process.cwd();
+		process.chdir(tempDir);
+		clearCache(workspaceName);
+		try {
+			const graphPath = path.join(workspaceName, '.swarm', 'repo-graph.json');
+			fs.mkdirSync(path.dirname(graphPath), { recursive: true });
+			const validGraph: RepoGraph = {
+				schema_version: '1.2.0',
+				workspaceRoot: path.resolve(workspaceName),
+				nodes: {
+					'/test/x.ts': {
+						filePath: '/test/x.ts',
+						moduleName: 'x',
+						exports: ['fnX'],
+						imports: [],
+						language: 'ts',
+						mtime: '123',
+					},
+				},
+				edges: [],
+				symbolEdges: [
+					{
+						fromFile: '/test/x.ts',
+						fromSymbol: 'fnX',
+						toFile: '/test/x.ts',
+						toSymbol: 'fnX',
+					},
+				],
+				metadata: {
+					generatedAt: new Date().toISOString(),
+					generator: 'test',
+					nodeCount: 1,
+					edgeCount: 0,
+				},
+			};
+			fs.writeFileSync(graphPath, JSON.stringify(validGraph), 'utf-8');
+
+			const loaded = loadGraphSync(workspaceName);
+			expect(loaded?.symbolEdges).toHaveLength(1);
+		} finally {
+			process.chdir(originalCwd);
+			clearCache(workspaceName);
+			try {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			} catch {
+				// ignore cleanup errors
+			}
+		}
 	});
 });

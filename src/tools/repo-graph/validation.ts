@@ -154,6 +154,45 @@ export function validateGraphNode(node: GraphNode): void {
 			}
 		}
 	}
+	if (node.exportRanges !== undefined) {
+		if (
+			typeof node.exportRanges !== 'object' ||
+			node.exportRanges === null ||
+			Array.isArray(node.exportRanges)
+		) {
+			throw new Error('Invalid node: exportRanges must be an object');
+		}
+		for (const [name, range] of Object.entries(node.exportRanges)) {
+			if (containsControlChars(name)) {
+				throw new Error(
+					'Invalid node: exportRanges key contains control characters',
+				);
+			}
+			if (typeof range !== 'object' || range === null || Array.isArray(range)) {
+				throw new Error('Invalid node: exportRanges values must be objects');
+			}
+			const r = range as { startLine?: number; endLine?: number };
+			if (
+				typeof r.startLine !== 'number' ||
+				!Number.isFinite(r.startLine) ||
+				!Number.isInteger(r.startLine) ||
+				r.startLine < 1 ||
+				typeof r.endLine !== 'number' ||
+				!Number.isFinite(r.endLine) ||
+				!Number.isInteger(r.endLine) ||
+				r.endLine < 1
+			) {
+				throw new Error(
+					'Invalid node: exportRanges value must have positive integer startLine and endLine (1-based)',
+				);
+			}
+			if (r.startLine > r.endLine) {
+				throw new Error(
+					'Invalid node: exportRanges value must have startLine <= endLine',
+				);
+			}
+		}
+	}
 	if (node.ontology !== undefined) {
 		validateOntologyStrings(node);
 	}

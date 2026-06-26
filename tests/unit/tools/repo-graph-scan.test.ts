@@ -379,6 +379,88 @@ def main():
 		expect(pyNode?.language).toBe('python');
 	});
 
+	test('uppercase-extension files produce correct language (regression: case-insensitive extension matching)', async () => {
+		// Regression: .JS, .TS, .PY uppercase extensions must map to the correct language.
+		// Prior code did extname() without .toLowerCase(), so .JS returned 'unknown'.
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'Foo.JS'),
+			`export const foo = 'foo';`,
+		);
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'Bar.TS'),
+			`export const bar = 'bar';`,
+		);
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'Utils.PY'),
+			`def util(): pass`,
+		);
+
+		const graph = buildWorkspaceGraph(workspacePath);
+
+		// All three files should produce nodes
+		expect(Object.keys(graph.nodes).length).toBe(3);
+
+		const jsNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'Foo.JS',
+		);
+		expect(jsNode?.language).toBe('typescript');
+
+		const tsNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'Bar.TS',
+		);
+		expect(tsNode?.language).toBe('typescript');
+
+		const pyNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'Utils.PY',
+		);
+		expect(pyNode?.language).toBe('python');
+	});
+
+	test('go, rust, and java files produce graph nodes with correct language (12-language expansion)', async () => {
+		// Go file
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'main.go'),
+			`package main
+
+func main() {
+}`,
+		);
+		// Rust file
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'lib.rs'),
+			`pub fn helper() {}
+pub struct Foo;`,
+		);
+		// Java file
+		await fsSync.promises.writeFile(
+			path.join(tempDir, 'Main.java'),
+			`public class Main {
+    public static void main(String[] args) {}
+}`,
+		);
+
+		const graph = buildWorkspaceGraph(workspacePath);
+
+		// All three files should produce nodes
+		expect(Object.keys(graph.nodes).length).toBe(3);
+
+		// Verify each language maps to the correct grammarId
+		const goNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'main.go',
+		);
+		expect(goNode?.language).toBe('go');
+
+		const rustNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'lib.rs',
+		);
+		expect(rustNode?.language).toBe('rust');
+
+		const javaNode = Object.values(graph.nodes).find(
+			(n) => n.moduleName === 'Main.java',
+		);
+		expect(javaNode?.language).toBe('java');
+	});
+
 	test('node_modules and other skipped directories are ignored', async () => {
 		// Create node_modules with a .ts file
 		await fsSync.promises.mkdir(path.join(tempDir, 'node_modules', 'fake'), {

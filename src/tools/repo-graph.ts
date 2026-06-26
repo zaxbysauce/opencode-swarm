@@ -39,6 +39,7 @@ export {
 	buildOntologyPreflightPacket,
 	getBlastRadius,
 	getCallers,
+	getContextPack,
 	getDeadExports,
 	getDependencies,
 	getFileOntology,
@@ -63,6 +64,8 @@ export type {
 	BlastRadiusResult,
 	BuildWorkspaceGraphOptions,
 	CallerReference,
+	ContextPackResult,
+	ContextPackSpan,
 	ConventionFact,
 	DataOperationFact,
 	DeadExportCandidate,
@@ -79,6 +82,7 @@ export type {
 	RouteFact,
 	RouteMethod,
 	SecurityFact,
+	SymbolEdge,
 	SymbolReference,
 } from './repo-graph/types';
 export {

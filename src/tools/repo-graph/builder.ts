@@ -16,6 +16,8 @@ import { existsSync, realpathSync } from 'node:fs';
 import * as fsPromises from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
+import { LANGUAGE_REGISTRY } from '../../lang/profiles';
+import { extractFileSymbols } from '../../lang/symbol-graph';
 import * as logger from '../../utils/logger';
 import { containsControlChars } from '../../utils/path-security';
 import { yieldToEventLoop } from '../../utils/timeout';
@@ -27,6 +29,7 @@ import type {
 	GraphEdge,
 	GraphNode,
 	RepoGraph,
+	SymbolEdge,
 } from './types';
 import {
 	createEmptyGraph,
@@ -53,6 +56,7 @@ export const _internals: {
 	extractFileOntology: typeof extractFileOntology;
 	stripComments: typeof stripComments;
 	computeUsedSymbols: typeof computeUsedSymbols;
+	extractFileSymbols: typeof extractFileSymbols;
 } = {
 	safeRealpathSync,
 	extractTSSymbols,
@@ -61,6 +65,7 @@ export const _internals: {
 	extractFileOntology,
 	stripComments,
 	computeUsedSymbols,
+	extractFileSymbols,
 } as const;
 
 // ============ Constants ============
@@ -103,15 +108,11 @@ function resolveSkipDirectories(
 /**
  * Supported source file extensions for graph scanning.
  */
-const SUPPORTED_EXTENSIONS = [
-	'.ts',
-	'.tsx',
-	'.js',
-	'.jsx',
-	'.mjs',
-	'.cjs',
-	'.py',
-];
+const SUPPORTED_EXTENSIONS = new Set(
+	LANGUAGE_REGISTRY.getAll()
+		.filter((p) => !p.parserOnly)
+		.flatMap((p) => p.extensions),
+);
 
 /**
  * Default safety budgets for workspace traversal.
@@ -121,17 +122,16 @@ const DEFAULT_WALK_BUDGET_MS = 5000;
 const ASYNC_WALK_YIELD_INTERVAL = 200;
 
 /**
- * Mapping of file extensions to language identifiers.
+ * Mapping of file extensions to tree-sitter grammar identifiers.
+ * Derived from the language profiles registry.
  */
-const EXTENSION_TO_LANGUAGE: Record<string, string> = {
-	'.ts': 'typescript',
-	'.tsx': 'typescript',
-	'.js': 'javascript',
-	'.jsx': 'javascript',
-	'.mjs': 'javascript',
-	'.cjs': 'javascript',
-	'.py': 'python',
-};
+const EXTENSION_TO_LANGUAGE: Record<string, string> = {};
+for (const profile of LANGUAGE_REGISTRY.getAll()) {
+	if (profile.parserOnly) continue;
+	for (const ext of profile.extensions) {
+		EXTENSION_TO_LANGUAGE[ext] = profile.treeSitter.grammarId;
+	}
+}
 
 // ============ Graph Node / Edge Operations ============
 
@@ -943,7 +943,7 @@ function walkSyncInto(dir: string, ctx: WalkContext, files: string[]): void {
 			walkSyncInto(fullPath, ctx, files);
 		} else if (entry.isFile()) {
 			const ext = path.extname(fullPath).toLowerCase();
-			if (SUPPORTED_EXTENSIONS.includes(ext)) {
+			if (SUPPORTED_EXTENSIONS.has(ext)) {
 				files.push(fullPath);
 			}
 		}
@@ -1021,7 +1021,7 @@ async function findSourceFilesAsync(
 				queue.push(fullPath);
 			} else if (entry.isFile()) {
 				const ext = path.extname(fullPath).toLowerCase();
-				if (SUPPORTED_EXTENSIONS.includes(ext)) {
+				if (SUPPORTED_EXTENSIONS.has(ext)) {
 					files.push(fullPath);
 				}
 			}
@@ -1055,7 +1055,7 @@ function toModuleName(filePath: string, workspaceRoot: string): string {
  * Get the language identifier for a file based on its extension.
  *
  * @param filePath - File path to get language for
- * @returns Language identifier string
+ * @returns Language identifier string (tree-sitter grammarId)
  */
 function getLanguage(filePath: string): string {
 	const ext = path.extname(filePath).toLowerCase();
@@ -1086,6 +1086,17 @@ export interface ScanResult {
 	node: GraphNode | null;
 	/** The edges created from this file's imports */
 	edges: GraphEdge[];
+}
+
+/**
+ * Result of the async single-file scanner. Extends ScanResult with
+ * symbol-level reference edges produced by tree-sitter symbol extraction.
+ */
+export interface AsyncScanResult {
+	node: GraphNode | null;
+	edges: GraphEdge[];
+	/** Symbol-to-symbol reference edges (schema >= 1.2.0). */
+	symbolEdges: SymbolEdge[];
 }
 
 /**
@@ -1197,6 +1208,204 @@ export function scanFile(
 		// Skip malformed file without aborting incremental update
 		return { node: null, edges: [] };
 	}
+}
+
+/**
+ * Async variant of scanFile that uses tree-sitter symbol extraction
+ * (extractFileSymbols) to populate exportRanges and symbolEdges.
+ *
+ * Fail-open: if extractFileSymbols returns null (grammar unavailable,
+ * timeout, parse error), falls back to a minimal file-level node with
+ * empty exports/imports/symbolEdges — never throws.
+ *
+ * Oversized, binary, or unreadable files return { node: null, edges: [], symbolEdges: [] }
+ * matching the sync scanFile contract.
+ *
+ * @param filePath - Absolute path to the file to scan
+ * @param absoluteRoot - Absolute path to workspace root
+ * @param maxFileSize - Maximum file size in bytes
+ * @returns AsyncScanResult with node, edges, and symbolEdges
+ */
+export async function scanFileAsync(
+	filePath: string,
+	absoluteRoot: string,
+	maxFileSize: number,
+): Promise<AsyncScanResult> {
+	let content: string;
+	let fileStats: fsSync.Stats;
+
+	try {
+		fileStats = fsSync.statSync(filePath);
+		if (fileStats.size > maxFileSize) {
+			return { node: null, edges: [], symbolEdges: [] };
+		}
+		content = fsSync.readFileSync(filePath, 'utf-8');
+	} catch {
+		return { node: null, edges: [], symbolEdges: [] };
+	}
+
+	// Skip binary files
+	if (isBinaryContent(content)) {
+		return { node: null, edges: [], symbolEdges: [] };
+	}
+
+	const grammarId = getLanguage(filePath);
+	const facts = await _internals.extractFileSymbols(grammarId, content);
+
+	// Fail-open: tree-sitter unavailable or timed out → minimal node
+	if (facts === null) {
+		const moduleName = toModuleName(filePath, absoluteRoot);
+		return {
+			node: {
+				filePath,
+				moduleName,
+				exports: [],
+				imports: [],
+				language: grammarId,
+				mtime: fileStats.mtime.toISOString(),
+				ontology: _internals.extractFileOntology({
+					moduleName,
+					filePath,
+					content,
+					language: grammarId,
+					exports: [],
+					imports: [],
+				}),
+			},
+			edges: [],
+			symbolEdges: [],
+		};
+	}
+
+	// Derive exports, exportLines, exportRanges from tree-sitter defs
+	const exportedDefs = facts.defs.filter((d) => d.exported);
+	const exports = exportedDefs.map((d) => d.name);
+	const exportLines: Record<string, number> = {};
+	const exportRanges: Record<string, { startLine: number; endLine: number }> =
+		{};
+	for (const d of exportedDefs) {
+		exportLines[d.name] = d.startLine;
+		exportRanges[d.name] = { startLine: d.startLine, endLine: d.endLine };
+	}
+
+	// Derive imports list from tree-sitter facts
+	const imports = facts.imports.map((i) => i.specifier);
+
+	const moduleName = toModuleName(filePath, absoluteRoot);
+	const language = grammarId;
+
+	const node: GraphNode = {
+		filePath,
+		moduleName,
+		exports,
+		...(Object.keys(exportLines).length > 0 ? { exportLines } : {}),
+		...(Object.keys(exportRanges).length > 0 ? { exportRanges } : {}),
+		imports,
+		language,
+		mtime: fileStats.mtime.toISOString(),
+		ontology: _internals.extractFileOntology({
+			moduleName,
+			filePath,
+			content,
+			language,
+			exports,
+			imports,
+		}),
+	};
+
+	// Build GraphEdges from imports, using refs to derive usedSymbols
+	const edges: GraphEdge[] = [];
+	const sortedImports = [...facts.imports].sort((a, b) =>
+		a.specifier.localeCompare(b.specifier),
+	);
+
+	for (const imp of sortedImports) {
+		// Map tree-sitter 'commonjs' to graph-edge 'require' for consistency
+		const edgeImportType: GraphEdge['importType'] =
+			imp.importType === 'commonjs' ? 'require' : imp.importType;
+
+		const resolvedTarget = resolveModuleSpecifier(
+			absoluteRoot,
+			filePath,
+			imp.specifier,
+		);
+
+		if (resolvedTarget !== null) {
+			// A binding's imported symbol is "used" if its local name appears
+			// in facts.refs (i.e. the identifier is referenced in the body).
+			const usedBindings = imp.bindings.filter((b) =>
+				facts.refs.some((r) => r.identifier === b.local),
+			);
+			// Match sync buildWorkspaceGraph semantics: namespace and require
+			// imports omit usedSymbols entirely; named/default imports always
+			// include the array (possibly empty) so toEqual comparisons are stable.
+			const includeUsedSymbols =
+				edgeImportType !== 'namespace' && edgeImportType !== 'require';
+			const usedSymbols = includeUsedSymbols
+				? usedBindings.map((b) => b.imported)
+				: undefined;
+
+			edges.push({
+				source: filePath,
+				target: resolvedTarget,
+				importSpecifier: imp.specifier,
+				importType: edgeImportType,
+				importedSymbols: imp.bindings.map((b) => b.imported),
+				...(usedSymbols !== undefined ? { usedSymbols } : {}),
+			});
+		}
+	}
+
+	// Build SymbolEdges from refs: when a ref's identifier matches a local
+	// binding, resolve that binding's specifier to a target file and emit
+	// a symbol→symbol edge.
+	const symbolEdges: SymbolEdge[] = [];
+	const localToImported = new Map<
+		string,
+		{ specifier: string; imported: string }
+	>();
+	for (const imp of facts.imports) {
+		for (const binding of imp.bindings) {
+			localToImported.set(binding.local, {
+				specifier: imp.specifier,
+				imported: binding.imported,
+			});
+		}
+	}
+
+	const seenSymbolEdgeKeys = new Set<string>();
+	for (const ref of facts.refs) {
+		const mapping = localToImported.get(ref.identifier);
+		if (!mapping) continue;
+
+		const resolvedTarget = resolveModuleSpecifier(
+			absoluteRoot,
+			filePath,
+			mapping.specifier,
+		);
+		if (!resolvedTarget) continue;
+
+		const fromSymbol = ref.enclosingDecl ?? '<module>';
+		const key =
+			filePath +
+			'\u0000' +
+			fromSymbol +
+			'\u0000' +
+			resolvedTarget +
+			'\u0000' +
+			mapping.imported;
+		if (seenSymbolEdgeKeys.has(key)) continue;
+		seenSymbolEdgeKeys.add(key);
+
+		symbolEdges.push({
+			fromFile: filePath,
+			fromSymbol,
+			toFile: resolvedTarget,
+			toSymbol: mapping.imported,
+		});
+	}
+
+	return { node, edges, symbolEdges };
 }
 
 // ============ Full Workspace Builders ============
@@ -1477,9 +1686,11 @@ export async function buildWorkspaceGraphAsync(
 	// on large repos so the deferred startup scan no longer stalls the event
 	// loop for tens of seconds (issue #1144).
 	const seenEdges = new Set<string>();
+	const seenSymbolEdges = new Set<string>();
+	const allSymbolEdges: SymbolEdge[] = [];
 	let processedSinceYield = 0;
 	for (const filePath of sourceFiles) {
-		const result = scanFile(filePath, absoluteRoot, maxFileSize);
+		const result = await scanFileAsync(filePath, absoluteRoot, maxFileSize);
 		if (result.node) {
 			// A node that fails validation (e.g. control characters in ontology
 			// evidence from a minified/generated file) must skip that one file,
@@ -1501,6 +1712,21 @@ export async function buildWorkspaceGraphAsync(
 						/* skip malformed edge */
 					}
 				}
+				// Aggregate symbolEdges across all files (dedup)
+				for (const symbolEdge of result.symbolEdges) {
+					const key =
+						symbolEdge.fromFile +
+						'\u0000' +
+						symbolEdge.fromSymbol +
+						'\u0000' +
+						symbolEdge.toFile +
+						'\u0000' +
+						symbolEdge.toSymbol;
+					if (!seenSymbolEdges.has(key)) {
+						seenSymbolEdges.add(key);
+						allSymbolEdges.push(symbolEdge);
+					}
+				}
 				stats.filesScanned++;
 			}
 		} else {
@@ -1518,6 +1744,11 @@ export async function buildWorkspaceGraphAsync(
 		nodeCount: Object.keys(graph.nodes).length,
 		edgeCount: graph.edges.length,
 	};
+
+	// Attach symbolEdges when present (schema >= 1.2.0); keep additive.
+	if (allSymbolEdges.length > 0) {
+		graph.symbolEdges = allSymbolEdges;
+	}
 
 	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
 		logger.log(
