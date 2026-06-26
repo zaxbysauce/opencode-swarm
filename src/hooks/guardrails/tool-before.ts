@@ -1131,12 +1131,13 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 	 * Handles delegated write tracking and coder delegation reset.
 	 * MUST be called first — before any exemptions.
 	 */
-	function handleDelegatedWriteTracking(
-		sessionID: string,
-		tool: string,
-		args: unknown,
-	): void {
-		const currentSession = swarmState.agentSessions.get(sessionID);
+		function handleDelegatedWriteTracking(
+			sessionID: string,
+			tool: string,
+			args: unknown,
+		): void {
+			const normalizedTool = normalizeToolName(tool);
+			const currentSession = swarmState.agentSessions.get(sessionID);
 		if (currentSession?.delegationActive) {
 			if (isWriteTool(tool)) {
 				const delegArgs = args as Record<string, unknown> | undefined;
@@ -1192,9 +1193,9 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 				}
 			}
 			if (
-				tool === 'apply_patch' ||
-				tool === 'swarm_apply_patch' ||
-				tool === 'patch'
+				normalizedTool === 'apply_patch' ||
+				normalizedTool === 'swarm_apply_patch' ||
+				normalizedTool === 'patch'
 			) {
 				const agentName = swarmState.activeAgent.get(sessionID) ?? 'unknown';
 				const cwd = effectiveDirectory;
@@ -1436,10 +1437,11 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 	 * For swarm_apply_patch, the files[] arg is required and is the primary source.
 	 */
 	function extractPatchTargetPaths(tool: string, args: unknown): string[] {
+		const normalizedTool = normalizeToolName(tool);
 		if (
-			tool !== 'apply_patch' &&
-			tool !== 'swarm_apply_patch' &&
-			tool !== 'patch'
+			normalizedTool !== 'apply_patch' &&
+			normalizedTool !== 'swarm_apply_patch' &&
+			normalizedTool !== 'patch'
 		)
 			return [];
 		const toolArgs = args as Record<string, unknown> | undefined;
@@ -1511,6 +1513,7 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 		tool: string,
 		args: unknown,
 	): void {
+		const normalizedTool = normalizeToolName(tool);
 		const toolArgs = args as Record<string, unknown> | undefined;
 		const targetPath =
 			toolArgs?.filePath ??
@@ -1519,9 +1522,9 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 			toolArgs?.target;
 
 		if (
-			tool === 'apply_patch' ||
-			tool === 'swarm_apply_patch' ||
-			tool === 'patch'
+			normalizedTool === 'apply_patch' ||
+			normalizedTool === 'swarm_apply_patch' ||
+			normalizedTool === 'patch'
 		) {
 			if (patchPayloadHasHumanOnlyInvocation(args)) {
 				throw new Error(
@@ -1581,9 +1584,9 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 
 		if (
 			!targetPath &&
-			(tool === 'apply_patch' ||
-				tool === 'swarm_apply_patch' ||
-				tool === 'patch')
+			(normalizedTool === 'apply_patch' ||
+				normalizedTool === 'swarm_apply_patch' ||
+				normalizedTool === 'patch')
 		) {
 			for (const p of extractPatchTargetPaths(tool, args)) {
 				const resolvedP = path.resolve(effectiveDirectory, p);
@@ -2141,10 +2144,11 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 		}
 
 		// Authority + lstat + universal-deny for apply_patch / swarm_apply_patch / patch
+		const normalizedTool = normalizeToolName(input.tool);
 		if (
-			input.tool === 'apply_patch' ||
-			input.tool === 'swarm_apply_patch' ||
-			input.tool === 'patch'
+			normalizedTool === 'apply_patch' ||
+			normalizedTool === 'swarm_apply_patch' ||
+			normalizedTool === 'patch'
 		) {
 			const patchAgentName =
 				swarmState.activeAgent.get(input.sessionID) ?? 'unknown';

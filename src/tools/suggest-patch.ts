@@ -320,7 +320,7 @@ function generateFileHeader(file: string): string {
 /**
  * Generate a single unified diff hunk (no file header) from a patch entry.
  *
- * The output is parseable by the apply_patch tool's parseUnifiedDiff.
+ * The output is parseable by the swarm_apply_patch tool's parseUnifiedDiff.
  * Must be paired with generateFileHeader to produce a complete file diff.
  *
  * When oldContent is provided, the removal lines are derived directly from
@@ -574,7 +574,7 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 	description:
 		'Suggest a structured patch for specified files without modifying them. ' +
 		'Returns context-based patch proposals with anchors for reviewer use. ' +
-		'When format="unified", also produces a unified diff string consumable by apply_patch. ' +
+		'When format="unified", also produces a unified diff string consumable by swarm_apply_patch. ' +
 		'This is a read-only tool — it does not modify any files.',
 	args: {
 		targetFiles: z
@@ -607,7 +607,7 @@ export const suggestPatch: ToolDefinition = createSwarmTool({
 			.optional()
 			.default('json')
 			.describe(
-				'Output format: "json" (default, existing structured output) or "unified" (unified diff string for apply_patch)',
+				'Output format: "json" (default, existing structured output) or "unified" (unified diff string for swarm_apply_patch)',
 			),
 	},
 	execute: async (args: unknown, directory: string): Promise<string> => {

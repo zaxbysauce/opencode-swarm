@@ -182,9 +182,9 @@ describe('WRITE_TOOL_NAMES is the canonical write-tool set', () => {
 });
 
 // ---------------------------------------------------------------------------
-// GROUP 5: Architectural boundary — WRITE_TOOL_NAMES are coder tools, not architect
+// GROUP 5: Architectural boundary — WRITE_TOOL_NAMES are coder tools, not read-only agents
 // ---------------------------------------------------------------------------
-describe('WRITE_TOOL_NAMES are coder tools, not architect tools', () => {
+describe('WRITE_TOOL_NAMES are coder tools, not read-only agents', () => {
 	test('no WRITE_TOOL_NAMES tool appears in AGENT_TOOL_MAP.architect', () => {
 		const architectTools = new Set<string>(AGENT_TOOL_MAP.architect);
 		for (const tool of WRITE_TOOL_NAMES) {
@@ -194,6 +194,33 @@ describe('WRITE_TOOL_NAMES are coder tools, not architect tools', () => {
 			).toBe(false);
 		}
 	});
+
+	// Agents that are NOT write agents — none of these should have write tools.
+	// explorer is intentionally excluded: it is covered by explorer-usefulness.test.ts:177.
+	const NON_WRITE_AGENTS = (
+		ALL_SUBAGENT_NAMES as readonly string[]
+	).filter(
+		(name) =>
+			// Exclude write-agents
+			name !== 'coder' &&
+			name !== 'test_engineer' &&
+			// Exclude explorer (covered by explorer-usefulness.test.ts:177)
+			name !== 'explorer',
+	);
+
+	test.each(NON_WRITE_AGENTS)(
+		'no WRITE_TOOL_NAMES tool appears in AGENT_TOOL_MAP.%s',
+		(agentName) => {
+			const tools = AGENT_TOOL_MAP[agentName as keyof typeof AGENT_TOOL_MAP];
+			const toolSet = new Set<string>(tools ?? []);
+			for (const tool of WRITE_TOOL_NAMES) {
+				expect(
+					toolSet.has(tool),
+					`write tool "${tool}" should NOT be in AGENT_TOOL_MAP["${agentName}"]`,
+				).toBe(false);
+			}
+		},
+	);
 });
 
 // ---------------------------------------------------------------------------

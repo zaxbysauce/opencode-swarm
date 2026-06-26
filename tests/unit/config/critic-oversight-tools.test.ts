@@ -4,7 +4,7 @@
  * any write/edit/patch/plan-mutation tools.
  */
 import { describe, expect, test } from 'bun:test';
-import { AGENT_TOOL_MAP } from '../../../src/config/constants';
+import { AGENT_TOOL_MAP, WRITE_TOOL_NAMES } from '../../../src/config/constants';
 
 const REQUIRED_READONLY_TOOLS = [
 	'diff',
@@ -77,5 +77,15 @@ describe('critic_oversight AGENT_TOOL_MAP', () => {
 
 	test('is strictly smaller than architect tool list', () => {
 		expect(tools.length).toBeLessThan(AGENT_TOOL_MAP.architect.length);
+	});
+
+	// F-006: parity assertion — every write tool in WRITE_TOOL_NAMES must also be
+	// listed in FORBIDDEN_WRITE_TOOLS so that critic_oversight can never silently
+	// acquire a write tool if WRITE_TOOL_NAMES is extended without updating the
+	// local FORBIDDEN_WRITE_TOOLS array.
+	test('FORBIDDEN_WRITE_TOOLS superset of WRITE_TOOL_NAMES (F-006)', () => {
+		for (const tool of WRITE_TOOL_NAMES) {
+			expect(FORBIDDEN_WRITE_TOOLS).toContain(tool);
+		}
 	});
 });

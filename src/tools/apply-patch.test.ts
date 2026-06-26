@@ -844,4 +844,49 @@ describe('swarm_apply_patch tool', () => {
 			'Unsupported patch format',
 		);
 	});
+
+	test('rejects *** Add File style payload', async () => {
+		const unsupportedPayload = '*** Add File: src/new.ts\n@@\n+new content\n';
+
+		const resultStr = await swarmApplyPatch.execute(
+			{ patch: unsupportedPayload, files: ['src/new.ts'] },
+			workspaceOf(workspace) as any,
+		);
+		const result = parseResult(resultStr);
+
+		expect(result.success).toBe(false);
+		expect(result.files[0]?.errors?.[0]?.message).toContain(
+			'Unsupported patch format',
+		);
+	});
+
+	test('rejects *** Delete File style payload', async () => {
+		const unsupportedPayload = '*** Delete File: src/deleted.ts\n@@\n-old content\n';
+
+		const resultStr = await swarmApplyPatch.execute(
+			{ patch: unsupportedPayload, files: ['src/deleted.ts'] },
+			workspaceOf(workspace) as any,
+		);
+		const result = parseResult(resultStr);
+
+		expect(result.success).toBe(false);
+		expect(result.files[0]?.errors?.[0]?.message).toContain(
+			'Unsupported patch format',
+		);
+	});
+
+	test('rejects *** End Patch style payload', async () => {
+		const unsupportedPayload = '*** End Patch\n@@\n-old\n+new\n';
+
+		const resultStr = await swarmApplyPatch.execute(
+			{ patch: unsupportedPayload, files: ['src/end.ts'] },
+			workspaceOf(workspace) as any,
+		);
+		const result = parseResult(resultStr);
+
+		expect(result.success).toBe(false);
+		expect(result.files[0]?.errors?.[0]?.message).toContain(
+			'Unsupported patch format',
+		);
+	});
 });

@@ -624,6 +624,187 @@ describe('swarm CLI bypass guard (issue #890)', () => {
 		});
 	});
 
+	describe('swarm_apply_patch script-indirection guard (parallel to apply_patch)', () => {
+		test('swarm_apply_patch with bypass-invoking script content is BLOCKED', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			const input = {
+				tool: 'swarm_apply_patch',
+				sessionID: 'test-session',
+				callID: 'c1',
+			};
+			const patch = [
+				'*** Begin Patch',
+				'*** Add File: tmp.sh',
+				'+#!/bin/bash',
+				'+bunx opencode-swarm run acknowledge-spec-drift',
+				'*** End Patch',
+			].join('\n');
+			await expect(
+				hooks.toolBefore(input, { args: { patch } }),
+			).rejects.toThrow(/apply_patch would introduce a script/);
+		});
+		test('swarm_apply_patch with `input` field carrying bypass content is BLOCKED', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			const input = {
+				tool: 'swarm_apply_patch',
+				sessionID: 'test-session',
+				callID: 'c1',
+			};
+			const inputDiff = 'bunx opencode-swarm run reset --confirm';
+			await expect(
+				hooks.toolBefore(input, { args: { input: inputDiff } }),
+			).rejects.toThrow(/apply_patch would introduce a script/);
+		});
+		test('swarm_apply_patch with `diff` field carrying bypass content is BLOCKED', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			const input = {
+				tool: 'swarm_apply_patch',
+				sessionID: 'test-session',
+				callID: 'c1',
+			};
+			const diff = '@@ +#!/bin/sh\n+pnpm exec opencode-swarm run rollback 2\n';
+			await expect(hooks.toolBefore(input, { args: { diff } })).rejects.toThrow(
+				/apply_patch would introduce a script/,
+			);
+		});
+		test('swarm_apply_patch with `cmd[1]` payload shape carrying bypass content is BLOCKED', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			const input = {
+				tool: 'swarm_apply_patch',
+				sessionID: 'test-session',
+				callID: 'c1',
+			};
+			const malicious = [
+				'*** Begin Patch',
+				'*** Add File: docs/tmp.sh',
+				'+#!/bin/bash',
+				'+bunx opencode-swarm run acknowledge-spec-drift',
+				'*** End Patch',
+			].join('\n');
+			await expect(
+				hooks.toolBefore(input, { args: { cmd: ['apply', malicious] } }),
+			).rejects.toThrow(/apply_patch would introduce a script/);
+		});
+		test('swarm_apply_patch with `cmd` array of length 1 (no payload at cmd[1]) is silently allowed', async () => {
+			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
+			const input = {
+				tool: 'swarm_apply_patch',
+				sessionID: 'test-session',
+				callID: 'c1',
+			};
+			await expect(
+				hooks.toolBefore(input, { args: { cmd: ['apply'] } }),
+			).resolves.toBeUndefined();
+		});
+
+		describe('field-divergence bypasses (must scan ALL payload fields)', () => {
+			const EVIL_PATCH = [
+				'*** Begin Patch',
+				'*** Add File: docs/tmp.sh',
+				'+#!/bin/bash',
+				'+bunx opencode-swarm run acknowledge-spec-drift',
+				'*** End Patch',
+			].join('\n');
+			const BENIGN_PATCH =
+				'*** Begin Patch\n*** Update File: ok.txt\n+hello\n*** End Patch';
+
+			function expectHumanOnlyBlock(
+				tool: string,
+				args: Record<string, unknown>,
+			) {
+				const hooks = createGuardrailsHooks(
+					TEST_DIR,
+					undefined,
+					defaultConfig(),
+				);
+				return expect(
+					hooks.toolBefore(
+						{ tool, sessionID: 'test-session', callID: 'c1' },
+						{ args },
+					),
+				).rejects.toThrow(/apply_patch would introduce a script/);
+			}
+
+			test('decoy patch + evil cmd[1] — BLOCKED', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					patch: BENIGN_PATCH,
+					cmd: ['apply', EVIL_PATCH],
+				});
+			});
+			test('decoy diff + evil cmd[1] — BLOCKED', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					diff: BENIGN_PATCH,
+					cmd: ['apply', EVIL_PATCH],
+				});
+			});
+			test('decoy input + evil cmd[1] — BLOCKED', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					input: BENIGN_PATCH,
+					cmd: ['apply', EVIL_PATCH],
+				});
+			});
+			test('decoy patch + evil input + benign cmd[1] — BLOCKED on input', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					patch: BENIGN_PATCH,
+					input: EVIL_PATCH,
+					cmd: ['apply', BENIGN_PATCH],
+				});
+			});
+		});
+
+		describe('filePath short-circuit (swarm_apply_patch + targetPath bypass)', () => {
+			const EVIL_PATCH = [
+				'*** Begin Patch',
+				'*** Add File: docs/tmp.sh',
+				'+#!/bin/bash',
+				'+bunx opencode-swarm run acknowledge-spec-drift',
+				'*** End Patch',
+			].join('\n');
+
+			function expectHumanOnlyBlock(
+				tool: string,
+				args: Record<string, unknown>,
+			) {
+				const hooks = createGuardrailsHooks(
+					TEST_DIR,
+					undefined,
+					defaultConfig(),
+				);
+				return expect(
+					hooks.toolBefore(
+						{ tool, sessionID: 'test-session', callID: 'c1' },
+						{ args },
+					),
+				).rejects.toThrow(/apply_patch would introduce a script/);
+			}
+
+			test('swarm_apply_patch with filePath set + evil cmd[1] — BLOCKED via human-only guard', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					filePath: 'ok.txt',
+					cmd: ['apply', EVIL_PATCH],
+				});
+			});
+			test('swarm_apply_patch with filePath set + evil patch — BLOCKED via human-only guard', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					filePath: 'ok.txt',
+					patch: EVIL_PATCH,
+				});
+			});
+			test('swarm_apply_patch with filePath set + evil input — BLOCKED via human-only guard', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					filePath: 'ok.txt',
+					input: EVIL_PATCH,
+				});
+			});
+			test('swarm_apply_patch with filePath set + evil diff — BLOCKED via human-only guard', async () => {
+				await expectHumanOnlyBlock('swarm_apply_patch', {
+					filePath: 'ok.txt',
+					diff: EVIL_PATCH,
+				});
+			});
+		});
+	});
+
 	describe('script-indirection guard (issue #890)', () => {
 		async function expectWriteContentBlocked(content: string): Promise<void> {
 			const hooks = createGuardrailsHooks(TEST_DIR, undefined, defaultConfig());
