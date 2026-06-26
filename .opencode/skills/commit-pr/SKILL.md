@@ -146,11 +146,11 @@ node --input-type=module -e "await import('./dist/index.js'); console.log('dist 
 
 ### Tier 1 - quality
 
-Run both linter AND formatter — e.g., `bunx biome check --write .` or equivalent — because CI quality gates reject code that passes tests but fails style validation.
+Run both linter AND formatter — e.g., `bunx @biomejs/biome@<version> check --write .` or equivalent — because CI quality gates reject code that passes tests but fails style validation. **Pin the tool version** to match the version in `package.json` (`@biomejs/biome`); unversioned `bunx biome` resolves to a different version than the CI gate uses.
 
 ```bash
 bun run typecheck
-bunx biome ci .
+bunx @biomejs/biome@<version> ci .
 ```
 
 ### Tier 2 - unit tests
@@ -391,6 +391,26 @@ $issueCommentPath = Join-Path ([System.IO.Path]::GetTempPath()) "issue-comment.t
 [System.IO.File]::WriteAllText($issueCommentPath, $comment, $utf8NoBom)
 gh issue comment <issue-number> --body-file $issueCommentPath
 ````
+
+## Commit messages
+
+`git commit -m "..."` with parens, brackets, backticks, or dollar-signs in the message fails on PowerShell because the shell parses them as expressions. Write the commit message to a UTF-8 (no BOM) file first and use `git commit -F <file>`.
+
+PowerShell-safe pattern:
+
+```powershell
+$msg = @"
+<type>(<scope>): <description>
+
+<optional body — note this is for the git commit message, NOT the PR body>
+"@
+$utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+$commitMsgPath = Join-Path ([System.IO.Path]::GetTempPath()) "commit-msg.txt"
+[System.IO.File]::WriteAllText($commitMsgPath, $msg, $utf8NoBom)
+git commit -F $commitMsgPath
+```
+
+Apply this pattern for any commit message containing special characters, multi-paragraph bodies, or code blocks. The plain `git commit -m "..."` form remains fine for short single-line messages with no special characters.
 
 If the PR merged before this was done, post the missing issue comment immediately.
 
