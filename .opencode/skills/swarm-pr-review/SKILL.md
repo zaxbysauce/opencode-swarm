@@ -741,8 +741,14 @@ The critic must challenge:
 Critic output format:
 
 ```text
-[CRITIC] | finding_id | UPHELD / DOWNGRADED / DISPROVED / NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change
+[CRITIC] | finding_id | UPHELD/DOWNGRADED/DISPROVED/NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change
 ```
+
+## Verdict row contract
+
+The `[CRITIC]` row in the format above is **mandatory contract**, not advisory output. A critic response that does not end with that exact row format is treated as a planning preamble, not a verdict, and must be re-dispatched. Do not proceed past Phase 8 join barrier until each dispatched critic lane has produced a parseable `[CRITIC]` row.
+
+**Re-dispatch trigger:** when a critic lane response is missing the verdict row, the orchestrator must automatically re-dispatch that lane with the explicit instruction: "Your final line MUST be exactly the Phase 8 contract row: `[CRITIC] | finding_id | UPHELD/DOWNGRADED/DISPROVED/NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change`. A response without that exact row will be treated as a planning message and re-dispatched." Do not synthesize findings from the planning preamble; only from the re-dispatched verdict.
 
 Refuted findings become `DISPROVED` or `ADVISORY`, depending on critic rationale. Downgrades must be listed in the final validation provenance.
 
@@ -1371,6 +1377,11 @@ For each finding, challenge:
 
 Return:
 [CRITIC] | finding_id | UPHELD/DOWNGRADED/DISPROVED/NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change
+
+REQUIRED FINAL LINE — your final line MUST be exactly the row above (no variations, no labeled fields, no placeholders):
+[CRITIC] | finding_id | UPHELD/DOWNGRADED/DISPROVED/NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change
+
+A response without this exact row is treated as a planning preamble and re-dispatched. Do not output only a planning or investigation message.
 ```
 
 ---
