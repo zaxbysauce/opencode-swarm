@@ -44,9 +44,15 @@ const EXPLORER_CANDIDATE_FORMAT_SUFFIX = `
 
 IMPORTANT — OUTPUT FORMAT REQUIREMENT:
 You MUST emit your findings as pipe-delimited [CANDIDATE] rows.
-Header row first, then one row per finding:
+Header row first, then one row per finding.
+
+Standard explorer format (use unless the prompt specifies micro-lane work):
 [CANDIDATE] | candidate_id | lane | severity | category | file:line | claim | evidence_summary | impact_context | confidence
-If you find zero issues, emit the header row with no data rows.
+
+Micro-lane format (use when the prompt references invariant checking or micro_lane):
+[CANDIDATE] | candidate_id | micro_lane | severity | category | file:line | claim | invariant_violated | evidence_summary | confidence
+
+If you find zero issues, emit only the header row with no data rows.
 Do NOT use the default PROJECT/STRUCTURE output format for this dispatch.`;
 
 const READ_ONLY_LANE_ROLES: ReadonlySet<string> = new Set([
@@ -1422,7 +1428,14 @@ function applyExplorerFormatSuffix(
 		if (role !== 'explorer') return lane;
 		if (lane.prompt.includes('[CANDIDATE]')) return lane;
 		const prompt = `${lane.prompt}${EXPLORER_CANDIDATE_FORMAT_SUFFIX}`;
-		if (prompt.length > MAX_PROMPT_CHARS) return lane;
+		if (prompt.length > MAX_PROMPT_CHARS) {
+			console.warn(
+				`[dispatch-lanes] applyExplorerFormatSuffix: lane "${lane.id}" prompt too long ` +
+					`(${lane.prompt.length} chars + suffix = ${prompt.length}, max ${MAX_PROMPT_CHARS}); ` +
+					`format enforcement skipped — explorer may not emit [CANDIDATE] rows`,
+			);
+			return lane;
+		}
 		return { ...lane, prompt };
 	});
 }

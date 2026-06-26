@@ -1338,10 +1338,7 @@ describe('format_mismatch_hint diagnostics', () => {
 	});
 
 	test('returns undefined for empty text', () => {
-		const result = parseCandidates(
-			{ ...BASE_INPUT, text: '' },
-			BASE_FLAGS,
-		);
+		const result = parseCandidates({ ...BASE_INPUT, text: '' }, BASE_FLAGS);
 		expect(result.candidates).toHaveLength(0);
 		expect(result.diagnostics.format_mismatch_hint).toBeUndefined();
 	});

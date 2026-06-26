@@ -118,8 +118,8 @@ Field rules:
 - impact_context: who or what is affected downstream
 - confidence: LOW | MEDIUM | HIGH
 
-Emit a header row first, then one [CANDIDATE] row per finding. Use pipe (\|) to
-escape literal pipe characters inside field values.
+Emit a header row first, then one [CANDIDATE] row per finding. Use pipe (|) to
+separate fields; escape literal pipe characters inside field values as \\|.
 
 If you find zero issues, emit the header row with no data rows. Do NOT fall back
 to the default PROJECT/STRUCTURE format when in candidate reporting mode.
