@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process';
+﻿import { spawnSync } from 'node:child_process';
 import * as fsSync from 'node:fs';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -30,6 +30,11 @@ import { validateSwarmPath } from '../hooks/utils';
 import { tryAcquireLock } from '../parallel/file-locks.js';
 import { closePlanTerminalState } from '../plan/manager';
 import { clearAllScopes } from '../scope/scope-persistence';
+import {
+	runSessionReflection,
+	type SessionReflectionResult,
+	writeSessionReflection,
+} from '../services/session-reflection';
 import {
 	runSkillImprover,
 	type SkillImproveRequest,
@@ -103,6 +108,7 @@ export interface CloseStageContext {
 	knowledgeSkillHint: string;
 	skillReviewSummary: string;
 	postMortemSummary: string;
+	sessionReflection: SessionReflectionResult | undefined;
 	hivePromoted: number;
 	sessionKnowledgeCreated: number;
 	fallbackKnowledgeCreated: number;
@@ -120,6 +126,31 @@ export interface CloseStageContext {
 }
 
 const CLOSE_SKILL_REVIEW_TIMEOUT_MS = 120_000;
+const CLOSE_REFLECTION_TIMEOUT_MS = 90_000;
+
+async function runAbortableReflection(
+	input: Parameters<typeof runSessionReflection>[0],
+	timeoutMs: number,
+): Promise<Awaited<ReturnType<typeof runSessionReflection>>> {
+	const controller = new AbortController();
+	let timeout: ReturnType<typeof setTimeout> | undefined;
+	const reflectionPromise = runSessionReflection({
+		...input,
+		signal: controller.signal,
+	});
+	const timeoutPromise = new Promise<never>((_, reject) => {
+		timeout = setTimeout(() => {
+			reject(new Error(`session_reflection exceeded ${timeoutMs}ms budget`));
+			controller.abort();
+		}, timeoutMs);
+	});
+
+	try {
+		return await Promise.race([reflectionPromise, timeoutPromise]);
+	} finally {
+		if (timeout) clearTimeout(timeout);
+	}
+}
 
 async function runAbortableSkillReview(
 	req: SkillImproveRequest,
@@ -250,6 +281,7 @@ const ARCHIVE_ARTIFACTS = [
 	'swarm.db-shm',
 	'swarm.db-wal',
 	'close-summary.md',
+	'session-reflection.md',
 	'spec.md',
 ];
 
@@ -281,6 +313,8 @@ const ARCHIVE_ARTIFACTS = [
  * cycles. The archive step still creates a backup for safety.
  * close-summary.md and spec.md are NOT cleaned because close-summary.md
  * is written as the final close output after cleanup and spec.md may not exist.
+ * session-reflection.md is a single-session snapshot (not cumulative like
+ * knowledge.jsonl) so it IS cleaned to maintain the clean-slate invariant.
  */
 const ACTIVE_STATE_TO_CLEAN = [
 	'plan.json',
@@ -296,6 +330,7 @@ const ACTIVE_STATE_TO_CLEAN = [
 	'doc-manifest.json',
 	'dark-matter.md',
 	'telemetry.jsonl',
+	'session-reflection.md',
 	'swarm.db',
 	'swarm.db-shm',
 	'swarm.db-wal',
@@ -710,6 +745,30 @@ export async function runFinalizeStage(ctx: CloseStageContext): Promise<void> {
 			ctx.skillReviewSummary = `Skill review failed: ${msg}`;
 			ctx.warnings.push(ctx.skillReviewSummary);
 		}
+	}
+
+	// ─── SESSION REFLECTION ─────────────────────────────────────────
+	// Architect reviews the entire session: tool problems, gate failures, error
+	// patterns, skill gaps. Uses the skill_improver LLM delegate when available,
+	// deterministic fallback otherwise. The architect report is surfaced directly
+	// in the finalize output so the user can act on it immediately.
+	try {
+		ctx.sessionReflection = await runAbortableReflection(
+			{
+				directory: ctx.directory,
+				toolAggregates: swarmState.toolAggregates,
+				agentSessions: swarmState.agentSessions,
+				sessionId: ctx.options.sessionID,
+			},
+			CLOSE_REFLECTION_TIMEOUT_MS,
+		);
+		await writeSessionReflection(ctx.directory, ctx.sessionReflection);
+	} catch (reflectionErr) {
+		const msg =
+			reflectionErr instanceof Error
+				? reflectionErr.message
+				: String(reflectionErr);
+		ctx.warnings.push(`Session reflection failed: ${msg}`);
 	}
 
 	// ─── ALL-PLANS-COMPLETE GUARANTEE ────────────────────────────────
@@ -1584,6 +1643,7 @@ export async function handleCloseCommand(
 			knowledgeSkillHint: '',
 			skillReviewSummary: '',
 			postMortemSummary: '',
+			sessionReflection: undefined,
 			hivePromoted: 0,
 			sessionKnowledgeCreated: 0,
 			fallbackKnowledgeCreated: 0,
@@ -1652,6 +1712,14 @@ export async function handleCloseCommand(
 						'',
 						'## Skill Review',
 						ctx.skillReviewSummary || 'Skill review completed without details.',
+					]
+				: []),
+			...(ctx.sessionReflection
+				? [
+						'',
+						`## Session Reflection (${ctx.sessionReflection.source})`,
+						'',
+						ctx.sessionReflection.architectReport,
 					]
 				: []),
 			'',
@@ -1756,10 +1824,24 @@ export async function handleCloseCommand(
 			? `\n\n**Post-Mortem:** ${ctx.postMortemSummary}`
 			: '';
 
-		if (ctx.planAlreadyDone) {
-			return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.\n\n**Archive:** ${ctx.archiveResult}\n**Git:** ${gitAlignResult}${lessonSummary}${knowledgeHintSummary}${skillReviewOutput}${postMortemOutput}${warningMsg}`;
+		let reflectionOutput = '';
+		if (ctx.sessionReflection) {
+			const d = ctx.sessionReflection.data;
+			const hasSignals =
+				d.totalToolFailures > 0 ||
+				d.gateFailures.length > 0 ||
+				d.lessonsFromRetros.length > 0 ||
+				Object.keys(d.errorTaxonomy).length > 0 ||
+				d.agentDispatches.length > 0;
+			if (hasSignals) {
+				reflectionOutput = `\n\n---\n\n**Architect Session Review** (${ctx.sessionReflection.source}):\n\n${ctx.sessionReflection.architectReport}`;
+			}
 		}
-		return `✅ Swarm finalized. ${ctx.closedPhases.length} phase(s) closed, ${ctx.closedTasks.length} incomplete task(s) marked closed.\n\n**Archive:** ${ctx.archiveResult}\n**Git:** ${gitAlignResult}${lessonSummary}${knowledgeHintSummary}${skillReviewOutput}${postMortemOutput}${warningMsg}`;
+
+		if (ctx.planAlreadyDone) {
+			return `✅ Session finalized. Plan was already in a terminal state — cleanup and archive applied.\n\n**Archive:** ${ctx.archiveResult}\n**Git:** ${gitAlignResult}${lessonSummary}${knowledgeHintSummary}${skillReviewOutput}${postMortemOutput}${reflectionOutput}${warningMsg}`;
+		}
+		return `✅ Swarm finalized. ${ctx.closedPhases.length} phase(s) closed, ${ctx.closedTasks.length} incomplete task(s) marked closed.\n\n**Archive:** ${ctx.archiveResult}\n**Git:** ${gitAlignResult}${lessonSummary}${knowledgeHintSummary}${skillReviewOutput}${postMortemOutput}${reflectionOutput}${warningMsg}`;
 	} finally {
 		if (finalizeLock.release) {
 			try {
@@ -1794,6 +1876,7 @@ export const _internals = {
 	ACTIVE_STATE_DIRS_TO_CLEAN,
 	countSessionKnowledgeEntries,
 	CLOSE_SKILL_REVIEW_TIMEOUT_MS,
+	CLOSE_REFLECTION_TIMEOUT_MS,
 	guaranteeAllPlansComplete,
 	getGitRepositoryStatus,
 	resetToMainAfterMerge,

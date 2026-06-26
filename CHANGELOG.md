@@ -1,5 +1,42 @@
 # Changelog
 
+## [7.93.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.92.0...v7.93.0) (2026-06-26)
+
+
+### Features
+
+* **swarm-finalize:** add architect session review to /swarm close ([4a8bf40](https://github.com/ZaxbyHub/opencode-swarm/commit/4a8bf406beecc4375f854fd568aaf83a096eb72d))
+
+## [7.92.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.91.1...v7.92.0) (2026-06-26)
+
+
+### Features
+
+* **lane-dispatch:** enable incremental non-blocking collection for all lane types ([506c064](https://github.com/ZaxbyHub/opencode-swarm/commit/506c064684385c6e0b40f58773b023a8874953eb))
+
+
+### Bug Fixes
+
+* **candidate-parser:** prevent false positive in detectFormatMismatchHint on URLs ([19279f6](https://github.com/ZaxbyHub/opencode-swarm/commit/19279f6a07c8c0a223810864cc2aed0f131c55ec))
+* **ci:** apply biome format to dispatch-lanes.test.ts ([9a78a20](https://github.com/ZaxbyHub/opencode-swarm/commit/9a78a207f122ea74506b235bbe06a317b8bccee3))
+* **lane-dispatch:** address PR feedback F-001 F-002 and biome violations ([3803cb3](https://github.com/ZaxbyHub/opencode-swarm/commit/3803cb3fb9bf7277595101aa2a62fb632a08c97d))
+* **lane-dispatch:** sync .claude mirror skills with .opencode counterparts ([aff60d4](https://github.com/ZaxbyHub/opencode-swarm/commit/aff60d45cd084a1858361deb0d88c9f9cf4c22ab))
+* **tools:** rename swarm patch tool to restore native apply_patch ([e134d72](https://github.com/ZaxbyHub/opencode-swarm/commit/e134d72ccbb7a959ef8fbe129358dbbca60d39ca))
+
+## [7.91.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.91.0...v7.91.1) (2026-06-26)
+
+
+### Bug Fixes
+
+* **skills:** address PR [#1509](https://github.com/ZaxbyHub/opencode-swarm/issues/1509) review feedback (F-001, F-002, F-003) ([c25acdf](https://github.com/ZaxbyHub/opencode-swarm/commit/c25acdf564c40a52988587a9e43046e7224c2cc5))
+
+## [7.91.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.90.1...v7.91.0) (2026-06-26)
+
+
+### Features
+
+* **repo-graph:** tree-sitter symbol-level call graph + context_pack ([0b03f79](https://github.com/ZaxbyHub/opencode-swarm/commit/0b03f79c9fa12af60015ea1ba5939d56154b39f7))
+
 ## [7.90.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.90.0...v7.90.1) (2026-06-25)
 
 

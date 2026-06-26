@@ -84,3 +84,15 @@ For any import-chain change touching `src/lang/`, `runtime`, or `web-tree-sitter
 2. Rebuild dist: `bun run build` (stale dist gives false regressions).
 3. Run `node scripts/repro-704.mjs` — T1 must be under 400ms.
 4. Run `bun --smol test tests/unit/lang/symbol-graph-init-purity.test.ts` — init-path purity tests must pass.
+
+## Tool version parity (local vs CI)
+
+**Tool versions must match CI.** When `package.json` pins a tool version (e.g., `@biomejs/biome@2.3.14`, `@biomejs/biome@^2`, or any other versioned dev dependency), invoke it **with the pinned version** during local validation. Unversioned `bunx biome` resolves to a different version than the CI gate uses, and a CI-blocking failure can be invisible to local pre-commit validation.
+
+Examples:
+- Pinned biome: `bunx @biomejs/biome@<version> ci .` (substitute `<version>` from `package.json`).
+- Unversioned `bunx biome ci .` resolves to whatever Bun's `bunx` registry returns at run time — historically 0.3.x vs the pinned 2.x.
+
+The `commit-pr` skill Tier 1 - quality section pins the biome command to the package.json version; this is the canonical pattern for any tool where local and CI versions could diverge. Apply the same discipline to ESLint, Prettier, TypeScript, and any other versioned dev dependency.
+
+**Why this matters:** PR #1503 (telemetry rotation fix) had a biome 2.3.14 `organizeImports` failure on the `./telemetry` import block that was invisible to local `bunx biome` (which resolved to 0.3.3 with no equivalent rule). The reviewer caught it from CI logs, not local validation. Pin tool versions to close the local/CI parity gap.
