@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.91.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.90.1...v7.91.0) (2026-06-26)
+
+
+### Features
+
+* **repo-graph:** tree-sitter symbol-level call graph + context_pack ([0b03f79](https://github.com/ZaxbyHub/opencode-swarm/commit/0b03f79c9fa12af60015ea1ba5939d56154b39f7))
+
 ## [7.90.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.90.0...v7.90.1) (2026-06-25)
 
 
