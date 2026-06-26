@@ -435,7 +435,10 @@ function detectFormatMismatchHint(text: string): string | undefined {
 	const severityPattern = /\b(CRITICAL|HIGH|MEDIUM|LOW|INFO)\b/;
 	const fileLinePattern = /\b\S+\.[a-z]{1,4}:\d+\b/;
 	const hasSeverity = severityPattern.test(text);
-	const hasFileLine = fileLinePattern.test(text);
+	// Strip scheme-based URLs (http://, https://, ftp://, etc.) before checking for
+	// file:line refs to avoid false positives on hostname:port patterns (e.g. api.example.com:8080).
+	const textForFileLine = text.replace(/\b\w+:\/\/\S*/g, '');
+	const hasFileLine = fileLinePattern.test(textForFileLine);
 	if (hasSeverity && hasFileLine) {
 		return 'Lane output contains severity keywords and file:line references but no parseable [CANDIDATE] rows. The explorer may have emitted findings in prose format instead of pipe-delimited candidate rows.';
 	}

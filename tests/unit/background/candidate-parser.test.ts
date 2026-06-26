@@ -1366,4 +1366,29 @@ describe('format_mismatch_hint diagnostics', () => {
 		expect(result.candidates).toHaveLength(1);
 		expect(result.diagnostics.format_mismatch_hint).toBeUndefined();
 	});
+
+	test('fires via parseText path when header found but zero data rows and text has severity+file:line', () => {
+		// Exercises the candidates.length === 0 branch inside parseText (not emptyTextResult)
+		const text = `${BASE_EXPLORER_HEADER}\nThis is a HIGH severity issue at src/main.ts:10 that needs attention`;
+		const result = parseCandidates({ ...BASE_INPUT, text }, BASE_FLAGS);
+		expect(result.candidates).toHaveLength(0);
+		expect(result.diagnostics.format_mismatch_hint).toContain(
+			'severity keywords and file:line references',
+		);
+	});
+
+	test('fileLinePattern does not false-positive on URLs with port numbers', () => {
+		const result = parseCandidates(
+			{
+				...BASE_INPUT,
+				text: 'See https://api.example.com:8080/docs for details. HIGH priority.',
+			},
+			BASE_FLAGS,
+		);
+		expect(result.candidates).toHaveLength(0);
+		// severity-only hint is acceptable; severity+file:line hint is the false positive to prevent
+		expect(result.diagnostics.format_mismatch_hint).not.toContain(
+			'file:line references',
+		);
+	});
 });
