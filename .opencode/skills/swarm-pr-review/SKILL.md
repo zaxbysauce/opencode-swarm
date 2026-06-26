@@ -146,6 +146,8 @@ Before deeper analysis, verify the PR meets the commit-pr skill's publication co
 - **Title format:** `<type>(<scope>): <description>` — lowercase description, no trailing period, allowed types: `feat`, `fix`, `perf`, `revert`, `docs`, `chore`, `refactor`, `test`, `ci`, `build`.
 - **Body contract:** `Closes #<issue-number>` as the first line (when the PR resolves an issue), followed by `## Summary`, `## Invariant audit` (all 12 invariants), and `## Test plan` sections.
 
+**`Closes #N` claim integrity (apply the COVERAGE GATE):** if the PR body claims `Closes #<issue-number>`, verify (a) the issue is currently open (`gh issue view <N> --json state`), and (b) the diff addresses the issue's acceptance criteria (read the issue, map each criterion to changed files/symbols, and inspect the diff for those areas). If the issue is already closed by another merged PR, do NOT re-close it — the duplicate `Closes #N` reference is misleading and will confuse release-please aggregation. If the issue is open but the diff does not address the acceptance criteria, mark the claim as `UNVERIFIED — claim integrity` in the validation provenance and report INCOMPLETE to the user.
+
 Non-compliance is a ledger item (advisory, not blocking — CI will catch it). If the PR is from an external contributor, note the compliance gap for the maintainer to address before merge.
 
 This intake includes:
@@ -769,6 +771,8 @@ Critic output format:
 The `[CRITIC]` row in the format above is **mandatory contract**, not advisory output. A critic response that does not end with that exact row format is treated as a planning preamble, not a verdict, and must be re-dispatched. Do not proceed past Phase 8 join barrier until each dispatched critic lane has produced a parseable `[CRITIC]` row.
 
 **Re-dispatch trigger:** when a critic lane response is missing the verdict row, the orchestrator must automatically re-dispatch that lane with the explicit instruction: "Your final line MUST be exactly the Phase 8 contract row: `[CRITIC] | finding_id | UPHELD/DOWNGRADED/DISPROVED/NEEDS_MORE_EVIDENCE | final_severity | reason | required_report_change`. A response without that exact row will be treated as a planning message and re-dispatched." Do not synthesize findings from the planning preamble; only from the re-dispatched verdict.
+
+**Retry cap and UNVERIFIED fallback:** re-dispatch ONCE (max 1 retry). If the second return still lacks a parseable `[CRITIC]` row, mark the affected findings `UNVERIFIED — critic output malformed` in the validation provenance, do NOT synthesize a verdict, and continue synthesis with the `UNVERIFIED` markers rather than blocking the review. The orchestrator NEVER fabricates a critic verdict by parsing prose, by tolerating a planning preamble, or by re-trying indefinitely.
 
 Refuted findings become `DISPROVED` or `ADVISORY`, depending on critic rationale. Downgrades must be listed in the final validation provenance.
 
