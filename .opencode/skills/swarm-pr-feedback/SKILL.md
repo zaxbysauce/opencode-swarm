@@ -167,6 +167,16 @@ branches or prior work sessions.
 
 *Reference: Caught during PR #1472 Round 1 closure.*
 
+## Pre-flight: Scope Discipline
+
+`declare_scope({ taskId, files })` enforces that the delegated coder agent may only modify the declared files. The enforcement requires an active `.swarm/plan.json` — calling `declare_scope` in a feedback-closure run (which does not go through `save_plan`) rejects with "No plan found."
+
+**When to use `declare_scope` (preferred):** any feedback round that touches 2+ files, OR any feedback round where the file scope is not 100% obvious from the prompt. Before delegating, save a minimal plan via `save_plan` with a single phase containing the feedback-closure tasks, then call `declare_scope` per task with the exact file list.
+
+**Carve-out for direct Task delegation:** 1-file, single-function changes where the file path appears verbatim in the coder's prompt may use direct `Task(subagent_type="paid_coder", ...)` delegation without `declare_scope`. This is a narrow exception; the orchestrator is responsible for verifying the scope is unambiguous.
+
+**Anti-pattern:** do not use `Task` delegation for multi-file feedback fixes just to skip `save_plan` — the loss of scope discipline is not worth the saved ceremony.
+
 ## Intake Surfaces
 
 Build a complete feedback ledger before editing. Include every available source:
