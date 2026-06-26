@@ -58,7 +58,7 @@ If you cannot prove a touched invariant from source and test output, **do not pu
 
 ## Init-path-safe imports (invariant 1 deep-dive)
 
-The most expensive invariant-1 violations come from **transitive import chains** that silently load heavy modules (WASM, tree-sitter) at plugin init time. A single `import { X } from '../../lang'` in a tool-time module can transitively load `runtime.ts` → `web-tree-sitter` (heavy WASM), spiking init from ~170ms to 3000ms+.
+The most expensive invariant-1 violations come from **transitive import chains** that silently load heavy modules (WASM, tree-sitter) at plugin init time. A single `import { X } from '../../lang'` in a tool-time module can transitively load `runtime.ts` → `web-tree-sitter` (heavy WASM), spiking init latency well past the repro-704 T1 deadline (observed during issue #1471 development).
 
 ### The lang barrel trap
 

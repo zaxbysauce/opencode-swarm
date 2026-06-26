@@ -204,7 +204,7 @@ This step supplements (not replaces) the existing regression-sweep and test-drif
 
 ## Dispatch-lanes empty-output fallback
 
-When an agent dispatched via `dispatch_lanes` returns empty output (0 chars, `output_digest` matching SHA-256 of empty string `e3b0c443...b855`), this indicates a suspected incompatibility between the `dispatch_lanes` code path and that specific agent.
+When an agent dispatched via `dispatch_lanes` returns empty output (0 chars, `output_digest` matching SHA-256 of empty string `e3b0c442...b855`), this indicates a suspected incompatibility between the `dispatch_lanes` code path and that specific agent.
 
 **Do NOT re-dispatch via `dispatch_lanes`** — it will fail again (confirmed pattern). Immediately retry the **same agent** via the **Task tool** (`Task(subagent_type=..., prompt=...)`), which uses a different session-creation code path. Record which dispatch mechanism succeeded for debugging.
 
