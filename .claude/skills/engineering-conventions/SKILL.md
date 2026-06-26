@@ -141,3 +141,32 @@ that a real review/test run happened.
 See [`.claude/skills/writing-tests/SKILL.md`](../writing-tests/SKILL.md)
 § Cross-Platform Requirements → "macOS rename-visibility race" for the
 ENONENT retry pattern that this gate flow triggers on macOS CI.
+
+## Init-path-safe imports (invariant 1 deep-dive)
+
+The most expensive invariant-1 violations come from **transitive import chains** that silently load heavy modules (WASM, tree-sitter) at plugin init time. A single `import { X } from '../../lang'` in a tool-time module can transitively load `runtime.ts` → `web-tree-sitter` (heavy WASM), spiking init latency well past the repro-704 T1 deadline (observed during issue #1471 development).
+
+### The lang barrel trap
+
+`src/lang/index.ts` re-exports from `./runtime`, which statically imports `web-tree-sitter`. Importing **anything** from the barrel (`from '../../lang'`) transitively loads WASM at module-eval time.
+
+**Wrong:** `import { LANGUAGE_REGISTRY } from '../../lang'` — loads runtime → web-tree-sitter.
+**Right:** `import { LANGUAGE_REGISTRY } from '../../lang/profiles'` — loads only profiles (string data, no WASM).
+
+### Type-only vs value imports
+
+- `import type { Query } from 'web-tree-sitter'` — **safe** (erased at compile time, no module load).
+- `import { Query } from 'web-tree-sitter'` — **unsafe** on the init path (loads the WASM module).
+- For value dependencies on heavy modules in init-reachable code, use dynamic `import()` inside an async function (deferred to first call, not module load).
+
+### The `--external` build flag
+
+Dynamic `import('web-tree-sitter')` only defers loading at runtime if `--external web-tree-sitter` is set in the bun build config. Without it, bun bundles web-tree-sitter inline and the dynamic import resolves from the bundle (no deferral). Check `package.json` build scripts for the flag.
+
+### Verification checklist
+
+For any import-chain change touching `src/lang/`, `runtime`, or `web-tree-sitter`:
+1. Trace the transitive chain from `src/index.ts` to verify no heavy module loads at init.
+2. Rebuild dist: `bun run build` (stale dist gives false regressions).
+3. Run `node scripts/repro-704.mjs` — T1 must be under 400ms.
+4. Run `bun --smol test tests/unit/lang/symbol-graph-init-purity.test.ts` — init-path purity tests must pass.

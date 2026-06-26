@@ -201,3 +201,17 @@ This step supplements (not replaces) the existing regression-sweep and test-drif
         - This optional commit policy NEVER bypasses PRE-COMMIT RULE checks above.
         - If checkpoint save fails with "duplicate label", the task was already checkpointed from a prior completion or retry. Silently skip — the existing checkpoint is valid.
     5r. Proceed to next task.
+
+## Dispatch-lanes empty-output fallback
+
+When an agent dispatched via `dispatch_lanes` returns empty output (0 chars, `output_digest` matching SHA-256 of empty string `e3b0c442...b855`), this indicates a suspected incompatibility between the `dispatch_lanes` code path and that specific agent.
+
+**Do NOT re-dispatch via `dispatch_lanes`** — it will fail again (confirmed pattern). Immediately retry the **same agent** via the **Task tool** (`Task(subagent_type=..., prompt=...)`), which uses a different session-creation code path. Record which dispatch mechanism succeeded for debugging.
+
+If the Task tool also returns empty, **then** escalate to substitute review (4-member council without the broken agent) or surface to the user. Never fabricate or substitute a verdict for the missing agent.
+
+## Post-coder write verification
+
+After **any** coder delegation, verify the change actually landed by reading back at least one changed file (grep for a key line that should be present). Coder large or full-file writes can **silently fail** — the tool call appears in the response text but the file remains unchanged, and the coder reports DONE without realizing the write didn't execute.
+
+For large or full-file changes, instruct the coder to use **targeted EDIT operations**, not full-file WRITE — targeted edits are more reliable for substantial changes. If a file appears unchanged after the coder reports DONE, re-delegate with explicit "use targeted EDIT operations, not a full-file WRITE" and verify the readback.
