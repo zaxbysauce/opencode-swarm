@@ -144,7 +144,8 @@ export const knowledge_receipt: ReturnType<typeof createSwarmTool> =
 			const recordedEventIds: string[] = [];
 			const emit = async (event: KnowledgeEventInput): Promise<void> => {
 				const written = await recordKnowledgeEvent(directory, event);
-				if (written) recordedEventIds.push(written.event_id);
+				if (written && written.event_id !== undefined)
+					recordedEventIds.push(written.event_id);
 			};
 
 			for (const item of applied) {

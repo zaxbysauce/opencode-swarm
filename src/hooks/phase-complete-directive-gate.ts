@@ -115,7 +115,11 @@ export async function evaluatePhaseCriticalDirectives(params: {
 			retrievedThisPhase.length > 0
 				? retrievedThisPhase
 						.map((e) => e.timestamp)
-						.reduce((a, b) => (a < b ? a : b))
+						.reduce<string | undefined>((a, b) => {
+							if (b === undefined) return a;
+							if (a === undefined) return b;
+							return a < b ? a : b;
+						}, undefined)
 				: null;
 
 		const criticalIds = await readCriticalIdsForPhase(
@@ -133,7 +137,11 @@ export async function evaluatePhaseCriticalDirectives(params: {
 
 		const receipts = events
 			.filter(isReceipt)
-			.filter((r) => phaseStart === null || r.timestamp >= phaseStart)
+			.filter((r) => {
+				if (phaseStart === null || phaseStart === undefined) return true;
+				if (r.timestamp === undefined) return false;
+				return r.timestamp >= phaseStart;
+			})
 			.map((r) => ({
 				type: r.type,
 				knowledge_id: r.knowledge_id,

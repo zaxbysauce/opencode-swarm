@@ -110,6 +110,7 @@ function countWindowedReceipts(
 	for (const e of events) {
 		if (!isReceiptType(e)) continue;
 		if (e.knowledge_id !== entryId) continue;
+		if (e.timestamp === undefined) continue;
 		const t = Date.parse(e.timestamp);
 		if (Number.isNaN(t) || t < cutoff) continue;
 		totalReceipts++;
@@ -215,6 +216,7 @@ export async function computeLearningMetrics(
 	for (const e of events) {
 		throwIfAborted(options?.signal);
 		if (!isReceiptType(e)) continue;
+		if (e.timestamp === undefined) continue;
 		const t = Date.parse(e.timestamp);
 		if (Number.isNaN(t)) continue;
 		if (t >= nowMs - SEVEN_DAYS_MS) {
