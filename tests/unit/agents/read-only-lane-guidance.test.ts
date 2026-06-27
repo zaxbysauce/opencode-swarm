@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 import { createArchitectAgent } from '../../../src/agents/architect';
+import { createCoderAgent } from '../../../src/agents/coder';
 import {
 	DOMAIN_EXPERT_COUNCIL_PROMPT,
 	GENERALIST_COUNCIL_PROMPT,
@@ -106,5 +107,21 @@ describe('web research ownership wording', () => {
 		expect(section).toContain(
 			'SME and researcher prompts may use `web_search`',
 		);
+	});
+});
+
+describe('write-capable agents do not receive read-only lane guidance', () => {
+	test('coder agent prompt excludes read-only lane guidance', () => {
+		const prompt = createCoderAgent('test-model').config.prompt ?? '';
+		expect(prompt).not.toContain('READ-ONLY ADVISORY LANE CONTEXT');
+	});
+
+	test('architect agent prompt excludes read-only lane guidance', () => {
+		const prompt =
+			createArchitectAgent('test-model', undefined, undefined, undefined, {
+				enabled: true,
+				general: { enabled: true },
+			}).config.prompt ?? '';
+		expect(prompt).not.toContain('READ-ONLY ADVISORY LANE CONTEXT');
 	});
 });
