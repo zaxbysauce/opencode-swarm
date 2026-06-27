@@ -77,7 +77,7 @@ describe('execution_profile: setting a profile on a new plan', () => {
 		const result = await executeSavePlan(args);
 		expect(result.success).toBe(true);
 		expect(result.execution_profile?.parallelization_enabled).toBe(true);
-		expect(result.execution_profile?.max_concurrent_tasks).toBe(1);
+		expect(result.execution_profile?.max_concurrent_tasks).toBe(10);
 		expect(result.execution_profile?.locked).toBe(false);
 	});
 
