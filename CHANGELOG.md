@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.95.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.94.1...v7.95.0) (2026-06-27)
+
+
+### Features
+
+* **tools:** add bounded external cli wrappers ([7a4f20a](https://github.com/ZaxbyHub/opencode-swarm/commit/7a4f20a82617301d766c18867653e84969823fe6))
+
+
+### Bug Fixes
+
+* **tools:** harden external runner timeout cleanup ([3cf7753](https://github.com/ZaxbyHub/opencode-swarm/commit/3cf77537867e040b1887f2e04ee921989e17068e))
+
 ## [7.94.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.94.0...v7.94.1) (2026-06-27)
 
 
