@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.94.1](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.94.0...v7.94.1) (2026-06-27)
+
+
+### Bug Fixes
+
+* **agents:** align prompt drift with current protocols ([8f5c801](https://github.com/ZaxbyHub/opencode-swarm/commit/8f5c801e74167df64e34ee1847574cad254e6c1f))
+
 ## [7.94.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.93.1...v7.94.0) (2026-06-27)
 
 
