@@ -553,23 +553,25 @@ describe('write_drift_evidence delegates to shared normalize-verdict module', ()
 
 		const original = _internals.normalizeVerdict2;
 		let callCount = 0;
-		_internals.normalizeVerdict2 = (verdict: string) => {
-			callCount++;
-			return original(verdict);
-		};
+		try {
+			_internals.normalizeVerdict2 = (verdict: string) => {
+				callCount++;
+				return original(verdict);
+			};
 
-		const out = await (
-			write_drift_evidence.execute as unknown as (
-				args: unknown,
-				ctx: { directory: string },
-			) => Promise<string>
-		)(
-			{ phase: 1, verdict: 'APPROVED', summary: 'Seam test' },
-			{ directory: tempDir },
-		);
-		expect(JSON.parse(out).success).toBe(true);
-		expect(callCount).toBe(1);
-
-		_internals.normalizeVerdict2 = original;
+			const out = await (
+				write_drift_evidence.execute as unknown as (
+					args: unknown,
+					ctx: { directory: string },
+				) => Promise<string>
+			)(
+				{ phase: 1, verdict: 'APPROVED', summary: 'Seam test' },
+				{ directory: tempDir },
+			);
+			expect(JSON.parse(out).success).toBe(true);
+			expect(callCount).toBe(1);
+		} finally {
+			_internals.normalizeVerdict2 = original;
+		}
 	});
 });

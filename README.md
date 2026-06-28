@@ -705,6 +705,7 @@ Every candidate passes a 3-gate pipeline before entering quarantine:
 | `context_budget.model_limits` | record | `{ default: 128000 }` | Per-model token limits (model name -> max tokens) |
 | `context_budget.unified_injection_tokens` | number | `undefined` | Opt-in unified ceiling (tokens) for combined system-enhancer + knowledge-injector injection per turn. When set, both hooks share this budget with proportional split |
 | `context_budget.tool_output_mask_threshold` | number | `2000` | Threshold for masking tool outputs (chars) |
+| `skills.enabled` | boolean | `false` | Gates the 7 skill-management tools (`skill_generate`, `skill_list`, `skill_apply`, `skill_inspect`, `skill_regenerate`, `skill_retire`, `skill_improve`) behind an opt-in flag. When `false` (default), these tools are hidden from the architect's tool map. |
 | `context_budget.scoring.enabled` | boolean | `false` | Enable context scoring/ranking |
 | `context_budget.scoring.max_candidates` | number | `100` | Maximum items to score (10-500) |
 | `context_budget.scoring.weights` | object | `{ recency: 0.3, ... }` | Scoring weights for priority |

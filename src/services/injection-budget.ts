@@ -142,6 +142,20 @@ const sessionBudgets = new Map<
 	{ total: number; used: number; seDemand: number }
 >();
 
+// ============================================================================
+// Bounded session tracking (invariant 8)
+// ============================================================================
+
+const MAX_TRACKED_SESSIONS = 256;
+
+function evictSessionBudgets(): void {
+	while (sessionBudgets.size > MAX_TRACKED_SESSIONS) {
+		const firstKey = sessionBudgets.keys().next().value;
+		if (firstKey === undefined) break;
+		sessionBudgets.delete(firstKey);
+	}
+}
+
 /**
  * Reset the budget for a session to the full unified ceiling.
  * Called by the first component to run for a given turn.
@@ -151,6 +165,7 @@ export function resetUnifiedBudget(
 	totalBudget: number,
 ): void {
 	sessionBudgets.set(sessionID, { total: totalBudget, used: 0, seDemand: 0 });
+	evictSessionBudgets();
 }
 
 /**
@@ -206,6 +221,7 @@ export function ensureSessionBudget(
 ): void {
 	if (!sessionBudgets.has(sessionID)) {
 		sessionBudgets.set(sessionID, { total: totalBudget, used: 0, seDemand: 0 });
+		evictSessionBudgets();
 	}
 }
 

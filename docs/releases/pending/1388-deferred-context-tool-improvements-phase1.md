@@ -25,7 +25,7 @@ Registered in `src/tools/index.ts`, `src/tools/manifest.ts`, and `src/tools/tool
 
 ### FR-002: Unified injection budget
 
-The system-enhancer (system prompt injection, 4K token cap via `max_injection_tokens`) and knowledge-injector (knowledge injection, 2K char cap via `inject_char_budget`) now share a single configurable ceiling via `context_budget.unified_injection_tokens` (top-level config, FR-002 in `src/config/schema.ts`).
+The system-enhancer (system prompt injection, 4K token cap via `max_injection_tokens`) and knowledge-injector (knowledge injection, 2K char cap via `inject_char_budget`) now share a single configurable ceiling via `context_budget.unified_injection_tokens` (the `context_budget` config block, FR-002 in `src/config/schema.ts`).
 
 **Behavior:**
 - When `unified_injection_tokens` is set, the system-enhancer receives a proportional allocation via `allocateInjectionBudget()`; the knowledge-injector receives the remainder

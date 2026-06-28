@@ -306,18 +306,20 @@ describe('write_mutation_evidence delegates to shared normalize-verdict module',
 
 		const original = _internals.normalizeVerdict4;
 		let callCount = 0;
-		_internals.normalizeVerdict4 = (verdict: string) => {
-			callCount++;
-			return original(verdict);
-		};
+		try {
+			_internals.normalizeVerdict4 = (verdict: string) => {
+				callCount++;
+				return original(verdict);
+			};
 
-		const out = await executeWriteMutationEvidence(
-			{ phase: 1, verdict: 'PASS', summary: 'Seam test' },
-			testDir,
-		);
-		expect(JSON.parse(out).success).toBe(true);
-		expect(callCount).toBe(1);
-
-		_internals.normalizeVerdict4 = original;
+			const out = await executeWriteMutationEvidence(
+				{ phase: 1, verdict: 'PASS', summary: 'Seam test' },
+				testDir,
+			);
+			expect(JSON.parse(out).success).toBe(true);
+			expect(callCount).toBe(1);
+		} finally {
+			_internals.normalizeVerdict4 = original;
+		}
 	});
 });
