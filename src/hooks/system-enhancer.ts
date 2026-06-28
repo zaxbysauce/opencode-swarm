@@ -577,6 +577,11 @@ export function createSystemEnhancerHook(
 						}
 					}
 
+					// Per-invocation closure cache: all plan-file reads within this
+					// single transform call share one Map so the filesystem is hit at
+					// most once per file per turn.
+					const planReadCache = new Map<string, Promise<string | null>>();
+
 					const maxInjectionTokens =
 						config.context_budget?.max_injection_tokens ?? 4000;
 					let injectedTokens = 0;
@@ -596,6 +601,7 @@ export function createSystemEnhancerHook(
 					const contextContent = await readSwarmFileAsync(
 						directory,
 						'context.md',
+						planReadCache,
 					);
 
 					// v6.39: Auto-trigger doc_scan to build/refresh doc manifest
@@ -755,7 +761,7 @@ export function createSystemEnhancerHook(
 						// Priority 0: Minimal phase header
 						let plan = null;
 						try {
-							plan = await loadPlan(directory);
+							plan = await loadPlan(directory, planReadCache);
 						} catch (error) {
 							warn(
 								`Failed to load plan: ${error instanceof Error ? error.message : String(error)}`,
@@ -763,14 +769,22 @@ export function createSystemEnhancerHook(
 						}
 						// Issue #853 Layer A: surface spec drift to the model.
 						maybeAppendSpecDriftAdvisory(output, directory, plan);
-						const mode = await detectArchitectMode(directory);
+						const mode = await detectArchitectMode(directory, planReadCache);
 						let planContent: string | null = null;
 						let phaseHeader = '';
 						if (plan && plan.migration_status !== 'migration_failed') {
 							phaseHeader = extractCurrentPhaseFromPlan(plan) || '';
-							planContent = await readSwarmFileAsync(directory, 'plan.md');
+							planContent = await readSwarmFileAsync(
+								directory,
+								'plan.md',
+								planReadCache,
+							);
 						} else {
-							planContent = await readSwarmFileAsync(directory, 'plan.md');
+							planContent = await readSwarmFileAsync(
+								directory,
+								'plan.md',
+								planReadCache,
+							);
 							phaseHeader = planContent
 								? extractCurrentPhase(planContent) || ''
 								: '';
@@ -791,6 +805,7 @@ export function createSystemEnhancerHook(
 								const handoffContent = await readSwarmFileAsync(
 									directory,
 									'handoff.md',
+									planReadCache,
 								);
 								if (handoffContent) {
 									// Validate paths BEFORE rename
@@ -1490,7 +1505,7 @@ ${handoffContent}`;
 					}
 
 					// Path B: Scoring is enabled - build candidates and rank
-					const mode_b = await detectArchitectMode(directory);
+					const mode_b = await detectArchitectMode(directory, planReadCache);
 					const userScoringConfig = config.context_budget?.scoring;
 					const candidates: ContextCandidate[] = [];
 					let idCounter = 0;
@@ -1511,7 +1526,7 @@ ${handoffContent}`;
 					// Current phase
 					let plan = null;
 					try {
-						plan = await loadPlan(directory);
+						plan = await loadPlan(directory, planReadCache);
 					} catch (error) {
 						warn(
 							`Failed to load plan: ${error instanceof Error ? error.message : String(error)}`,
@@ -1529,6 +1544,7 @@ ${handoffContent}`;
 						planContentForCursor = await readSwarmFileAsync(
 							directory,
 							'plan.md',
+							planReadCache,
 						);
 						if (planContentForCursor) {
 							currentPhase = extractCurrentPhase(planContentForCursor);
@@ -1583,6 +1599,7 @@ ${handoffContent}`;
 							const handoffContent = await readSwarmFileAsync(
 								directory,
 								'handoff.md',
+								planReadCache,
 							);
 							if (handoffContent) {
 								// Validate paths BEFORE rename
@@ -2327,9 +2344,10 @@ export type ArchitectMode =
  */
 export async function detectArchitectMode(
 	directory: string,
+	cache?: Map<string, Promise<string | null>>,
 ): Promise<ArchitectMode> {
 	try {
-		const plan = await loadPlan(directory);
+		const plan = await loadPlan(directory, cache);
 
 		if (!plan) {
 			// No plan exists yet

@@ -170,7 +170,22 @@ export function validateSwarmPath(directory: string, filename: string): string {
 export async function readSwarmFileAsync(
 	directory: string,
 	filename: string,
+	cache?: Map<string, Promise<string | null>>,
 ): Promise<string | null> {
+	if (cache !== undefined) {
+		const key = `${directory}::${filename}`;
+		const cached = cache.get(key);
+		if (cached !== undefined) {
+			// Return the cached promise directly — concurrent awaits share the
+			// same in-flight request, and null results are cached too.
+			return cached;
+		}
+		// Store the promise BEFORE awaiting so any concurrent call for the same
+		// key picks up the in-flight promise instead of starting a second read.
+		const promise = readSwarmFileAsync(directory, filename);
+		cache.set(key, promise);
+		return promise;
+	}
 	// Retry loop to handle macOS/APFS rename-visibility race.
 	// After an atomic rename, the filesystem can take a few ms to update
 	// the directory entry. Immediately-following reads may see ENOENT.

@@ -346,8 +346,12 @@ function extractPlanHashFromMarkdown(markdown: string): string | null {
  * Returns true if plan.md exists and matches the plan's content hash.
  * This avoids timestamp comparison issues by using a deterministic hash.
  */
-async function isPlanMdInSync(directory: string, plan: Plan): Promise<boolean> {
-	const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
+async function isPlanMdInSync(
+	directory: string,
+	plan: Plan,
+	cache?: Map<string, Promise<string | null>>,
+): Promise<boolean> {
+	const planMdContent = await readSwarmFileAsync(directory, 'plan.md', cache);
 	if (planMdContent === null) {
 		return false;
 	}
@@ -426,9 +430,16 @@ export async function regeneratePlanMarkdown(
  * 3. .swarm/plan.md exists only -> migrate from plan.md, save both files, return Plan
  * 4. Neither exists -> return null
  */
-export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
+export async function loadPlan(
+	directory: string,
+	cache?: Map<string, Promise<string | null>>,
+): Promise<RuntimePlan | null> {
 	// Step 1: Try to load and validate plan.json
-	const planJsonContent = await readSwarmFileAsync(directory, 'plan.json');
+	const planJsonContent = await readSwarmFileAsync(
+		directory,
+		'plan.json',
+		cache,
+	);
 	if (planJsonContent !== null) {
 		// SECURITY: Reject content with null bytes or invalid UTF-8
 		if (planJsonContent.includes('\0') || planJsonContent.includes('\uFFFD')) {
@@ -445,7 +456,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 					);
 				} else {
 					// Auto-heal case 1: Valid plan.json exists, check if plan.md needs regeneration
-					const inSync = await isPlanMdInSync(directory, validated);
+					const inSync = await isPlanMdInSync(directory, validated, cache);
 					if (!inSync) {
 						try {
 							await _internals.regeneratePlanMarkdown(directory, validated);
@@ -677,7 +688,11 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 					}
 				}
 				// Auto-heal case 2: plan.json invalid but plan.md exists -> migrate from plan.md
-				const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
+				const planMdContent = await readSwarmFileAsync(
+					directory,
+					'plan.md',
+					cache,
+				);
 				if (planMdContent !== null) {
 					const migrated = migrateLegacyPlan(planMdContent);
 					// savePlan writes both plan.json and plan.md. Recovery path:
@@ -703,7 +718,7 @@ export async function loadPlan(directory: string): Promise<RuntimePlan | null> {
 	}
 
 	// Step 3: Try to migrate from legacy plan.md (no plan.json exists)
-	const planMdContent = await readSwarmFileAsync(directory, 'plan.md');
+	const planMdContent = await readSwarmFileAsync(directory, 'plan.md', cache);
 	if (planMdContent !== null) {
 		const migrated = migrateLegacyPlan(planMdContent);
 		// Save the migrated plan (writes both files)
