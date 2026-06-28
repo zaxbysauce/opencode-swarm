@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.98.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.97.0...v7.98.0) (2026-06-28)
+
+
+### Features
+
+* **tools:** deferred context/tool improvements from [#1323](https://github.com/ZaxbyHub/opencode-swarm/issues/1323) reconciliation ([f034489](https://github.com/ZaxbyHub/opencode-swarm/commit/f0344898cc7dac9bfa6527fecd5f5644c8ab4ed8))
+
+
+### Bug Fixes
+
+* **pr-1549:** address 5 PR feedback items (round 1) ([4c8fc19](https://github.com/ZaxbyHub/opencode-swarm/commit/4c8fc191aba8e4e261aa50e754ff24d3b9a943f5))
+
 ## [7.97.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.96.0...v7.97.0) (2026-06-28)
 
 
