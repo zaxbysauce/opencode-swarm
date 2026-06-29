@@ -21,6 +21,8 @@
 
 import * as fs from 'node:fs';
 import * as path from 'node:path';
+import { normalizePath } from '../../utils/path';
+export { normalizePath };
 
 // ─── Scope File Types ────────────────────────────────────────────────────────
 
@@ -115,45 +117,6 @@ export const BARREL_FILE_PATTERNS: readonly RegExp[] = [
 ];
 
 // ─── Helper Functions ────────────────────────────────────────────────────────
-
-/**
- * Normalize a file path to POSIX-style for consistent cross-platform comparison.
- *
- * - Converts backslashes to forward slashes
- * - Removes trailing slashes
- * - Collapses multiple consecutive slashes
- * - Resolves `.` path segments (current directory references)
- * - Does NOT resolve `..` segments or symlinks
- *
- * @param filePath - The path to normalize
- * @returns POSIX-normalized path
- */
-export function normalizePath(filePath: string): string {
-	// Handle edge case: "." or "./" alone should return "."
-	if (filePath === '.' || filePath === './') {
-		return '.';
-	}
-
-	let result = filePath
-		.replace(/\\/g, '/') // Convert Windows backslashes
-		.replace(/\/+/g, '/') // Collapse multiple slashes
-		// Remove leading ./
-		.replace(/^\.\//, '')
-		// Replace /. / with / at segment boundaries (handles middle and trailing ./)
-		.replace(/(?:^|\/)\.\//g, '/');
-
-	// Remove trailing slash
-	result = result.replace(/\/$/, '');
-
-	// Remove trailing /. if present (handles case where ./ was at the end before trailing slash removal)
-	result = result.replace(/\/\.$/, '');
-
-	// Normalize case on Windows for consistent comparison
-	if (process.platform === 'win32') {
-		result = result.toLowerCase();
-	}
-	return result;
-}
 
 /**
  * Check if a path contains directory traversal components.

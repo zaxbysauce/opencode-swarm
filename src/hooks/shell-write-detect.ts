@@ -78,6 +78,14 @@ export interface ResolvedWriteTarget {
 	resolved: boolean;
 }
 
+function buildDedupeKey(
+	category: string,
+	operator: string,
+	path: string | null | undefined,
+): string {
+	return `${category}|${operator}|${path ?? 'null'}`;
+}
+
 // ---------------------------------------------------------------------------
 // Operator token → category mapping
 // ---------------------------------------------------------------------------
@@ -1597,7 +1605,7 @@ export function detectPosixWrites(command: string): WriteAnalysis {
 	// Deduplicate by (category, operator, path) to avoid double-counting
 	const seen = new Set<string>();
 	const writes = allWrites.filter((wt) => {
-		const key = `${wt.category}|${wt.operator}|${wt.path ?? 'null'}`;
+		const key = buildDedupeKey(wt.category, wt.operator, wt.path);
 		if (seen.has(key)) return false;
 		seen.add(key);
 		return true;
@@ -1651,7 +1659,7 @@ export function detectWindowsWrites(
 		// Deduplicate by (category, operator, path)
 		const seen = new Set<string>();
 		const writes = allWrites.filter((wt) => {
-			const key = `${wt.category}|${wt.operator}|${wt.path ?? 'null'}`;
+			const key = buildDedupeKey(wt.category, wt.operator, wt.path);
 			if (seen.has(key)) return false;
 			seen.add(key);
 			return true;
@@ -2027,7 +2035,11 @@ export function resolveWriteTargets(
 	// Deduplicate writes the same way detectPosixWrites does
 	const seen = new Set<string>();
 	const deduplicated = writesWithNodes.filter((wwn) => {
-		const key = `${wwn.write.category}|${wwn.write.operator}|${wwn.write.path ?? 'null'}`;
+		const key = buildDedupeKey(
+			wwn.write.category,
+			wwn.write.operator,
+			wwn.write.path,
+		);
 		if (seen.has(key)) return false;
 		seen.add(key);
 		return true;
@@ -2042,13 +2054,17 @@ export function resolveWriteTargets(
 	for (const { write, context } of deduplicated) {
 		const resolvedPath = resolvePath(write.path, context);
 		const resolved = write.path !== null && !isDynamicPath(write.path);
-		const key = `${write.category}|${write.operator}|${write.path ?? 'null'}`;
+		const key = buildDedupeKey(write.category, write.operator, write.path);
 		resolvedMap.set(key, { resolvedPath, resolved });
 	}
 
 	// Map the input writes to their resolved paths
 	return writes.map((original) => {
-		const key = `${original.category}|${original.operator}|${original.path ?? 'null'}`;
+		const key = buildDedupeKey(
+			original.category,
+			original.operator,
+			original.path,
+		);
 		const resolved = resolvedMap.get(key);
 		if (resolved) {
 			return {

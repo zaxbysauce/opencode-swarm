@@ -1,3 +1,4 @@
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentDefinition } from './architect';
 import { READ_ONLY_LANE_GUIDANCE } from './read-only-lane-guidance';
 
@@ -290,11 +291,7 @@ export function createReviewerAgent(
 ): AgentDefinition {
 	let prompt = REVIEWER_PROMPT;
 
-	if (customPrompt) {
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${REVIEWER_PROMPT}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	return {
 		name: 'reviewer',

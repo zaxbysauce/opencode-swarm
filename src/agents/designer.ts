@@ -1,3 +1,4 @@
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentDefinition } from './architect';
 
 const DESIGNER_PROMPT = `## IDENTITY
@@ -172,11 +173,7 @@ export function createDesignerAgent(
 ): AgentDefinition {
 	let prompt = DESIGNER_PROMPT;
 
-	if (customPrompt) {
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${DESIGNER_PROMPT}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	return {
 		name: 'designer',

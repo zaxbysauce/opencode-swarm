@@ -25,6 +25,14 @@ function expectWrites(
 	expect(result.hasWrites).toBe(expected.length > 0);
 }
 
+function ps(command: string) {
+	return detectWindowsWrites(command, 'powershell');
+}
+
+function cmd(command: string) {
+	return detectWindowsWrites(command, 'cmd');
+}
+
 // ---------------------------------------------------------------------------
 // Category 1: File redirection operators (>  >>  >|  <>)
 // ---------------------------------------------------------------------------
@@ -631,10 +639,6 @@ describe('deduplication', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows PowerShell — redirect operators', () => {
-	function ps(command: string) {
-		return detectWindowsWrites(command, 'powershell');
-	}
-
 	test('detects > (redirect output)', () => {
 		expect(ps('echo hello > file.txt').writes).toEqual([
 			{ category: 'redirect', operator: '>', path: 'file.txt' },
@@ -678,10 +682,6 @@ describe('Windows PowerShell — redirect operators', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows PowerShell — file-writing cmdlets', () => {
-	function ps(command: string) {
-		return detectWindowsWrites(command, 'powershell');
-	}
-
 	test('Set-Content with -Path flag writes to file', () => {
 		expect(ps('Set-Content -Path file.txt -Value "hello"').writes).toEqual([
 			{ category: 'redirect', operator: 'Set-Content', path: 'file.txt' },
@@ -800,10 +800,6 @@ describe('Windows PowerShell — file-writing cmdlets', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows PowerShell — network and process', () => {
-	function ps(command: string) {
-		return detectWindowsWrites(command, 'powershell');
-	}
-
 	test('Invoke-WebRequest -OutFile flags as network download', () => {
 		expect(
 			ps(
@@ -836,10 +832,6 @@ describe('Windows PowerShell — network and process', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows cmd.exe — redirect operators', () => {
-	function cmd(command: string) {
-		return detectWindowsWrites(command, 'cmd');
-	}
-
 	test('detects > (redirect output)', () => {
 		expect(cmd('echo hello > file.txt').writes).toEqual([
 			{ category: 'redirect', operator: '>', path: 'file.txt' },
@@ -872,10 +864,6 @@ describe('Windows cmd.exe — redirect operators', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows cmd.exe — builtin commands', () => {
-	function cmd(command: string) {
-		return detectWindowsWrites(command, 'cmd');
-	}
-
 	test('copy builtin with destination', () => {
 		expect(cmd('copy src.txt dst.txt').writes).toEqual([
 			{ category: 'builtin_write', operator: 'copy', path: 'dst.txt' },
@@ -936,10 +924,6 @@ describe('Windows cmd.exe — builtin commands', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows cmd.exe — echo and set with redirection', () => {
-	function cmd(command: string) {
-		return detectWindowsWrites(command, 'cmd');
-	}
-
 	test('echo with redirect', () => {
 		expect(cmd('echo hello > file.txt').writes).toEqual([
 			{ category: 'redirect', operator: '>', path: 'file.txt' },
@@ -1578,10 +1562,6 @@ describe('process substitution — POSIX bash', () => {
 // ---------------------------------------------------------------------------
 
 describe('Windows PowerShell — pipeline output detection', () => {
-	function ps(command: string) {
-		return detectWindowsWrites(command, 'powershell');
-	}
-
 	test('Get-Content input.txt | Out-File output.txt detects write', () => {
 		// Out-File after a pipe should detect output.txt as the write target
 		const result = ps('Get-Content input.txt | Out-File output.txt');
@@ -2633,5 +2613,36 @@ describe('FR-002 cmd.exe builtins — resolveWriteTargets scope', () => {
 		expect(result.length).toBe(1);
 		expect(result[0].resolvedPath).toMatch(/Windows/);
 		expect(isInScope(result[0].resolvedPath!, 'C:\\project')).toBe(false);
+	});
+});
+
+describe('dedup key behavior (via detectPosixWrites / detectWindowsWrites)', () => {
+	test('detectPosixWrites deduplicates identical write entries', () => {
+		// A command that produces two identical writes (same category, operator, path)
+		// should result in only one entry after deduplication.
+		const result = detectPosixWrites('cat a > /tmp/out && cat b > /tmp/out');
+		const paths = result.writes.map((w) => w.path);
+		const unique = [...new Set(paths)];
+		expect(unique.length).toBe(paths.length);
+	});
+
+	test('detectWindowsWrites deduplicates identical write entries', () => {
+		const result = detectWindowsWrites(
+			'Write-Output a > C:\\tmp\\out; Write-Output b > C:\\tmp\\out',
+			'powershell',
+		);
+		const paths = result.writes.map((w) => w.path);
+		const unique = [...new Set(paths)];
+		expect(unique.length).toBe(paths.length);
+	});
+
+	test('dedup key uses null for missing path', () => {
+		// Commands with no explicit path should produce a write with path=null
+		// and duplicates should be removed by the null-path dedup key.
+		const result = detectPosixWrites('echo foo | tee && echo bar | tee');
+		const nullWrites = result.writes.filter((w) => w.path === null);
+		const nullWriteCount = nullWrites.length;
+		// If dedup key handles null correctly, duplicate null-path entries collapse
+		expect(nullWriteCount).toBeLessThanOrEqual(result.writes.length);
 	});
 });

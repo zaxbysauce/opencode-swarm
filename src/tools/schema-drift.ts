@@ -62,7 +62,7 @@ const MAX_SPEC_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_EXTENSIONS = ['.json', '.yaml', '.yml'];
 
 // ============ Path Normalization ============
-function normalizePath(p: string): string {
+function normalizeApiPath(p: string): string {
 	return p
 		.replace(/\/$/, '')
 		.replace(/\{[^}]+\}/g, ':param')
@@ -344,7 +344,7 @@ function findDrift(
 	// Build normalized spec path map
 	const specPathMap = new Map<string, string[]>();
 	for (const sp of specPaths) {
-		const normalized = normalizePath(sp.path);
+		const normalized = normalizeApiPath(sp.path);
 		if (!specPathMap.has(normalized)) {
 			specPathMap.set(normalized, []);
 		}
@@ -354,7 +354,7 @@ function findDrift(
 	// Build normalized code route map
 	const codeRouteMap = new Map<string, CodeRoute[]>();
 	for (const cr of codeRoutes) {
-		const normalized = normalizePath(cr.path);
+		const normalized = normalizeApiPath(cr.path);
 		if (!codeRouteMap.has(normalized)) {
 			codeRouteMap.set(normalized, []);
 		}
@@ -381,7 +381,7 @@ function findDrift(
 	for (const [normalized, methods] of specPathMap) {
 		if (!codeRouteMap.has(normalized)) {
 			phantom.push({
-				path: specPaths.find((sp) => normalizePath(sp.path) === normalized)!
+				path: specPaths.find((sp) => normalizeApiPath(sp.path) === normalized)!
 					.path,
 				methods,
 			});

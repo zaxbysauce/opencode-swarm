@@ -361,6 +361,24 @@ function applyOverrides(
 }
 
 /**
+ * Table of Type A agents — simple factory pattern with no extra args.
+ * Each entry maps a canonical agent name to its factory function.
+ * The loop in createSwarmAgents uses this table to register all nine agents
+ * without repeating the same if/prompt/factory/name/push block nine times.
+ */
+const TYPE_A_AGENTS = [
+	{ name: 'explorer' as const, factory: createExplorerAgent },
+	{ name: 'sme' as const, factory: createSMEAgent },
+	{ name: 'researcher' as const, factory: createResearcherAgent },
+	{ name: 'coder' as const, factory: createCoderAgent },
+	{ name: 'reviewer' as const, factory: createReviewerAgent },
+	{ name: 'test_engineer' as const, factory: createTestEngineerAgent },
+	{ name: 'docs' as const, factory: createDocsAgent },
+	{ name: 'skill_improver' as const, factory: createSkillImproverAgent },
+	{ name: 'spec_writer' as const, factory: createSpecWriterAgent },
+] as const;
+
+/**
  * Create agents for a single swarm
  */
 function createSwarmAgents(
@@ -469,63 +487,24 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		agents.push(applyOverrides(architect, swarmAgents, swarmPrefix, quiet));
 	}
 
-	// 2. Create Explorer
-	if (!isAgentDisabled('explorer', swarmAgents, swarmPrefix)) {
-		const explorerPrompts = getPrompts('explorer');
-		const explorer = createExplorerAgent(
-			getModel('explorer'),
-			explorerPrompts.prompt,
-			explorerPrompts.appendPrompt,
-		);
-		explorer.name = prefixName('explorer');
-		agents.push(applyOverrides(explorer, swarmAgents, swarmPrefix, quiet));
-	}
-
-	// 3. Create SME agent
-	if (!isAgentDisabled('sme', swarmAgents, swarmPrefix)) {
-		const smePrompts = getPrompts('sme');
-		const sme = createSMEAgent(
-			getModel('sme'),
-			smePrompts.prompt,
-			smePrompts.appendPrompt,
-		);
-		sme.name = prefixName('sme');
-		agents.push(applyOverrides(sme, swarmAgents, swarmPrefix, quiet));
-	}
-
-	// 3b. Create Researcher agent — automated multi-source research specialist
-	if (!isAgentDisabled('researcher', swarmAgents, swarmPrefix)) {
-		const researcherPrompts = getPrompts('researcher');
-		const researcher = createResearcherAgent(
-			getModel('researcher'),
-			researcherPrompts.prompt,
-			researcherPrompts.appendPrompt,
-		);
-		researcher.name = prefixName('researcher');
-		agents.push(applyOverrides(researcher, swarmAgents, swarmPrefix, quiet));
-	}
-
-	// 4. Create pipeline agents
-	if (!isAgentDisabled('coder', swarmAgents, swarmPrefix)) {
-		const coderPrompts = getPrompts('coder');
-		const coder = createCoderAgent(
-			getModel('coder'),
-			coderPrompts.prompt,
-			coderPrompts.appendPrompt,
-		);
-		coder.name = prefixName('coder');
-		agents.push(applyOverrides(coder, swarmAgents, swarmPrefix, quiet));
-	}
-
-	if (!isAgentDisabled('reviewer', swarmAgents, swarmPrefix)) {
-		const reviewerPrompts = getPrompts('reviewer');
-		const reviewer = createReviewerAgent(
-			getModel('reviewer'),
-			reviewerPrompts.prompt,
-			reviewerPrompts.appendPrompt,
-		);
-		reviewer.name = prefixName('reviewer');
-		agents.push(applyOverrides(reviewer, swarmAgents, swarmPrefix, quiet));
+	// 2. Register Type A agents via table-driven loop.
+	// Covers: explorer, sme, researcher, coder, reviewer, test_engineer, docs,
+	// skill_improver, spec_writer — all follow the same factory(model, cp, ca)
+	// pattern. Agents with non-standard args (critic variants, curator variants,
+	// council agents, docs_design, designer) remain as explicit blocks below.
+	for (const { name, factory } of TYPE_A_AGENTS) {
+		if (!isAgentDisabled(name, swarmAgents, swarmPrefix)) {
+			const prompts = getPrompts(name);
+			const agent = (
+				factory as (
+					model: string,
+					customPrompt?: string,
+					customAppendPrompt?: string,
+				) => AgentDefinition
+			)(getModel(name), prompts.prompt, prompts.appendPrompt);
+			agent.name = prefixName(name);
+			agents.push(applyOverrides(agent, swarmAgents, swarmPrefix, quiet));
+		}
 	}
 
 	// 5a. Create Critic (Plan Review)
@@ -658,43 +637,6 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 		);
 	}
 
-	// 5f. v2: skill_improver — issue #629. Registered when enabled in config.
-	// Always present in agent map (so SDK can dispatch by name) — runtime gating
-	// happens in the skill_improve tool which checks skill_improver.enabled.
-	if (!isAgentDisabled('skill_improver', swarmAgents, swarmPrefix)) {
-		const sip = getPrompts('skill_improver');
-		const skillImprover = createSkillImproverAgent(
-			swarmAgents?.skill_improver?.model ?? getModel('skill_improver'),
-			sip.prompt,
-			sip.appendPrompt,
-		);
-		skillImprover.name = prefixName('skill_improver');
-		agents.push(applyOverrides(skillImprover, swarmAgents, swarmPrefix, quiet));
-	}
-
-	// 5g. v2: spec_writer — independent model for .swarm/spec.md authorship.
-	if (!isAgentDisabled('spec_writer', swarmAgents, swarmPrefix)) {
-		const sw = getPrompts('spec_writer');
-		const specWriter = createSpecWriterAgent(
-			swarmAgents?.spec_writer?.model ?? getModel('spec_writer'),
-			sw.prompt,
-			sw.appendPrompt,
-		);
-		specWriter.name = prefixName('spec_writer');
-		agents.push(applyOverrides(specWriter, swarmAgents, swarmPrefix, quiet));
-	}
-
-	if (!isAgentDisabled('test_engineer', swarmAgents, swarmPrefix)) {
-		const testPrompts = getPrompts('test_engineer');
-		const testEngineer = createTestEngineerAgent(
-			getModel('test_engineer'),
-			testPrompts.prompt,
-			testPrompts.appendPrompt,
-		);
-		testEngineer.name = prefixName('test_engineer');
-		agents.push(applyOverrides(testEngineer, swarmAgents, swarmPrefix, quiet));
-	}
-
 	// 5f. General Council agents (opt-in — council.general.enabled === true).
 	// Three agents registered with council-specific prompts sourcing models from
 	// reviewer/critic/sme swarm config entries — fixing the model resolution bug
@@ -789,18 +731,6 @@ If you call @coder instead of @${swarmId}_coder, the call will FAIL or go to the
 				'[opencode-swarm] council.general.moderatorModel is deprecated and ignored. The architect now synthesizes the final answer directly using inline output rules. Remove this field (and council.general.moderator if set) from opencode-swarm.json to silence this warning.',
 			);
 		}
-	}
-
-	// 8. Create Docs agent (enabled by default — must be explicitly disabled)
-	if (!isAgentDisabled('docs', swarmAgents, swarmPrefix)) {
-		const docsPrompts = getPrompts('docs');
-		const docs = createDocsAgent(
-			getModel('docs'),
-			docsPrompts.prompt,
-			docsPrompts.appendPrompt,
-		);
-		docs.name = prefixName('docs');
-		agents.push(applyOverrides(docs, swarmAgents, swarmPrefix, quiet));
 	}
 
 	// 8b. Create Docs (Design-Doc Author) variant — opt-in, only when
