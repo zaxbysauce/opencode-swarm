@@ -507,6 +507,38 @@ describe('Hook Utilities', () => {
 				},
 			);
 
+			defineSymlinkTest(
+				'rejects symlinked parent directories pointing outside .swarm',
+				async () => {
+					const swarmDir = join(tempDir, '.swarm');
+					await mkdir(swarmDir, { recursive: true });
+					const outsideDir = join(tempDir, 'outside-evidence');
+					await mkdir(outsideDir, { recursive: true });
+					const evidenceLink = join(swarmDir, 'evidence');
+
+					await symlink(outsideDir, evidenceLink);
+
+					expect(() =>
+						validateSwarmPath(tempDir, 'evidence/final-council.json'),
+					).toThrow('Invalid filename: path escapes .swarm directory');
+				},
+			);
+
+			defineSymlinkTest(
+				'rejects a symlinked .swarm root pointing outside the project',
+				async () => {
+					const outsideDir = join(tempDir, 'outside-swarm-root');
+					await mkdir(outsideDir, { recursive: true });
+					const swarmLink = join(tempDir, '.swarm');
+
+					await symlink(outsideDir, swarmLink);
+
+					expect(() => validateSwarmPath(tempDir, 'evidence.json')).toThrow(
+						'Invalid filename: path escapes .swarm directory',
+					);
+				},
+			);
+
 			defineSymlinkTest('allows symlinks pointing inside .swarm', async () => {
 				const swarmDir = join(tempDir, '.swarm');
 				await mkdir(swarmDir, { recursive: true });
