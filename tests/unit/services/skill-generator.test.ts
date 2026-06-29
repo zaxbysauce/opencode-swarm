@@ -1360,7 +1360,10 @@ describe('retireOrMarkStale', () => {
 	// - retire path: retired.marker file created by the real retireSkill
 	// - stale path: stale.marker file created by the real markSkillStale
 
-	async function makeSkillDir(slug: string, sourceIds: string[]): Promise<string> {
+	async function makeSkillDir(
+		slug: string,
+		sourceIds: string[],
+	): Promise<string> {
 		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', slug);
 		await mkdir(skillDir, { recursive: true });
 		const fm = [
@@ -1378,7 +1381,11 @@ describe('retireOrMarkStale', () => {
 	it('retireOrStale_allSourcesArchived → retires skill (creates retired.marker)', async () => {
 		// Skill has sources [A, B], both are in archivedIds → retire
 		const skillDir = await makeSkillDir('all-archived', ['src-a', 'src-b']);
-		const result = await _internals.retireOrMarkStale(tmp, skillDir, new Set(['src-a', 'src-b']));
+		const result = await _internals.retireOrMarkStale(
+			tmp,
+			skillDir,
+			new Set(['src-a', 'src-b']),
+		);
 		expect(result.action).toBe('retire');
 		expect(result.slug).toBe('all-archived');
 		// retireSkill creates a retired.marker file as side effect
@@ -1390,7 +1397,11 @@ describe('retireOrMarkStale', () => {
 	it('retireOrStale_notAllSourcesArchived → marks stale via stale.marker file', async () => {
 		// Skill has sources [A, B], only A is in archivedIds → mark stale (calls markSkillStale)
 		const skillDir = await makeSkillDir('partial-archived', ['src-a', 'src-b']);
-		const result = await _internals.retireOrMarkStale(tmp, skillDir, new Set(['src-a']));
+		const result = await _internals.retireOrMarkStale(
+			tmp,
+			skillDir,
+			new Set(['src-a']),
+		);
 		expect(result.action).toBe('stale');
 		expect(result.slug).toBe('partial-archived');
 		// markSkillStale creates a stale.marker file as side effect
@@ -1405,23 +1416,43 @@ describe('retireOrMarkStale', () => {
 	});
 
 	it('marks stale when SKILL.md does not exist', async () => {
-		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', 'no-file');
+		const skillDir = path.join(
+			tmp,
+			'.opencode',
+			'skills',
+			'generated',
+			'no-file',
+		);
 		await mkdir(skillDir, { recursive: true });
-		const result = await _internals.retireOrMarkStale(tmp, skillDir, new Set(['x']));
+		const result = await _internals.retireOrMarkStale(
+			tmp,
+			skillDir,
+			new Set(['x']),
+		);
 		expect(result.action).toBe('stale');
 		// markSkillStale is called even when SKILL.md doesn't exist
 		expect(existsSync(path.join(skillDir, 'stale.marker'))).toBe(true);
 	});
 
 	it('marks stale when source_knowledge_ids is empty', async () => {
-		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', 'empty-sources');
+		const skillDir = path.join(
+			tmp,
+			'.opencode',
+			'skills',
+			'generated',
+			'empty-sources',
+		);
 		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			path.join(skillDir, 'SKILL.md'),
 			['---', 'name: empty-sources', '---', '# Empty'].join('\n'),
 			'utf-8',
 		);
-		const result = await _internals.retireOrMarkStale(tmp, skillDir, new Set(['x']));
+		const result = await _internals.retireOrMarkStale(
+			tmp,
+			skillDir,
+			new Set(['x']),
+		);
 		expect(result.action).toBe('stale');
 		// Empty source_knowledge_ids → allArchived=false → markSkillStale is called
 		expect(existsSync(path.join(skillDir, 'stale.marker'))).toBe(true);
@@ -1433,7 +1464,10 @@ describe('retireOrMarkStale', () => {
 // ============================================================================
 
 describe('findStaleSkillsBySourceKnowledgeId', () => {
-	async function makeStaleSkillDir(slug: string, sourceIds: string[]): Promise<string> {
+	async function makeStaleSkillDir(
+		slug: string,
+		sourceIds: string[],
+	): Promise<string> {
 		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', slug);
 		await mkdir(skillDir, { recursive: true });
 		const fm = [
@@ -1445,11 +1479,18 @@ describe('findStaleSkillsBySourceKnowledgeId', () => {
 			`# ${slug}`,
 		].join('\n');
 		await writeFile(path.join(skillDir, 'SKILL.md'), fm, 'utf-8');
-		await writeFile(path.join(skillDir, 'stale.marker'), 'needs regeneration', 'utf-8');
+		await writeFile(
+			path.join(skillDir, 'stale.marker'),
+			'needs regeneration',
+			'utf-8',
+		);
 		return skillDir;
 	}
 
-	async function makeActiveSkillDir(slug: string, sourceIds: string[]): Promise<string> {
+	async function makeActiveSkillDir(
+		slug: string,
+		sourceIds: string[],
+	): Promise<string> {
 		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', slug);
 		await mkdir(skillDir, { recursive: true });
 		const fm = [
@@ -1464,7 +1505,10 @@ describe('findStaleSkillsBySourceKnowledgeId', () => {
 		return skillDir;
 	}
 
-	async function makeRetiredSkillDir(slug: string, sourceIds: string[]): Promise<string> {
+	async function makeRetiredSkillDir(
+		slug: string,
+		sourceIds: string[],
+	): Promise<string> {
 		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', slug);
 		await mkdir(skillDir, { recursive: true });
 		const fm = [
@@ -1499,43 +1543,71 @@ describe('findStaleSkillsBySourceKnowledgeId', () => {
 	it('findStaleSkillsBySourceKnowledgeId_partial → does NOT return stale skill when NOT all sources archived', async () => {
 		// Stale skill has sources [A, B], only A is in archivedIds → should NOT be returned
 		await makeStaleSkillDir('partial-stale', ['src-a', 'src-b']);
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['src-a']));
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['src-a']),
+		);
 		expect(result).toEqual([]);
 	});
 
 	it('returns empty array when generated directory does not exist', async () => {
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['x']));
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['x']),
+		);
 		expect(result).toEqual([]);
 	});
 
 	it('returns empty array when no stale skills exist', async () => {
 		await makeActiveSkillDir('active-only', ['src-a']);
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['src-a']));
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['src-a']),
+		);
 		expect(result).toEqual([]);
 	});
 
 	it('skips retired skills even if all sources are archived', async () => {
 		await makeRetiredSkillDir('retired-all-archived', ['src-x']);
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['src-x']));
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['src-x']),
+		);
 		expect(result).toEqual([]);
 	});
 
 	it('skips active (non-stale) skills even if all sources are archived', async () => {
 		await makeActiveSkillDir('active-skill', ['src-y']);
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['src-y']));
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['src-y']),
+		);
 		expect(result).toEqual([]);
 	});
 
 	it('skips stale skill with empty source_knowledge_ids', async () => {
-		const skillDir = path.join(tmp, '.opencode', 'skills', 'generated', 'empty-stale');
+		const skillDir = path.join(
+			tmp,
+			'.opencode',
+			'skills',
+			'generated',
+			'empty-stale',
+		);
 		await mkdir(skillDir, { recursive: true });
 		await writeFile(
 			path.join(skillDir, 'SKILL.md'),
 			['---', 'name: empty-stale', '---', '# Empty'].join('\n'),
 			'utf-8',
 		);
-		await writeFile(path.join(skillDir, 'stale.marker'), 'empty sources', 'utf-8');
-		const result = await _internals.findStaleSkillsBySourceKnowledgeId(tmp, new Set(['any-id']));
+		await writeFile(
+			path.join(skillDir, 'stale.marker'),
+			'empty sources',
+			'utf-8',
+		);
+		const result = await _internals.findStaleSkillsBySourceKnowledgeId(
+			tmp,
+			new Set(['any-id']),
+		);
 		expect(result).toEqual([]);
 	});
 

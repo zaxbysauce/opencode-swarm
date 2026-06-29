@@ -18,9 +18,7 @@ import type {
 	HiveKnowledgeEntry,
 	SwarmKnowledgeEntry,
 } from '../../../src/hooks/knowledge-types';
-import {
-	knowledge_archive,
-} from '../../../src/tools/knowledge-archive';
+import { knowledge_archive } from '../../../src/tools/knowledge-archive';
 
 function makeSwarmEntry(id: string): SwarmKnowledgeEntry {
 	return {
@@ -363,7 +361,10 @@ describe('post-archive hook', () => {
 	let origHome: string;
 
 	beforeEach(() => {
-		dir = join(tmpdir(), `ka-hook-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+		dir = join(
+			tmpdir(),
+			`ka-hook-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+		);
 		mkdirSync(dir, { recursive: true });
 		origHome = process.env.HOME;
 		process.env.HOME = dir;
@@ -386,14 +387,30 @@ describe('post-archive hook', () => {
 	// -------------------------------------------------------------------------
 	// Helpers
 	// -------------------------------------------------------------------------
-	async function appendKnowledgeEntry(id: string, status: string): Promise<void> {
+	async function appendKnowledgeEntry(
+		id: string,
+		status: string,
+	): Promise<void> {
 		const swarmPath = resolveSwarmKnowledgePath(dir);
 		await appendKnowledge(swarmPath, {
-			id, tier: 'swarm', lesson: `Lesson ${id}`, category: 'process', tags: [],
-			scope: 'global', confidence: 0.5, status, confirmed_by: [],
+			id,
+			tier: 'swarm',
+			lesson: `Lesson ${id}`,
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.5,
+			status,
+			confirmed_by: [],
 			project_name: 'test',
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-			schema_version: 2, created_at: new Date().toISOString(), updated_at: new Date().toISOString(),
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+			schema_version: 2,
+			created_at: new Date().toISOString(),
+			updated_at: new Date().toISOString(),
 		} satisfies SwarmKnowledgeEntry);
 	}
 
@@ -420,11 +437,24 @@ describe('post-archive hook', () => {
 		await appendKnowledgeEntry('src-entry-1', 'candidate');
 
 		// Create a stale skill that depends on src-entry-1
-		const skillDir = join(dir, '.opencode', 'skills', 'generated', 'stale-skill-x');
+		const skillDir = join(
+			dir,
+			'.opencode',
+			'skills',
+			'generated',
+			'stale-skill-x',
+		);
 		mkdirSync(skillDir, { recursive: true });
 		writeFileSync(
 			join(skillDir, 'SKILL.md'),
-			['---', 'name: stale-skill-x', 'source_knowledge_ids:', '  - src-entry-1', '---', '# Stale Skill X'].join('\n'),
+			[
+				'---',
+				'name: stale-skill-x',
+				'source_knowledge_ids:',
+				'  - src-entry-1',
+				'---',
+				'# Stale Skill X',
+			].join('\n'),
 		);
 		writeFileSync(join(skillDir, 'stale.marker'), 'needs regen\n');
 
@@ -448,25 +478,64 @@ describe('post-archive hook', () => {
 	it('getArchivedKnowledgeIds returns archived and quarantined entry IDs', async () => {
 		const swarmPath = resolveSwarmKnowledgePath(dir);
 		await appendKnowledge(swarmPath, {
-			id: 'archived-entry', tier: 'swarm', lesson: 'L', category: 'process', tags: [],
-			scope: 'global', confidence: 0.5, status: 'archived', confirmed_by: [],
+			id: 'archived-entry',
+			tier: 'swarm',
+			lesson: 'L',
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'archived',
+			confirmed_by: [],
 			project_name: 'test',
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-			schema_version: 2, created_at: '', updated_at: '',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+			schema_version: 2,
+			created_at: '',
+			updated_at: '',
 		} satisfies SwarmKnowledgeEntry);
 		await appendKnowledge(swarmPath, {
-			id: 'quarantined-entry', tier: 'swarm', lesson: 'L', category: 'process', tags: [],
-			scope: 'global', confidence: 0.5, status: 'quarantined', confirmed_by: [],
+			id: 'quarantined-entry',
+			tier: 'swarm',
+			lesson: 'L',
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'quarantined',
+			confirmed_by: [],
 			project_name: 'test',
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-			schema_version: 2, created_at: '', updated_at: '',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+			schema_version: 2,
+			created_at: '',
+			updated_at: '',
 		} satisfies SwarmKnowledgeEntry);
 		await appendKnowledge(swarmPath, {
-			id: 'active-entry', tier: 'swarm', lesson: 'L', category: 'process', tags: [],
-			scope: 'global', confidence: 0.5, status: 'candidate', confirmed_by: [],
+			id: 'active-entry',
+			tier: 'swarm',
+			lesson: 'L',
+			category: 'process',
+			tags: [],
+			scope: 'global',
+			confidence: 0.5,
+			status: 'candidate',
+			confirmed_by: [],
 			project_name: 'test',
-			retrieval_outcomes: { applied_count: 0, succeeded_after_count: 0, failed_after_count: 0 },
-			schema_version: 2, created_at: '', updated_at: '',
+			retrieval_outcomes: {
+				applied_count: 0,
+				succeeded_after_count: 0,
+				failed_after_count: 0,
+			},
+			schema_version: 2,
+			created_at: '',
+			updated_at: '',
 		} satisfies SwarmKnowledgeEntry);
 
 		const ids = await getArchivedKnowledgeIds(dir);
