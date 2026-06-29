@@ -1,4 +1,5 @@
 import type { AgentConfig } from '@opencode-ai/sdk';
+import { resolvePrompt } from './_prompt-helpers.js';
 
 export type { AgentConfig };
 
@@ -1643,11 +1644,7 @@ export function createArchitectAgent(
 ): AgentDefinition {
 	let prompt = ARCHITECT_PROMPT;
 
-	if (customPrompt) {
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${ARCHITECT_PROMPT}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	// Resolve capability placeholders from AGENT_TOOL_MAP plus enabled opt-in tool maps.
 	// Thread `council` through the tool-list builders so council-only tools

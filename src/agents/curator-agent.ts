@@ -61,6 +61,7 @@ export function createCuratorAgent(
 ): AgentDefinition {
 	const roleConfig = ROLE_CONFIG[role];
 
+	// Intentional: customAppendPrompt is appended even when customPrompt is set (curator-specific merge behavior)
 	let prompt: string;
 	if (customPrompt) {
 		prompt = customAppendPrompt

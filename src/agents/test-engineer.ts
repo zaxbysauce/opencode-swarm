@@ -1,3 +1,4 @@
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentDefinition } from './architect';
 
 const TEST_ENGINEER_PROMPT = `## PRESSURE IMMUNITY
@@ -230,11 +231,7 @@ export function createTestEngineerAgent(
 ): AgentDefinition {
 	let prompt = TEST_ENGINEER_PROMPT;
 
-	if (customPrompt) {
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${TEST_ENGINEER_PROMPT}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	return {
 		name: 'test_engineer',

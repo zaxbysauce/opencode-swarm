@@ -1,3 +1,4 @@
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentDefinition } from './architect';
 import { READ_ONLY_LANE_GUIDANCE } from './read-only-lane-guidance';
 
@@ -129,11 +130,7 @@ export function createResearcherAgent(
 ): AgentDefinition {
 	let prompt = RESEARCHER_PROMPT;
 
-	if (customPrompt) {
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${RESEARCHER_PROMPT}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	return {
 		name: 'researcher',

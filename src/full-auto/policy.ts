@@ -21,6 +21,7 @@
 import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { WRITE_TOOL_NAMES } from '../config/constants';
+import { normalizePath } from '../utils/path';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -309,14 +310,6 @@ export function isSubagentDelegation(
 	return false;
 }
 
-function normalizePath(p: string): string {
-	if (!p) return '';
-	return p
-		.replace(/\\/g, '/')
-		.replace(/^\.\/+/, '')
-		.replace(/\/+$/, '');
-}
-
 function isWithinDirectory(target: string, root: string): boolean {
 	if (!target || !root) return false;
 	const resolvedTarget = path.resolve(target);
@@ -441,9 +434,7 @@ export function classifyPathRisk(
 	const withinProjectRoot =
 		isWithinDirectory(absolute, context.directory) &&
 		isWithinDirectory(resolvedAbsolute, context.directory);
-	const relative = path
-		.relative(context.directory, absolute)
-		.replace(/\\/g, '/');
+	const relative = normalizePath(path.relative(context.directory, absolute));
 	let withinDeclaredScope: boolean | null = null;
 	if (Array.isArray(context.declaredScope)) {
 		withinDeclaredScope =

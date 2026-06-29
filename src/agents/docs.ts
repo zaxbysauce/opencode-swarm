@@ -1,3 +1,4 @@
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentDefinition } from './architect';
 
 /**
@@ -214,12 +215,7 @@ export function createDocsAgent(
 	const roleConfig = ROLE_CONFIG[role];
 	let prompt = roleConfig.basePrompt;
 
-	if (customPrompt) {
-		// customPrompt is a complete replacement — customAppendPrompt is ignored
-		prompt = customPrompt;
-	} else if (customAppendPrompt) {
-		prompt = `${roleConfig.basePrompt}\n\n${customAppendPrompt}`;
-	}
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 
 	return {
 		name: roleConfig.name,

@@ -9,6 +9,7 @@
  *   - architect must ask user before invoking, when require_user_approval=true
  */
 
+import { resolvePrompt } from './_prompt-helpers.js';
 import type { AgentConfig, AgentDefinition } from './architect.js';
 
 const DEFAULT_PROMPT = `You are the skill_improver agent.
@@ -65,9 +66,7 @@ export function createSkillImproverAgent(
 	customAppendPrompt?: string,
 ): AgentDefinition {
 	let prompt = DEFAULT_PROMPT;
-	if (customPrompt) prompt = customPrompt;
-	else if (customAppendPrompt)
-		prompt = `${DEFAULT_PROMPT}\n\n${customAppendPrompt}`;
+	prompt = resolvePrompt(prompt, customPrompt, customAppendPrompt);
 	const config: AgentConfig = {
 		model,
 		temperature: 0.2,

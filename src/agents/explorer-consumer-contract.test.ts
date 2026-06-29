@@ -1,6 +1,7 @@
 import { describe, expect, test } from 'bun:test';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { resolvePrompt } from './_prompt-helpers.js';
 
 // Read the source file directly since prompts are not individually exported
 const EXPLORER_SOURCE = readFileSync(
@@ -494,8 +495,16 @@ describe('createExplorerAgent factory function contract', () => {
 	test('createExplorerAgent supports customAppendPrompt to extend default prompt', () => {
 		// Verify the append logic exists - customAppendPrompt is used to extend the prompt
 		expect(EXPLORER_SOURCE).toContain('customAppendPrompt');
-		expect(EXPLORER_SOURCE).toMatch(
-			/\$\{EXPLORER_PROMPT\}\\n\\n\$\{customAppendPrompt\}/,
+		// resolvePrompt(prompt, customPrompt, customAppendPrompt) encapsulates the
+		// append logic: when customAppendPrompt is set, it appends to the base prompt
+		expect(EXPLORER_SOURCE).toContain(
+			'resolvePrompt(prompt, customPrompt, customAppendPrompt)',
 		);
+
+		// Behavioral check — verify the helper composes correctly
+		expect(resolvePrompt('base', 'custom', 'append')).toBe('custom');
+		expect(resolvePrompt('base', 'custom', '')).toBe('custom');
+		expect(resolvePrompt('base', '', 'append')).toBe('base\n\nappend');
+		expect(resolvePrompt('base', '', '')).toBe('base');
 	});
 });
