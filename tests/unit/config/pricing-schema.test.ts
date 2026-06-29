@@ -38,6 +38,19 @@ describe('PricingConfigSchema', () => {
 		expect(result.success).toBe(false);
 	});
 
+	it('rejects empty-string model names', () => {
+		const result = PricingConfigSchema.safeParse({
+			models: {
+				'': {
+					input_per_million: 1,
+					output_per_million: 2,
+				},
+			},
+		});
+
+		expect(result.success).toBe(false);
+	});
+
 	it('is optional in PluginConfigSchema', () => {
 		const omitted = PluginConfigSchema.safeParse({});
 		const configured = PluginConfigSchema.safeParse({

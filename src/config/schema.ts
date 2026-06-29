@@ -208,7 +208,10 @@ export const ModelPricingConfigSchema = z.object({
 export type ModelPricingConfig = z.infer<typeof ModelPricingConfigSchema>;
 
 export const PricingConfigSchema = z.object({
-	models: z.record(z.string(), ModelPricingConfigSchema).optional().default({}),
+	models: z
+		.record(z.string().min(1), ModelPricingConfigSchema)
+		.optional()
+		.default({}),
 });
 export type PricingConfig = z.infer<typeof PricingConfigSchema>;
 

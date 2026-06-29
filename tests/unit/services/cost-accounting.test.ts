@@ -145,6 +145,21 @@ describe('estimateCostUsd', () => {
 			),
 		).toBeNull();
 	});
+
+	it('returns null when no model pricing is configured (BUNDLED_MODEL_PRICING is empty)', () => {
+		const fields = buildDelegationCostFields({
+			raw: {
+				usage: {
+					input_tokens: 1_000_000,
+					output_tokens: 1_000_000,
+				},
+			},
+			model: 'provider/any-model',
+			// no pricing provided
+		});
+		expect(fields.cost_source).toBe('unavailable');
+		expect(fields.cost_usd).toBeNull();
+	});
 });
 
 describe('summarizeTelemetryCosts', () => {
@@ -204,5 +219,73 @@ describe('summarizeTelemetryCosts', () => {
 			delegations: 1,
 			cost_usd: 0.12,
 		});
+	});
+
+	it('returns zero/empty summary when .swarm/telemetry.jsonl does not exist', () => {
+		// directory exists but no telemetry file
+		const summary = summarizeTelemetryCosts(testDir);
+		expect(summary.delegations).toBe(0);
+		expect(summary.total_cost_usd).toBe(0);
+		expect(summary.total_input_tokens).toBe(0);
+		expect(summary.total_output_tokens).toBe(0);
+		expect(summary.total_cache_tokens).toBe(0);
+	});
+
+	it('returns zero/empty summary when .swarm/telemetry.jsonl exists but is empty', () => {
+		writeFileSync(path.join(testDir, '.swarm', 'telemetry.jsonl'), '');
+		const summary = summarizeTelemetryCosts(testDir);
+		expect(summary.delegations).toBe(0);
+		expect(summary.total_cost_usd).toBe(0);
+	});
+
+	it('returns zero/empty summary when .swarm/telemetry.jsonl is missing (no throw)', () => {
+		// ensure file truly absent
+		const missingPath = path.join(testDir, '.swarm', 'telemetry.jsonl');
+		expect(() => summarizeTelemetryCosts(testDir)).not.toThrow();
+		const summary = summarizeTelemetryCosts(testDir);
+		expect(summary.delegations).toBe(0);
+	});
+
+	it('aggregates valid delegation_end events while skipping malformed JSONL lines', () => {
+		writeFileSync(
+			path.join(testDir, '.swarm', 'telemetry.jsonl'),
+			[
+				JSON.stringify({
+					event: 'delegation_end',
+					agentName: 'coder',
+					taskId: '1.1',
+					tokens_input: 100,
+					tokens_output: 50,
+					cost_usd: 0.1,
+					cost_source: 'reported',
+				}),
+				'not valid json {',
+				'{"event": "delegation_end", "agentName": "reviewer", "taskId": "1.2", "tokens_input": 20, "tokens_output": 10, "cost_usd": 0.02, "cost_source": "reported"}',
+				'{"broken": true, "no_event": "delegation_end"}',
+				'',
+				JSON.stringify({
+					event: 'delegation_end',
+					agentName: 'tester',
+					taskId: '1.3',
+					tokens_input: 5,
+					tokens_output: 5,
+					cost_usd: 0.01,
+					cost_source: 'reported',
+				}),
+			].join('\n'),
+		);
+
+		const summary = summarizeTelemetryCosts(testDir);
+
+		// 3 valid delegation_end events should be aggregated; malformed lines skipped
+		expect(summary.delegations).toBe(3);
+		expect(summary.total_cost_usd).toBe(0.13);
+		expect(summary.total_input_tokens).toBe(125);
+		expect(summary.total_output_tokens).toBe(65);
+		expect(summary.by_agent.map((r) => r.name).sort()).toEqual([
+			'coder',
+			'reviewer',
+			'tester',
+		]);
 	});
 });

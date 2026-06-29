@@ -1,4 +1,5 @@
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 
 export type CostSource = 'reported' | 'estimated' | 'unavailable';
@@ -72,6 +73,11 @@ const ZERO_USAGE: TokenUsage = {
 	tokens_cache: 0,
 };
 
+// BUNDLED_MODEL_PRICING is intentionally empty. Cost estimation requires
+// user-provided pricing via `pricing.models` in config (or provider-reported
+// cost_usd). Without either, estimateCostUsd returns null and cost_source
+// degrades to 'unavailable'. Bundled defaults are not shipped to avoid
+// stale pricing and to keep the plugin side-effect free at import time.
 export const BUNDLED_MODEL_PRICING: Record<string, ModelPricing> = {};
 
 export function buildDelegationCostFields(
@@ -132,9 +138,27 @@ export function readTelemetryEvents(
 		path.join(swarmDir, 'telemetry.jsonl.1'),
 		path.join(swarmDir, 'telemetry.jsonl'),
 	];
+	// Atomic snapshot: copy both files to a temp dir before reading to avoid
+	// TOCTOU with rotateTelemetryIfNeeded renaming .jsonl -> .jsonl.1 between reads.
+	const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'telemetry-snapshot-'));
+	const snapshotFiles: string[] = [];
+	try {
+		for (const file of files) {
+			if (!fs.existsSync(file)) continue;
+			const snap = path.join(tmpDir, path.basename(file));
+			try {
+				fs.copyFileSync(file, snap);
+				snapshotFiles.push(snap);
+			} catch {
+				// If copy fails, skip this file (best-effort snapshot)
+			}
+		}
+	} catch {
+		// mkdtemp or copy failure — fall through to empty result
+	}
+
 	const events: Record<string, unknown>[] = [];
-	for (const file of files) {
-		if (!fs.existsSync(file)) continue;
+	for (const file of snapshotFiles) {
 		let content = '';
 		try {
 			content = fs.readFileSync(file, 'utf-8');
@@ -150,6 +174,15 @@ export function readTelemetryEvents(
 			} catch {}
 		}
 	}
+	// Best-effort cleanup of snapshot dir
+	try {
+		for (const f of snapshotFiles) {
+			try {
+				fs.unlinkSync(f);
+			} catch {}
+		}
+		fs.rmdirSync(tmpDir);
+	} catch {}
 	return events;
 }
 
@@ -159,6 +192,13 @@ export function estimateCostUsd(
 	pricing?: PricingConfig,
 ): number | null {
 	if (!model) return null;
+	// NOTE: estimation requires user-provided pricing config (pricing.models)
+	// or provider-reported cost. BUNDLED_MODEL_PRICING is empty by design.
+	// NOTE: cache pricing limitation — readCacheTokens and readTelemetryEvents
+	// collapse read+write cache tokens into a single `tokens_cache` value.
+	// A single `cache_per_million` rate cannot represent asymmetric pricing
+	// (different rates for cache read vs. cache write). The same rate is
+	// applied to the combined total. This is a documented constraint.
 	const table = { ...BUNDLED_MODEL_PRICING, ...(pricing?.models ?? {}) };
 	const entry = table[model] ?? table[model.toLowerCase()];
 	if (!entry) return null;
@@ -213,6 +253,7 @@ function extractUsageAndCost(raw: unknown): {
 			'cache_tokens',
 			'cache_read_input_tokens',
 			'cached_input_tokens',
+			'cache_write_input_tokens',
 			'cache',
 		]);
 		const nestedCache = readCacheTokens(candidate);
@@ -293,8 +334,12 @@ function readModelIdentifier(
 
 function readCacheTokens(record: Record<string, unknown>): number | null {
 	const cacheRecord = isRecord(record.cache) ? record.cache : record;
-	const read = readNumber(cacheRecord, ['read']);
-	const write = readNumber(cacheRecord, ['write']);
+	const read = readNumber(cacheRecord, ['read', 'cache_read_input_tokens']);
+	const write = readNumber(cacheRecord, [
+		'write',
+		'cache_write_input_tokens',
+		'write_input_tokens',
+	]);
 	if (read === null && write === null) return null;
 	return (read ?? 0) + (write ?? 0);
 }
