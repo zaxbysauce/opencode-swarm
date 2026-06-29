@@ -24,7 +24,14 @@ export const _internals: {
 	composeHandlers: typeof composeHandlers;
 	validateSwarmPath: typeof validateSwarmPath;
 	readSwarmFileAsync: typeof readSwarmFileAsync;
-} = { safeHook, composeHandlers, validateSwarmPath, readSwarmFileAsync };
+	readCachedTextFile: typeof readCachedTextFile;
+} = {
+	safeHook,
+	composeHandlers,
+	validateSwarmPath,
+	readSwarmFileAsync,
+	readCachedTextFile,
+};
 
 export function safeHook<I, O>(
 	fn: (input: I, output: O) => Promise<void>,
@@ -195,7 +202,7 @@ export async function readSwarmFileAsync(
 	for (let attempt = 0; attempt < maxAttempts; attempt++) {
 		try {
 			const resolvedPath = _internals.validateSwarmPath(directory, filename);
-			return await readCachedTextFile(resolvedPath, async () => {
+			return await _internals.readCachedTextFile(resolvedPath, async () => {
 				const file = bunFile(resolvedPath);
 				return await file.text();
 			});

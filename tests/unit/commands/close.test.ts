@@ -1094,9 +1094,12 @@ describe('handleCloseCommand', () => {
 				const result = await handleCloseCommand(testDir, []);
 
 				// Because plan.json never existed, it cannot be "preserved because not
-				// archived". The preserve warning is only for files that existed but
-				// failed to copy.
-				expect(result).not.toContain('Preserved plan.json');
+				// archived" *with a reason*. The generic preserve message may appear for
+				// absent ACTIVE_STATE files in plan-free closes, but a detailed failure
+				// reason indicates a real copy error for a file that existed.
+				expect(result).not.toContain(
+					'Preserved plan.json because it was not successfully archived:',
+				);
 			});
 		});
 

@@ -23,17 +23,20 @@ import { loadPlan, savePlan } from '../../../src/plan/manager';
 describe('plan-read-cache', () => {
 	let tempDir: string;
 	let originalValidateSwarmPath: typeof _internals.validateSwarmPath;
+	let originalReadCachedTextFile: typeof _internals.readCachedTextFile;
 
 	beforeEach(async () => {
 		tempDir = await mkdtemp(join(tmpdir(), 'plan-cache-test-'));
 		await mkdir(join(tempDir, '.swarm'), { recursive: true });
 		// Capture the real implementation so we can restore it and also wrap it.
 		originalValidateSwarmPath = _internals.validateSwarmPath;
+		originalReadCachedTextFile = _internals.readCachedTextFile;
 	});
 
 	afterEach(async () => {
-		// Always restore the real validateSwarmPath so other tests are unaffected.
+		// Always restore the real seams so other tests are unaffected.
 		_internals.validateSwarmPath = originalValidateSwarmPath;
+		_internals.readCachedTextFile = originalReadCachedTextFile;
 		if (tempDir) {
 			await rm(tempDir, { recursive: true, force: true });
 		}
@@ -236,5 +239,76 @@ describe('plan-read-cache', () => {
 
 		const planMdCount = countByFile.get('plan.md') ?? 0;
 		expect(planMdCount).toBe(1);
+	});
+
+	/**
+	 * SC-006: Concurrent in-flight reads for the same key share one underlying read.
+	 * The cache stores the promise BEFORE awaiting (utils.ts:185-186) so two
+	 * simultaneous callers must share the same promise and only one inner read occurs.
+	 */
+	it('SC-006: concurrent callers share one in-flight read', async () => {
+		await writeFile(join(tempDir, '.swarm', 'concurrent.md'), 'shared content');
+
+		let innerReadCount = 0;
+		const originalReadCached = _internals.readCachedTextFile;
+		_internals.readCachedTextFile = (async (
+			p: string,
+			factory: () => Promise<string>,
+		) => {
+			innerReadCount++;
+			return factory();
+		}) as typeof _internals.readCachedTextFile;
+
+		const cache = new Map<string, Promise<string | null>>();
+
+		// Start two concurrent reads WITHOUT awaiting
+		const p1 = readSwarmFileAsync(tempDir, 'concurrent.md', cache);
+		const p2 = readSwarmFileAsync(tempDir, 'concurrent.md', cache);
+
+		// Allow microtasks to settle
+		await Promise.resolve();
+		await Promise.resolve();
+		await Promise.resolve();
+
+		const [r1, r2] = await Promise.all([p1, p2]);
+
+		expect(r1).toBe('shared content');
+		expect(r2).toBe('shared content');
+		// Only one inner read should have occurred
+		expect(innerReadCount).toBe(1);
+
+		// Restore
+		_internals.readCachedTextFile = originalReadCached;
+	});
+
+	/**
+	 * SC-007: Non-ENOENT error inside the inner read (readCachedTextFile) is
+	 * returned as null and the result is cached (no re-read on second call).
+	 * This tests the actual error path inside readCachedTextFile → bunFile().text()
+	 * rather than mocking at the validateSwarmPath layer.
+	 */
+	it('SC-007: non-ENOENT error from inner readCachedTextFile returns null and caches', async () => {
+		let innerReadCount = 0;
+		const originalReadCached = _internals.readCachedTextFile;
+		_internals.readCachedTextFile = (async () => {
+			innerReadCount++;
+			const err = new Error('EACCES: permission denied');
+			(err as NodeJS.ErrnoException).code = 'EACCES';
+			throw err;
+		}) as typeof _internals.readCachedTextFile;
+
+		const cache = new Map<string, Promise<string | null>>();
+
+		const result1 = await readSwarmFileAsync(tempDir, 'protected.md', cache);
+		expect(result1).toBeNull();
+		expect(innerReadCount).toBe(1);
+
+		const result2 = await readSwarmFileAsync(tempDir, 'protected.md', cache);
+		expect(result2).toBeNull();
+		// Second call must be a cache hit — no additional inner read
+		expect(innerReadCount).toBe(1);
+
+		// Restore
+		_internals.readCachedTextFile = originalReadCached;
 	});
 });

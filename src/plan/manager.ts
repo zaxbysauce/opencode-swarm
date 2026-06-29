@@ -269,6 +269,10 @@ async function parsePlanJsonCached(directory: string): Promise<Plan | null> {
 	return readCachedParsedFile<Plan>(
 		planJsonPath,
 		PLAN_JSON_CACHE_NAMESPACE,
+		// NOTE: deliberately bypasses the per-invocation cache. This helper runs
+		// inside readCachedParsedFile's factory, which already memoizes parsed
+		// results process-wide (PLAN_JSON_CACHE_NAMESPACE), so re-reading here is
+		// only the first-invocation cost.
 		() => readSwarmFileAsync(directory, 'plan.json'),
 		(planJsonContent) => {
 			if (

@@ -1802,7 +1802,7 @@ export async function handleCloseCommand(
 		// Collect keys first to avoid mutating the Map during iteration.
 		const sessionIdsToEnd = [...swarmState.agentSessions.keys()];
 		for (const sessionId of sessionIdsToEnd) {
-			endAgentSession(sessionId);
+			_internals.endAgentSession(sessionId);
 		}
 
 		// Preserve plugin-init singletons through state reset
@@ -1915,4 +1915,5 @@ export const _internals = {
 	runAlignStage,
 	archiveEvidence,
 	closePlanTerminalState,
+	endAgentSession,
 };
