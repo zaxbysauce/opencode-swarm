@@ -1,5 +1,17 @@
 # Changelog
 
+## [7.99.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.98.2...v7.99.0) (2026-06-29)
+
+
+### Features
+
+* **costs:** add delegation cost accounting ([e7d488e](https://github.com/ZaxbyHub/opencode-swarm/commit/e7d488ea200a662d198b7aa6db5d772e65dc82d0))
+
+
+### Bug Fixes
+
+* **pr-1557:** address 8 PR feedback items (round 1) ([e01a1cf](https://github.com/ZaxbyHub/opencode-swarm/commit/e01a1cf3abcc42ebabce531ce4d6668cd026a685))
+
 ## [7.98.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.98.1...v7.98.2) (2026-06-29)
 
 
