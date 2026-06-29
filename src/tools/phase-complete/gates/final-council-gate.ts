@@ -38,13 +38,18 @@ function latestRetroTimestampMsFromBundle(
 }
 
 function readLatestRetroTimestampMs(dir: string, phase: number): number | null {
-	const retroPath = path.join(
-		dir,
-		'.swarm',
-		'evidence',
-		`retro-${phase}`,
-		'evidence.json',
+	const baseDir = path.normalize(path.resolve(dir, '.swarm'));
+	// Defense-in-depth: ensure the constructed path is within .swarm
+	// before reading. Mirrors validateSwarmPath's containment check.
+	const retroPath = path.normalize(
+		path.join(baseDir, 'evidence', `retro-${phase}`, 'evidence.json'),
 	);
+	const isWindows = process.platform === 'win32';
+	const pathInSwarm = isWindows
+		? retroPath.toLowerCase().startsWith(baseDir.toLowerCase() + path.sep) ||
+			retroPath.toLowerCase() === baseDir.toLowerCase()
+		: retroPath.startsWith(baseDir + path.sep) || retroPath === baseDir;
+	if (!pathInSwarm) return null;
 	try {
 		const content = fs.readFileSync(retroPath, 'utf-8');
 		return latestRetroTimestampMsFromBundle(
