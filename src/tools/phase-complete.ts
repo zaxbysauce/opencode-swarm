@@ -697,6 +697,8 @@ export async function executePhaseComplete(
 		pluginConfig: config,
 		agentsDispatched,
 		safeWarn,
+		loadedRetroBundle,
+		loadedRetroTaskId,
 	};
 
 	// Turbo mode: skip gates 1-5 (but NOT 5b Architecture Supervision).
