@@ -6,6 +6,7 @@
  * token estimation for swarm-related operations.
  */
 
+import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { SwarmError, warn } from '../utils';
 import { bunFile } from '../utils/bun-compat';
@@ -33,9 +34,25 @@ export const _internals: {
 	readCachedTextFile,
 };
 
-export function safeHook<I, O>(
-	fn: (input: I, output: O) => Promise<void>,
-): (input: I, output: O) => Promise<void> {
+type HookHandler<I, O> = (input: I, output: O) => Promise<void>;
+
+export function markFailClosed<I, O>(
+	fn: HookHandler<I, O>,
+): HookHandler<I, O> & { __failClosed?: true } {
+	return Object.assign(fn, { __failClosed: true }) as HookHandler<I, O> & {
+		__failClosed?: true;
+	};
+}
+
+function isFailClosedHandler(value: unknown): boolean {
+	return (
+		typeof value === 'function' &&
+		Object.hasOwn(value, '__failClosed') &&
+		(value as { __failClosed?: boolean }).__failClosed === true
+	);
+}
+
+export function safeHook<I, O>(fn: HookHandler<I, O>): HookHandler<I, O> {
 	return async (input: I, output: O) => {
 		try {
 			await fn(input, output);
@@ -68,14 +85,19 @@ export function safeHook<I, O>(
  * Reference: AGENTS.md invariant 11 + Full-Auto v2 fail-closed contract.
  */
 export function composeHandlers<I, O>(
-	...fns: Array<(input: I, output: O) => Promise<void>>
-): (input: I, output: O) => Promise<void> {
+	...fns: Array<HookHandler<I, O>>
+): HookHandler<I, O> {
 	if (fns.length === 0) {
 		return async () => {};
 	}
 
 	return async (input: I, output: O) => {
 		for (const fn of fns) {
+			if (isFailClosedHandler(fn)) {
+				throw new Error(
+					'composeHandlers cannot wrap fail-closed handlers; use composeBlockingHandlers or await them directly',
+				);
+			}
 			const safeFn = _internals.safeHook(fn);
 			await safeFn(input, output);
 		}
@@ -107,8 +129,8 @@ export function composeHandlers<I, O>(
  * fail-open and is a critical regression.
  */
 export function composeBlockingHandlers<I, O>(
-	...fns: Array<(input: I, output: O) => Promise<void>>
-): (input: I, output: O) => Promise<void> {
+	...fns: Array<HookHandler<I, O>>
+): HookHandler<I, O> {
 	if (fns.length === 0) {
 		return async () => {};
 	}
@@ -152,26 +174,61 @@ export function validateSwarmPath(directory: string, filename: string): string {
 		throw new Error('Invalid filename: path escapes .swarm directory');
 	}
 
-	// Resolve the base directory and the requested file
+	// Resolve the base directory and the requested file, resolving any
+	// existing symlinks before performing the containment check.
 	const baseDir = path.normalize(path.resolve(directory, '.swarm'));
 	const resolved = path.normalize(path.resolve(baseDir, filename));
+	const realBaseDir = (() => {
+		try {
+			return fs.realpathSync(baseDir);
+		} catch (error) {
+			warn(
+				'validateSwarmPath: failed to realpath .swarm base directory; using normalized path',
+				{
+					baseDir,
+					error: error instanceof Error ? error.message : String(error),
+				},
+			);
+			return baseDir;
+		}
+	})();
+	const realResolved = (() => {
+		try {
+			return fs.realpathSync(resolved);
+		} catch (error) {
+			warn(
+				'validateSwarmPath: failed to realpath target path; using normalized path',
+				{
+					resolved,
+					error: error instanceof Error ? error.message : String(error),
+				},
+			);
+			return resolved;
+		}
+	})();
 
 	// Check that the resolved path is within the .swarm directory
 	if (process.platform === 'win32') {
 		// On Windows, do case-insensitive comparison
 		if (
-			!resolved.toLowerCase().startsWith((baseDir + path.sep).toLowerCase())
+			!realResolved
+				.toLowerCase()
+				.startsWith((realBaseDir + path.sep).toLowerCase()) &&
+			realResolved.toLowerCase() !== realBaseDir.toLowerCase()
 		) {
 			throw new Error('Invalid filename: path escapes .swarm directory');
 		}
 	} else {
 		// On other platforms, do case-sensitive comparison
-		if (!resolved.startsWith(baseDir + path.sep)) {
+		if (
+			!realResolved.startsWith(realBaseDir + path.sep) &&
+			realResolved !== realBaseDir
+		) {
 			throw new Error('Invalid filename: path escapes .swarm directory');
 		}
 	}
 
-	return resolved;
+	return realResolved;
 }
 
 export async function readSwarmFileAsync(

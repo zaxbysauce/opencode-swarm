@@ -5,7 +5,7 @@
  * an on-disk cache, and emits a single deferred warning when a newer version
  * is published on npm. Network failures are silent.
  */
-import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, mock, test } from 'bun:test';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { mkdir, mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -13,6 +13,7 @@ import { join } from 'node:path';
 import {
 	_resetVersionCheckLatchForTests,
 	compareVersions,
+	fetchLatestVersion,
 	readVersionCache,
 	scheduleVersionCheck,
 } from '../../../src/services/version-check';
@@ -43,6 +44,38 @@ describe('compareVersions', () => {
 	test('non-numeric segments degrade to 0', () => {
 		// Defensive: should not throw on malformed input.
 		expect(() => compareVersions('not-a-version', '6.86.7')).not.toThrow();
+	});
+});
+
+describe('fetchLatestVersion', () => {
+	const originalFetch = globalThis.fetch;
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch;
+	});
+
+	test('rejects non-JSON content types and malformed semver payloads', async () => {
+		const fetchMock = mock(async () =>
+			new Response('{"version":"not-a-version"}', {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		globalThis.fetch = fetchMock as typeof fetch;
+
+		await expect(fetchLatestVersion(new AbortController().signal)).resolves.toBeNull();
+	});
+
+	test('accepts strict semver payloads from JSON responses', async () => {
+		const fetchMock = mock(async () =>
+			new Response('{"version":"1.2.3"}', {
+				status: 200,
+				headers: { 'content-type': 'application/json' },
+			}),
+		);
+		globalThis.fetch = fetchMock as typeof fetch;
+
+		await expect(fetchLatestVersion(new AbortController().signal)).resolves.toBe('1.2.3');
 	});
 });
 
