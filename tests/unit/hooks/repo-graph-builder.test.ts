@@ -82,8 +82,10 @@ describe('createRepoGraphBuilderHook', () => {
 		// Should not throw
 		await expect(hook.init()).resolves.toBeUndefined();
 
-		// Verify buildWorkspaceGraph was called with workspace root
-		expect(mockBuildWorkspaceGraph).toHaveBeenCalledWith(workspaceRoot);
+		// Verify buildWorkspaceGraph was called with workspace root and normalized scan options.
+		expect(mockBuildWorkspaceGraph).toHaveBeenCalledWith(workspaceRoot, {
+			excludeDirs: [],
+		});
 		// Verify saveGraph was called with workspace root and graph
 		expect(mockSaveGraph).toHaveBeenCalledWith(
 			workspaceRoot,
