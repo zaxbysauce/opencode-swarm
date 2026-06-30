@@ -73,6 +73,79 @@ describe('repo_map: query actions without prior build', () => {
 	});
 });
 
+describe('repo_map: graph_health', () => {
+	it('returns a bounded health envelope before the graph exists', async () => {
+		const out = await call({ action: 'graph_health' });
+		const r = JSON.parse(out) as {
+			success: boolean;
+			action: string;
+			schemaVersion: string | null;
+			fresh: boolean;
+			notes: string[];
+		};
+		expect(r.success).toBe(true);
+		expect(r.action).toBe('graph_health');
+		expect(r.schemaVersion).toBeNull();
+		expect(r.fresh).toBe(false);
+		expect(r.notes.join('\n')).toContain('repo_map with action="build"');
+	});
+
+	it('reports fresh graph health after build', async () => {
+		await call({ action: 'build' });
+		const out = await call({ action: 'graph_health' });
+		const r = JSON.parse(out) as {
+			success: boolean;
+			schemaVersion: string;
+			fresh: boolean;
+			extractionFailures: unknown[];
+			unresolvedImports: unknown[];
+		};
+		expect(r.success).toBe(true);
+		expect(r.schemaVersion).toBe('1.2.0');
+		expect(r.fresh).toBe(true);
+		expect(r.extractionFailures).toEqual([]);
+		expect(r.unresolvedImports).toEqual([]);
+	});
+
+	it('reports stale graph health after persisted timestamp changes', async () => {
+		await call({ action: 'build' });
+		const graphPath = path.join(tmp, '.swarm', 'repo-graph.json');
+		const graph = JSON.parse(fs.readFileSync(graphPath, 'utf-8')) as {
+			metadata: { generatedAt: string };
+		};
+		graph.metadata.generatedAt = '2000-01-01T00:00:00.000Z';
+		fs.writeFileSync(graphPath, JSON.stringify(graph), 'utf-8');
+		fs.utimesSync(graphPath, new Date(), new Date());
+
+		const out = await call({ action: 'graph_health' });
+		const r = JSON.parse(out) as {
+			success: boolean;
+			fresh: boolean;
+			staleFiles: string[];
+			notes: string[];
+		};
+		expect(r.success).toBe(true);
+		expect(r.fresh).toBe(false);
+		expect(r.staleFiles).toContain('src/main.ts');
+		expect(r.notes.join('\n')).toContain('Graph is stale');
+	});
+
+	it('returns a structured graph_health error for corrupt graph JSON', async () => {
+		fs.mkdirSync(path.join(tmp, '.swarm'), { recursive: true });
+		fs.writeFileSync(path.join(tmp, '.swarm', 'repo-graph.json'), '{ nope');
+
+		const out = await call({ action: 'graph_health' });
+		const r = JSON.parse(out) as {
+			success: boolean;
+			action: string;
+			error: string;
+		};
+		expect(r.success).toBe(false);
+		expect(r.action).toBe('graph_health');
+		expect(r.error).toContain('failed to load repo graph');
+	});
+});
+
 describe('repo_map: importers / dependencies / blast_radius / localization', () => {
 	beforeEach(async () => {
 		await call({ action: 'build' });

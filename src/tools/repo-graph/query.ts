@@ -1,4 +1,9 @@
+import * as fsSync from 'node:fs';
 import * as path from 'node:path';
+import {
+	containsControlChars,
+	containsPathTraversal,
+} from '../../utils/path-security';
 import type {
 	BlastRadiusResult,
 	CallerReference,
@@ -10,7 +15,10 @@ import type {
 	FileReference,
 	FileRole,
 	GraphEdge,
+	GraphExtractionFailure,
+	GraphHealthResult,
 	GraphNode,
+	GraphUnresolvedImport,
 	LocalizationBlock,
 	PackageBoundarySummary,
 	RepoGraph,
@@ -18,6 +26,9 @@ import type {
 	SymbolReference,
 } from './types';
 import { isSchemaVersionAtLeast, normalizeGraphPath } from './types';
+
+const GRAPH_HEALTH_OUTPUT_LIMIT = 50;
+const MAX_HEALTH_PATH_LENGTH = 500;
 
 let cachedReverseIndex: {
 	graph: RepoGraph;
@@ -133,6 +144,156 @@ export function isGraphFresh(
 	const built = Date.parse(graph.metadata?.generatedAt ?? '');
 	if (!Number.isFinite(built)) return false;
 	return Date.now() - built <= maxAgeMs;
+}
+
+function isSafeHealthPath(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+	if (value.length === 0 || value.length > MAX_HEALTH_PATH_LENGTH) return false;
+	if (containsControlChars(value) || containsPathTraversal(value)) return false;
+	if (path.isAbsolute(value) || /^[A-Za-z]:[\\/]/.test(value)) return false;
+	return true;
+}
+
+function isSafeHealthText(value: unknown): value is string {
+	if (typeof value !== 'string') return false;
+	if (value.length === 0 || value.length > MAX_HEALTH_PATH_LENGTH) return false;
+	if (containsControlChars(value)) return false;
+	return true;
+}
+
+function cap<T>(entries: T[]): T[] {
+	return entries.slice(0, GRAPH_HEALTH_OUTPUT_LIMIT);
+}
+
+function sanitizeExtractionFailures(value: unknown): GraphExtractionFailure[] {
+	if (!Array.isArray(value)) return [];
+	const entries: GraphExtractionFailure[] = [];
+	for (const raw of value) {
+		if (!raw || typeof raw !== 'object') continue;
+		const entry = raw as Partial<GraphExtractionFailure>;
+		if (
+			isSafeHealthPath(entry.file) &&
+			isSafeHealthText(entry.language) &&
+			isSafeHealthText(entry.reason)
+		) {
+			entries.push({
+				file: entry.file,
+				language: entry.language,
+				reason: entry.reason,
+			});
+		}
+	}
+	return cap(entries);
+}
+
+function sanitizeUnresolvedImports(value: unknown): GraphUnresolvedImport[] {
+	if (!Array.isArray(value)) return [];
+	const entries: GraphUnresolvedImport[] = [];
+	for (const raw of value) {
+		if (!raw || typeof raw !== 'object') continue;
+		const entry = raw as Partial<GraphUnresolvedImport>;
+		if (isSafeHealthPath(entry.file) && isSafeHealthText(entry.specifier)) {
+			entries.push({ file: entry.file, specifier: entry.specifier });
+		}
+	}
+	return cap(entries);
+}
+
+function sanitizePathList(value: unknown): string[] {
+	if (!Array.isArray(value)) return [];
+	return cap(value.filter(isSafeHealthPath));
+}
+
+function getStaleFiles(graph: RepoGraph, workspaceRoot?: string): string[] {
+	const built = Date.parse(graph.metadata.generatedAt);
+	if (!Number.isFinite(built)) return [];
+	const root = workspaceRoot ?? graph.workspaceRoot;
+	const stale: string[] = [];
+	for (const node of Object.values(graph.nodes)) {
+		const moduleName = normalizeGraphPath(node.moduleName);
+		if (!isSafeHealthPath(moduleName)) continue;
+		const filePath = path.join(root, moduleName);
+		try {
+			if (fsSync.statSync(filePath).mtimeMs > built) {
+				stale.push(moduleName);
+				if (stale.length >= GRAPH_HEALTH_OUTPUT_LIMIT) break;
+			}
+		} catch {
+			// Missing or unreadable files are handled by build diagnostics.
+		}
+	}
+	return stale;
+}
+
+export function getGraphHealth(
+	graph: RepoGraph | null,
+	workspaceRoot?: string,
+): GraphHealthResult {
+	if (!graph) {
+		return {
+			schemaVersion: null,
+			fresh: false,
+			staleFiles: [],
+			extractionFailures: [],
+			unresolvedImports: [],
+			oversizedFiles: [],
+			unsupportedFiles: [],
+			binaryFiles: [],
+			unreadableFiles: [],
+			lowConfidenceEdgeCount: 0,
+			notes: [
+				'No repo graph found at .swarm/repo-graph.json. Run repo_map with action="build" first.',
+			],
+		};
+	}
+
+	const diagnostics = graph.diagnostics as Record<string, unknown> | undefined;
+	const fresh = isGraphFresh(graph);
+	const staleFiles = getStaleFiles(graph, workspaceRoot);
+	const notes: string[] = [];
+	if (!fresh || staleFiles.length > 0) {
+		notes.push('Graph is stale. Run repo_map with action="build" to refresh.');
+	}
+	if (!diagnostics) {
+		notes.push(
+			'Graph has no recorded diagnostics. Rebuild with repo_map action="build" to collect health details.',
+		);
+	}
+	const binaryFiles = sanitizePathList(diagnostics?.binaryFiles);
+	const binaryCount = binaryFiles.length;
+	if (binaryCount > 0) {
+		notes.push(`${binaryCount} binary files skipped during last build.`);
+	}
+	const unreadableFiles = sanitizePathList(diagnostics?.unreadableFiles);
+	const unreadableCount = unreadableFiles.length;
+	if (unreadableCount > 0) {
+		notes.push(
+			`${unreadableCount} unreadable files skipped during last build.`,
+		);
+	}
+
+	return {
+		schemaVersion: graph.schema_version,
+		fresh,
+		staleFiles,
+		extractionFailures: sanitizeExtractionFailures(
+			diagnostics?.extractionFailures,
+		),
+		unresolvedImports: sanitizeUnresolvedImports(
+			diagnostics?.unresolvedImports,
+		),
+		oversizedFiles: sanitizePathList(diagnostics?.oversizedFiles),
+		unsupportedFiles: sanitizePathList(diagnostics?.unsupportedFiles),
+		binaryFiles,
+		unreadableFiles,
+		lowConfidenceEdgeCount:
+			typeof diagnostics?.lowConfidenceEdgeCount === 'number' &&
+			Number.isFinite(diagnostics.lowConfidenceEdgeCount) &&
+			diagnostics.lowConfidenceEdgeCount > 0
+				? Math.floor(diagnostics.lowConfidenceEdgeCount)
+				: 0,
+		notes,
+	};
 }
 
 export function getImporters(

@@ -28,7 +28,9 @@ import type {
 	BuildWorkspaceGraphOptions,
 	GraphEdge,
 	GraphNode,
+	GraphUnresolvedImport,
 	RepoGraph,
+	RepoGraphDiagnostics,
 	SymbolEdge,
 } from './types';
 import {
@@ -120,6 +122,7 @@ const SUPPORTED_EXTENSIONS = new Set(
 const DEFAULT_WALK_FILE_CAP = 10000;
 const DEFAULT_WALK_BUDGET_MS = 5000;
 const ASYNC_WALK_YIELD_INTERVAL = 200;
+const MAX_DIAGNOSTIC_ENTRIES = 200;
 
 /**
  * Mapping of file extensions to tree-sitter grammar identifiers.
@@ -401,6 +404,92 @@ interface ScanStats {
 	skippedFiles: number;
 	/** True if maxFiles limit was hit */
 	truncated: boolean;
+}
+
+function createEmptyDiagnostics(): Required<RepoGraphDiagnostics> {
+	return {
+		extractionFailures: [],
+		unresolvedImports: [],
+		oversizedFiles: [],
+		unsupportedFiles: [],
+		binaryFiles: [],
+		unreadableFiles: [],
+		lowConfidenceEdgeCount: 0,
+	};
+}
+
+function diagnosticsHaveEntries(diagnostics: RepoGraphDiagnostics): boolean {
+	return (
+		(diagnostics.extractionFailures?.length ?? 0) > 0 ||
+		(diagnostics.unresolvedImports?.length ?? 0) > 0 ||
+		(diagnostics.oversizedFiles?.length ?? 0) > 0 ||
+		(diagnostics.unsupportedFiles?.length ?? 0) > 0 ||
+		(diagnostics.binaryFiles?.length ?? 0) > 0 ||
+		(diagnostics.unreadableFiles?.length ?? 0) > 0 ||
+		(diagnostics.lowConfidenceEdgeCount ?? 0) > 0
+	);
+}
+
+function pushCapped<T>(target: T[], value: T): void {
+	if (target.length < MAX_DIAGNOSTIC_ENTRIES) {
+		target.push(value);
+	}
+}
+
+function mergeDiagnostics(
+	target: Required<RepoGraphDiagnostics>,
+	source: RepoGraphDiagnostics | undefined,
+): void {
+	if (!source) return;
+	for (const entry of source.extractionFailures ?? []) {
+		pushCapped(target.extractionFailures, entry);
+	}
+	for (const entry of source.unresolvedImports ?? []) {
+		pushCapped(target.unresolvedImports, entry);
+	}
+	for (const entry of source.oversizedFiles ?? []) {
+		pushCapped(target.oversizedFiles, entry);
+	}
+	for (const entry of source.unsupportedFiles ?? []) {
+		pushCapped(target.unsupportedFiles, entry);
+	}
+	for (const entry of source.binaryFiles ?? []) {
+		pushCapped(target.binaryFiles, entry);
+	}
+	for (const entry of source.unreadableFiles ?? []) {
+		pushCapped(target.unreadableFiles, entry);
+	}
+	target.lowConfidenceEdgeCount += source.lowConfidenceEdgeCount ?? 0;
+}
+
+function isRelativeImportSpecifier(specifier: string): boolean {
+	return (
+		specifier === '.' ||
+		specifier === '..' ||
+		specifier.startsWith('./') ||
+		specifier.startsWith('../')
+	);
+}
+
+function unresolvedRelativeImportsFor(
+	parsedImports: ParsedImport[],
+	filePath: string,
+	absoluteRoot: string,
+): GraphUnresolvedImport[] {
+	const unresolved: GraphUnresolvedImport[] = [];
+	const moduleName = toModuleName(filePath, absoluteRoot);
+	for (const parsed of parsedImports) {
+		if (!isRelativeImportSpecifier(parsed.specifier)) continue;
+		const resolvedTarget = resolveModuleSpecifier(
+			absoluteRoot,
+			filePath,
+			parsed.specifier,
+		);
+		if (resolvedTarget === null) {
+			unresolved.push({ file: moduleName, specifier: parsed.specifier });
+		}
+	}
+	return unresolved;
 }
 
 /**
@@ -1097,6 +1186,8 @@ export interface AsyncScanResult {
 	edges: GraphEdge[];
 	/** Symbol-to-symbol reference edges (schema >= 1.2.0). */
 	symbolEdges: SymbolEdge[];
+	/** Optional file-level diagnostics collected during async scanning. */
+	diagnostics?: RepoGraphDiagnostics;
 }
 
 /**
@@ -1215,11 +1306,11 @@ export function scanFile(
  * (extractFileSymbols) to populate exportRanges and symbolEdges.
  *
  * Fail-open: if extractFileSymbols returns null (grammar unavailable,
- * timeout, parse error), falls back to a minimal file-level node with
- * empty exports/imports/symbolEdges — never throws.
+ * timeout, parse error), falls back to the file-level scanner so imports,
+ * exports, and dependency edges are preserved.
  *
- * Oversized, binary, or unreadable files return { node: null, edges: [], symbolEdges: [] }
- * matching the sync scanFile contract.
+ * Oversized, binary, or unreadable files return
+ * { node: null, edges: [], symbolEdges: [] } with bounded diagnostics.
  *
  * @param filePath - Absolute path to the file to scan
  * @param absoluteRoot - Absolute path to workspace root
@@ -1237,16 +1328,31 @@ export async function scanFileAsync(
 	try {
 		fileStats = fsSync.statSync(filePath);
 		if (fileStats.size > maxFileSize) {
-			return { node: null, edges: [], symbolEdges: [] };
+			return {
+				node: null,
+				edges: [],
+				symbolEdges: [],
+				diagnostics: { oversizedFiles: [toModuleName(filePath, absoluteRoot)] },
+			};
 		}
 		content = fsSync.readFileSync(filePath, 'utf-8');
 	} catch {
-		return { node: null, edges: [], symbolEdges: [] };
+		return {
+			node: null,
+			edges: [],
+			symbolEdges: [],
+			diagnostics: { unreadableFiles: [toModuleName(filePath, absoluteRoot)] },
+		};
 	}
 
 	// Skip binary files
 	if (isBinaryContent(content)) {
-		return { node: null, edges: [], symbolEdges: [] };
+		return {
+			node: null,
+			edges: [],
+			symbolEdges: [],
+			diagnostics: { binaryFiles: [toModuleName(filePath, absoluteRoot)] },
+		};
 	}
 
 	const grammarId = getLanguage(filePath);
@@ -1254,26 +1360,30 @@ export async function scanFileAsync(
 
 	// Fail-open: tree-sitter unavailable or timed out → minimal node
 	if (facts === null) {
-		const moduleName = toModuleName(filePath, absoluteRoot);
+		const fallback = scanFile(filePath, absoluteRoot, maxFileSize);
+		let parsedImports: ParsedImport[] = [];
+		try {
+			parsedImports = _internals.parseFileImports(content);
+		} catch {
+			parsedImports = [];
+		}
 		return {
-			node: {
-				filePath,
-				moduleName,
-				exports: [],
-				imports: [],
-				language: grammarId,
-				mtime: fileStats.mtime.toISOString(),
-				ontology: _internals.extractFileOntology({
-					moduleName,
-					filePath,
-					content,
-					language: grammarId,
-					exports: [],
-					imports: [],
-				}),
-			},
-			edges: [],
+			...fallback,
 			symbolEdges: [],
+			diagnostics: {
+				extractionFailures: [
+					{
+						file: toModuleName(filePath, absoluteRoot),
+						language: grammarId,
+						reason: 'symbol_extraction_failed',
+					},
+				],
+				unresolvedImports: unresolvedRelativeImportsFor(
+					parsedImports,
+					filePath,
+					absoluteRoot,
+				),
+			},
 		};
 	}
 
@@ -1355,6 +1465,16 @@ export async function scanFileAsync(
 			});
 		}
 	}
+	const unresolvedImports = sortedImports
+		.filter((imp) => isRelativeImportSpecifier(imp.specifier))
+		.filter(
+			(imp) =>
+				resolveModuleSpecifier(absoluteRoot, filePath, imp.specifier) === null,
+		)
+		.map((imp) => ({
+			file: moduleName,
+			specifier: imp.specifier,
+		}));
 
 	// Build SymbolEdges from refs: when a ref's identifier matches a local
 	// binding, resolve that binding's specifier to a target file and emit
@@ -1405,7 +1525,13 @@ export async function scanFileAsync(
 		});
 	}
 
-	return { node, edges, symbolEdges };
+	return {
+		node,
+		edges,
+		symbolEdges,
+		diagnostics:
+			unresolvedImports.length > 0 ? { unresolvedImports } : undefined,
+	};
 }
 
 // ============ Full Workspace Builders ============
@@ -1456,7 +1582,6 @@ export function buildWorkspaceGraph(
 		skippedFiles: 0,
 		truncated: false,
 	};
-
 	const sourceFiles = findSourceFiles(absoluteRoot, stats, {
 		walkBudgetMs,
 		maxFiles,
@@ -1660,6 +1785,7 @@ export async function buildWorkspaceGraphAsync(
 		skippedFiles: 0,
 		truncated: false,
 	};
+	const diagnostics = createEmptyDiagnostics();
 
 	const sourceFiles = await findSourceFilesAsync(absoluteRoot, stats, {
 		walkBudgetMs,
@@ -1691,6 +1817,7 @@ export async function buildWorkspaceGraphAsync(
 	let processedSinceYield = 0;
 	for (const filePath of sourceFiles) {
 		const result = await scanFileAsync(filePath, absoluteRoot, maxFileSize);
+		mergeDiagnostics(diagnostics, result.diagnostics);
 		if (result.node) {
 			// A node that fails validation (e.g. control characters in ontology
 			// evidence from a minified/generated file) must skip that one file,
@@ -1749,6 +1876,9 @@ export async function buildWorkspaceGraphAsync(
 	if (allSymbolEdges.length > 0) {
 		graph.symbolEdges = allSymbolEdges;
 	}
+	graph.diagnostics = diagnosticsHaveEntries(diagnostics)
+		? diagnostics
+		: createEmptyDiagnostics();
 
 	if (stats.skippedFiles > 0 || stats.skippedDirs > 0 || stats.truncated) {
 		logger.log(

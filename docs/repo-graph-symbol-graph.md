@@ -92,7 +92,7 @@ schema 1.2.0  GraphNode.exportRanges + RepoGraph.symbolEdges
         ▼
 src/tools/repo-graph/query.ts  getContextPack() + transitive symbol slicing
         ▼
-src/tools/repo-map.ts  action="context_pack"  (wired through all 5 surfaces)
+src/tools/repo-map.ts  action="context_pack" + action="graph_health"
 ```
 
 ### New language layer: `src/lang/symbol-graph.ts`
@@ -259,11 +259,15 @@ never crashing the build.
 4. `getContextPack` + transitive symbol slicing + symbol-keyed query index.
 5. `context_pack` tool action wired through all five `repo-map.ts` surfaces, with
    tool-level tests and docs/release-fragment.
+6. `graph_health` tool action reports freshness and bounded diagnostics collected
+   during async graph builds; old graphs without diagnostics remain readable and
+   return a rebuild note.
 
 ## Usage
 
 ```text
 repo_map { "action": "build" }                                  # populates 1.2.0 symbol data (async build)
+repo_map { "action": "graph_health" }                           # freshness + extraction diagnostics
 repo_map { "action": "callers", "file": "src/foo.ts", "symbol": "doThing" }
 repo_map { "action": "context_pack", "file": "src/foo.ts", "symbol": "doThing", "max_depth": 2, "top_n": 40 }
 ```

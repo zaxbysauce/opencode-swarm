@@ -27,6 +27,10 @@ export const REPO_GRAPH_FILENAME = 'repo-graph.json';
  * symbol reference edges). Both fields are optional, so 1.0.0 and 1.1.0 graphs
  * still load without corruption. New queries may use these fields to provide
  * more precise context-packing and symbol-level navigation.
+ *
+ * Diagnostics are additive and optional on all schema versions. Old graphs
+ * without diagnostics remain readable; graph-health queries surface empty
+ * diagnostics with an explicit rebuild note.
  */
 export const GRAPH_SCHEMA_VERSION = '1.2.0';
 
@@ -354,6 +358,41 @@ export interface DeadExportsResult {
 	note: string;
 }
 
+export interface GraphExtractionFailure {
+	file: string;
+	language: string;
+	reason: string;
+}
+
+export interface GraphUnresolvedImport {
+	file: string;
+	specifier: string;
+}
+
+export interface RepoGraphDiagnostics {
+	extractionFailures?: GraphExtractionFailure[];
+	unresolvedImports?: GraphUnresolvedImport[];
+	oversizedFiles?: string[];
+	unsupportedFiles?: string[];
+	binaryFiles?: string[];
+	unreadableFiles?: string[];
+	lowConfidenceEdgeCount?: number;
+}
+
+export interface GraphHealthResult {
+	schemaVersion: string | null;
+	fresh: boolean;
+	staleFiles: string[];
+	extractionFailures: GraphExtractionFailure[];
+	unresolvedImports: GraphUnresolvedImport[];
+	oversizedFiles: string[];
+	unsupportedFiles: string[];
+	binaryFiles: string[];
+	unreadableFiles: string[];
+	lowConfidenceEdgeCount: number;
+	notes: string[];
+}
+
 export interface BlastRadiusResult {
 	target: string[];
 	directDependents: string[];
@@ -408,6 +447,8 @@ export interface RepoGraph {
 	};
 	/** Symbol-level reference edges (schema >= 1.2.0; absent on older graphs). */
 	symbolEdges?: SymbolEdge[];
+	/** Optional bounded diagnostics from the last graph build. */
+	diagnostics?: RepoGraphDiagnostics;
 }
 
 /**
