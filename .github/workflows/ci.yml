@@ -253,8 +253,10 @@ jobs:
           echo "Running coverage measurement for gate enforcement..."
           # Run the full unit test suite with coverage
           bun --smol test --coverage tests/unit/ --timeout 60000 > coverage-output.txt 2>&1 || true
-          # Extract line coverage from "All files" row using awk (no command substitution)
-          awk -F'|' '/All files/ { gsub(/ /,"",$2); print substr($2, 1, 5); exit }' coverage-output.txt > coverage-value.txt
+          # Extract line coverage from "All files" row using awk (no command substitution).
+          # Bun's coverage table columns are: File | % Funcs | % Lines | Uncovered Line #s
+          # so line coverage is the 3rd pipe-delimited field ($3), not $2 (which is % Funcs).
+          awk -F'|' '/All files/ { gsub(/ /,"",$3); print substr($3, 1, 5); exit }' coverage-output.txt > coverage-value.txt
           if [ ! -s coverage-value.txt ]; then
             echo "::warning::Could not parse coverage output"
             : > coverage-value.txt
@@ -274,7 +276,7 @@ jobs:
           echo "Coverage gate passed: ${COVERAGE}% >= ${THRESHOLD}%"
       - name: Upload coverage report
         if: always() && github.event_name == 'merge_group' && needs.detect-release.outputs.is-release != 'true'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-report
           path: |
