@@ -333,7 +333,7 @@ async function fallbackWritePlanWithTrace(
 		return false;
 	}
 
-	await atomicWriteFile(planPath, JSON.stringify(candidate, null, 2));
+	await atomicWriteFile(planPath, JSON.stringify(validation.data, null, 2));
 
 	// Best-effort traceability event. Reuses the canonical events.jsonl append
 	// pattern used for the phase_complete event above
