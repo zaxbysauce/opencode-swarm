@@ -818,7 +818,7 @@ export const COMMAND_REGISTRY = {
 			'Enter architect MODE: LOOP — compound-engineering loop: brainstorm → plan → build → review → improve, iterating until done [objective]',
 		args: '<objective> [--max-cycles 1..5] [--autonomy checkpoint|auto] [--depth standard|exhaustive] [--resume]',
 		details:
-			'Triggers the architect to run the compound-engineering loop defined in .opencode/skills/loop/SKILL.md: BRAINSTORM (requirements) → PLAN (+ critic gate) → BUILD (execute) → REVIEW (independent reviewer + critic on the diff, report-only) → IMPROVE (phase-wrap retrospective + compounding learning capture), then evaluate stop conditions and loop for another improvement cycle if the objective is unmet and budget remains. Generator and reviewer/critic run in separate contexts; failing assertions must be fixed at the root cause, never weakened, mocked, or skipped. Defense-in-depth stop conditions: objective met, --max-cycles budget (default 3), no-progress/plateau, oscillation, unrecoverable error, or explicit user stop. --autonomy checkpoint (default) pauses at phase gates for user approval; --autonomy auto runs unattended with hard stops still enforced. --depth exhaustive widens exploration. --resume continues an existing loop run from durable .swarm/loop/ state. Distinct from full-auto (autonomous cross-phase oversight) and turbo (parallel lanes within a phase): loop is a user-initiated, gated, compounding workflow.',
+			'Triggers the architect to run the compound-engineering loop defined in .opencode/skills/loop/SKILL.md: BRAINSTORM (requirements) → PLAN (+ critic gate) → BUILD (execute) → REVIEW (independent reviewer + critic on the diff, report-only) → IMPROVE (phase-wrap retrospective + compounding learning capture), then evaluate stop conditions and loop for another improvement cycle if the objective is unmet and budget remains. Generator and reviewer/critic run in separate contexts; failing assertions must be fixed at the root cause, never weakened, mocked, or skipped. Defense-in-depth stop conditions: objective met, --max-cycles budget (default 3), no-progress/plateau, oscillation, unrecoverable error, or explicit user stop. --autonomy auto (default) runs unattended with hard stops still enforced; --autonomy checkpoint pauses at phase gates for user approval. --depth exhaustive widens exploration. --resume continues an existing loop run from durable .swarm/loop/ state. Distinct from full-auto (autonomous cross-phase oversight) and turbo (parallel lanes within a phase): loop is a user-initiated, gated, compounding workflow.',
 		category: 'agent',
 		toolPolicy: 'none',
 	},
@@ -1380,7 +1380,10 @@ export const VALID_COMMANDS = Object.keys(
  * Checks for:
  * - aliasOf pointing to an existing command
  * - circular alias chains (A → B → C → A)
- * - duplicate alias targets (multiple aliases for different commands) — logged as warning, not error
+ *
+ * Duplicate aliases to the same canonical command are intentional in this repo
+ * (for example, dash-joined TUI shortcuts and legacy compatibility names), so
+ * they are not reported as warnings.
  */
 export function validateAliases(): {
 	valid: boolean;
@@ -1389,7 +1392,6 @@ export function validateAliases(): {
 } {
 	const errors: string[] = [];
 	const warnings: string[] = [];
-	const aliasTargets = new Map<string, string[]>(); // aliasOf target → list of aliases
 
 	for (const [name, entry] of Object.entries(COMMAND_REGISTRY)) {
 		const cmdEntry = entry as CommandEntry;
@@ -1403,13 +1405,6 @@ export function validateAliases(): {
 				);
 				continue;
 			}
-
-			// Track alias targets for duplicate detection
-			if (!aliasTargets.has(target)) {
-				aliasTargets.set(target, []);
-			}
-			aliasTargets.get(target)!.push(name);
-
 			// Check for circular aliases
 			const visited = new Set<string>();
 			const path: string[] = [];
@@ -1436,15 +1431,6 @@ export function validateAliases(): {
 				path.push(current);
 				current = currentEntry.aliasOf || '';
 			}
-		}
-	}
-
-	// Check for duplicate alias targets — warn but don't fail
-	for (const [target, aliases] of aliasTargets.entries()) {
-		if (aliases.length > 1) {
-			warnings.push(
-				`Multiple aliases point to '${target}': ${aliases.join(', ')}`,
-			);
 		}
 	}
 

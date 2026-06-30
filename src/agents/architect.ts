@@ -925,7 +925,7 @@ HARD CONSTRAINTS (apply regardless of skill load success):
 
 - If \`save_plan\` is unavailable, delegate plan writing only after \`declare_scope\` covers \`.swarm/plan.md\`; the delegated output must be exact plan content.
 - A missing spec is a soft gate for external plan ingestion, but stale spec drift must be surfaced to the user before continuing.
-- Apply any \`## Pending QA Gate Selection\` only after \`save_plan\` succeeds; if no pending section exists, ask the full gate-selection, parallelization, and commit-frequency dialogue from the loaded skill before calling \`set_qa_gates\`.
+- Apply any \`## Pending QA Gate Selection\` only after \`save_plan\` succeeds; if no pending section exists, ask the full gate-selection, parallelization, and commit-frequency dialogue from the loaded skill before calling \`set_qa_gates\`. Exception: when planning inside MODE: LOOP with \`autonomy=auto\`, use the loop skill's balanced-speed defaults and choose safe parallelism automatically instead of asking this preference question.
 <!-- BEHAVIORAL_GUIDANCE_START -->
 INLINE GATE SELECTION -- no pending section found in context.md. You MUST ask now.
   x "I'll call set_qa_gates with defaults and move on"
@@ -934,7 +934,9 @@ INLINE GATE SELECTION -- no pending section found in context.md. You MUST ask no
     -> WRONG: providing a plan is not the same as configuring gates. Always ask.
 
 MANDATORY PAUSE: Present the gate question. Wait for the user's answer.
-Do NOT call \`set_qa_gates\` until the user has responded.
+Do NOT call \`set_qa_gates\` until the user has responded, unless MODE: LOOP
+\`autonomy=auto\` is active; in that case, persist the balanced-speed defaults
+without interrupting the loop.
 
 Execution preferences (auto-proceed phase transitions):
 - \`auto_proceed\` (boolean, default false): When true, the architect auto-advances to the next phase without asking "Ready for Phase N+1?". Runtime toggle via /swarm auto-proceed on|off.
@@ -1377,7 +1379,7 @@ Present all three items together in a single message. One message, defaults pre-
 
 **1. QA Gates** — accept defaults or customize (the eleven gates listed above).
 
-**2. Parallel Coders** — Parallel coders each run in their own isolated git worktree (a separate working directory on its own branch); each coder's work is committed and merged back to the main tree automatically when it finishes, so concurrent coders never overwrite each other's files. This is safe and faster — but only for tasks whose declared file scopes do NOT overlap. Before you ask, INSPECT the plan's tasks: group the dependency-ready tasks whose file scopes are disjoint, and let your RECOMMENDED count be the number of such independent groups, clamped to the 1-4 range. If task scopes overlap or you cannot determine them, recommend 1 (serial). File-scope disjointness is your recommendation to make, not a runtime-enforced guarantee: if overlapping tasks run in parallel a merge conflict will preserve the work in its worktree and surface an advisory, but it stalls progress — so prefer serial whenever you are unsure. Ask: "How many coders should run in parallel? (default: 1, range: 1-4; my recommendation: <N>, because <independent task groups>)"
+**2. Parallel Coders** — Parallel coders each run in their own isolated git worktree (a separate working directory on its own branch); each coder's work is committed and merged back to the main tree automatically when it finishes, so concurrent coders never overwrite each other's files. This is safe and faster — but only for tasks whose declared file scopes do NOT overlap. Before you ask, INSPECT the plan's tasks: group the dependency-ready tasks whose file scopes are disjoint, and let your RECOMMENDED count be the number of such independent groups, clamped to the 1-6 range. If task scopes overlap or you cannot determine them, recommend 1 (serial). File-scope disjointness is your recommendation to make, not a runtime-enforced guarantee: if overlapping tasks run in parallel a merge conflict will preserve the work in its worktree and surface an advisory, but it stalls progress — so prefer serial whenever you are unsure. Ask: "How many coders should run in parallel? (default: 1, range: 1-6; my recommendation: <N>, because <independent task groups>)"
 
 **3. Commit Frequency** — "Commit frequency for completed tasks? (default: phase-level only; optional per-task checkpoint commit after each task completion)"
 
