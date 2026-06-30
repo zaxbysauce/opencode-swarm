@@ -318,6 +318,92 @@ describe('buildSpeckitProjectionSync', () => {
 	});
 });
 
+describe('FR-003 — explicit ids survive an id-less bullet placed before them (Bug 1)', () => {
+	// Hand-built inline fixture (matching the repo's one-off fixture pattern, e.g. the
+	// too_large / bare-specs tests). An id-LESS obligation bullet appears BEFORE an
+	// explicit FR-001 bullet in document order. Pre-fix, synthesis steals FR-001 for the
+	// id-less bullet and renumbers the real explicit FR-001 to FR-002 (with a duplicate
+	// warning), violating FR-003. Post-fix, the explicit id is reserved before synthesis.
+	function writeMixedOrderFixture(): void {
+		write(
+			path.join('.specify', 'memory', 'constitution.md'),
+			'# Constitution\n',
+		);
+		write(
+			path.join('specs', '001-mixed', 'spec.md'),
+			[
+				'# 001-mixed — Mixed Feature',
+				'',
+				'## Functional Requirements',
+				'',
+				'- The system MUST log out idle users.',
+				'- **FR-001**: The system MUST authenticate valid users.',
+				'',
+				'## Success Criteria',
+				'',
+				'- **SC-001**: Idle users are logged out and valid users authenticate.',
+				'',
+			].join('\n'),
+		);
+	}
+
+	test('explicit FR-001 is preserved and the earlier id-less bullet gets FR-002, no duplicate warning', () => {
+		writeMixedOrderFixture();
+
+		const spec = buildSpeckitProjectionSync(tempDir);
+
+		expect(spec).not.toBeNull();
+		const content = spec!.content;
+
+		// DISCRIMINATING (advisor): the id-less bullet must synthesize FR-002, NOT steal FR-001.
+		// Pre-fix this line renders as `FR-001: The system MUST log out idle users.` and fails.
+		expect(content).toContain('FR-002: The system MUST log out idle users.');
+		expect(content).not.toContain('FR-001: The system MUST log out idle users.');
+
+		// The explicit requirement keeps its original id unchanged (bold-markup preserve form).
+		expect(content).toContain('**FR-001**: The system MUST authenticate valid users.');
+
+		// DISCRIMINATING: synthesis must not have stolen the explicit id, so no duplicate warning.
+		// Pre-fix the renderer emits "Duplicate requirement id FR-001 ...; generated FR-002.".
+		expect(spec!.warnings.join('\n')).not.toContain('Duplicate requirement id');
+
+		// The projection must still be valid (FR-005) — no collateral regression.
+		expect(validateSpecContent(content).valid).toBe(true);
+	});
+
+	test('two genuinely-duplicate explicit ids still warn and renumber the second (invariant preserved)', () => {
+		// The Bug 1 fix must NOT suppress the real duplicate-explicit-id warning: two
+		// explicit requirements truly sharing FR-001 is a source error, not synthesis.
+		write(
+			path.join('.specify', 'memory', 'constitution.md'),
+			'# Constitution\n',
+		);
+		write(
+			path.join('specs', '001-dup', 'spec.md'),
+			[
+				'# 001-dup — Duplicate Feature',
+				'',
+				'## Functional Requirements',
+				'',
+				'- **FR-001**: The system MUST do the first thing.',
+				'- **FR-001**: The system MUST do the second thing.',
+				'',
+				'## Success Criteria',
+				'',
+				'- **SC-001**: Both things happen.',
+				'',
+			].join('\n'),
+		);
+
+		const spec = buildSpeckitProjectionSync(tempDir);
+
+		expect(spec).not.toBeNull();
+		// First keeps FR-001; second is renumbered to FR-002 with the duplicate warning.
+		expect(spec!.warnings.some((w) => w.includes('Duplicate requirement id FR-001'))).toBe(true);
+		expect(spec!.content).toContain('FR-002: **FR-001**: The system MUST do the second thing.');
+	});
+});
+
 describe('resolveSpeckitProjection — discriminated resolution (task 1.4)', () => {
 	test('not_speckit: openspec-only repo with no .specify/ marker (A-001)', () => {
 		// Write an OpenSpec layout — no .specify/ marker at all.

@@ -285,10 +285,24 @@ function parseRequirements(
 	return requirements;
 }
 
-function nextFrId(used: Set<string>, warnings: string[]): string {
+/**
+ * Allocate the next free synthesized FR id.
+ *
+ * `reserved` (optional) holds ids that explicit requirements own but have not yet
+ * been emitted (e.g. an explicit `FR-001` that appears AFTER an id-less bullet in
+ * document order). Synthesis must skip those so it never steals an explicit id and
+ * forces a spurious renumber (FR-003, Bug 1). When `reserved` is undefined the
+ * behavior is byte-identical to the pre-fix allocator — the OpenSpec path relies on
+ * this, so its projection output is unchanged.
+ */
+function nextFrId(
+	used: Set<string>,
+	warnings: string[],
+	reserved?: Set<string>,
+): string {
 	for (let n = 1; n <= 999; n++) {
 		const id = `FR-${String(n).padStart(3, '0')}`;
-		if (!used.has(id)) {
+		if (!used.has(id) && !reserved?.has(id)) {
 			used.add(id);
 			return id;
 		}
@@ -301,8 +315,10 @@ function renderRequirement(
 	req: ParsedRequirement,
 	used: Set<string>,
 	warnings: string[],
+	reserved?: Set<string>,
 ): string {
-	const id = req.id && !used.has(req.id) ? req.id : nextFrId(used, warnings);
+	const id =
+		req.id && !used.has(req.id) ? req.id : nextFrId(used, warnings, reserved);
 	if (req.id && req.id !== id) {
 		warnings.push(
 			`Duplicate requirement id ${req.id} in ${req.sourceRel}; generated ${id}.`,
@@ -532,6 +548,18 @@ export function resolveSpeckitProjection(
 		return { kind: 'zero_requirements', feature: selectedFeature.featureId };
 	}
 
+	// FR-003 (Bug 1): pre-scan and reserve every explicit id BEFORE the render loop so
+	// synthesis (nextFrId) never steals an explicit FR-### that appears later in document
+	// order. Without this, an id-less bullet before an explicit `FR-001` would allocate
+	// FR-001 for itself and force the real explicit `FR-001` to renumber (FR-002) with a
+	// "Duplicate requirement id" warning. Reserving (rather than seeding usedIds) keeps each
+	// explicit requirement rendering with its OWN id and preserves the genuine
+	// duplicate-explicit-id warning (two explicit reqs truly sharing an id).
+	const reservedIds = new Set<string>();
+	for (const req of requirements) {
+		if (req.id) reservedIds.add(req.id);
+	}
+
 	let mtimeMs = 0;
 	try {
 		mtimeMs = fs.lstatSync(specAbs).mtimeMs;
@@ -551,7 +579,7 @@ export function resolveSpeckitProjection(
 	];
 
 	for (const req of requirements) {
-		lines.push(renderRequirement(req, usedIds, warnings));
+		lines.push(renderRequirement(req, usedIds, warnings, reservedIds));
 	}
 
 	const projected = `${lines.join('\n')}\n`;

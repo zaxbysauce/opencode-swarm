@@ -1,3 +1,5 @@
+import * as fs from 'node:fs';
+import * as path from 'node:path';
 import {
 	buildOpenSpecProjectionSync,
 	detectSpeckit,
@@ -7,6 +9,13 @@ import {
 	writeProjectedSpecSync,
 } from '../sdd/effective-spec';
 import type { SpeckitResolution } from '../sdd/effective-spec';
+
+/**
+ * Native swarm-spec relative path — MUST match the engine's
+ * `SWARM_SPEC_REL` in src/sdd/effective-spec.ts so the command layer's native
+ * precedence check (FR-009) agrees with the resolver's branch (a).
+ */
+const SWARM_SPEC_REL = path.join('.swarm', 'spec.md');
 
 const USAGE = `Usage:
   /swarm sdd status [--json] [--source <provider>]
@@ -159,11 +168,17 @@ export async function handleSddStatusCommand(
 	// triggering the resolver's console.warn (which fires inside readEffectiveSpecSync).
 	const speckitDetection = detectSpeckit(directory);
 	const speckitPresent = speckitDetection.features.length > 0;
+	// FR-009 step 1 / planning.md:271: a native .swarm/spec.md ALWAYS wins, even over an
+	// ambiguous openspec+speckit pair. Only fire the both-detected hard error when no
+	// native spec exists; otherwise fall through to loadSddStatusSync, whose
+	// readEffectiveSpecSync resolves native-first (branch a) and never reaches the
+	// resolver's ambiguity console.warn.
+	const nativeSpecExists = fs.existsSync(path.join(directory, SWARM_SPEC_REL));
 
 	// FR-009/010: both sources present and no --source → hard error naming both.
 	// Discriminator mirrors readEffectiveSpecSync: speckitPresent = features.length > 0,
 	// openspecPresent = buildOpenSpecProjectionSync !== null.
-	if (speckitPresent && !parsed.source) {
+	if (speckitPresent && !parsed.source && !nativeSpecExists) {
 		const openspecProjection = buildOpenSpecProjectionSync(directory);
 		if (openspecProjection !== null) {
 			const errLines = [
@@ -251,9 +266,15 @@ export async function handleSddValidateCommand(
 	// Mirrors the detection logic from handleSddProjectCommand (task 2.2).
 	let useSpeckit = false;
 
+	// FR-009 step 1 / planning.md:271: a native .swarm/spec.md ALWAYS wins. When one
+	// exists and the user gave no explicit --source, skip Spec-Kit auto-detect entirely
+	// (so the both-detected hard error never fires) and fall through to the OpenSpec/native
+	// path below, where loadSddStatusSync resolves native-first via readEffectiveSpecSync.
+	const nativeSpecExists = fs.existsSync(path.join(directory, SWARM_SPEC_REL));
+
 	if (parsed.source === 'speckit') {
 		useSpeckit = true;
-	} else if (!parsed.source) {
+	} else if (!parsed.source && !nativeSpecExists) {
 		// Auto-detect: check for Spec-Kit marker and feature dirs.
 		const speckitDetection = detectSpeckit(directory);
 

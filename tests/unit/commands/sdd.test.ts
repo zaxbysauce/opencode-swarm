@@ -565,3 +565,82 @@ describe('/swarm sdd validate — Spec-Kit (task 2.3)', () => {
 		expect(out).toContain('Provider: speckit_projection');
 	});
 });
+
+// ---------------------------------------------------------------------------
+// Native .swarm/spec.md precedence in status + validate (Bug 2 / FR-009)
+// ---------------------------------------------------------------------------
+describe('/swarm sdd — native .swarm/spec.md precedence (FR-009)', () => {
+	let allThreeDir: string;
+
+	beforeEach(() => {
+		allThreeDir = fs.realpathSync(
+			fs.mkdtempSync(path.join(os.tmpdir(), 'sdd-native-')),
+		);
+		// (1) Native swarm spec — must win per FR-009 / planning.md:271.
+		fs.mkdirSync(path.join(allThreeDir, '.swarm'), { recursive: true });
+		fs.writeFileSync(
+			path.join(allThreeDir, '.swarm', 'spec.md'),
+			'# Specification: Swarm Native\n\n## Requirements\n- FR-001 MUST use the native Swarm spec.\n',
+			'utf-8',
+		);
+		// (2) Valid OpenSpec — a single parsable requirement, no half-finished change,
+		// so the OpenSpec projection is clean and validate stays valid.
+		fs.mkdirSync(path.join(allThreeDir, 'openspec', 'specs', 'auth'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(allThreeDir, 'openspec', 'specs', 'auth', 'spec.md'),
+			'## Requirements\n### Requirement: Login\nThe system MUST allow login.\n',
+			'utf-8',
+		);
+		// (3) Valid Spec-Kit single feature.
+		writeSpeckitFixture(allThreeDir, { variant: 'single-explicit-fr' });
+	});
+
+	afterEach(() => {
+		fs.rmSync(allThreeDir, { recursive: true, force: true });
+	});
+
+	// FR-009: native present + openspec + speckit, no --source → status reports the
+	// native provider and does NOT hard-error or emit the resolver console.warn.
+	test('status reports Provider: swarm and does not emit the multi-source error (FR-009)', async () => {
+		const original = console.warn;
+		const warnMessages: string[] = [];
+		console.warn = (...a: unknown[]) => {
+			warnMessages.push(a.map(String).join(' '));
+		};
+		let out: string;
+		try {
+			out = await handleSddStatusCommand(allThreeDir, []);
+		} finally {
+			console.warn = original;
+		}
+
+		expect(out).toContain('Provider: swarm');
+		expect(out).not.toContain('Multiple SDD sources detected');
+		expect(warnMessages).toEqual([]);
+	});
+
+	// FR-009: same repo via validate — must not hard-error, must stay valid, must not warn.
+	// (Provider stays openspec_projection so native+openspec+speckit behaves identically to
+	// native+openspec; native precedence is honored by the resolver for actual enforcement.)
+	test('validate does not emit the multi-source error and stays valid (FR-009)', async () => {
+		const original = console.warn;
+		const warnMessages: string[] = [];
+		console.warn = (...a: unknown[]) => {
+			warnMessages.push(a.map(String).join(' '));
+		};
+		let out: string;
+		try {
+			out = await handleSddValidateCommand(allThreeDir, ['--json']);
+		} finally {
+			console.warn = original;
+		}
+
+		const parsed = JSON.parse(out);
+		expect(parsed.valid).toBe(true);
+		expect(parsed.error).toBeUndefined();
+		expect(out).not.toContain('Multiple SDD sources detected');
+		expect(warnMessages).toEqual([]);
+	});
+});
