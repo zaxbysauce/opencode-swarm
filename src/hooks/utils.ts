@@ -174,61 +174,87 @@ export function validateSwarmPath(directory: string, filename: string): string {
 		throw new Error('Invalid filename: path escapes .swarm directory');
 	}
 
-	// Resolve the base directory and the requested file, resolving any
-	// existing symlinks before performing the containment check.
+	// Resolve the base directory and the requested file
 	const baseDir = path.normalize(path.resolve(directory, '.swarm'));
 	const resolved = path.normalize(path.resolve(baseDir, filename));
-	const realBaseDir = (() => {
-		try {
-			return fs.realpathSync(baseDir);
-		} catch (error) {
-			warn(
-				'validateSwarmPath: failed to realpath .swarm base directory; using normalized path',
-				{
-					baseDir,
-					error: error instanceof Error ? error.message : String(error),
-				},
-			);
-			return baseDir;
-		}
-	})();
-	const realResolved = (() => {
-		try {
-			return fs.realpathSync(resolved);
-		} catch (error) {
-			warn(
-				'validateSwarmPath: failed to realpath target path; using normalized path',
-				{
-					resolved,
-					error: error instanceof Error ? error.message : String(error),
-				},
-			);
-			return resolved;
-		}
-	})();
 
 	// Check that the resolved path is within the .swarm directory
 	if (process.platform === 'win32') {
 		// On Windows, do case-insensitive comparison
 		if (
-			!realResolved
-				.toLowerCase()
-				.startsWith((realBaseDir + path.sep).toLowerCase()) &&
-			realResolved.toLowerCase() !== realBaseDir.toLowerCase()
+			!resolved.toLowerCase().startsWith((baseDir + path.sep).toLowerCase())
 		) {
 			throw new Error('Invalid filename: path escapes .swarm directory');
 		}
 	} else {
 		// On other platforms, do case-sensitive comparison
-		if (
-			!realResolved.startsWith(realBaseDir + path.sep) &&
-			realResolved !== realBaseDir
-		) {
+		if (!resolved.startsWith(baseDir + path.sep)) {
 			throw new Error('Invalid filename: path escapes .swarm directory');
 		}
 	}
 
-	return realResolved;
+	let realBaseDir: string;
+	try {
+		if (fs.lstatSync(baseDir).isSymbolicLink()) {
+			throw new Error('Invalid filename: path escapes .swarm directory');
+		}
+		realBaseDir = fs.realpathSync(baseDir);
+	} catch (error) {
+		if (
+			error instanceof Error &&
+			error.message === 'Invalid filename: path escapes .swarm directory'
+		) {
+			throw error;
+		}
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			return resolved;
+		}
+		throw new Error('Invalid filename: failed to resolve .swarm directory');
+	}
+
+	let existingPath = resolved;
+	while (!fs.existsSync(existingPath)) {
+		const parent = path.dirname(existingPath);
+		if (parent === existingPath || !isPathWithin(parent, baseDir)) {
+			existingPath = baseDir;
+			break;
+		}
+		existingPath = parent;
+	}
+
+	let realExistingPath: string;
+	try {
+		realExistingPath = fs.realpathSync(existingPath);
+	} catch (error) {
+		if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
+			realExistingPath = realBaseDir;
+		} else {
+			throw new Error('Invalid filename: failed to resolve path');
+		}
+	}
+
+	if (!isPathWithin(realExistingPath, realBaseDir)) {
+		throw new Error('Invalid filename: path escapes .swarm directory');
+	}
+
+	return resolved;
+}
+
+function isPathWithin(candidate: string, base: string): boolean {
+	const normalizedCandidate = path.normalize(candidate);
+	const normalizedBase = path.normalize(base);
+	if (process.platform === 'win32') {
+		const candidateLower = normalizedCandidate.toLowerCase();
+		const baseLower = normalizedBase.toLowerCase();
+		return (
+			candidateLower === baseLower ||
+			candidateLower.startsWith(`${baseLower}${path.sep}`)
+		);
+	}
+	return (
+		normalizedCandidate === normalizedBase ||
+		normalizedCandidate.startsWith(`${normalizedBase}${path.sep}`)
+	);
 }
 
 export async function readSwarmFileAsync(
