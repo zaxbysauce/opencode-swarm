@@ -690,12 +690,12 @@ describe('checkSpecStaleness', () => {
 
 describe('Plugin cache grammar asset diagnosis', () => {
 	it('warns when a present OpenCode plugin cache is missing tree-sitter wasm assets', async () => {
-		const cacheWrapperSuffix = path.win32.join(
+		const cacheWrapperSuffix = path.join(
 			'opencode',
 			'packages',
 			'opencode-swarm@latest',
 		);
-		const packageRootSuffix = path.win32.join(
+		const packageRootSuffix = path.join(
 			cacheWrapperSuffix,
 			'node_modules',
 			'opencode-swarm',
@@ -704,15 +704,14 @@ describe('Plugin cache grammar asset diagnosis', () => {
 			if (typeof input !== 'string') return false;
 			if (input === '/test/dir') return true;
 			if (input.includes('opencode-swarm@latest')) {
-				const normalized = input.replaceAll('/', '\\');
 				if (
-					normalized.endsWith(cacheWrapperSuffix) ||
-					normalized.endsWith(packageRootSuffix)
+					input.endsWith(cacheWrapperSuffix) ||
+					input.endsWith(packageRootSuffix)
 				) {
 					return true;
 				}
-				if (normalized.endsWith('\\package.json')) return true;
-				return !normalized.endsWith('\\tree-sitter.wasm');
+				if (input.endsWith(`${path.sep}package.json`)) return true;
+				return !input.endsWith(`${path.sep}tree-sitter.wasm`);
 			}
 			if (input.includes('opencode-swarm')) {
 				return !input.endsWith('tree-sitter.wasm');
@@ -725,8 +724,8 @@ describe('Plugin cache grammar asset diagnosis', () => {
 
 		expect(check).toBeDefined();
 		expect(check.status).toBe('⚠️');
-		expect(check.detail).toContain('packages\\opencode-swarm@latest');
-		expect(check.detail).toContain('node_modules\\opencode-swarm');
+		expect(check.detail).toContain(`packages${path.sep}opencode-swarm@latest`);
+		expect(check.detail).toContain(`node_modules${path.sep}opencode-swarm`);
 		expect(check.detail).toContain('missing grammar assets');
 		expect(check.detail).toContain('tree-sitter.wasm');
 		expect(check.detail).toContain('bunx opencode-swarm update');
