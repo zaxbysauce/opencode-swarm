@@ -1,5 +1,15 @@
 # Changelog
 
+## [7.99.7](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.99.6...v7.99.7) (2026-07-01)
+
+
+### Bug Fixes
+
+* **guardrails:** surface sandbox unavailability advisories ([48333b0](https://github.com/ZaxbyHub/opencode-swarm/commit/48333b07050ae7f64ba5fef33eb8ee0bbf4c7bbe))
+* **pr-1572:** add src/sandbox/executor to mock-allowlist (CI fix) ([9251424](https://github.com/ZaxbyHub/opencode-swarm/commit/9251424c1284eb902128380772a8d5057d81728d))
+* **pr-1572:** apply biome format to test files (CI fix) ([bcb1b33](https://github.com/ZaxbyHub/opencode-swarm/commit/bcb1b33a0a12cab566a5a7d5a4240e73de5a92b7))
+* **pr-1572:** remove duplicate applySandboxExecution call (closes F-001) ([48a4d12](https://github.com/ZaxbyHub/opencode-swarm/commit/48a4d1277b48d295747a777caf24f7bffe7e13e3))
+
 ## [7.99.6](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.99.5...v7.99.6) (2026-07-01)
 
 
