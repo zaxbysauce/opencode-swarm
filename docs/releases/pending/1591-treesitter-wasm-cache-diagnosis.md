@@ -1,0 +1,1 @@
+Fixes the Tree-sitter WASM failure path for incomplete OpenCode plugin caches. The runtime now reports a direct cache-repair error before `web-tree-sitter` emits low-level Emscripten output, and `/swarm diagnose` flags installed cache directories that are missing bundled grammar WASM assets.

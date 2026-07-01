@@ -532,4 +532,47 @@ describe('runtime.ts - Security Verification Tests', () => {
 			expect(parserCache.size).toBe(1);
 		});
 	});
+
+	describe('14. Bundled core WASM preflight', () => {
+		let originalInit: typeof _internals.parserInit;
+		let originalGetModuleDir: typeof _internals.getModuleDir;
+		let originalFileExists: typeof _internals.fileExists;
+
+		beforeEach(() => {
+			clearParserCache();
+			originalInit = _internals.parserInit;
+			originalGetModuleDir = _internals.getModuleDir;
+			originalFileExists = _internals.fileExists;
+		});
+
+		afterEach(() => {
+			_internals.parserInit = originalInit;
+			_internals.getModuleDir = originalGetModuleDir;
+			_internals.fileExists = originalFileExists;
+			clearParserCache();
+		});
+
+		it('should report missing bundled tree-sitter.wasm before calling Parser.init', async () => {
+			let initCallCount = 0;
+			_internals.getModuleDir = () =>
+				'/cache/opencode/node_modules/opencode-swarm/dist';
+			_internals.fileExists = (filePath: string) =>
+				!filePath.endsWith('tree-sitter.wasm');
+			_internals.parserInit = async () => {
+				initCallCount++;
+			};
+
+			let error: Error | null = null;
+			try {
+				await loadGrammar('javascript');
+			} catch (err) {
+				error = err as Error;
+			}
+
+			expect(error).toBeDefined();
+			expect(error!.message).toContain('Core tree-sitter WASM runtime missing');
+			expect(error!.message).toContain('bunx opencode-swarm update');
+			expect(initCallCount).toBe(0);
+		});
+	});
 });

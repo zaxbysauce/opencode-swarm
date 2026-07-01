@@ -3,7 +3,8 @@ import * as realChildProcess from 'node:child_process';
 import { execSync } from 'node:child_process';
 
 import * as realFs from 'node:fs';
-import { existsSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
+import path from 'node:path';
 import { loadPluginConfig } from '../../../src/config/loader.js';
 import type { Plan } from '../../../src/config/plan-schema.js';
 import { listEvidenceTaskIds } from '../../../src/evidence/manager.js';
@@ -35,6 +36,7 @@ mock.module('node:fs', () => ({
 	...realFs,
 	readdirSync: mock(() => []),
 	existsSync: mock(() => true),
+	readFileSync: mock(() => '{"version":"7.99.6"}'),
 	statSync: mock(() => ({ isDirectory: () => true })),
 }));
 mock.module('node:child_process', () => ({
@@ -52,6 +54,7 @@ const mockReadEffectiveSpecSync = readEffectiveSpecSync as ReturnType<
 >;
 const mockReaddirSync = readdirSync as ReturnType<typeof mock>;
 const mockExistsSync = existsSync as ReturnType<typeof mock>;
+const mockReadFileSync = readFileSync as ReturnType<typeof mock>;
 const mockStatSync = statSync as ReturnType<typeof mock>;
 const mockExecSync = execSync as ReturnType<typeof mock>;
 
@@ -110,6 +113,7 @@ beforeEach(() => {
 	mockReadEffectiveSpecSync.mockReturnValue(null);
 	mockReaddirSync.mockReturnValue([]);
 	mockExistsSync.mockReturnValue(true);
+	mockReadFileSync.mockReturnValue('{"version":"7.99.6"}');
 	mockStatSync.mockReturnValue({ isDirectory: () => true });
 	mockExecSync.mockReturnValue(Buffer.from('.git'));
 	// restore env var
@@ -681,5 +685,50 @@ describe('checkSpecStaleness', () => {
 		expect(check).toBeDefined();
 		expect(check.status).toBe('✅');
 		expect(check.detail).toContain('not detectable');
+	});
+});
+
+describe('Plugin cache grammar asset diagnosis', () => {
+	it('warns when a present OpenCode plugin cache is missing tree-sitter wasm assets', async () => {
+		const cacheWrapperSuffix = path.win32.join(
+			'opencode',
+			'packages',
+			'opencode-swarm@latest',
+		);
+		const packageRootSuffix = path.win32.join(
+			cacheWrapperSuffix,
+			'node_modules',
+			'opencode-swarm',
+		);
+		mockExistsSync.mockImplementation((input: unknown) => {
+			if (typeof input !== 'string') return false;
+			if (input === '/test/dir') return true;
+			if (input.includes('opencode-swarm@latest')) {
+				const normalized = input.replaceAll('/', '\\');
+				if (
+					normalized.endsWith(cacheWrapperSuffix) ||
+					normalized.endsWith(packageRootSuffix)
+				) {
+					return true;
+				}
+				if (normalized.endsWith('\\package.json')) return true;
+				return !normalized.endsWith('\\tree-sitter.wasm');
+			}
+			if (input.includes('opencode-swarm')) {
+				return !input.endsWith('tree-sitter.wasm');
+			}
+			return false;
+		});
+
+		const result = await getDiagnoseData('/test/dir');
+		const check = findCheck(result.checks, 'Plugin Caches');
+
+		expect(check).toBeDefined();
+		expect(check.status).toBe('⚠️');
+		expect(check.detail).toContain('packages\\opencode-swarm@latest');
+		expect(check.detail).toContain('node_modules\\opencode-swarm');
+		expect(check.detail).toContain('missing grammar assets');
+		expect(check.detail).toContain('tree-sitter.wasm');
+		expect(check.detail).toContain('bunx opencode-swarm update');
 	});
 });
