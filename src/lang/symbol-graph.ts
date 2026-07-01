@@ -1,4 +1,10 @@
 import type { Language, Node, QueryMatch, Tree } from 'web-tree-sitter';
+import {
+	collectCommonJsExports,
+	collectPythonAllNames,
+	getSymbolVisibilityInfo,
+	type SymbolVisibilityInfo,
+} from './symbol-visibility';
 
 /** Lazy cache for the Query constructor — avoids loading web-tree-sitter WASM at module-init time. */
 let _QueryCtor:
@@ -22,6 +28,7 @@ export interface FileSymbolFacts {
 			| 'enum'
 			| 'method';
 		exported: boolean;
+		visibilityInfo?: SymbolVisibilityInfo;
 		startLine: number;
 		endLine: number;
 	}>;
@@ -476,6 +483,11 @@ function buildFacts(
 		const cap = m.captures.find((c) => c.name === 'export');
 		if (cap) exportNodes.push(asTs(cap.node));
 	}
+	const commonJsExports = isEsMGrammar(grammarId)
+		? collectCommonJsExports(root.text)
+		: new Map();
+	const pythonAllNames =
+		grammarId === 'python' ? collectPythonAllNames(root.text) : null;
 
 	const defs: FileSymbolFacts['defs'] = [];
 	const defNodes: Array<{ node: TsNode; name: string }> = [];
@@ -488,14 +500,17 @@ function buildFacts(
 
 		const kindKey = defCap.name.replace(/\.def$/, '');
 		const kind = CAPTURE_KIND[kindKey] ?? 'function';
-		let defNode = asTs(defCap.node);
-		const exported = exportNodes.some((en) => isNodeInside(en, defNode));
+		const originalDefNode = asTs(defCap.node);
+		let defNode = originalDefNode;
+		const explicitExported = exportNodes.some((en) =>
+			isNodeInside(en, defNode),
+		);
 
 		// For ESM default exports, normalize the exported name to 'default'
 		// so it matches the 'default' sentinel used by parseEsmImport and
 		// the sync builder's export naming.
 		let isDefaultExport = false;
-		if (exported && isEsMGrammar(grammarId)) {
+		if (explicitExported && isEsMGrammar(grammarId)) {
 			isDefaultExport = exportNodes.some(
 				(en) => isNodeInside(en, defNode) && isDefaultExportStatement(en),
 			);
@@ -521,12 +536,27 @@ function buildFacts(
 		for (const nc of nameCaps) {
 			const nameNode = asTs(nc.node);
 			const localName = nameNode.text;
-			const exportedName = isDefaultExport ? 'default' : localName;
+			const commonJsExport = commonJsExports.get(localName);
+			const visibilityInfo = getSymbolVisibilityInfo({
+				grammarId,
+				localName,
+				kind,
+				defNode: originalDefNode,
+				rootNode: root,
+				isTopLevel: isTopLevelDef(originalDefNode, root),
+				explicitExported,
+				commonJsExport,
+				pythonAllNames,
+			});
+			const exportedName = isDefaultExport
+				? 'default'
+				: (commonJsExport?.exportedName ?? localName);
 
 			defs.push({
 				name: exportedName,
 				kind,
-				exported,
+				exported: visibilityInfo.exported,
+				visibilityInfo,
 				startLine: defNode.startPosition.row + 1,
 				endLine: defNode.endPosition.row + 1,
 			});
