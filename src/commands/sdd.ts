@@ -9,6 +9,7 @@ import {
 	validateSpeckit,
 	writeProjectedSpecSync,
 } from '../sdd/effective-spec';
+import { containsControlChars } from '../utils/path-security';
 
 /**
  * Native swarm-spec relative path — MUST match the engine's
@@ -48,10 +49,11 @@ interface ParsedSddArgs {
 
 /**
  * Returns true when `value` contains characters that are unsafe in a directory
- * name id: path separators, traversal sequences, or bracket characters.
+ * name id: path separators, traversal sequences, bracket characters, or control/bidi
+ * characters.
  *
  * Shared by both --change and --feature so the same rejection logic is reused
- * (task 2.2 explicit requirement; matches sdd.ts:36-49 pre-task baseline).
+ * (task 2.2 explicit requirement; matches the pre-task baseline).
  */
 function isUnsafeId(value: string): boolean {
 	return (
@@ -59,7 +61,12 @@ function isUnsafeId(value: string): boolean {
 		value.includes('\\') ||
 		value.includes('..') ||
 		value.includes('[') ||
-		value.includes(']')
+		value.includes(']') ||
+		// Reject control/bidi characters (null bytes, RTL override, etc.) — aligns with
+		// the repo's canonical containsControlChars used by validateDirectory. Defense-
+		// in-depth: current callers exact-match the value against detected dir names, so
+		// there is no path-construction exploit today, but this keeps the guard consistent.
+		containsControlChars(value)
 	);
 }
 
@@ -80,7 +87,7 @@ function parseArgs(args: string[]): ParsedSddArgs {
 				return {
 					...parsed,
 					error:
-						'--change must be a single OpenSpec change id with no path separators, traversal, or brackets',
+						'--change must be a single OpenSpec change id with no path separators, traversal, brackets, or control characters',
 				};
 			}
 			parsed.changeId = value;
@@ -105,7 +112,7 @@ function parseArgs(args: string[]): ParsedSddArgs {
 				return {
 					...parsed,
 					error:
-						'--feature must be a single Spec-Kit feature directory name with no path separators, traversal, or brackets',
+						'--feature must be a single Spec-Kit feature directory name with no path separators, traversal, brackets, or control characters',
 				};
 			}
 			parsed.feature = value;

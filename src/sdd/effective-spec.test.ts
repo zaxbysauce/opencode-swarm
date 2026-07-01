@@ -243,6 +243,46 @@ describe('detectSpeckit', () => {
 		expect(result.features).toHaveLength(1);
 		expect(result.features[0]?.featureId).toBe('001-real');
 	});
+
+	test('symlinked feature directories and symlinked spec.md files are skipped (symlink safety)', () => {
+		const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'speckit-symlink-'));
+		try {
+			fs.mkdirSync(path.join(tempDir, '.specify'));
+			fs.mkdirSync(path.join(tempDir, 'specs'));
+
+			// Real feature dir with a real spec.md — must be detected.
+			fs.mkdirSync(path.join(tempDir, 'specs', '001-real'));
+			fs.writeFileSync(
+				path.join(tempDir, 'specs', '001-real', 'spec.md'),
+				'## Functional Requirements\n- FR-001 System MUST work.\n',
+			);
+
+			// Symlinked feature dir — must be skipped (isSymbolicLink filter).
+			const symlinkFeatureTarget = path.join(tempDir, 'specs', '001-real');
+			fs.symlinkSync(
+				symlinkFeatureTarget,
+				path.join(tempDir, 'specs', '002-symlinked-dir'),
+				'dir',
+			);
+
+			// Real feature dir whose spec.md is a symlink — must be skipped
+			// (lstatSync+isFile returns false for a symlinked file).
+			fs.mkdirSync(path.join(tempDir, 'specs', '003-symlinked-spec'));
+			fs.symlinkSync(
+				path.join(tempDir, 'specs', '001-real', 'spec.md'),
+				path.join(tempDir, 'specs', '003-symlinked-spec', 'spec.md'),
+				'file',
+			);
+
+			const result = detectSpeckit(tempDir);
+
+			expect(result.markerPresent).toBe(true);
+			// Only the real, non-symlinked feature with a real spec.md is detected.
+			expect(result.features.map((f) => f.featureId)).toEqual(['001-real']);
+		} finally {
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		}
+	});
 });
 
 describe('buildSpeckitProjectionSync', () => {
@@ -856,3 +896,143 @@ describe('validateSpeckit — structural validation (task 2.3, FR-007, FR-013)',
 		expect(problems).toHaveLength(0);
 	});
 });
+
+// readTextBounded null-return path — detectSpeckit filters non-files before readTextBounded is called
+// ---------------------------------------------------------------------------
+// NOTE: when spec.md is a non-file (directory), detectSpeckit's isFile() guard at line 414
+// filters the feature out before readTextBounded is ever called. The null-return path in
+// readTextBounded is exercised by the vanishing-file TOCTOU (lstatSync throws) — testable
+// only via a race or node:fs mock. The defensive try/catch at readTextBounded L136 means
+// vanishing files return null (folded to zero_requirements) rather than crashing.
+//
+// The behavioral guarantee we CAN test: replacing spec.md with a directory causes
+// detectSpeckit to return { markerPresent: true, features: [] } and resolveSpeckitProjection
+// to return kind: 'empty' — not a crash.
+describe('readTextBounded null-return coverage', () => {
+	test('spec.md replaced by a directory: resolveSpeckitProjection returns empty (not crash)', () => {
+		writeSpeckitFixture(tempDir, { variant: 'single-explicit-fr' });
+
+		// Replace spec.md with a directory so detectSpeckit's isFile() guard skips it.
+		const specPath = path.join(tempDir, 'specs', '001-auth-service', 'spec.md');
+		fs.rmSync(specPath);
+		fs.mkdirSync(specPath); // now a directory, not a file
+
+		const resolution = resolveSpeckitProjection(tempDir);
+
+		expect(resolution).toEqual({
+			kind: 'empty',
+		});
+	});
+
+	test('validateSpeckit: spec.md replaced by a directory returns not_speckit-like problems (no crash)', () => {
+		// When detectSpeckit returns zero features (non-file spec.md filtered out),
+		// validateSpeckit returns early with kind: 'empty' and zero problems.
+		// The try/catch in readTextBounded is never triggered here because
+		// detectSpeckit skips the feature before readTextBounded is called.
+		writeSpeckitFixture(tempDir, { variant: 'single-explicit-fr' });
+
+		const specPath = path.join(tempDir, 'specs', '001-auth-service', 'spec.md');
+		fs.rmSync(specPath);
+		fs.mkdirSync(specPath);
+
+		const { resolution, problems } = validateSpeckit(tempDir);
+
+		// Resolution is 'empty' because marker is present but no features remain.
+		expect(resolution.kind).toBe('empty');
+		expect(problems).toHaveLength(0);
+	});
+});
+
+// detectSpeckit — marker isDirectory guard (statSync vs existsSync)
+// ----------------------------------------------------------------
+describe('detectSpeckit marker isDirectory guard', () => {
+	test('.specify as a regular file is rejected (markerPresent=false, not a crash)', () => {
+		// A bare file named .specify should not be treated as the marker directory.
+		// statSync?.isDirectory() returns false for a regular file, so markerPresent=false.
+		fs.mkdirSync(path.join(tempDir, 'specs', '001-feature'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(tempDir, 'specs', '001-feature', 'spec.md'),
+			'## Functional Requirements\n- **FR-001**: System MUST do something.\n',
+			'utf-8',
+		);
+		// Create .specify as a FILE (not a directory) to exercise the isDirectory() guard.
+		fs.writeFileSync(
+			path.join(tempDir, '.specify'),
+			'# Not a directory\n',
+			'utf-8',
+		);
+
+		const result = detectSpeckit(tempDir);
+
+		expect(result.markerPresent).toBe(false);
+		expect(result.features).toHaveLength(0);
+	});
+
+	test('.specify as a symlinked directory IS followed and detected (statSync behavior)', () => {
+		// statSync (not lstatSync) follows symlinks, so a symlinked marker dir resolves
+		// to the real path and is accepted. This is intentional — the guard rejects
+		// REGULAR FILES named .specify, not symlinked directories.
+		fs.mkdirSync(path.join(tempDir, 'specs', '001-feature'), {
+			recursive: true,
+		});
+		fs.writeFileSync(
+			path.join(tempDir, 'specs', '001-feature', 'spec.md'),
+			'## Functional Requirements\n- **FR-001**: System MUST work.\n',
+			'utf-8',
+		);
+		// Real marker dir at alternate path, symlinked into the project root.
+		fs.mkdirSync(path.join(tempDir, '.specify-target'));
+		fs.symlinkSync(
+			path.join(tempDir, '.specify-target'),
+			path.join(tempDir, '.specify'),
+			'dir',
+		);
+
+		const result = detectSpeckit(tempDir);
+
+		expect(result.markerPresent).toBe(true);
+		expect(result.features).toHaveLength(1);
+		expect(result.features[0]?.featureId).toBe('001-feature');
+	});
+});
+
+// validateSpeckit — FR-000 is flagged as "has no spec/requirement reference"
+// -------------------------------------------------------------------------
+describe('validateSpeckit FR-000 exclusion', () => {
+	test('tasks.md line referencing FR-000 is flagged as "has no spec/requirement reference" (hasReqRef (?!000) lookahead)', () => {
+		writeSpeckitFixture(tempDir, { variant: 'single-explicit-fr' });
+		const tasksPath = path.join(
+			tempDir,
+			'specs',
+			'001-auth-service',
+			'tasks.md',
+		);
+		fs.writeFileSync(
+			tasksPath,
+			[
+				'# Tasks',
+				'',
+				'- [ ] T001 [P] [FR-001] Valid requirement reference — must NOT be flagged',
+				'- [ ] T002 [P] [FR-000] The null-requirement reference — must be flagged',
+				'- [ ] T003 [P] [US1] Valid story reference — must NOT be flagged',
+				'- [ ] T004 [P] No reference at all — must be flagged',
+				'',
+			].join('\n'),
+			'utf-8',
+		);
+
+		const { resolution, problems } = validateSpeckit(tempDir);
+
+		expect(resolution.kind).toBe('ok');
+		// FR-001 and US1 are valid references → not flagged.
+		expect(problems.some((p) => p.includes('T001'))).toBe(false);
+		expect(problems.some((p) => p.includes('T003'))).toBe(false);
+		// FR-000 is NOT a valid reference (the (?!000) negative lookahead excludes it)
+		// and no-story → flagged. T004 has no reference → flagged.
+		expect(problems.some((p) => p.includes('T002'))).toBe(true);
+		expect(problems.some((p) => p.includes('T004'))).toBe(true);
+	});
+});
+// vi: ft=typescript

@@ -185,6 +185,38 @@ describe('parseArgs — --source and --feature flags', () => {
 		);
 	});
 
+	test('rejects --feature with a null byte (containsControlChars)', () => {
+		const result = parseArgs(['--feature', 'auth\x00service']);
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain(
+			'--feature must be a single Spec-Kit feature directory name',
+		);
+	});
+
+	test('rejects --feature with a tab control char (containsControlChars)', () => {
+		const result = parseArgs(['--feature', 'auth\tservice']);
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain(
+			'--feature must be a single Spec-Kit feature directory name',
+		);
+	});
+
+	test('rejects --change with a null byte (containsControlChars)', () => {
+		const result = parseArgs(['--change', 'add\x00reset']);
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain(
+			'--change must be a single OpenSpec change id',
+		);
+	});
+
+	test('rejects --change with a tab control char (containsControlChars)', () => {
+		const result = parseArgs(['--change', 'add\treset']);
+		expect(result.error).toBeDefined();
+		expect(result.error).toContain(
+			'--change must be a single OpenSpec change id',
+		);
+	});
+
 	test('rejects --feature with no value', () => {
 		const result = parseArgs(['--feature']);
 		expect(result.error).toBeDefined();

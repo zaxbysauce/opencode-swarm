@@ -132,11 +132,25 @@ function hash(content: string): string {
 }
 
 function readTextBounded(absPath: string): string | null {
-	const stat = fs.lstatSync(absPath);
+	let stat: fs.Stats;
+	try {
+		stat = fs.lstatSync(absPath);
+	} catch {
+		// File vanished between detection and read (narrow TOCTOU) or is unreadable.
+		// Return null so callers (resolveSpeckitProjection, validateSpeckit) fold this
+		// into their existing null-handling instead of crashing. Mirrors fileArtifact.
+		return null;
+	}
 	if (!stat.isFile() || stat.size > MAX_SOURCE_BYTES) {
 		return null;
 	}
-	return fs.readFileSync(absPath, 'utf-8');
+	try {
+		return fs.readFileSync(absPath, 'utf-8');
+	} catch {
+		// File vanished or became unreadable between the lstatSync check and the read.
+		// Same null-folding contract as the lstatSync guard above.
+		return null;
+	}
 }
 
 function fileArtifact(root: string, absPath: string): OpenSpecArtifact | null {
@@ -356,9 +370,12 @@ function renderRequirement(
 export function detectSpeckit(directory: string): SpeckitDetection {
 	const root = path.resolve(directory);
 
-	// A-001: detection is keyed on the .specify/ marker directory.
+	// A-001: detection is keyed on the .specify/ marker DIRECTORY at the repo root.
+	// statSync (not lstatSync) so a symlinked marker dir is followed; a regular file
+	// named .specify is correctly rejected as non-conformant with the Spec-Kit layout.
 	const markerPath = path.join(root, SPECKIT_MARKER);
-	const markerPresent = fs.existsSync(markerPath);
+	const markerPresent =
+		fs.statSync(markerPath, { throwIfNoEntry: false })?.isDirectory() ?? false;
 
 	if (!markerPresent) {
 		return { markerPresent: false, features: [] };
@@ -414,7 +431,7 @@ export function detectSpeckit(directory: string): SpeckitDetection {
 /**
  * Parse Spec-Kit functional requirements from a feature's spec.md content.
  *
- * Separate from the shared parseRequirements (:196) which MUST remain
+ * Separate from parseRequirements (the OpenSpec parser) which MUST remain
  * byte-untouched for OpenSpec compatibility (FR-011, critic Finding 1).
  *
  * Handles two cases within the `## Functional Requirements` section:
@@ -551,7 +568,7 @@ export function resolveSpeckitProjection(
 		selectedFeature.specRelPath,
 	);
 
-	// Mirror buildOpenSpecProjectionSync :450-453 — zero FRs → advisory (FR-013).
+	// Mirror buildOpenSpecProjectionSync's zero-FR handling — zero FRs → advisory (FR-013).
 	if (requirements.length === 0) {
 		return { kind: 'zero_requirements', feature: selectedFeature.featureId };
 	}
@@ -1098,7 +1115,7 @@ export function validateSpeckit(
 			// task has neither (a task that explicitly references FR-001, or a setup task
 			// tagged to a story, is a legitimate reference and must not be flagged).
 			const hasStoryRef = /\[US\d+\]/i.test(line);
-			const hasReqRef = /\bFR-\d{3}\b/i.test(line);
+			const hasReqRef = /\bFR-(?!000)\d{3}\b/i.test(line);
 			if (!hasStoryRef && !hasReqRef) {
 				problems.push(`Task ${taskId} has no spec/requirement reference.`);
 			}
