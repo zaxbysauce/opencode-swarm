@@ -1,5 +1,12 @@
 # Changelog
 
+## [7.100.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.99.7...v7.100.0) (2026-07-01)
+
+
+### Features
+
+* **memory:** add hybrid lexical-dense retrieval with sqlite-vec and rrf fusion ([5413c23](https://github.com/ZaxbyHub/opencode-swarm/commit/5413c230152b62240318c1b247c084e81aaa7c21))
+
 ## [7.99.7](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.99.6...v7.99.7) (2026-07-01)
 
 
