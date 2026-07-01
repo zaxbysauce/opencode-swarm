@@ -48,14 +48,14 @@ describe('safeHook — advisory wrapper', () => {
 });
 
 describe('composeHandlers — advisory chain', () => {
-test('rejects fail-closed handlers so they cannot be silently swallowed', async () => {
-	const composed = composeHandlers(markFailClosed(async () => {}));
-	await expect(composed({}, {})).rejects.toThrow(
-		/composeHandlers cannot wrap fail-closed handlers/,
-	);
-});
+	test('rejects fail-closed handlers so they cannot be silently swallowed', async () => {
+		const composed = composeHandlers(markFailClosed(async () => {}));
+		await expect(composed({}, {})).rejects.toThrow(
+			/composeHandlers cannot wrap fail-closed handlers/,
+		);
+	});
 
-test('runs all handlers even after one throws', async () => {
+	test('runs all handlers even after one throws', async () => {
 		const a = mock(async () => {});
 		const b = mock(async () => {
 			throw new Error('FULL_AUTO_DENY: from b');

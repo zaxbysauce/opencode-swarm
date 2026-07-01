@@ -155,8 +155,8 @@ describe('write_mutation_evidence — real path validation (no mocks)', () => {
 		const linkPath = path.join(swarmDir, 'escape-link');
 		fs.symlinkSync(escapeTarget, linkPath, 'dir');
 
-		expect(() => validateSwarmPath(tempDir, path.join('escape-link', 'secret.txt'))).toThrow(
-			/path escapes/,
-		);
+		expect(() =>
+			validateSwarmPath(tempDir, path.join('escape-link', 'secret.txt')),
+		).toThrow(/path escapes/);
 	});
 });
