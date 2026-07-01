@@ -172,7 +172,8 @@ describe('executeWithTimeout subprocess hardening', () => {
 
 	it('kills child process when stdout overflows (overflow-kill)', async () => {
 		// Skip on Windows: this test relies on SIGTERM/SIGKILL escalation semantics
-		// which differ on Windows.
+		// which differ on Windows. A Windows-specific test using taskkill /F or
+		// taskkill /T is tracked separately under issue #1248 item 14.
 		if (process.platform === 'win32') {
 			return;
 		}
@@ -213,8 +214,7 @@ describe('executeWithTimeout subprocess hardening', () => {
 		// the child was actually killed (see issue #1248 item 3). Assert real
 		// process death instead: the script traps SIGTERM, so only the
 		// SIGKILL escalation inside settle() (after KILL_GRACE_MS=2000ms) can
-		// reap it. Poll bound mirrors the 4s buffer used by the sibling
-		// SIGKILL-escalation test below.
+		// reap it. Poll bound: KILL_GRACE_MS (2000ms) + 4s buffer = 6000ms.
 		const died = await waitForProcessDeath(spawnedPid, 6_000);
 		expect(died).toBe(true);
 	});
@@ -245,18 +245,30 @@ describe('executeWithTimeout subprocess hardening', () => {
 				'setInterval(() => process.stdout.write("x"), 10);',
 			].join('\n'),
 		);
+		let spawnedPid: number | undefined;
 		const start = Date.now();
 		// Use a short timeout so the test doesn't take long.
 		// KILL_GRACE_MS=2000ms, so add 4s buffer for the escalation path.
 		const result = await _internals.executeWithTimeout(
 			process.execPath,
 			[script],
-			{ timeoutMs: 300 },
+			{
+				timeoutMs: 300,
+				onSpawn: (pid) => {
+					spawnedPid = pid;
+				},
+			},
 		);
 		const elapsed = Date.now() - start;
 		// Must settle (SIGKILL fired)
 		expect(result.exitCode).toBe(124);
 		// Must not block for the child's natural lifetime
 		expect(elapsed).toBeLessThan(10_000);
+		// exitCode=124 does not prove the child was actually reaped (see
+		// issue #1248 item 3). Assert real process death: the script traps
+		// SIGTERM, so only the SIGKILL escalation inside settle() can reap it.
+		expect(spawnedPid).toBeGreaterThan(0);
+		const died = await waitForProcessDeath(spawnedPid, 6_000);
+		expect(died).toBe(true);
 	});
 });
