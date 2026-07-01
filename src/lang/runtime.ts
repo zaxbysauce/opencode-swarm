@@ -59,6 +59,8 @@ export const _internals = {
 	parserInit: TreeSitterParser.init as (opts?: {
 		locateFile: (scriptName: string) => string;
 	}) => Promise<void>,
+	getModuleDir: () => path.dirname(fileURLToPath(import.meta.url)),
+	fileExists: existsSync,
 };
 
 /**
@@ -68,7 +70,7 @@ export const _internals = {
 async function initTreeSitter(): Promise<void> {
 	if (!treeSitterInitPromise) {
 		treeSitterInitPromise = (async () => {
-			const thisDir = path.dirname(fileURLToPath(import.meta.url));
+			const thisDir = _internals.getModuleDir();
 			const isSource = thisDir.replace(/\\/g, '/').endsWith('/src/lang');
 
 			if (isSource) {
@@ -79,6 +81,15 @@ async function initTreeSitter(): Promise<void> {
 				// In bundle, import.meta.url points to dist/index.js so web-tree-sitter
 				// looks for dist/tree-sitter.wasm — redirect to dist/lang/grammars/
 				const grammarsDir = getGrammarsDirAbsolute();
+				const coreWasmPath = path.join(grammarsDir, 'tree-sitter.wasm');
+				if (!_internals.fileExists(coreWasmPath)) {
+					throw new Error(
+						`Core tree-sitter WASM runtime missing: ${coreWasmPath}\n` +
+							`The installed OpenCode plugin cache is incomplete or stale. Run ` +
+							`'bunx opencode-swarm update', then restart OpenCode so it fetches ` +
+							`a fresh package from npm.`,
+					);
+				}
 				await _internals.parserInit({
 					locateFile(scriptName: string) {
 						return path.join(grammarsDir, scriptName);
@@ -170,7 +181,7 @@ export function resolveGrammarsDir(thisDir: string): string {
  * across Windows, macOS, and Linux.
  */
 function getGrammarsDirAbsolute(): string {
-	const thisDir = path.dirname(fileURLToPath(import.meta.url));
+	const thisDir = _internals.getModuleDir();
 	return resolveGrammarsDir(thisDir);
 }
 
@@ -214,10 +225,12 @@ export async function loadGrammar(languageId: string): Promise<ParserType> {
 		const wasmPath = path.join(getGrammarsDirAbsolute(), wasmFileName);
 
 		// Check if file exists before attempting to load
-		if (!existsSync(wasmPath)) {
+		if (!_internals.fileExists(wasmPath)) {
 			throw new Error(
 				`Grammar file not found for ${languageId}: ${wasmPath}\n` +
-					`Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/`,
+					`Make sure to run 'bun run build' to copy grammar files to dist/lang/grammars/. ` +
+					`If this is an installed OpenCode plugin cache, run ` +
+					`'bunx opencode-swarm update' and restart OpenCode.`,
 			);
 		}
 

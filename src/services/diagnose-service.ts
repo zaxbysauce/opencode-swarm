@@ -19,6 +19,20 @@ import { getDeferredWarnings } from './warning-buffer.js';
 
 const { version } = packageJson;
 const sandboxCapabilityProbe = new SandboxCapabilityProbe();
+const REQUIRED_CACHE_GRAMMAR_ASSETS = [
+	'tree-sitter.wasm',
+	'tree-sitter-javascript.wasm',
+	'tree-sitter-typescript.wasm',
+] as const;
+
+function resolveCachePackageRoot(cachePath: string): string {
+	const nestedPackageRoot = path.join(
+		cachePath,
+		'node_modules',
+		'opencode-swarm',
+	);
+	return existsSync(nestedPackageRoot) ? nestedPackageRoot : cachePath;
+}
 
 export const _internals = {
 	detectSandboxCapability: () => sandboxCapabilityProbe.detect(),
@@ -1086,15 +1100,30 @@ export async function getDiagnoseData(
 				cacheRows.push(`⬜ ${cachePath} — absent`);
 				continue;
 			}
-			const pkgJsonPath = path.join(cachePath, 'package.json');
+			const packageRoot = resolveCachePackageRoot(cachePath);
+			const cacheLabel =
+				packageRoot === cachePath
+					? cachePath
+					: `${cachePath} -> ${packageRoot}`;
+			const missingGrammarAssets = REQUIRED_CACHE_GRAMMAR_ASSETS.filter(
+				(file) =>
+					!existsSync(path.join(packageRoot, 'dist', 'lang', 'grammars', file)),
+			);
+			const pkgJsonPath = path.join(packageRoot, 'package.json');
 			try {
 				const raw = readFileSync(pkgJsonPath, 'utf-8');
 				const parsed = JSON.parse(raw) as { version?: unknown };
 				const installedVersion =
 					typeof parsed.version === 'string' ? parsed.version : '?';
-				cacheRows.push(`✅ ${cachePath} — v${installedVersion}`);
+				if (missingGrammarAssets.length > 0) {
+					cacheRows.push(
+						`⚠️ ${cacheLabel} — v${installedVersion}, missing grammar assets: ${missingGrammarAssets.join(', ')}; run \`bunx opencode-swarm update\` and restart OpenCode`,
+					);
+					continue;
+				}
+				cacheRows.push(`✅ ${cacheLabel} — v${installedVersion}`);
 			} catch {
-				cacheRows.push(`⚠️ ${cachePath} — present (package.json unreadable)`);
+				cacheRows.push(`⚠️ ${cacheLabel} — present (package.json unreadable)`);
 			}
 		} catch {
 			cacheRows.push(`⚠️ ${cachePath} — status unknown (read error)`);
