@@ -92,6 +92,9 @@ actions include:
   + transitive callers/callees) built on tree-sitter extraction across all **12**
   first-class languages (schema 1.2.0). See `docs/repo-graph-symbol-graph.md` for
   design and limitations.
+- `graph_health` returns graph freshness plus bounded extraction diagnostics,
+  including stale files, symbol-extraction failures, unresolved relative imports,
+  oversized files, unsupported files, binary skips, and unreadable skips.
 
 The ontology extractor is intentionally conservative. It records detected facts
 and "detected missing guard" findings; it does not claim formal security proofs.
