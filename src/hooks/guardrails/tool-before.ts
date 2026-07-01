@@ -2339,25 +2339,6 @@ export function createToolBeforeHandler(ctx: ToolBeforeContext) {
 			repetitionCount,
 		});
 
-		// OS-level sandbox enforcement
-		await applySandboxExecution(
-			input.sessionID,
-			input.tool,
-			output.args,
-			(() => {
-				const rawAgent = swarmState.activeAgent.get(input.sessionID);
-				return rawAgent ? stripKnownSwarmPrefix(rawAgent) : 'unknown';
-			})(),
-			(() => {
-				const bashArgs = output.args as Record<string, unknown> | undefined;
-				const rawCmd =
-					typeof bashArgs?.command === 'string' ? bashArgs.command : '';
-				return rawCmd;
-			})(),
-			shellAuditPath,
-			shellAuditEnabled,
-		);
-
 		// v6.12: Store input args for delegation detection in toolAfter
 		setStoredInputArgs(input.callID, output.args);
 	};
