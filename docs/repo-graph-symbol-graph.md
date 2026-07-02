@@ -14,7 +14,7 @@ module: per-edge `usedSymbols` (which exported names an importer actually
 references) and per-node `exportLines` (exported symbol → definition line), plus
 the `repo_map` actions `callers` and `dead_exports`. That work deliberately used
 the module's existing **conservative regex scanner** and covered only TS/JS/Python
-(`SUPPORTED_EXTENSIONS` at `src/tools/repo-graph/builder.ts:106`).
+(`SUPPORTED_EXTENSIONS` at `src/tools/repo-graph/builder.ts:113`).
 
 Two ceilings remain, and they are exactly what an external "codebase memory" MCP
 server claims to break through:

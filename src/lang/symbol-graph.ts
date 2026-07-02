@@ -34,8 +34,18 @@ export interface FileSymbolFacts {
 	}>;
 	imports: Array<{
 		specifier: string;
-		importType: 'commonjs' | 'named' | 'namespace' | 'default';
+		importType:
+			| 'commonjs'
+			| 'named'
+			| 'namespace'
+			| 'default'
+			| 'sideeffect'
+			| 'type';
 		bindings: Array<{ imported: string; local: string }>;
+		reExport?: boolean;
+		exportedBindings?: Array<{ imported: string; exported: string }>;
+		startLine?: number;
+		endLine?: number;
 	}>;
 	refs: Array<{
 		identifier: string;
@@ -565,15 +575,34 @@ function buildFacts(
 		}
 	}
 
-	const imports: FileSymbolFacts['imports'] = [];
+	const importsWithIndex: Array<{
+		index: number;
+		entry: FileSymbolFacts['imports'][0];
+	}> = [];
+	const addImport = (
+		entry: FileSymbolFacts['imports'][0] | null,
+		node: TsNode,
+	) => {
+		if (!entry) return;
+		importsWithIndex.push({
+			index: node.startIndex,
+			entry: entry.reExport
+				? {
+						...entry,
+						startLine: node.startPosition.row + 1,
+						endLine: node.endPosition.row + 1,
+					}
+				: entry,
+		});
+	};
 	for (const m of importMatches) {
 		const importCap = m.captures.find((c) => c.name === 'import');
 		if (importCap) {
-			const rawText = importCap.node.text.trim();
+			const importNode = asTs(importCap.node);
+			const rawText = importNode.text.trim();
 			// Go block import: `import ( "fmt" "os" )` — find the
 			// import_spec_list child, then iterate its import_spec children.
 			if (grammarId === 'go' && rawText.startsWith('import (')) {
-				const importNode = asTs(importCap.node);
 				const specListNode = importNode.children.find(
 					(c): c is TsNode => c !== null && c.type === 'import_spec_list',
 				);
@@ -581,13 +610,13 @@ function buildFacts(
 					for (const spec of asTs(specListNode).children) {
 						if (spec && spec.type === 'import_spec') {
 							const parsed = parseGoImport(spec.text.trim());
-							if (parsed) imports.push(parsed);
+							addImport(parsed, asTs(spec));
 						}
 					}
 				}
 			} else {
 				const parsed = parseImport(grammarId, rawText);
-				if (parsed) imports.push(parsed);
+				addImport(parsed, importNode);
 			}
 		}
 		// Ruby require/require_relative fallback
@@ -602,7 +631,7 @@ function buildFacts(
 					const callNode = asTs(reqName.node).parent;
 					const rawText = callNode ? callNode.text : asTs(reqSpec.node).text;
 					const parsed = parseRubyRequire(rawText);
-					if (parsed) imports.push(parsed);
+					addImport(parsed, asTs(callNode ?? reqSpec.node));
 				}
 			}
 		}
@@ -614,15 +643,26 @@ function buildFacts(
 				const fnText = asTs(reqName.node).text;
 				if (fnText === 'require') {
 					const specText = asTs(reqSpec.node).text.replace(/['"]/g, '');
-					imports.push({
-						specifier: specText,
-						importType: 'commonjs',
-						bindings: [],
-					});
+					addImport(
+						{
+							specifier: specText,
+							importType: 'commonjs',
+							bindings: [],
+						},
+						asTs(reqName.node),
+					);
 				}
 			}
 		}
 	}
+	if (isEsMGrammar(grammarId)) {
+		for (const exportNode of exportNodes) {
+			addImport(parseImport(grammarId, exportNode.text.trim()), exportNode);
+		}
+	}
+	const imports = importsWithIndex
+		.sort((a, b) => a.index - b.index)
+		.map((item) => item.entry);
 
 	const topLevelDefs = defNodes
 		.filter((d) => isTopLevelDef(d.node, root))
@@ -668,6 +708,73 @@ function safeMatches(
 function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 	const t = text.trim();
 
+	const sideEffect = t.match(/^import\s+['"]([^'"]+)['"]/);
+	if (sideEffect) {
+		return { specifier: sideEffect[1], importType: 'sideeffect', bindings: [] };
+	}
+
+	const reExportAllAs = t.match(
+		/^export\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/,
+	);
+	if (reExportAllAs) {
+		return {
+			specifier: reExportAllAs[2],
+			importType: 'namespace',
+			bindings: [{ imported: '*', local: reExportAllAs[1] }],
+			reExport: true,
+			exportedBindings: [{ imported: '*', exported: reExportAllAs[1] }],
+		};
+	}
+
+	const reExportAll = t.match(/^export\s+\*\s+from\s+['"]([^'"]+)['"]/);
+	if (reExportAll) {
+		return {
+			specifier: reExportAll[1],
+			importType: 'namespace',
+			bindings: [],
+			reExport: true,
+		};
+	}
+
+	const namedTypeReExport = t.match(
+		/^export\s+type\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
+	);
+	if (namedTypeReExport) {
+		return {
+			specifier: namedTypeReExport[2],
+			importType: 'type',
+			bindings: [],
+			reExport: true,
+		};
+	}
+
+	const namedReExport = t.match(
+		/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
+	);
+	if (namedReExport) {
+		const bindings: Array<{ imported: string; local: string }> = [];
+		const exportedBindings: Array<{ imported: string; exported: string }> = [];
+		for (const rawPart of namedReExport[1].split(',')) {
+			const p = rawPart.trim();
+			if (!p) continue;
+			if (/^type\s+/.test(p)) continue;
+			const alias = p.match(/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/);
+			const imported = alias ? alias[1] : p;
+			const exported = alias ? alias[2] : p;
+			if (!/^[A-Za-z_$][\w$]*$/.test(imported)) continue;
+			if (!/^[A-Za-z_$][\w$]*$/.test(exported)) continue;
+			bindings.push({ imported, local: exported });
+			exportedBindings.push({ imported, exported });
+		}
+		return {
+			specifier: namedReExport[2],
+			importType: 'named',
+			bindings,
+			reExport: true,
+			exportedBindings,
+		};
+	}
+
 	// Strip optional `type` qualifier: "import type { ... }" → "import { ... }"
 	// Track whether it was a type-only import (all bindings are type-only).
 	const isTypeOnlyImport = /^import\s+type\s/.test(t);
@@ -688,14 +795,17 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 		for (const part of named[1].split(',')) {
 			const p = part.trim();
 			if (!p) continue;
+			if (/^type\s+/.test(p)) continue;
 			// Strip inline `type` modifier: "type Foo" → "Foo"
 			const stripped = p.replace(/^type\s+/, '');
 			// If the entire binding is just `type` keyword (degenerate), skip it
 			if (!stripped) continue;
-			const alias = stripped.match(/^(\w+)\s+as\s+(\w+)$/);
+			const alias = stripped.match(
+				/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/,
+			);
 			if (alias) {
 				bindings.push({ imported: alias[1], local: alias[2] });
-			} else {
+			} else if (/^[A-Za-z_$][\w$]*$/.test(stripped)) {
 				bindings.push({ imported: stripped, local: stripped });
 			}
 		}
@@ -706,9 +816,16 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 	// or `import <Default>, * as <ns> from '<spec>'`.
 	// Must be checked before the default-only and namespace-only branches.
 	const combined = withoutTypeQualifier.match(
-		/^import\s+(\w+)\s*,\s*\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/,
+		/^import\s+([A-Za-z_$][\w$]*)\s*,\s*\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/,
 	);
 	if (combined) {
+		if (isTypeOnlyImport) {
+			return {
+				specifier: combined[3],
+				importType: 'named',
+				bindings: [],
+			};
+		}
 		return {
 			specifier: combined[3],
 			importType: 'named',
@@ -720,7 +837,7 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 	}
 
 	const combinedNamed = withoutTypeQualifier.match(
-		/^import\s+(\w+)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
+		/^import\s+([A-Za-z_$][\w$]*)\s*,\s*\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
 	);
 	if (combinedNamed) {
 		if (isTypeOnlyImport) {
@@ -736,19 +853,24 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 		for (const part of combinedNamed[2].split(',')) {
 			const p = part.trim();
 			if (!p) continue;
+			if (/^type\s+/.test(p)) continue;
 			const stripped = p.replace(/^type\s+/, '');
 			if (!stripped) continue;
-			const alias = stripped.match(/^(\w+)\s+as\s+(\w+)$/);
+			const alias = stripped.match(
+				/^([A-Za-z_$][\w$]*)\s+as\s+([A-Za-z_$][\w$]*)$/,
+			);
 			if (alias) {
 				bindings.push({ imported: alias[1], local: alias[2] });
-			} else {
+			} else if (/^[A-Za-z_$][\w$]*$/.test(stripped)) {
 				bindings.push({ imported: stripped, local: stripped });
 			}
 		}
 		return { specifier: combinedNamed[3], importType: 'named', bindings };
 	}
 
-	const ns = t.match(/^import\s+\*\s+as\s+(\w+)\s+from\s+['"]([^'"]+)['"]/);
+	const ns = t.match(
+		/^import\s+\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/,
+	);
 	if (ns) {
 		return {
 			specifier: ns[2],
@@ -757,7 +879,7 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 		};
 	}
 
-	const def = t.match(/^import\s+(\w+)\s+from\s+['"]([^'"]+)['"]/);
+	const def = t.match(/^import\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/);
 	if (def) {
 		return {
 			specifier: def[2],
