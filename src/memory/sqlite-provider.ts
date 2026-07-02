@@ -6,9 +6,9 @@ import * as path from 'node:path';
 import { validateSwarmPath } from '../hooks/utils';
 import { warn } from '../utils';
 import {
-	DEFAULT_MEMORY_CONFIG,
 	DURABLE_MEMORY_KINDS,
 	type MemoryConfig,
+	resolveMemoryConfig,
 } from './config';
 import {
 	applyPatchToMemory,
@@ -47,8 +47,13 @@ import type {
 	MemoryCompactResult,
 	MemoryProposalStore,
 	MemoryProvider,
+	MemoryRecallRewardInput,
+	MemoryRecallRewardResult,
 	MemoryRecallUsageEvent,
 	MemoryRecallUsageFilter,
+	MemoryTaskOutcome,
+	MemoryValueLogEntry,
+	MemoryValueLogFilter,
 } from './provider';
 import {
 	normalizeMemoryText,
@@ -57,7 +62,11 @@ import {
 	validateMemoryRecordRules,
 } from './schema';
 import type { RecallScoringDiagnostics } from './scoring';
-import { scoreMemoryRecordsWithDiagnostics } from './scoring';
+import {
+	DEFAULT_MEMORY_Q_VALUE,
+	memoryQValue,
+	scoreMemoryRecordsWithDiagnostics,
+} from './scoring';
 import type {
 	AppliedMemoryChange,
 	MemoryListFilter,
@@ -240,6 +249,16 @@ export const MIGRATIONS: Migration[] = [
 			);
 		`,
 	},
+	{
+		version: 7,
+		name: 'add_recall_learning_columns',
+		sql: `
+			ALTER TABLE memory_recall_usage ADD COLUMN q_value REAL DEFAULT 0.5;
+			ALTER TABLE memory_recall_usage ADD COLUMN last_reward REAL;
+			ALTER TABLE memory_recall_usage ADD COLUMN task_outcome TEXT;
+			ALTER TABLE memory_recall_usage ADD COLUMN council_verdict_json TEXT;
+		`,
+	},
 ];
 
 interface MemoryItemRow {
@@ -258,7 +277,12 @@ interface ProposalRow {
 }
 
 interface RecallUsageRow {
+	id?: string;
 	usage_json: string;
+	q_value?: number | null;
+	last_reward?: number | null;
+	task_outcome?: string | null;
+	council_verdict_json?: string | null;
 }
 
 interface DecisionTransactionResult {
@@ -302,34 +326,7 @@ export class SQLiteMemoryProvider
 
 	constructor(rootDirectory: string, config: Partial<MemoryConfig> = {}) {
 		this.rootDirectory = rootDirectory;
-		this.config = {
-			...DEFAULT_MEMORY_CONFIG,
-			...config,
-			sqlite: {
-				...DEFAULT_MEMORY_CONFIG.sqlite,
-				...(config.sqlite ?? {}),
-			},
-			recall: {
-				...DEFAULT_MEMORY_CONFIG.recall,
-				...(config.recall ?? {}),
-				injection: {
-					...DEFAULT_MEMORY_CONFIG.recall.injection,
-					...(config.recall?.injection ?? {}),
-				},
-			},
-			writes: {
-				...DEFAULT_MEMORY_CONFIG.writes,
-				...(config.writes ?? {}),
-			},
-			redaction: {
-				...DEFAULT_MEMORY_CONFIG.redaction,
-				...(config.redaction ?? {}),
-			},
-			maintenance: {
-				...DEFAULT_MEMORY_CONFIG.maintenance,
-				...(config.maintenance ?? {}),
-			},
-		};
+		this.config = resolveMemoryConfig(config);
 	}
 
 	private databasePath(): string {
@@ -693,14 +690,32 @@ export class SQLiteMemoryProvider
 
 	async recordRecallUsage(event: MemoryRecallUsageEvent): Promise<void> {
 		await this.initialize();
+		const recalledRecords = event.memoryIds
+			.map((id) => this.memories.get(id))
+			.filter(isMemoryRecord);
+		const qValue =
+			typeof event.qValue === 'number' && Number.isFinite(event.qValue)
+				? clamp01(event.qValue)
+				: averageMemoryQValue(recalledRecords);
+		const eventWithQValue: MemoryRecallUsageEvent = {
+			...event,
+			qValue,
+		};
 		this.requireDb().run(
 			`INSERT INTO memory_recall_usage (
 				id,
 				bundle_id,
 				timestamp,
-				usage_json
-			) VALUES (?, ?, ?, ?)`,
-			[randomUUID(), event.bundleId, event.timestamp, JSON.stringify(event)],
+				usage_json,
+				q_value
+			) VALUES (?, ?, ?, ?, ?)`,
+			[
+				randomUUID(),
+				event.bundleId,
+				event.timestamp,
+				JSON.stringify(eventWithQValue),
+				qValue,
+			],
 		);
 		this.recallCountSinceLastCompaction++;
 		const threshold = this.config.maintenance?.autoCompactEveryNRecalls ?? 50;
@@ -756,7 +771,7 @@ export class SQLiteMemoryProvider
 			typeof filter.limit === 'number'
 				? this.requireDb()
 						.query<RecallUsageRow, [number]>(
-							`SELECT usage_json
+							`SELECT id, usage_json, q_value, last_reward, task_outcome, council_verdict_json
 				FROM memory_recall_usage
 				ORDER BY timestamp DESC
 				LIMIT ?`,
@@ -764,7 +779,7 @@ export class SQLiteMemoryProvider
 						.all(Math.max(1, Math.trunc(filter.limit)))
 				: this.requireDb()
 						.query<RecallUsageRow, []>(
-							`SELECT usage_json
+							`SELECT id, usage_json, q_value, last_reward, task_outcome, council_verdict_json
 				FROM memory_recall_usage
 				ORDER BY timestamp DESC
 				`,
@@ -772,19 +787,138 @@ export class SQLiteMemoryProvider
 						.all();
 		const events: MemoryRecallUsageEvent[] = [];
 		for (const row of rows) {
-			try {
-				const parsed = JSON.parse(row.usage_json) as MemoryRecallUsageEvent;
-				if (
-					Array.isArray(parsed.memoryIds) &&
-					typeof parsed.query === 'string'
-				) {
-					events.push(parsed);
-				}
-			} catch {
-				// Ignore corrupt recall usage rows; maintenance reports are advisory.
-			}
+			const parsed = parseRecallUsageRow(row);
+			if (parsed) events.push(parsed);
 		}
 		return events;
+	}
+
+	async applyRecallReward(
+		input: MemoryRecallRewardInput,
+	): Promise<MemoryRecallRewardResult> {
+		await this.initialize();
+		const usageRow = this.latestRecallUsageForRun(input.runId);
+		if (!usageRow?.event) {
+			return emptyRewardResult(input.outcome, 'no_recall_usage_for_run');
+		}
+		const reward = rewardForOutcome(input.outcome);
+		const updatedAt = input.timestamp ?? new Date().toISOString();
+		const sourceIds = uniqueStrings(usageRow.event.memoryIds);
+		const directUpdates = new Map<string, number>();
+		const propagatedUpdates = new Map<string, number>();
+		for (const memoryId of sourceIds) {
+			const nextQValue = this.updateMemoryQValue(memoryId, reward, updatedAt);
+			if (nextQValue !== null) {
+				directUpdates.set(memoryId, nextQValue);
+			}
+		}
+		for (const targetId of this.findPropagationTargets(sourceIds)) {
+			const propagatedSignal = propagatedRewardSignal(
+				reward,
+				this.config.learning.propagationFactor,
+			);
+			const nextQValue = this.updateMemoryQValue(
+				targetId,
+				propagatedSignal,
+				updatedAt,
+			);
+			if (nextQValue !== null) {
+				propagatedUpdates.set(targetId, nextQValue);
+			}
+		}
+		const updatedMemoryIds = [...directUpdates.keys()];
+		const propagatedMemoryIds = [...propagatedUpdates.keys()];
+		const combinedQValues = [
+			...directUpdates.values(),
+			...propagatedUpdates.values(),
+		];
+		const qValue =
+			combinedQValues.length > 0
+				? averageNumbers(combinedQValues)
+				: usageRow.event.qValue;
+		const verdictJson = truncateJsonPayload(input.verdictPayload);
+		const updatedEvent: MemoryRecallUsageEvent = {
+			...usageRow.event,
+			qValue,
+			lastReward: reward,
+			taskOutcome: input.outcome,
+		};
+		this.requireDb().run(
+			`UPDATE memory_recall_usage
+			SET usage_json = ?,
+				q_value = ?,
+				last_reward = ?,
+				task_outcome = ?,
+				council_verdict_json = ?
+			WHERE id = ?`,
+			[
+				JSON.stringify(updatedEvent),
+				qValue ?? null,
+				reward,
+				input.outcome,
+				verdictJson,
+				usageRow.id,
+			],
+		);
+		await this.event(
+			'recall',
+			usageRow.event.bundleId,
+			`applied ${input.outcome} recall reward`,
+		);
+		return {
+			success: true,
+			bundleId: usageRow.event.bundleId,
+			outcome: input.outcome,
+			memoryIds: sourceIds,
+			reward,
+			updatedMemoryIds,
+			propagatedMemoryIds,
+			qValue,
+		};
+	}
+
+	async listMemoryValueLog(
+		filter: MemoryValueLogFilter = {},
+	): Promise<MemoryValueLogEntry[]> {
+		await this.initialize();
+		const usageSummary = summarizeRecallUsage(this.listRecallUsageSync());
+		const threshold = this.config.learning.suppressionThreshold;
+		const promotionThreshold = this.config.learning.promotionThreshold;
+		const entries = Array.from(this.memories.values()).map((record) => {
+			const recall = usageSummary.get(record.id);
+			const qValue = memoryQValue(record);
+			const recallCount = recall?.count ?? 0;
+			return {
+				memoryId: record.id,
+				kind: record.kind,
+				scopeKey: stableScopeKey(record.scope),
+				textPreview: truncateText(record.text, 120),
+				qValue,
+				recallCount,
+				lastRecalledAt: recall?.lastRecalledAt,
+				lastReward: recall?.lastReward,
+				taskOutcome: recall?.taskOutcome,
+				promotionCandidate: qValue > promotionThreshold && recallCount > 5,
+				suppressionCandidate: qValue < threshold,
+			} satisfies MemoryValueLogEntry;
+		});
+		const filtered = entries
+			.filter((entry) => {
+				if (filter.includePromotionCandidatesOnly) {
+					return entry.promotionCandidate;
+				}
+				if (filter.includeSuppressionCandidatesOnly) {
+					return entry.suppressionCandidate;
+				}
+				return true;
+			})
+			.sort(
+				(a, b) =>
+					(b.lastRecalledAt ?? '').localeCompare(a.lastRecalledAt ?? '') ||
+					b.qValue - a.qValue ||
+					a.memoryId.localeCompare(b.memoryId),
+			);
+		return filtered.slice(0, Math.max(1, Math.trunc(filter.limit ?? 20)));
 	}
 
 	async list(filter: MemoryListFilter = {}): Promise<MemoryRecord[]> {
@@ -1098,6 +1232,117 @@ export class SQLiteMemoryProvider
 		compact();
 		this.memories = new Map(kept.map((memory) => [memory.id, memory]));
 		return result;
+	}
+
+	private latestRecallUsageForRun(
+		runId?: string,
+	): { id: string; event: MemoryRecallUsageEvent } | null {
+		if (!runId) return null;
+		const rows = this.requireDb()
+			.query<RecallUsageRow, [number]>(
+				`SELECT id, usage_json, q_value, last_reward, task_outcome, council_verdict_json
+				FROM memory_recall_usage
+				ORDER BY timestamp DESC
+				LIMIT ?`,
+			)
+			.all(100);
+		for (const row of rows) {
+			if (!row.id) continue;
+			const event = parseRecallUsageRow(row);
+			if (event?.runId === runId) return { id: row.id, event };
+		}
+		return null;
+	}
+
+	private updateMemoryQValue(
+		memoryId: string,
+		rewardSignal: number,
+		updatedAt: string,
+	): number | null {
+		const current = this.memories.get(memoryId);
+		if (!current) return null;
+		if (current.metadata.deleted === true || current.supersededBy) return null;
+		const eta = this.config.learning.learningRate;
+		const nextQValue = clamp01(
+			(1 - eta) * memoryQValue(current) + eta * rewardSignal,
+		);
+		const next: MemoryRecord = {
+			...current,
+			updatedAt,
+			qValue: nextQValue,
+		};
+		this.memories.set(memoryId, next);
+		this.writeMemory(next);
+		return nextQValue;
+	}
+
+	private findPropagationTargets(sourceMemoryIds: string[]): string[] {
+		const lookbackIds = this.recentlyRecalledMemoryIds(
+			this.config.learning.propagationLookbackDays,
+		);
+		if (lookbackIds.size === 0) return [];
+		const sourceRecords = sourceMemoryIds
+			.map((id) => this.memories.get(id))
+			.filter(isMemoryRecord);
+		if (sourceRecords.length === 0) return [];
+		const targets: Array<{ id: string; overlap: number }> = [];
+		const sourceTokenSets = sourceRecords.map((record) =>
+			tokenizeText(record.text),
+		);
+		for (const candidate of this.memories.values()) {
+			if (sourceMemoryIds.includes(candidate.id)) continue;
+			if (!lookbackIds.has(candidate.id)) continue;
+			if (candidate.metadata.deleted === true || candidate.supersededBy)
+				continue;
+			const candidateTokens = tokenizeText(candidate.text);
+			let bestOverlap = 0;
+			for (let i = 0; i < sourceRecords.length; i++) {
+				const source = sourceRecords[i];
+				if (candidate.kind !== source.kind) continue;
+				if (stableScopeKey(candidate.scope) !== stableScopeKey(source.scope)) {
+					continue;
+				}
+				bestOverlap = Math.max(
+					bestOverlap,
+					jaccard(sourceTokenSets[i] ?? new Set(), candidateTokens),
+				);
+			}
+			if (
+				bestOverlap >= this.config.learning.propagationTokenOverlapThreshold
+			) {
+				targets.push({ id: candidate.id, overlap: bestOverlap });
+			}
+		}
+		return targets
+			.sort((a, b) => b.overlap - a.overlap || a.id.localeCompare(b.id))
+			.slice(0, this.config.learning.propagationFanout)
+			.map((target) => target.id);
+	}
+
+	private recentlyRecalledMemoryIds(lookbackDays: number): Set<string> {
+		const cutoffMs =
+			Date.now() - Math.max(0, lookbackDays) * 24 * 60 * 60 * 1000;
+		const memoryIds = new Set<string>();
+		for (const event of this.listRecallUsageSync(500)) {
+			const timestamp = Date.parse(event.timestamp);
+			if (Number.isFinite(timestamp) && timestamp < cutoffMs) continue;
+			for (const memoryId of event.memoryIds) memoryIds.add(memoryId);
+		}
+		return memoryIds;
+	}
+
+	private listRecallUsageSync(limit = 1000): MemoryRecallUsageEvent[] {
+		const rows = this.requireDb()
+			.query<RecallUsageRow, [number]>(
+				`SELECT id, usage_json, q_value, last_reward, task_outcome, council_verdict_json
+				FROM memory_recall_usage
+				ORDER BY timestamp DESC
+				LIMIT ?`,
+			)
+			.all(Math.max(1, Math.trunc(limit)));
+		return rows
+			.map((row) => parseRecallUsageRow(row))
+			.filter(isRecallUsageEvent);
 	}
 
 	hasMigration(name: string): boolean {
@@ -1828,6 +2073,191 @@ export class SQLiteMemoryProvider
 			);
 		return this.db;
 	}
+}
+
+function averageMemoryQValue(records: MemoryRecord[]): number {
+	if (records.length === 0) return DEFAULT_MEMORY_Q_VALUE;
+	return averageNumbers(records.map((record) => memoryQValue(record)));
+}
+
+function averageNumbers(values: number[]): number {
+	const finite = values.filter((value) => Number.isFinite(value));
+	if (finite.length === 0) return DEFAULT_MEMORY_Q_VALUE;
+	return finite.reduce((sum, value) => sum + value, 0) / finite.length;
+}
+
+function isMemoryRecord(
+	record: MemoryRecord | undefined,
+): record is MemoryRecord {
+	return record !== undefined;
+}
+
+function isRecallUsageEvent(
+	event: MemoryRecallUsageEvent | null,
+): event is MemoryRecallUsageEvent {
+	return event !== null;
+}
+
+function rewardForOutcome(outcome: MemoryTaskOutcome): number {
+	switch (outcome) {
+		case 'approved':
+			return 1;
+		case 'rejected':
+			return -1;
+		case 'concerns':
+		case 'unknown':
+			return 0;
+	}
+}
+
+function propagatedRewardSignal(
+	reward: number,
+	propagationFactor: number,
+): number {
+	const factor = Math.max(0, Math.min(1, propagationFactor));
+	return DEFAULT_MEMORY_Q_VALUE + factor * (reward - DEFAULT_MEMORY_Q_VALUE);
+}
+
+function emptyRewardResult(
+	outcome: MemoryTaskOutcome,
+	reason: string,
+): MemoryRecallRewardResult {
+	return {
+		success: false,
+		outcome,
+		memoryIds: [],
+		reward: rewardForOutcome(outcome),
+		updatedMemoryIds: [],
+		propagatedMemoryIds: [],
+		reason,
+	};
+}
+
+function parseRecallUsageRow(
+	row: RecallUsageRow,
+): MemoryRecallUsageEvent | null {
+	try {
+		const parsed = JSON.parse(row.usage_json) as MemoryRecallUsageEvent;
+		if (!Array.isArray(parsed.memoryIds) || typeof parsed.query !== 'string') {
+			return null;
+		}
+		const event: MemoryRecallUsageEvent = { ...parsed };
+		if (typeof row.q_value === 'number' && Number.isFinite(row.q_value)) {
+			event.qValue = clamp01(row.q_value);
+		}
+		if (
+			typeof row.last_reward === 'number' &&
+			Number.isFinite(row.last_reward)
+		) {
+			event.lastReward = row.last_reward;
+		}
+		const taskOutcome = normalizeTaskOutcome(row.task_outcome);
+		if (taskOutcome) event.taskOutcome = taskOutcome;
+		return event;
+	} catch {
+		return null;
+	}
+}
+
+function normalizeTaskOutcome(
+	value: string | null | undefined,
+): MemoryTaskOutcome | undefined {
+	if (
+		value === 'approved' ||
+		value === 'rejected' ||
+		value === 'concerns' ||
+		value === 'unknown'
+	) {
+		return value;
+	}
+	return undefined;
+}
+
+function truncateJsonPayload(value: unknown): string | null {
+	if (value === undefined) return null;
+	const json = JSON.stringify(value);
+	const maxLength = 8192;
+	if (json.length <= maxLength) return json;
+	return JSON.stringify({
+		truncated: true,
+		preview: json.slice(0, maxLength - 32),
+	});
+}
+
+function summarizeRecallUsage(events: MemoryRecallUsageEvent[]): Map<
+	string,
+	{
+		count: number;
+		lastRecalledAt: string;
+		lastReward?: number;
+		taskOutcome?: MemoryTaskOutcome;
+	}
+> {
+	const summary = new Map<
+		string,
+		{
+			count: number;
+			lastRecalledAt: string;
+			lastReward?: number;
+			taskOutcome?: MemoryTaskOutcome;
+		}
+	>();
+	for (const event of events) {
+		for (const memoryId of event.memoryIds) {
+			const existing =
+				summary.get(memoryId) ??
+				({
+					count: 0,
+					lastRecalledAt: event.timestamp,
+				} satisfies {
+					count: number;
+					lastRecalledAt: string;
+					lastReward?: number;
+					taskOutcome?: MemoryTaskOutcome;
+				});
+			existing.count++;
+			if (event.timestamp >= existing.lastRecalledAt) {
+				existing.lastRecalledAt = event.timestamp;
+				existing.lastReward = event.lastReward;
+				existing.taskOutcome = event.taskOutcome;
+			}
+			summary.set(memoryId, existing);
+		}
+	}
+	return summary;
+}
+
+function uniqueStrings(values: string[]): string[] {
+	return Array.from(new Set(values.filter((value) => value.length > 0)));
+}
+
+function truncateText(value: string, maxLength: number): string {
+	if (value.length <= maxLength) return value;
+	return `${value.slice(0, maxLength - 3)}...`;
+}
+
+function tokenizeText(value: string): Set<string> {
+	const tokens = new Set<string>();
+	for (const match of value.toLowerCase().matchAll(/[a-z0-9_]{3,}/g)) {
+		const token = match[0];
+		if (!FTS_STOP_WORDS.has(token)) tokens.add(token);
+	}
+	return tokens;
+}
+
+function jaccard(left: Set<string>, right: Set<string>): number {
+	if (left.size === 0 || right.size === 0) return 0;
+	let intersection = 0;
+	for (const token of left) {
+		if (right.has(token)) intersection++;
+	}
+	const union = left.size + right.size - intersection;
+	return union > 0 ? intersection / union : 0;
+}
+
+function clamp01(value: number): number {
+	if (!Number.isFinite(value)) return DEFAULT_MEMORY_Q_VALUE;
+	return Math.min(1, Math.max(0, value));
 }
 
 // Naive split-on-';' was replaced with a stateful parser that respects single-quoted

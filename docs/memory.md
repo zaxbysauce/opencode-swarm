@@ -142,6 +142,8 @@ SQLite stores the default durable state in `memory.db`. `memories.jsonl` and `pr
 
 When `provider` is `sqlite`, the database defaults to `.swarm/memory/memory.db` and stores the provider tables `memory_items`, `memory_proposals`, `memory_events`, `memory_recall_usage`, `embedding_config` (migration v6 — stores the dense embedding model version), and `schema_migrations`.
 
+Migration v7 adds recall-learning columns to `memory_recall_usage` (`q_value`, `last_reward`, `task_outcome`, and `council_verdict_json`) so council verdicts can update recalled memories without rewriting historical event JSON by hand.
+
 ## JSONL Migration And Export
 
 When SQLite initializes for a project, it checks for legacy `.swarm/memory/memories.jsonl` and `.swarm/memory/proposals.jsonl` files. Valid records are imported into SQLite, the original JSONL files are copied to `.swarm/memory/backups/*.pre-sqlite-migration`, and the migration is marked complete in `schema_migrations` as `legacy_jsonl_import_complete`. The marker prevents automatic re-import on later runs.
@@ -157,6 +159,7 @@ Memory commands:
 /swarm memory migrate
 /swarm memory evaluate --json
 /swarm memory evaluate --json --fixtures tests/fixtures/memory-recall
+/swarm memory value-log
 ```
 
 `/swarm memory export` writes the current provider contents to `.swarm/memory/export/memories.jsonl` and `.swarm/memory/export/proposals.jsonl`. `/swarm memory import` explicitly imports the current legacy JSONL files into SQLite; use it for manual recovery or debug workflows after reviewing the source files.
@@ -255,10 +258,23 @@ kind profile            6%
 role boost              5%
 confidence              8%
                        ----
-sum                   1.13
+lexical sum           1.13
+Q-value boost   +/- 10% default, centered at 0.5
 ```
 
-(Weights are an unnormalised weighted sum and may exceed 1.0; `minScore` thresholds are empirical tuning parameters, not probabilities. Default thresholds in `DEFAULT_MEMORY_CONFIG` are calibrated against these actual weights.)
+(Weights are an unnormalised weighted sum and may exceed 1.0; `minScore` thresholds are empirical tuning parameters, not probabilities. Default thresholds in `DEFAULT_MEMORY_CONFIG` are calibrated against these actual weights. The Q-value boost is configured separately through `memory.learning.qValueBoostWeight`; the default is `0.10`.)
+
+### Recall Learning
+
+SQLite memories carry an optional `qValue` in `[0, 1]`; missing values default to `0.5`. Recall suppresses memories below `memory.learning.suppressionThreshold` (`0.15` by default) unless the caller explicitly sets `includeLowQ`. Recall scoring adds `(qValue - 0.5) * memory.learning.qValueBoostWeight`, so neutral memories preserve golden recall behavior while high-value memories with otherwise similar lexical signals rank higher.
+
+`submit_council_verdicts` and `submit_phase_council_verdicts` close the learning loop after a successful evidence write. The tools locate the most recent recall bundle for the live session, submitted swarm id, or phase provenance run, then apply an exponential moving average update with `memory.learning.learningRate` (`0.1` by default):
+
+- `APPROVE` -> reward `+1`
+- `REJECT` -> reward `-1`
+- `CONCERNS` -> reward `0`
+
+The SQLite provider also applies bounded soft propagation to recently recalled, same-scope, same-kind memories with sufficient token overlap. Propagation is capped by `memory.learning.propagationFanout` and uses `memory.learning.propagationLookbackDays` to avoid unbounded history scans.
 
 ### Write-Time Embedding
 
