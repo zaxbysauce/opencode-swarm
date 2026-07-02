@@ -24,10 +24,40 @@ export interface MemoryRecallUsageEvent {
 	tokenEstimate: number;
 	agentRole?: string;
 	runId?: string;
+	/**
+	 * Task/phase unit-of-work identity (ADDITIVE — recorded alongside `runId`).
+	 * Undefined when unresolvable at recording time (graceful degrade to
+	 * session-scoped `runId`).
+	 */
+	unitId?: string;
 	timestamp: string;
 }
 
 export interface MemoryRecallUsageFilter {
+	limit?: number;
+	runId?: string;
+	/**
+	 * Restrict to rows whose `unit_id` matches. Combined with `runId` the two
+	 * predicates AND. Attribution prefers this filter and falls back to `runId`.
+	 */
+	unitId?: string;
+}
+
+export interface MemoryRewardEvent {
+	id: string;
+	memoryId: string;
+	runId?: string;
+	unitId?: string;
+	verdict: string; // 'APPROVE' | 'CONCERNS' | 'REJECT' — string to keep provider leaf-level (no council import)
+	reward: number;
+	qBefore?: number;
+	qAfter?: number;
+	verdictSynthesisJson?: string;
+	timestamp: string; // ISO 8601, caller-supplied
+}
+
+export interface MemoryRewardEventFilter {
+	memoryId?: string;
 	limit?: number;
 }
 
@@ -57,6 +87,10 @@ export interface MemoryProvider {
 	listRecallUsage?(
 		filter?: MemoryRecallUsageFilter,
 	): Promise<MemoryRecallUsageEvent[]>;
+	appendRewardEvent?(event: Omit<MemoryRewardEvent, 'id'>): Promise<void>;
+	listRewardEvents?(
+		filter?: MemoryRewardEventFilter,
+	): Promise<MemoryRewardEvent[]>;
 	compactMaintenance?(
 		options?: MemoryCompactOptions,
 	): Promise<MemoryCompactResult>;

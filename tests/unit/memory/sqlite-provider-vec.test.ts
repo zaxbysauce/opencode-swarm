@@ -80,7 +80,7 @@ describe('Migration v6: create_embedding_config table', () => {
 		}
 	});
 
-	test('MAX(schema_migrations.version) advances to 6 after migration v6', async () => {
+	test('MAX(schema_migrations.version) advances to the latest defined migration', async () => {
 		const root = await providerRoot();
 		const provider = track(
 			new SQLiteMemoryProvider(root, { enabled: true, provider: 'sqlite' }),
@@ -96,7 +96,9 @@ describe('Migration v6: create_embedding_config table', () => {
 					'SELECT MAX(version) as version FROM schema_migrations',
 				)
 				.get();
-			expect(maxRow?.version).toBe(6);
+			// Asserted against MIGRATIONS (not a hardcoded literal) so this test
+			// doesn't go stale every time a new migration is appended.
+			expect(maxRow?.version).toBe(MIGRATIONS.at(-1)?.version);
 		} finally {
 			db.close();
 		}
@@ -119,6 +121,53 @@ describe('Migration v6: create_embedding_config table', () => {
 				)
 				.all();
 			expect(rows).toHaveLength(0);
+		} finally {
+			db.close();
+		}
+	});
+});
+
+// ---------------------------------------------------------------------------
+// Migration v7 — creates `memory_reward_events` and adds `run_id` to
+// `memory_recall_usage`
+// ---------------------------------------------------------------------------
+describe('Migration v7: add_reward_events_and_recall_run_id', () => {
+	test('migration v7 runs and creates memory_reward_events + run_id column', async () => {
+		const root = await providerRoot();
+		const provider = track(
+			new SQLiteMemoryProvider(root, { enabled: true, provider: 'sqlite' }),
+		);
+		await provider.initialize();
+		provider.close();
+
+		const dbPath = path.join(root, '.swarm', 'memory', 'memory.db');
+		expect(existsSync(dbPath)).toBe(true);
+
+		const db = new Database(dbPath, { readonly: true });
+		try {
+			const tables = db
+				.query<{ name: string }, []>(
+					"SELECT name FROM sqlite_master WHERE type='table'",
+				)
+				.all()
+				.map((r) => r.name);
+			expect(tables).toContain('memory_reward_events');
+
+			const columns = db
+				.query<{ name: string }, []>("PRAGMA table_info('memory_recall_usage')")
+				.all()
+				.map((r) => r.name);
+			expect(columns).toContain('run_id');
+
+			const migrationRow = db
+				.query<{ version: number; name: string }, []>(
+					'SELECT version, name FROM schema_migrations WHERE name = ?',
+				)
+				.get('add_reward_events_and_recall_run_id');
+			expect(migrationRow).toEqual({
+				version: 7,
+				name: 'add_reward_events_and_recall_run_id',
+			});
 		} finally {
 			db.close();
 		}
