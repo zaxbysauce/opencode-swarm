@@ -182,6 +182,14 @@ export function getSymbolVisibilityInfo(
 
 	const ownVisibility = visibilityFromText(ctx.grammarId, ctx.defNode.text);
 	if (ctx.kind === 'method') {
+		if (ctx.grammarId === 'go') {
+			return isUppercasePublic(ctx.localName)
+				? {
+						...PUBLIC_INFO,
+						exportedReason: 'naming_convention',
+					}
+				: { ...PRIVATE_INFO };
+		}
 		return {
 			exported: false,
 			visibility: ownVisibility,

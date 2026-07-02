@@ -526,6 +526,55 @@ def main():
 		expect(pRef).toBeDefined();
 		expect(pRef!.enclosingDecl).toBe('main');
 	});
+
+	test('decorators, methods, multi-imports, and star imports', async () => {
+		const source = `import os, sys as system
+from .pkg import Public as Alias, helper
+from plugins import *
+
+class Service:
+    @cached
+    async def run(self):
+        return helper(os.getcwd())
+`;
+
+		const facts = await extractFileSymbols('python', source);
+		expect(facts).not.toBeNull();
+
+		const service = facts!.defs.find((d) => d.name === 'Service');
+		const run = facts!.defs.find((d) => d.name === 'run');
+		expect(service).toMatchObject({ kind: 'class', exported: true });
+		expect(run).toMatchObject({ kind: 'method', exported: false });
+		expect(run!.startLine).toBe(6);
+
+		expect(facts!.imports).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					specifier: 'os',
+					importType: 'namespace',
+					bindings: [{ imported: 'os', local: 'os' }],
+				}),
+				expect.objectContaining({
+					specifier: 'sys',
+					importType: 'named',
+					bindings: [{ imported: 'sys', local: 'system' }],
+				}),
+				expect.objectContaining({
+					specifier: './pkg',
+					importType: 'named',
+					bindings: [
+						{ imported: 'Public', local: 'Alias' },
+						{ imported: 'helper', local: 'helper' },
+					],
+				}),
+				expect.objectContaining({
+					specifier: 'plugins',
+					importType: 'namespace',
+					bindings: [],
+				}),
+			]),
+		);
+	});
 });
 
 describe('extractFileSymbols — rust grammar', () => {
@@ -561,17 +610,75 @@ fn main() {
 		// import: use std::collections::HashMap as Map
 		expect(facts!.imports).toHaveLength(1);
 		expect(facts!.imports[0]).toMatchObject({
-			specifier: 'std::collections::HashMap',
+			specifier: 'std::collections',
 			importType: 'named',
 		});
 		expect(facts!.imports[0].bindings).toEqual([
-			{ imported: 'std::collections::HashMap', local: 'Map' },
+			{ imported: 'HashMap', local: 'Map' },
 		]);
 
 		// ref: Map inside main → enclosingDecl = 'main'
 		const mapRef = facts!.refs.find((r) => r.identifier === 'Map');
 		expect(mapRef).toBeDefined();
 		expect(mapRef!.enclosingDecl).toBe('main');
+	});
+
+	test('captures Rust visibility, item kinds, impl methods, and grouped uses', async () => {
+		const source = `use crate::models::{User, Account as Acct};
+
+pub fn public_api() {}
+pub(crate) struct InternalThing;
+pub enum Mode { Fast }
+pub trait Runner {}
+mod private_mod {}
+
+impl InternalThing {
+    pub fn run(&self) {
+        User::new();
+    }
+}
+`;
+
+		const facts = await extractFileSymbols('rust', source);
+		expect(facts).not.toBeNull();
+
+		expect(facts!.defs).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: 'public_api',
+					kind: 'function',
+					exported: true,
+					visibilityInfo: expect.objectContaining({ visibility: 'public' }),
+				}),
+				expect.objectContaining({
+					name: 'InternalThing',
+					kind: 'type',
+					exported: true,
+					visibilityInfo: expect.objectContaining({ visibility: 'internal' }),
+				}),
+				expect.objectContaining({ name: 'Mode', kind: 'enum', exported: true }),
+				expect.objectContaining({
+					name: 'Runner',
+					kind: 'interface',
+					exported: true,
+				}),
+				expect.objectContaining({
+					name: 'private_mod',
+					kind: 'type',
+					exported: false,
+				}),
+				expect.objectContaining({ name: 'run', kind: 'method' }),
+			]),
+		);
+
+		expect(facts!.imports[0]).toMatchObject({
+			specifier: 'crate::models',
+			importType: 'named',
+			bindings: [
+				{ imported: 'User', local: 'User' },
+				{ imported: 'Account', local: 'Acct' },
+			],
+		});
 	});
 });
 
@@ -702,6 +809,89 @@ func main() {
 		const fRef = facts!.refs.find((r) => r.identifier === 'f');
 		expect(fRef).toBeDefined();
 		expect(fRef!.enclosingDecl).toBe('main');
+	});
+
+	test('captures Go exported names, methods, vars, consts, and special imports', async () => {
+		const source = `package main
+
+import (
+	. "math"
+	_ "embed"
+	f "fmt"
+)
+
+type Service struct{}
+var Version = "1"
+const MaxRetries = 3
+
+func PublicFunc() {
+	f.Println(Sqrt(4))
+}
+
+func privateFunc() {}
+
+func (s Service) Run() {
+	PublicFunc()
+}
+`;
+
+		const facts = await extractFileSymbols('go', source);
+		expect(facts).not.toBeNull();
+
+		expect(facts!.defs).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					name: 'Service',
+					kind: 'type',
+					exported: true,
+				}),
+				expect.objectContaining({
+					name: 'Version',
+					kind: 'const',
+					exported: true,
+				}),
+				expect.objectContaining({
+					name: 'MaxRetries',
+					kind: 'const',
+					exported: true,
+				}),
+				expect.objectContaining({
+					name: 'PublicFunc',
+					kind: 'function',
+					exported: true,
+				}),
+				expect.objectContaining({
+					name: 'privateFunc',
+					kind: 'function',
+					exported: false,
+				}),
+				expect.objectContaining({
+					name: 'Run',
+					kind: 'method',
+					exported: true,
+				}),
+			]),
+		);
+
+		expect(facts!.imports).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					specifier: 'math',
+					importType: 'namespace',
+					bindings: [{ imported: '*', local: '.' }],
+				}),
+				expect.objectContaining({
+					specifier: 'embed',
+					importType: 'sideeffect',
+					bindings: [],
+				}),
+				expect.objectContaining({
+					specifier: 'fmt',
+					importType: 'named',
+					bindings: [{ imported: 'fmt', local: 'f' }],
+				}),
+			]),
+		);
 	});
 });
 
