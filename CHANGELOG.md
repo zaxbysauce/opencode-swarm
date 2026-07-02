@@ -1,5 +1,14 @@
 # Changelog
 
+## [7.103.3](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.103.2...v7.103.3) (2026-07-02)
+
+
+### Bug Fixes
+
+* **knowledge:** apply swarm-pr-feedback review for PR [#1632](https://github.com/ZaxbyHub/opencode-swarm/issues/1632) ([5480cd6](https://github.com/ZaxbyHub/opencode-swarm/commit/5480cd62f977d7766d614db7b980b0f024a539a0))
+* **knowledge:** preserve linked injection after optional read failures ([2954523](https://github.com/ZaxbyHub/opencode-swarm/commit/29545230a1a31fd0d72f574c5fe59edb6eba5f3b))
+* **knowledge:** repair knowledge feedback-loop state tracking ([4a1817d](https://github.com/ZaxbyHub/opencode-swarm/commit/4a1817d2e58be1c8474d59ab30bc537f7516138b))
+
 ## [7.103.2](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.103.1...v7.103.2) (2026-07-02)
 
 
