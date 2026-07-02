@@ -77,4 +77,14 @@ Notable mediums for v8-prep sequencing: `G011-4` canonical events envelope **bef
 
 ---
 
+## 9. Tracking Issues
+
+All findings above that were not already covered by an existing open issue were filed as detailed, implementation-ready GitHub issues (each cites exact file:line evidence, a proposed fix, and acceptance criteria so another engineer or LLM session can pick it up cold). Deconflicted against the 58 open issues in the repo at filing time; 5 items were folded into corroborating comments on existing issues instead of new duplicates.
+
+**v8 strategic epics:** #1674 (flagship: parallel-first execution) · #1675 (co-pillar: default auto-review engine) · #1676 (v8.x: background delegation GA) · #1677 (v8.0: governed defaults-flip frame) · #1678 (v8.x: PR babysitting loop). Graph-memory (KG-13→18) is already fully tracked by existing issues #1534-#1539 — no new epic filed.
+
+**Concrete PRs:** #1639-#1673 (orchestration hooks, repo-graph, tool registration, test-runner, dispatch-lanes, CLI/commands, agents/council, knowledge hygiene, quality pipeline, execution infra, plan/SDD, config/DX/release, observability — see each issue for exact scope).
+
+**Folded into existing issues (not duplicated):** the PRM→learning-pipeline bridge (#1607), memory hybrid-retrieval harness + embedding DI seam (#1223), memory outcome-feedback loop (#1467), and system-enhancer re-injection dedup (#1619) each already had an open issue; audit evidence was added as a comment on each instead of filing a new one.
+
 *Method note: this roadmap only contains items that passed explorer evidence-quoting, independent reviewer re-verification of every citation, and adversarial critic challenge (4 rejected at review — two precisely because the capability already ships — 14 downgraded and 1 rejected at critique, 3 merged).*
