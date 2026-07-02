@@ -109,9 +109,9 @@ export function Panel() {
 		const facts = await extractFileSymbols(
 			'javascript',
 			`import $default, { $api as api$ } from './runtime';
-export function call$() {
-	return api$($default);
-}`,
+ export function call$() {
+ 	return api$($default);
+ }`,
 		);
 
 		expect(facts).not.toBeNull();
@@ -129,5 +129,25 @@ export function call$() {
 			kind: 'function',
 			exported: true,
 		});
+	});
+
+	test('CRLF line endings produce correct startLine/endLine (issue #1526)', async () => {
+		const crlfSource = [
+			`export { foo } from './bar';`,
+			`export { baz } from './qux';`,
+		].join('\r\n');
+
+		const lfSource = crlfSource.replace(/\r\n/g, '\n');
+
+		const crlfFacts = await extractFileSymbols('typescript', crlfSource);
+		const lfFacts = await extractFileSymbols('typescript', lfSource);
+
+		expect(crlfFacts).not.toBeNull();
+		expect(lfFacts).not.toBeNull();
+
+		// tree-sitter normalizes CRLF, so line ranges should match LF source
+		expect(crlfFacts!.imports).toEqual(lfFacts!.imports);
+		expect(crlfFacts!.defs).toEqual(lfFacts!.defs);
+		expect(crlfFacts!.refs).toEqual(lfFacts!.refs);
 	});
 });

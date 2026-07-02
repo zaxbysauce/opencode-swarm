@@ -34,7 +34,13 @@ export interface FileSymbolFacts {
 	}>;
 	imports: Array<{
 		specifier: string;
-		importType: 'commonjs' | 'named' | 'namespace' | 'default' | 'sideeffect';
+		importType:
+			| 'commonjs'
+			| 'named'
+			| 'namespace'
+			| 'default'
+			| 'sideeffect'
+			| 'type';
 		bindings: Array<{ imported: string; local: string }>;
 		reExport?: boolean;
 		exportedBindings?: Array<{ imported: string; exported: string }>;
@@ -730,6 +736,18 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 		};
 	}
 
+	const namedTypeReExport = t.match(
+		/^export\s+type\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
+	);
+	if (namedTypeReExport) {
+		return {
+			specifier: namedTypeReExport[2],
+			importType: 'type',
+			bindings: [],
+			reExport: true,
+		};
+	}
+
 	const namedReExport = t.match(
 		/^export\s+\{([^}]+)\}\s+from\s+['"]([^'"]+)['"]/,
 	);
@@ -801,6 +819,13 @@ function parseEsmImport(text: string): FileSymbolFacts['imports'][0] | null {
 		/^import\s+([A-Za-z_$][\w$]*)\s*,\s*\*\s+as\s+([A-Za-z_$][\w$]*)\s+from\s+['"]([^'"]+)['"]/,
 	);
 	if (combined) {
+		if (isTypeOnlyImport) {
+			return {
+				specifier: combined[3],
+				importType: 'named',
+				bindings: [],
+			};
+		}
 		return {
 			specifier: combined[3],
 			importType: 'named',

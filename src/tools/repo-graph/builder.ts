@@ -518,7 +518,13 @@ interface ParsedImport {
 	/** The module specifier (e.g., './foo', 'lodash') */
 	specifier: string;
 	/** The type of import */
-	importType: 'default' | 'named' | 'namespace' | 'require' | 'sideeffect';
+	importType:
+		| 'default'
+		| 'named'
+		| 'namespace'
+		| 'require'
+		| 'sideeffect'
+		| 'type';
 	/** Named imported symbols when statically detectable */
 	importedSymbols: string[];
 	/** Alias-aware imported→local bindings for usage attribution */
@@ -1407,11 +1413,39 @@ export async function scanFileAsync(
 		exportLines[d.name] = d.startLine;
 		exportRanges[d.name] = { startLine: d.startLine, endLine: d.endLine };
 	}
+	const exportsSet = new Set(exports);
 	for (const imp of facts.imports) {
 		if (!imp.reExport || !imp.exportedBindings) continue;
 		for (const binding of imp.exportedBindings) {
-			if (binding.imported === '*') continue;
-			if (!exports.includes(binding.exported)) exports.push(binding.exported);
+			if (binding.imported === '*') {
+				// Include namespace re-export name in exports for dead_exports
+				// visibility, but skip per-symbol edge creation (conservative).
+				if (!exportsSet.has(binding.exported)) {
+					exportsSet.add(binding.exported);
+					exports.push(binding.exported);
+				}
+				if (
+					imp.startLine !== undefined &&
+					exportLines[binding.exported] === undefined
+				) {
+					exportLines[binding.exported] = imp.startLine;
+				}
+				if (
+					imp.startLine !== undefined &&
+					imp.endLine !== undefined &&
+					exportRanges[binding.exported] === undefined
+				) {
+					exportRanges[binding.exported] = {
+						startLine: imp.startLine,
+						endLine: imp.endLine,
+					};
+				}
+				continue;
+			}
+			if (!exportsSet.has(binding.exported)) {
+				exportsSet.add(binding.exported);
+				exports.push(binding.exported);
+			}
 			if (
 				imp.startLine !== undefined &&
 				exportLines[binding.exported] === undefined

@@ -9,6 +9,7 @@
  */
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import * as fsSync from 'node:fs';
+import os from 'node:os';
 import * as path from 'node:path';
 
 import {
@@ -56,7 +57,7 @@ describe('builder: usedSymbols + exportLines', () => {
 	let workspacePath: string;
 
 	beforeEach(() => {
-		tempDir = fsSync.mkdtempSync(path.join(process.cwd(), 'repo-graph-cg-'));
+		tempDir = fsSync.mkdtempSync(path.join(os.tmpdir(), 'repo-graph-cg-'));
 		workspacePath = path.relative(process.cwd(), tempDir);
 	});
 
@@ -214,7 +215,7 @@ describe('async builder usedSymbols (buildWorkspaceGraphAsync)', () => {
 
 	beforeEach(() => {
 		tempDir = fsSync.mkdtempSync(
-			path.join(process.cwd(), 'repo-graph-cg-async-'),
+			path.join(os.tmpdir(), 'repo-graph-cg-async-'),
 		);
 		workspacePath = path.relative(process.cwd(), tempDir);
 	});

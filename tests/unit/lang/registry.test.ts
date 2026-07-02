@@ -235,8 +235,12 @@ describe('Language Registry', () => {
 			try {
 				const mjsParser = await getParserForFile('test.mjs');
 				const cjsParser = await getParserForFile('test.cjs');
-				expect(mjsParser === null || typeof mjsParser === 'object').toBe(true);
-				expect(cjsParser === null || typeof cjsParser === 'object').toBe(true);
+				if (mjsParser !== null) {
+					expect(typeof mjsParser.parse).toBe('function');
+				}
+				if (cjsParser !== null) {
+					expect(typeof cjsParser.parse).toBe('function');
+				}
 			} catch {
 				expect(false).toBe(true);
 			}
