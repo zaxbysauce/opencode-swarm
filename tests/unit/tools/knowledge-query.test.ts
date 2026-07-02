@@ -1202,6 +1202,63 @@ describe('knowledge-query tool verification tests', () => {
 			expect(result).toContain('hive-global-visible');
 			expect(result).not.toContain('hive-project-hidden');
 		});
+
+		it('regression KQ-001b: scope_filter applies to swarm (default tier) query results', async () => {
+			// Mirror of KQ-001 for the swarm tier (default): swarm entries with
+			// `scope='project'` must be filtered out when scope_filter=['global'].
+			writeProjectConfig({
+				knowledge: {
+					scope_filter: ['global'],
+				},
+			});
+			writeSwarmKnowledge([
+				{
+					id: 'swarm-global-visible',
+					tier: 'swarm',
+					lesson: 'Global swarm lesson',
+					category: 'process',
+					tags: [],
+					scope: 'global',
+					confidence: 0.9,
+					status: 'promoted',
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'kq-001b-test',
+				} as SwarmKnowledgeEntry,
+				{
+					id: 'swarm-project-hidden',
+					tier: 'swarm',
+					lesson: 'Project swarm lesson',
+					category: 'process',
+					tags: [],
+					scope: 'project',
+					confidence: 0.9,
+					status: 'promoted',
+					confirmed_by: [],
+					retrieval_outcomes: {
+						applied_count: 0,
+						succeeded_after_count: 0,
+						failed_after_count: 0,
+					},
+					schema_version: 1,
+					created_at: '2024-01-01T00:00:00Z',
+					updated_at: '2024-01-01T00:00:00Z',
+					project_name: 'kq-001b-test',
+				} as SwarmKnowledgeEntry,
+			]);
+
+			const result = await knowledge_query.execute();
+
+			expect(result).toContain('swarm-global-visible');
+			expect(result).not.toContain('swarm-project-hidden');
+		});
 	});
 
 	// ========== GROUP 9: Architect-only access assumptions ==========

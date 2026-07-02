@@ -384,8 +384,10 @@ Ranking rules:
   repetition.
 - Archived entries are excluded (also enforced by `knowledge_recall`).
 
-Cache key: phase + tool + action + targetAgent + taskId + filePaths hash. The
-phase-only cache from v1 has been retired.
+Cache key: phase + tool + action + targetAgent + taskId + filePaths hash +
+SHA-1(ctx.lastUserMessage)[:16]. The phase-only cache from v1 has been
+retired. The user-message hash invalidates the cache between user turns
+and within a turn (e.g., after message compaction).
 
 ---
 

@@ -234,6 +234,20 @@ describe('knowledgeApplicationGateBefore', () => {
 		// no throw
 	});
 
+	it('enforce mode allows when ack is "violated" (architect chose)', async () => {
+		swarmState.currentCriticalShownIds.set('s1', {
+			ids: [ID_A],
+			generatedAt: Date.now(),
+		});
+		swarmState.knowledgeAckDedup.add(buildAckDedupKey('s1', ID_A, 'violated'));
+		await knowledgeApplicationGateBefore(
+			tmp,
+			{ tool: 'phase_complete', agent: 'architect', sessionID: 's1' },
+			{ ...DEFAULT_KNOWLEDGE_APPLICATION_CONFIG, mode: 'enforce' },
+		);
+		// no throw
+	});
+
 	it('regression GATE-002: prior-day ack still satisfies same-session gate', async () => {
 		swarmState.currentCriticalShownIds.set('s1', {
 			ids: [ID_A],
