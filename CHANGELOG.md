@@ -1,5 +1,19 @@
 # Changelog
 
+## [7.103.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.102.0...v7.103.0) (2026-07-02)
+
+
+### Features
+
+* **knowledge:** add realtime learning nudge ([3be0811](https://github.com/ZaxbyHub/opencode-swarm/commit/3be0811d69d1e51f1b3993229e04438aefe0a829))
+
+
+### Bug Fixes
+
+* **ledger:** serialize plan ledger appends ([0406f52](https://github.com/ZaxbyHub/opencode-swarm/commit/0406f5244616cea7099ef5af127596ea4219617f))
+* **ledger:** serialize plan ledger appends ([6df5b92](https://github.com/ZaxbyHub/opencode-swarm/commit/6df5b92fa257a44dbe9c7c0cbb959ed00804fee3))
+* **sast,tools,docs:** close remaining PR [#1194](https://github.com/ZaxbyHub/opencode-swarm/issues/1194) follow-up gaps (issue [#1248](https://github.com/ZaxbyHub/opencode-swarm/issues/1248) items 3, 6, 16) ([a8a4c2f](https://github.com/ZaxbyHub/opencode-swarm/commit/a8a4c2f049bdb4f7361c3e74dcd14d3fb33c5207))
+
 ## [7.102.0](https://github.com/ZaxbyHub/opencode-swarm/compare/v7.101.0...v7.102.0) (2026-07-01)
 
 
