@@ -135,6 +135,14 @@ for (const profile of LANGUAGE_REGISTRY.getAll()) {
 		EXTENSION_TO_LANGUAGE[ext] = profile.treeSitter.grammarId;
 	}
 }
+const JS_FAMILY_EXTENSION_TO_LANGUAGE: Record<string, string> = {
+	'.js': 'javascript',
+	'.jsx': 'javascript',
+	'.mjs': 'javascript',
+	'.cjs': 'javascript',
+	'.ts': 'typescript',
+	'.tsx': 'tsx',
+};
 
 // ============ Graph Node / Edge Operations ============
 
@@ -1148,6 +1156,8 @@ function toModuleName(filePath: string, workspaceRoot: string): string {
  */
 function getLanguage(filePath: string): string {
 	const ext = path.extname(filePath).toLowerCase();
+	const jsFamilyLanguage = JS_FAMILY_EXTENSION_TO_LANGUAGE[ext];
+	if (jsFamilyLanguage) return jsFamilyLanguage;
 	return EXTENSION_TO_LANGUAGE[ext] ?? 'unknown';
 }
 
@@ -1397,6 +1407,29 @@ export async function scanFileAsync(
 		exportLines[d.name] = d.startLine;
 		exportRanges[d.name] = { startLine: d.startLine, endLine: d.endLine };
 	}
+	for (const imp of facts.imports) {
+		if (!imp.reExport || !imp.exportedBindings) continue;
+		for (const binding of imp.exportedBindings) {
+			if (binding.imported === '*') continue;
+			if (!exports.includes(binding.exported)) exports.push(binding.exported);
+			if (
+				imp.startLine !== undefined &&
+				exportLines[binding.exported] === undefined
+			) {
+				exportLines[binding.exported] = imp.startLine;
+			}
+			if (
+				imp.startLine !== undefined &&
+				imp.endLine !== undefined &&
+				exportRanges[binding.exported] === undefined
+			) {
+				exportRanges[binding.exported] = {
+					startLine: imp.startLine,
+					endLine: imp.endLine,
+				};
+			}
+		}
+	}
 
 	// Derive imports list from tree-sitter facts
 	const imports = facts.imports.map((i) => i.specifier);
@@ -1441,16 +1474,20 @@ export async function scanFileAsync(
 		);
 
 		if (resolvedTarget !== null) {
-			// A binding's imported symbol is "used" if its local name appears
-			// in facts.refs (i.e. the identifier is referenced in the body).
-			const usedBindings = imp.bindings.filter((b) =>
-				facts.refs.some((r) => r.identifier === b.local),
-			);
+			// Re-exports expose the imported symbol to downstream consumers, so
+			// named re-export bindings count as used even without a body ref.
+			const usedBindings = imp.reExport
+				? imp.bindings
+				: imp.bindings.filter((b) =>
+						facts.refs.some((r) => r.identifier === b.local),
+					);
 			// Match sync buildWorkspaceGraph semantics: namespace and require
 			// imports omit usedSymbols entirely; named/default imports always
 			// include the array (possibly empty) so toEqual comparisons are stable.
 			const includeUsedSymbols =
-				edgeImportType !== 'namespace' && edgeImportType !== 'require';
+				edgeImportType !== 'namespace' &&
+				edgeImportType !== 'require' &&
+				edgeImportType !== 'sideeffect';
 			const usedSymbols = includeUsedSymbols
 				? usedBindings.map((b) => b.imported)
 				: undefined;
@@ -1485,6 +1522,7 @@ export async function scanFileAsync(
 		{ specifier: string; imported: string }
 	>();
 	for (const imp of facts.imports) {
+		if (imp.reExport) continue;
 		for (const binding of imp.bindings) {
 			localToImported.set(binding.local, {
 				specifier: imp.specifier,
@@ -1523,6 +1561,35 @@ export async function scanFileAsync(
 			toFile: resolvedTarget,
 			toSymbol: mapping.imported,
 		});
+	}
+	for (const imp of facts.imports) {
+		if (!imp.reExport || !imp.exportedBindings) continue;
+		const resolvedTarget = resolveModuleSpecifier(
+			absoluteRoot,
+			filePath,
+			imp.specifier,
+		);
+		if (!resolvedTarget) continue;
+		for (const binding of imp.exportedBindings) {
+			if (binding.imported === '*') continue;
+			const key =
+				filePath +
+				'\u0000' +
+				binding.exported +
+				'\u0000' +
+				resolvedTarget +
+				'\u0000' +
+				binding.imported;
+			if (seenSymbolEdgeKeys.has(key)) continue;
+			seenSymbolEdgeKeys.add(key);
+
+			symbolEdges.push({
+				fromFile: filePath,
+				fromSymbol: binding.exported,
+				toFile: resolvedTarget,
+				toSymbol: binding.imported,
+			});
+		}
 	}
 
 	return {

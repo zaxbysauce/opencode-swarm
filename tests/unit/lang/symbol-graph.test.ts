@@ -181,7 +181,7 @@ describe('extractFileSymbols — regression: reviewer bugs', () => {
 		expect(fooImport!.bindings).toEqual([]);
 	});
 
-	test('bug c.2: import { type Bar } from "./m" strips the type keyword in bindings', async () => {
+	test('bug c.2: import { type Bar } from "./m" omits type-only runtime bindings', async () => {
 		const source = "import { type Bar } from './m';";
 
 		const facts = await extractFileSymbols('typescript', source);
@@ -190,8 +190,8 @@ describe('extractFileSymbols — regression: reviewer bugs', () => {
 		const barImport = facts!.imports.find((i) => i.specifier === './m');
 		expect(barImport).toBeDefined();
 		expect(barImport!.importType).toBe('named');
-		// The 'type' keyword is stripped; Bar is captured correctly
-		expect(barImport!.bindings).toEqual([{ imported: 'Bar', local: 'Bar' }]);
+		// Type-only imports do not create runtime binding facts.
+		expect(barImport!.bindings).toEqual([]);
 	});
 
 	// -------------------------------------------------------------------------

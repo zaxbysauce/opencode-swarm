@@ -21,6 +21,11 @@ describe('Language Registry', () => {
 			expect(lang?.id).toBe('javascript');
 		});
 
+		it('should return language for Node ESM/CJS JavaScript files', () => {
+			expect(getLanguageForExtension('.mjs')?.id).toBe('javascript');
+			expect(getLanguageForExtension('.cjs')?.id).toBe('javascript');
+		});
+
 		it('should return language for .ts files', () => {
 			const lang = getLanguageForExtension('.ts');
 			expect(lang).toBeDefined();
@@ -165,6 +170,8 @@ describe('Language Registry', () => {
 	describe('isSupportedFile', () => {
 		it('should return true for supported extensions', () => {
 			expect(isSupportedFile('file.js')).toBe(true);
+			expect(isSupportedFile('file.mjs')).toBe(true);
+			expect(isSupportedFile('file.cjs')).toBe(true);
 			expect(isSupportedFile('file.ts')).toBe(true);
 			expect(isSupportedFile('file.tsx')).toBe(true);
 			expect(isSupportedFile('file.py')).toBe(true);
@@ -219,6 +226,17 @@ describe('Language Registry', () => {
 			try {
 				const parser = await getParserForFile('test.jsx');
 				expect(parser === null || typeof parser === 'object').toBe(true);
+			} catch {
+				expect(false).toBe(true);
+			}
+		});
+
+		it('should attempt to load grammar for .mjs and .cjs files', async () => {
+			try {
+				const mjsParser = await getParserForFile('test.mjs');
+				const cjsParser = await getParserForFile('test.cjs');
+				expect(mjsParser === null || typeof mjsParser === 'object').toBe(true);
+				expect(cjsParser === null || typeof cjsParser === 'object').toBe(true);
 			} catch {
 				expect(false).toBe(true);
 			}
