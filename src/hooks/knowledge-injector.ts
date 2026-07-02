@@ -805,8 +805,18 @@ export function createKnowledgeInjectorHook(
 				return;
 			}
 
-			// Get run memory summary
-			const runMemory = await getRunMemorySummary(directory);
+			// Get run memory summary. This is optional context; failures must not
+			// suppress the knowledge block retrieved above.
+			let runMemory: string | null = null;
+			try {
+				runMemory = await getRunMemorySummary(directory);
+			} catch (err) {
+				warn(
+					`[knowledge-injector] run memory summary unavailable: ${
+						err instanceof Error ? err.message : String(err)
+					}`,
+				);
+			}
 
 			// Priority-ordered assembly respecting effectiveBudget
 			// Priority: 1. Lessons, 2. Run memory, 3. Drift preamble, 4. Rejected warnings
@@ -894,20 +904,29 @@ export function createKnowledgeInjectorHook(
 				}
 			}
 
-			// 4. Rejected warnings (lowest priority)
-			const rejected = await readRejectedLessons(directory);
-			if (rejected.length > 0 && remaining > 150) {
-				const recentRejected = rejected.slice(-3);
-				const rejectedLines = recentRejected.map(
-					(r) =>
-						`  ⚠️ REJECTED PATTERN: "${sanitizeLessonForContext(r.lesson).slice(0, 80)}" — ${sanitizeLessonForContext(r.rejection_reason)}`,
-				);
-				const rejectedBlock =
-					'⚠️ Previously rejected patterns (do not re-learn):\n' +
-					rejectedLines.join('\n');
-				if (rejectedBlock.length <= remaining) {
-					parts.push(rejectedBlock);
+			// 4. Rejected warnings (lowest priority). Optional guardrail context must
+			// not suppress the primary knowledge block.
+			try {
+				const rejected = await readRejectedLessons(directory);
+				if (rejected.length > 0 && remaining > 150) {
+					const recentRejected = rejected.slice(-3);
+					const rejectedLines = recentRejected.map(
+						(r) =>
+							`  ⚠️ REJECTED PATTERN: "${sanitizeLessonForContext(r.lesson).slice(0, 80)}" — ${sanitizeLessonForContext(r.rejection_reason)}`,
+					);
+					const rejectedBlock =
+						'⚠️ Previously rejected patterns (do not re-learn):\n' +
+						rejectedLines.join('\n');
+					if (rejectedBlock.length <= remaining) {
+						parts.push(rejectedBlock);
+					}
 				}
+			} catch (err) {
+				warn(
+					`[knowledge-injector] rejected pattern warnings unavailable: ${
+						err instanceof Error ? err.message : String(err)
+					}`,
+				);
 			}
 
 			cachedInjectionText = parts.join('\n\n');
