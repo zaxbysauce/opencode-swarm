@@ -22,6 +22,7 @@ import { writeCouncilEvidence } from '../council/council-evidence-writer';
 import { synthesizeCouncilVerdicts } from '../council/council-service';
 import { readCriteria } from '../council/criteria-store';
 import type { CouncilMemberVerdict } from '../council/types';
+import { applyRecallRewardForCouncil } from '../memory/reward';
 import { getAgentSession } from '../state';
 import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
@@ -327,6 +328,24 @@ export const submit_council_verdicts: ReturnType<typeof tool> = createSwarmTool(
 			// and writes atomically (#978). A lock-timeout throw is caught by the
 			// createSwarmTool wrapper and surfaced as a structured failure.
 			await writeCouncilEvidence(workingDir, synthesis);
+			const memoryReward = await applyRecallRewardForCouncil(
+				workingDir,
+				config.memory,
+				{
+					runId: sessionID ?? input.swarmId,
+					verdict: synthesis.overallVerdict,
+					verdictPayload: {
+						taskId: synthesis.taskId,
+						swarmId: synthesis.swarmId,
+						roundNumber: synthesis.roundNumber,
+						overallVerdict: synthesis.overallVerdict,
+						vetoedBy: synthesis.vetoedBy,
+						allCriteriaMet: synthesis.allCriteriaMet,
+						requiredFixesCount: synthesis.requiredFixes.length,
+						advisoryFindingsCount: synthesis.advisoryFindings.length,
+					},
+				},
+			);
 
 			// ── Architect self-echo advisory ──────────────────────────────────
 			// When the tool is invoked inside an architect session, push the
@@ -361,6 +380,7 @@ export const submit_council_verdicts: ReturnType<typeof tool> = createSwarmTool(
 					membersAbsent,
 					quorumSize: membersVoted.length,
 					quorumMet: true,
+					memoryReward,
 					unifiedFeedbackMd: synthesis.unifiedFeedbackMd,
 				},
 				null,

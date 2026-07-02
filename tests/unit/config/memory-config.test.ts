@@ -35,6 +35,16 @@ describe('MemoryConfigSchema', () => {
 					tokenBudget: 1000,
 				},
 			},
+			learning: {
+				learningRate: 0.1,
+				propagationFactor: 0.3,
+				qValueBoostWeight: 0.1,
+				suppressionThreshold: 0.15,
+				promotionThreshold: 0.85,
+				propagationTokenOverlapThreshold: 0.4,
+				propagationFanout: 20,
+				propagationLookbackDays: 30,
+			},
 			writes: { mode: 'propose' },
 			redaction: { rejectDurableSecrets: true },
 			maintenance: {
@@ -103,6 +113,31 @@ describe('MemoryConfigSchema', () => {
 		expect(parsed.recall.defaultMaxItems).toBe(3);
 		expect(parsed.recall.defaultTokenBudget).toBe(500);
 		expect(parsed.recall.minScore).toBe(0.2);
+	});
+
+	test('accepts bounded learning overrides', () => {
+		const parsed = MemoryConfigSchema.parse({
+			learning: {
+				learningRate: 0.2,
+				qValueBoostWeight: 0.25,
+				suppressionThreshold: 0.1,
+				promotionThreshold: 0.9,
+				propagationFanout: 4,
+			},
+		});
+
+		expect(parsed.learning.learningRate).toBe(0.2);
+		expect(parsed.learning.qValueBoostWeight).toBe(0.25);
+		expect(parsed.learning.suppressionThreshold).toBe(0.1);
+		expect(parsed.learning.promotionThreshold).toBe(0.9);
+		expect(parsed.learning.propagationFanout).toBe(4);
+		expect(parsed.learning.propagationFactor).toBe(0.3);
+		expect(() =>
+			MemoryConfigSchema.parse({ learning: { learningRate: 2 } }),
+		).toThrow();
+		expect(() =>
+			MemoryConfigSchema.parse({ learning: { propagationFanout: -1 } }),
+		).toThrow();
 	});
 
 	test('accepts bounded injection overrides while preserving tool recall defaults', () => {

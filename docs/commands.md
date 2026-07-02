@@ -619,6 +619,10 @@ Show pending memory proposals and recent rejected proposal reasons.
 
 Summarize recall usage by agent role and memory ID. Also shows the most-recalled and never-recalled memories.
 
+### `/swarm memory value-log`
+
+Show recent memory Q-values, reward outcomes, suppression candidates, and promotion candidates.
+
 ### `/swarm memory stale`
 
 List expired scratch memories, deleted tombstones, superseded chains, and low-utility memories.

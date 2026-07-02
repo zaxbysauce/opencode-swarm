@@ -20,6 +20,7 @@ export interface MemoryConfig {
 			tokenBudget: number;
 		};
 	};
+	learning: MemoryLearningConfig;
 	writes: {
 		mode: 'propose';
 	};
@@ -88,6 +89,17 @@ export interface ConsolidationConfig {
 	decayHalfLifeDays: Record<MemoryKind, number>;
 }
 
+export interface MemoryLearningConfig {
+	learningRate: number;
+	propagationFactor: number;
+	qValueBoostWeight: number;
+	suppressionThreshold: number;
+	promotionThreshold: number;
+	propagationTokenOverlapThreshold: number;
+	propagationFanout: number;
+	propagationLookbackDays: number;
+}
+
 export const DEFAULT_DECAY_HALF_LIFE_DAYS: Record<MemoryKind, number> = {
 	scratch: 7,
 	todo: 30,
@@ -123,6 +135,17 @@ export const DEFAULT_CONSOLIDATION_CONFIG: ConsolidationConfig = {
 	jaccardThreshold: 0.3,
 	autoApplyMinConfidence: 0.6,
 	decayHalfLifeDays: { ...DEFAULT_DECAY_HALF_LIFE_DAYS },
+};
+
+export const DEFAULT_MEMORY_LEARNING_CONFIG: MemoryLearningConfig = {
+	learningRate: 0.1,
+	propagationFactor: 0.3,
+	qValueBoostWeight: 0.1,
+	suppressionThreshold: 0.15,
+	promotionThreshold: 0.85,
+	propagationTokenOverlapThreshold: 0.4,
+	propagationFanout: 20,
+	propagationLookbackDays: 30,
 };
 
 export const DEFAULT_EMBEDDINGS_CONFIG = {
@@ -165,6 +188,7 @@ export const DEFAULT_MEMORY_CONFIG: MemoryConfig = {
 			tokenBudget: 1000,
 		},
 	},
+	learning: { ...DEFAULT_MEMORY_LEARNING_CONFIG },
 	writes: {
 		mode: 'propose',
 	},
@@ -220,6 +244,10 @@ export function resolveMemoryConfig(
 				...DEFAULT_MEMORY_CONFIG.recall.injection,
 				...(input?.recall?.injection ?? {}),
 			},
+		},
+		learning: {
+			...DEFAULT_MEMORY_CONFIG.learning,
+			...(input?.learning ?? {}),
 		},
 		writes: {
 			...DEFAULT_MEMORY_CONFIG.writes,

@@ -12,6 +12,7 @@ import { z } from 'zod';
 import { loadPluginConfig } from '../config/loader';
 import { synthesizePhaseCouncilAdvisory } from '../council/council-service';
 import type { CouncilFinding, CouncilMemberVerdict } from '../council/types';
+import { applyRecallRewardForCouncil } from '../memory/reward';
 import { createSwarmTool } from './create-tool';
 import { resolveWorkingDirectory } from './resolve-working-directory';
 
@@ -125,7 +126,11 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 					'Session ID of the agent that produced this evidence (optional provenance)',
 				),
 		},
-		async execute(args: unknown, directory: string): Promise<string> {
+		async execute(
+			args: unknown,
+			directory: string,
+			ctx?: { sessionID?: string },
+		): Promise<string> {
 			const parsed = ArgsSchema.safeParse(args);
 			if (!parsed.success) {
 				return JSON.stringify(
@@ -283,6 +288,24 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 					: undefined;
 
 			writePhaseCouncilEvidence(workingDir, synthesis, provenance);
+			const memoryReward = await applyRecallRewardForCouncil(
+				workingDir,
+				config.memory,
+				{
+					runId: input.provenanceSessionId ?? ctx?.sessionID,
+					verdict: synthesis.overallVerdict,
+					verdictPayload: {
+						phaseNumber: synthesis.phaseNumber,
+						swarmId: input.swarmId,
+						roundNumber: synthesis.roundNumber,
+						overallVerdict: synthesis.overallVerdict,
+						vetoedBy: synthesis.vetoedBy,
+						allCriteriaMet: synthesis.allCriteriaMet,
+						requiredFixesCount: synthesis.requiredFixes?.length ?? 0,
+						advisoryFindingsCount: synthesis.advisoryFindings?.length ?? 0,
+					},
+				},
+			);
 
 			return JSON.stringify(
 				{
@@ -300,6 +323,7 @@ export const submit_phase_council_verdicts: ReturnType<typeof tool> =
 					membersAbsent,
 					quorumSize: membersVoted.length,
 					quorumMet: true,
+					memoryReward,
 					evidencePath: synthesis.evidencePath,
 					unifiedFeedbackMd: synthesis.unifiedFeedbackMd,
 				},

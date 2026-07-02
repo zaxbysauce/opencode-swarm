@@ -1,4 +1,8 @@
-import type { MemoryProposalStore, MemoryProvider } from './provider';
+import type {
+	MemoryProposalStore,
+	MemoryProvider,
+	MemoryValueLogEntry,
+} from './provider';
 import { isExpired } from './schema';
 import { type ImportanceWeights, importanceScore } from './scoring';
 import type { MemoryProposal, MemoryRecord } from './types';
@@ -56,6 +60,8 @@ export interface MemoryMaintenanceReport {
 	supersededMemories: MemoryRecord[];
 	supersededChains: MemorySupersededChain[];
 	lowUtilityMemories: MemoryRecord[];
+	lowQValueMemories: MemoryValueLogEntry[];
+	promotionCandidates: MemoryValueLogEntry[];
 	neverRecalledMemories: MemoryRecord[];
 	mostRecalledMemories: MemoryRecallUsageByMemory[];
 	recallByAgentRole: MemoryRecallUsageByRole[];
@@ -78,6 +84,7 @@ export interface MemoryMaintenanceReportOptions {
 type ObservableProvider = MemoryProvider &
 	Partial<MemoryProposalStore> & {
 		listRecallUsage?: MemoryProvider['listRecallUsage'];
+		listMemoryValueLog?: MemoryProvider['listMemoryValueLog'];
 	};
 
 export async function buildMemoryMaintenanceReport(
@@ -93,6 +100,9 @@ export async function buildMemoryMaintenanceReport(
 	const proposals = await loadMaintenanceProposals(provider, limit);
 	const recallUsage = provider.listRecallUsage
 		? await provider.listRecallUsage()
+		: [];
+	const valueLog = provider.listMemoryValueLog
+		? await provider.listMemoryValueLog({ limit: Math.max(limit, 50) })
 		: [];
 	const usageByMemory = summarizeRecallByMemory(recallUsage);
 	const usageByRole = summarizeRecallByRole(recallUsage);
@@ -135,6 +145,12 @@ export async function buildMemoryMaintenanceReport(
 		supersededMemories: supersededMemories.slice(0, limit),
 		supersededChains: buildSupersededChains(memories).slice(0, limit),
 		lowUtilityMemories: lowUtilityMemories.slice(0, limit),
+		lowQValueMemories: valueLog
+			.filter((entry) => entry.suppressionCandidate)
+			.slice(0, limit),
+		promotionCandidates: valueLog
+			.filter((entry) => entry.promotionCandidate)
+			.slice(0, limit),
 		neverRecalledMemories: neverRecalledMemories.slice(0, limit),
 		mostRecalledMemories: Array.from(usageByMemory.values())
 			.sort(
